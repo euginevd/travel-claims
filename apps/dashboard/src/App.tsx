@@ -6,7 +6,7 @@ import { Copilot } from "./components/Copilot";
 import { createCopilot } from "./copilot";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
-import { PayoutsSwitch } from "./components/PayoutsSwitch";
+import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./components/PayoutsSwitch";
 import { ClaimPage } from "./pages/ClaimPage";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { QueuePage } from "./pages/QueuePage";
@@ -73,6 +73,8 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   );
 
   const copilot = useMemo(() => createCopilot(fetchFn, loadToken), [fetchFn]);
+  const payouts = usePayouts(api, person !== null);
+  const [payoutsOpen, setPayoutsOpen] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -149,9 +151,26 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         onCopilot={() => {
           setCopilotOpen((open) => !open);
         }}
+        status={
+          <PayoutsStatus
+            state={payouts.state}
+            senior={person.can_approve_over_limit}
+            onOpen={() => {
+              setPayoutsOpen(true);
+              window.scrollTo({ top: 0 });
+            }}
+          />
+        }
       />
       <main id="main" tabIndex={-1}>
-        <PayoutsSwitch key={`payouts-${routeKey(route)}`} api={api} handler={person} />
+        <PayoutsSwitch
+          api={api}
+          handler={person}
+          state={payouts.state}
+          onState={payouts.setState}
+          editing={payoutsOpen}
+          onEditing={setPayoutsOpen}
+        />
         <ErrorBoundary key={routeKey(route)}>
           {handlerPage(route, api, person, pollMs)}
         </ErrorBoundary>
