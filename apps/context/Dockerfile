@@ -1,5 +1,5 @@
 # Build from the repo root: docker build -f apps/context/Dockerfile .
-FROM ghcr.io/astral-sh/uv:0.13.7-python3.14-bookworm-slim AS build
+FROM ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie-slim@sha256:e80c05a310400cfc90af00b5b7271ef9ad24816e3265e1162af8a678e1aad099 AS build
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
@@ -10,7 +10,7 @@ RUN uv sync --frozen --no-dev --package undercover-context --no-install-workspac
 COPY apps/context apps/context
 RUN uv sync --frozen --no-dev --package undercover-context --no-editable
 
-FROM python:3.14.9-slim-bookworm@sha256:945c2676dc2b18e0c1f16879244122c57c0ffede60006bf3df159c507a31bcae
+FROM python:3.14.9-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv

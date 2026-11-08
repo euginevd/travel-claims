@@ -51,7 +51,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "apps/agent/tests", "apps/context/tests"]
-pythonpath = ["apps/api/tests"]
+pythonpath = ["apps/api/tests", "apps/agent/tests"]
 addopts = "--import-mode=importlib --cov --cov-report=term-missing"
 
 [tool.coverage.run]
