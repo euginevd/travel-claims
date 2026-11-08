@@ -9,3 +9,8 @@ tfplan
 node_modules/
 dist/
 local/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage/
