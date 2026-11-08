@@ -60,6 +60,7 @@ from undercover_api.db import (
     make_engine,
     model_calls,
     now,
+    payments,
     sent_back,
 )
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
@@ -74,8 +75,10 @@ from undercover_api.models import (
     DecisionRequest,
     Handler,
     HoldRequest,
+    ModelCall,
     ModelCallRequest,
     NewStep,
+    OverrideRequest,
     PaymentRequest,
     Payout,
     PayoutRequest,
@@ -88,6 +91,8 @@ from undercover_api.models import (
     Status,
     Step,
     StepRequest,
+    TestSignInRequest,
+    Trace,
 )
 from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
@@ -219,6 +224,7 @@ def record_decision(
         decided_at=now(),
         manual_version=manual_version(db),
         approval_limit=limit,
+        checklist=[check.model_dump() for check in request.checklist],
     )
     try:
         with db.begin_nested():
@@ -467,6 +473,88 @@ def send_back_claim(
     return claim_in_full(db, claim_id)
 
 
+OVERRIDABLE = (Status.DECIDED, Status.WAITING_FOR_SIGN_OFF)
+
+
+@staff_router.post("/claims/{claim_id}/override", operation_id="override_decision")
+def override_decision(
+    claim_id: ClaimId, request: OverrideRequest, handler: SeniorHandler, db: Database
+) -> Claim:
+    """Put a senior handler's own decision in place of the agent's, with a reason code. An
+    approval is paid at once as the handler's sign-off; nothing already paid can change."""
+    claim = find_claim(db, claim_id)
+    current = find_decision(db, claim_id)
+    if current is None or claim["status"] not in OVERRIDABLE:
+        raise HTTPException(409, f"Claim {claim_id} has no decision to override")
+    if db.execute(select(payments.c.claim_id).where(payments.c.claim_id == claim_id)).first():
+        raise HTTPException(409, f"Claim {claim_id} has already been paid")
+    approve = request.decision == DecisionKind.APPROVE
+    if approve != (request.payout > 0):
+        raise HTTPException(422, "An approval needs a payout above zero; anything else pays 0")
+    if not move_claim(db, claim_id, claim["status"], Status.DECIDED):
+        raise HTTPException(409, f"Claim {claim_id} changed; reload and try again")
+    stamp = now()
+    # The calculation stays only when the amount does; a new amount is the handler's own.
+    kept = current.calculation if request.payout == current.payout else None
+    override = {
+        "reason_code": request.reason_code,
+        "note": request.note,
+        "by": handler.name,
+        "by_id": handler.handler_id,
+        "at": stamp,
+        "previous_decision": current.decision,
+        "previous_payout": current.payout,
+    }
+    db.execute(
+        update(decisions)
+        .where(decisions.c.claim_id == claim_id)
+        .values(
+            decision=request.decision,
+            payout=request.payout,
+            calculation=kept and kept.model_dump(),
+            decided_by=handler.name,
+            decided_at=stamp,
+            override=override,
+            signed_off_by=handler.name if approve else None,
+            signed_off_by_id=handler.handler_id if approve else None,
+            signed_off_at=stamp if approve else None,
+        )
+    )
+    if approve:
+        record_payment(db, claim_id, request.payout, handler.name, handler.handler_id)
+    add_step(
+        db,
+        claim_id,
+        NewStep(
+            thread_id=claim["thread_id"],
+            kind="message",
+            content=f"{handler.name} overrode the decision ({request.reason_code}): {request.note}",
+            sources=[],
+        ),
+    )
+    return claim_in_full(db, claim_id)
+
+
+@staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
+def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
+    """Every step and model call on a claim, for the trace view."""
+    found = list_steps(db, claim_id)
+    calls = [
+        ModelCall.model_validate(dict(r))
+        for r in db.execute(
+            select(model_calls)
+            .where(model_calls.c.claim_id == claim_id)
+            .order_by(model_calls.c.call_id)
+        ).mappings()
+    ]
+    return Trace(
+        steps=found,
+        model_calls=calls,
+        total_cost=round(sum(c.cost for c in calls), 6),
+        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
+    )
+
+
 # --- The local sign-in stand-in ---
 
 
@@ -493,6 +581,34 @@ def sign_in_staff(request: Request, body: SignInRequest, db: Database) -> SignIn
         raise HTTPException(401, "The email or password is wrong")
     issuer: LocalIssuer = request.app.state.staff_issuer
     return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+# The only people the test buttons sign in as, on the laptop; no password reaches the browser.
+STAFF_TEST_ACCOUNTS = {
+    "senior": "dana.whitfield@undercover.example",
+    "handler": "marcus.oyelaran@undercover.example",
+}
+CUSTOMER_TEST_ACCOUNTS = {"customer": "oliver.grant@example.com"}
+
+
+@staff_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_staff")
+def test_sign_in_staff(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as one of the fixed staff test accounts; local only."""
+    email = STAFF_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, handlers) is None:
+        raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.staff_issuer
+    return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@customer_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_customer")
+def test_sign_in_customer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as the fixed customer test account; local only."""
+    email = CUSTOMER_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, customers) is None:
+        raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.customer_issuer
+    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
 @staff_sign_in_router.get("/.well-known/jwks.json", operation_id="get_staff_jwks")

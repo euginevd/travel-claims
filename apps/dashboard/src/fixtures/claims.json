@@ -9,7 +9,8 @@
     "submitted_on": "2026-06-24",
     "status": "waiting",
     "decision": null,
-    "payout": null
+    "payout": null,
+    "review_requested": false
   },
   {
     "claim_id": "CLM-1008",
@@ -21,7 +22,8 @@
     "submitted_on": "2026-06-29",
     "status": "waiting",
     "decision": null,
-    "payout": null
+    "payout": null,
+    "review_requested": false
   },
   {
     "claim_id": "CLM-1011",
@@ -33,6 +35,7 @@
     "submitted_on": "2026-06-29",
     "status": "waiting",
     "decision": null,
-    "payout": null
+    "payout": null,
+    "review_requested": false
   }
 ]

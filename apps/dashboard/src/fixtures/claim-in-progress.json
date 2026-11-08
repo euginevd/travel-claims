@@ -50,7 +50,7 @@
     }
   ],
   "status": "in_progress",
-  "thread_id": "33c6d08c41cb437ebb0b72eac5a6c9db",
+  "thread_id": "57151a14f29b46f4802babe1e38a97ba",
   "attempts": 1,
   "policy": {
     "policy_id": "POL-2001",
@@ -74,5 +74,14 @@
   "decision": null,
   "payment": null,
   "sent_back_decisions": [],
-  "receipts": []
+  "receipts": [],
+  "stages": {
+    "received": "2026-06-24",
+    "checked": null,
+    "assessed": null,
+    "decided": null,
+    "paid": null
+  },
+  "review_requested_at": null,
+  "review_note": null
 }

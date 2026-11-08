@@ -106,12 +106,36 @@ class FakeAgent:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str | None]] = []
         self.failure: AgentUnavailableError | None = None
+        self.drafts: list[dict[str, object]] = []
+        self.draft_answer: dict[str, object] = {
+            "claim_type": "baggage",
+            "summary": "Bag lost on the flight to Rome",
+            "story": "My checked bag didn't arrive in Rome, so I bought clothes and toiletries.",
+            "incident_date": "2026-06-11",
+            "incident_location": "Rome, Italy",
+            "items": [
+                {
+                    "description": "Clothes",
+                    "category": "clothing",
+                    "amount": 120.0,
+                    "source": "Receipt 1",
+                },
+            ],
+            "missing_questions": ["Did the airline pay you anything?"],
+            "low_confidence_fields": ["incident_date"],
+        }
 
     def work(self, claim_id: str, thread_id: str) -> None:
         self._take(("work", claim_id, None))
 
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None:
         self._take(("resume", claim_id, str(outcome)))
+
+    def draft(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.drafts.append(request)
+        return self.draft_answer
 
     def _take(self, call: tuple[str, str, str | None]) -> None:
         if self.failure is not None:
