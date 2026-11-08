@@ -83,6 +83,9 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R17 | The drafting assistant inflates amounts or slips instructions into the claim | T | LLM01, LLM05, LLM09 | Medium | The draft is validated against a schema with amount limits, tagged by source, highlighted where unsure and confirmed by the customer; the claim agent reads the customer's own words; the hidden-instruction check still screens the submitted claim and receipts; the payout is worked out in code from the policy | Code, Test |
 | R18 | A customer runs up model costs through the drafting assistant | D | LLM10, API4 | Low | Ten drafts an hour per customer, a token cap per draft, the workspace spend limit | Code, Operate |
 | R19 | A senior handler's override pays without a record of why | R | A09 | Medium | Override needs a reason code and note; the record keeps the agent's decision, who overrode it and when; nothing already paid can change | Code, Test |
+| R20 | A poisoned memory: a customer's earlier claim steers a later decision | T | ASI06, LLM04 | Medium | Memory holds only the claim's facts and the agent's decision, never the customer's words; nothing from a claim the check referred or an evaluation; one namespace per customer; the claim history in the records still counts (spec 54) | Code, Test |
+| R21 | Money keeps leaving during an incident | T, E | LLM06, ASI02 | High | The payouts kill switch: a senior handler pauses every payment, the payments module refuses first and fails closed, approvals hold, and every change is audited (spec 49) | Code, Operate |
+| R22 | A new attack slips past the defences unnoticed | T | LLM01, ASI01 | Medium | The red-team suite (spec 50) runs attack claims end to end and must end with nothing paid beyond what each claim supports; the latest report is on the staff dashboard | Test |
 
 ## Compliance
 
