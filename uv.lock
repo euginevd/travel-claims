@@ -12,6 +12,7 @@ members = [
     "undercover-agent",
     "undercover-api",
     "undercover-context",
+    "undercover-copilot",
 ]
 
 [[package]]
@@ -1286,6 +1287,7 @@ dependencies = [
     { name = "undercover-agent" },
     { name = "undercover-api" },
     { name = "undercover-context" },
+    { name = "undercover-copilot" },
 ]
 
 [package.dev-dependencies]
@@ -1302,6 +1304,7 @@ requires-dist = [
     { name = "undercover-agent", editable = "apps/agent" },
     { name = "undercover-api", editable = "apps/api" },
     { name = "undercover-context", editable = "apps/context" },
+    { name = "undercover-copilot", editable = "apps/copilot" },
 ]
 
 [package.metadata.requires-dev]
@@ -1426,6 +1429,35 @@ dependencies = [
 requires-dist = [
     { name = "mcp", specifier = "==2.3.0" },
     { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "uvicorn", specifier = "==0.54.0" },
+]
+
+[[package]]
+name = "undercover-copilot"
+version = "0.1.0"
+source = { editable = "apps/copilot" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "fastapi" },
+    { name = "httpx2" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "psycopg-pool" },
+    { name = "pydantic-settings" },
+    { name = "uvicorn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = "==2.3.0" },
+    { name = "fastapi", specifier = "==0.162.0" },
+    { name = "httpx2", specifier = "==2.16.0" },
+    { name = "langgraph", specifier = "==1.2.19" },
+    { name = "langgraph-checkpoint-postgres", specifier = "==3.2.0" },
+    { name = "psycopg", extras = ["binary"], specifier = "==3.3.6" },
+    { name = "psycopg-pool", specifier = "==3.3.3" },
+    { name = "pydantic-settings", specifier = "==2.16.2" },
     { name = "uvicorn", specifier = "==0.54.0" },
 ]
 
