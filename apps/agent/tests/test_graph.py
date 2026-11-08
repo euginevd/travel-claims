@@ -92,3 +92,16 @@ def test_a_claim_without_receipts_reads_as_text_only() -> None:
     claude = FakeClaude([decide("decline", 0.0, 1)])
     graph_for(api, claude).invoke(START, config())
     assert [block["type"] for block in claude.screened[0]] == ["text"]
+
+
+def test_a_payment_refused_while_payouts_are_paused_is_held_not_lost() -> None:
+    api = FakeApi()
+    api.payouts_paused = True
+    graph = graph_for(api, FakeClaude([decide("approve", 120.0, 1)]))
+    graph.invoke(START, config())
+    assert api.paid == []
+    assert api.holds == ["Payouts are paused by a senior handler"]
+    assert api.status == "waiting_for_sign_off"
+    api.status = "decided"  # a handler signs it off once payouts are back on
+    graph.invoke(Command(resume="signed_off"), config())
+    assert ("message", "A handler signed off the payout.") in api.steps_recorded

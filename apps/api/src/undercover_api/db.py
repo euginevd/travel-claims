@@ -184,6 +184,18 @@ settings = Table(
     Column("changed_at", String(32), nullable=False),
 )
 
+# Every change to a setting, with the handler who made it, for the audit trail.
+setting_changes = Table(
+    "setting_changes",
+    metadata,
+    Column("change_id", Integer, primary_key=True, autoincrement=True),
+    Column("key", String(50), nullable=False),
+    Column("value", JSON, nullable=False),
+    Column("changed_by", String(200), nullable=False),
+    Column("changed_by_id", String(20), nullable=False),
+    Column("changed_at", String(32), nullable=False),
+)
+
 # What the api loads from the context layer when seeding: the plans and document versions.
 reference = Table(
     "reference",

@@ -18,7 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
-from undercover_agent.api_client import ApiClient
+from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.models import Call, Claude, SpecialistKind
 from undercover_agent.tools import (
     TOOLS,
@@ -31,6 +31,8 @@ from undercover_agent.tools import (
 )
 
 Json = dict[str, Any]
+# The api answers a payment with this while payouts are paused.
+PAUSED = 423
 INSTRUCTIONS = files("undercover_agent").joinpath("instructions.md").read_text(encoding="utf-8")
 SCREEN_SECTION = "Claims manual: referral when a claim needs a person's judgement"
 
@@ -172,7 +174,15 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     def settle(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
         if state["outcome"] == "approved":
-            api.pay(claim_id, state["payout"])
+            try:
+                api.pay(claim_id, state["payout"])
+            except ApiError as error:
+                if error.status != PAUSED:
+                    raise
+                # Payouts were paused after the decision: hold it for a sign-off instead.
+                api.hold(claim_id, error.detail)
+                api.record_step(claim_id, thread_id, "message", "Payouts are paused; held.")
+                return {"outcome": "held"}
             api.record_step(claim_id, thread_id, "message", "Paid the approved payout.")
             return {"outcome": "decided"}
         if state["outcome"] != "held":
@@ -197,8 +207,15 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     graph.add_conditional_edges("screen", lambda s: END if s["outcome"] else "agent")
     graph.add_conditional_edges("agent", after_agent)
     graph.add_conditional_edges("act", lambda s: "settle" if s["outcome"] else "agent")
-    graph.add_conditional_edges("settle", lambda s: "agent" if not s["outcome"] else END)
+    graph.add_conditional_edges("settle", after_settle)
     return graph.compile(checkpointer=checkpointer)
+
+
+def after_settle(state: ClaimState) -> str:
+    """Decide again after a send-back, wait again after a paused payment, or finish."""
+    if not state["outcome"]:
+        return "agent"
+    return "settle" if state["outcome"] == "held" else END
 
 
 def after_agent(state: ClaimState) -> str:

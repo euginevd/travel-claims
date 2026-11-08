@@ -6,6 +6,7 @@ import { Copilot } from "./components/Copilot";
 import { createCopilot } from "./copilot";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
+import { PayoutsSwitch } from "./components/PayoutsSwitch";
 import { ClaimPage } from "./pages/ClaimPage";
 import { QueuePage } from "./pages/QueuePage";
 import { SignInPage } from "./pages/SignInPage";
@@ -134,6 +135,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         }}
       />
       <main id="main" tabIndex={-1}>
+        <PayoutsSwitch key={routeKey(route)} api={api} handler={person} />
         <ErrorBoundary key={routeKey(route)}>
           {handlerPage(route, api, person, pollMs)}
         </ErrorBoundary>

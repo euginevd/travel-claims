@@ -63,6 +63,10 @@ class ApiClient:
         path = f"/api/agent/claims/{claim_id}/payment"
         return cast(Json, self._call("POST", path, {"amount": amount}))
 
+    def hold(self, claim_id: str, reason: str) -> Json:
+        path = f"/api/agent/claims/{claim_id}/hold"
+        return cast(Json, self._call("POST", path, {"reason": reason}))
+
     def record_step(
         self,
         claim_id: str,

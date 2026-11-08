@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from undercover_api.claims import approval_limit, find_claim, find_decision, find_payment
 from undercover_api.db import now, payments
+from undercover_api.kill_switch import refuse_while_paused
 from undercover_api.models import DecisionKind, Status
 from undercover_api.payout import dollars, needs_sign_off
 
@@ -25,7 +26,8 @@ def record_payment(
     signed_off_by_id: str | None = None,
 ) -> None:
     """Record a claim's one payment, with the handler who signed it off, if one did. A second,
-    however it races in, is refused."""
+    however it races in, is refused. Nothing is paid while payouts are paused."""
+    refuse_while_paused(db)
     try:
         with db.begin_nested():
             db.execute(
@@ -44,6 +46,7 @@ def record_payment(
 def pay(db: Connection, claim_id: str, amount: float) -> bool:
     """Pay an approved claim its payout, the agent's way: never over the limit. Says whether it
     paid now (False when the same payment was already made)."""
+    refuse_while_paused(db)
     limit = approval_limit(db)
     if needs_sign_off(amount, limit):
         raise over_the_limit(limit)

@@ -300,6 +300,22 @@ class Handler(BaseModel):
     can_approve_over_limit: bool
 
 
+class PayoutSwitch(BaseModel):
+    """Whether payouts are paused, and who last changed it, when and why."""
+
+    paused: bool
+    changed_by: str | None
+    changed_at: str | None
+    reason: str | None
+
+
+class PayoutSwitchRequest(Strict):
+    """A senior handler turning payouts off or on, with the reason."""
+
+    paused: bool
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
 class Source(Strict):
     """A context file a lookup's answer came from."""
 

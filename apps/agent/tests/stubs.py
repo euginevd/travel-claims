@@ -5,7 +5,7 @@ from typing import Any
 from anthropic.types import Message
 from langgraph.checkpoint.memory import InMemorySaver
 
-from undercover_agent.api_client import ApiClient
+from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.graph import build_graph
 from undercover_agent.models import Call, Finding, Screening, SpecialistKind, SpecialistReview
 
@@ -26,6 +26,8 @@ class FakeApi(ApiClient):
         self.notes: list[str] = []
         self.attached: list[Json] = []
         self.seen_elsewhere: list[Json] = []
+        self.payouts_paused = False
+        self.holds: list[str] = []
 
     def receipts(self, claim_id: str) -> list[Json]:
         return self.attached
@@ -61,8 +63,15 @@ class FakeApi(ApiClient):
         return self.claim(claim_id)
 
     def pay(self, claim_id: str, amount: float) -> Json:
+        if self.payouts_paused:
+            raise ApiError(423, "Payouts are paused by a senior handler")
         self.paid.append(amount)
         self.status = "decided"
+        return self.claim(claim_id)
+
+    def hold(self, claim_id: str, reason: str) -> Json:
+        self.holds.append(reason)
+        self.status = "waiting_for_sign_off"
         return self.claim(claim_id)
 
     def record_step(
