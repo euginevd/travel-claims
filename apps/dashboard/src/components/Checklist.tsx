@@ -14,9 +14,29 @@ export function sorted(checks: Check[]): Check[] {
   return [...checks].sort((a, b) => ORDER[a.result] - ORDER[b.result]);
 }
 
+// The specialists the claim agent consults, by the source it cites and the tool it calls.
+const SPECIALISTS: Record<string, string> = {
+  "document checker": "check_documents",
+  "duplicate check": "find_duplicate_receipts",
+  "medical reviewer": "review_medical",
+};
+
+/** What a specialist found: the result the agent recorded after calling it. */
+function specialistFinding(tool: string, steps: Step[]): string | null {
+  const called = steps.findIndex(
+    (step) => step.kind === "tool_call" && step.content.startsWith(tool),
+  );
+  const answer = called >= 0 ? steps[called + 1] : undefined;
+  return answer ? answer.content.slice(0, 280) : null;
+}
+
 /** What the source chip shows on hover: for a document section, the agent's lookup of it; for a
- * receipt, where to find it. */
+ * specialist, what it found; for a receipt, where to find it. */
 export function previewOf(source: string, steps: Step[]): string {
+  const specialist = SPECIALISTS[source.toLowerCase()];
+  if (specialist) {
+    return specialistFinding(specialist, steps) ?? `${source}: no findings recorded.`;
+  }
   const receipt = /^Receipt (\d+)$/i.exec(source);
   if (receipt) return `The customer's receipt ${receipt[1] ?? ""}, under Evidence.`;
   const section = /(policy wording|claims manual)\D*(\d+)/i.exec(source);
