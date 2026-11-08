@@ -229,7 +229,9 @@ export function ImprovementPage({ api, handler }: { api: Api; handler: Handler }
       {versions.length > 0 && (
         <section aria-labelledby="versions-heading">
           <h2 id="versions-heading">Versions</h2>
-          <div className="table-wrap">
+          {/* A scrollable region must take focus so keyboard users can scroll it (WCAG 2.1.1). */}
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+          <div className="table-wrap" role="region" aria-label="Versions table" tabIndex={0}>
             <table className="table">
               <thead>
                 <tr>

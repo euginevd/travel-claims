@@ -494,3 +494,69 @@ pre,
 .il-palm-leaf {
   fill: #2f8f5b;
 }
+
+/* Phones: the header is two short rows (brand and account, then navigation and tools). */
+@media (max-width: 640px) {
+  .header {
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .header .brand {
+    order: 0;
+  }
+
+  .header .who {
+    order: 1;
+    gap: 0.5rem;
+  }
+
+  .header nav,
+  .header .search-field,
+  .header .copilot-button {
+    order: 2;
+  }
+
+  .header nav {
+    flex: 0 1 auto;
+  }
+
+  .header nav ul {
+    gap: 0;
+  }
+
+  .header nav a {
+    padding: 0 0.4rem;
+  }
+
+  .header .avatar {
+    display: none;
+  }
+
+  .header .copilot-button {
+    padding-inline: 12px;
+  }
+
+  .payouts-status {
+    padding-inline: 10px;
+  }
+
+  .payouts-status-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The claim tracker: smaller labels so the five steps don't run together. */
+  .tracker-stage {
+    padding-inline-end: 4px;
+    font-size: 0.72rem;
+  }
+
+  .tracker-label {
+    font-size: 0.7rem;
+  }
+}

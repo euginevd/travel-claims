@@ -42,7 +42,7 @@ export function Header({ name, detail, home, links, onSignOut }: HeaderProps) {
         </span>
         <button type="button" className="button secondary" onClick={onSignOut}>
           <LogOut size={16} strokeWidth={2} aria-hidden="true" />
-          Sign out
+          <span className="sign-out-label">Sign out</span>
         </button>
       </div>
     </header>
