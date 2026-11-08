@@ -28,12 +28,21 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
 
+  context:
+    build: { context: ., dockerfile: apps/context/Dockerfile }
+    environment:
+      CONTEXT_ALLOWED_HOSTS: 127.0.0.1:*,localhost:*,context:*
+    ports:
+      - "127.0.0.1:8006:8006"
+
   agent:
     build: { context: ., dockerfile: apps/agent/Dockerfile }
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-local}
+      UNDERCOVER_CONTEXT: http://context:8006/mcp
     depends_on:
       api: { condition: service_healthy }
+      context: { condition: service_healthy }
     ports:
       - "127.0.0.1:8080:8080"
 

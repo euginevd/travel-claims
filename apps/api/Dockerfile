@@ -5,6 +5,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/agent/pyproject.toml apps/agent/
+COPY apps/context/pyproject.toml apps/context/
 RUN uv sync --frozen --no-dev --package undercover-api --no-install-workspace
 COPY apps/api apps/api
 RUN uv sync --frozen --no-dev --package undercover-api --no-editable

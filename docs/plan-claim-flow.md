@@ -25,7 +25,7 @@ The first working slice of UnderCover on a laptop: a handler signs in, the agent
 
 ### Claude
 
-- `models.py` builds the client once from settings: `anthropic.Anthropic()` in stage 1, `AnthropicBedrockMantle` in stage 2. Model IDs, `max_tokens`, effort, a 60-second timeout and 2 retries are settings with defaults (code-standards 19).
+- `models.py` builds the client once from settings: `anthropic.Anthropic()` in stage 1, sending `ANTHROPIC_WORKSPACE_ID` as the `anthropic-workspace-id` header (the key is organisation-scoped); `AnthropicBedrockMantle` in stage 2. Model IDs, `max_tokens`, effort, a 60-second timeout and 2 retries are settings with defaults (code-standards 19).
 - Claim agent: `claude-sonnet-5-5`, adaptive thinking at `medium` effort, `tool_choice` auto with `strict: true` tools (forced tool choice is rejected on this model), server-side refusal fallbacks on (`fallbacks: "default"`). Full response content, thinking blocks included, is kept in the graph's messages unchanged.
 - Hidden-instruction check and judge: `claude-haiku-5-5` at `low` effort, structured output validated with Pydantic.
 - Prompt caching: the instructions, tool list and policy wording are a stable prefix with `cache_control`; the claim goes after it.
@@ -62,9 +62,9 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 2. Context layer
 
-- [ ] `apps/context` added to the workspace, with its Dockerfile and compose service.
-- [ ] The seven context files copied in; the seven lookups served over MCP, each naming its file, system, owner and review date.
-- [ ] Tests for each lookup, including an unknown term and a missing section.
+- [x] `apps/context` added to the workspace, with its Dockerfile and compose service.
+- [x] The seven context files copied in; the seven lookups served over MCP, each naming its file, system, owner and review date.
+- [x] Tests for each lookup, including an unknown term and a missing section.
 
 ### 3. The `api`
 

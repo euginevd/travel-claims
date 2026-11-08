@@ -2,18 +2,19 @@
 name = "travel-claims"
 version = "0.1.0"
 requires-python = ">=3.14,<3.15"
-dependencies = ["undercover-api", "undercover-agent"]
+dependencies = ["undercover-api", "undercover-agent", "undercover-context"]
 
 [tool.uv]
 package = false
 exclude-newer = "7 days"
 
 [tool.uv.workspace]
-members = ["apps/api", "apps/agent"]
+members = ["apps/api", "apps/agent", "apps/context"]
 
 [tool.uv.sources]
 undercover-api = { workspace = true }
 undercover-agent = { workspace = true }
+undercover-context = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -32,7 +33,7 @@ line-length = 100
 select = ["E", "F", "W", "I", "B", "SIM", "UP", "PL", "S", "PT", "FAST", "C90"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["undercover_api", "undercover_agent"]
+known-first-party = ["undercover_api", "undercover_agent", "undercover_context"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -41,7 +42,7 @@ max-complexity = 10
 "apps/*/tests/*" = ["S101", "PLR2004"]
 
 [tool.pyright]
-include = ["apps/api", "apps/agent"]
+include = ["apps/api", "apps/agent", "apps/context"]
 exclude = ["**/node_modules", "apps/web"]
 typeCheckingMode = "strict"
 pythonVersion = "3.14"
@@ -49,11 +50,11 @@ venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "apps/agent/tests"]
+testpaths = ["apps/api/tests", "apps/agent/tests", "apps/context/tests"]
 addopts = "--import-mode=importlib --cov --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["apps/api/src", "apps/agent/src"]
+source = ["apps/api/src", "apps/agent/src", "apps/context/src"]
 
 [tool.coverage.report]
 fail_under = 80

@@ -1,0 +1,10 @@
+[project]
+name = "undercover-context"
+version = "0.1.0"
+description = "UnderCover's context layer: the policy wording, claims manual and reference data over MCP"
+requires-python = ">=3.14,<3.15"
+dependencies = ["mcp==2.3.0", "pyyaml==6.0.3", "uvicorn==0.54.0"]
+
+[build-system]
+requires = ["uv_build==0.13.7"]
+build-backend = "uv_build"
