@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
-from sqlalchemy import Connection, Engine, delete, insert, select, update
+from sqlalchemy import Connection, Engine, delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from undercover_api.agent_service import (
@@ -23,6 +23,8 @@ from undercover_api.agent_service import (
     Outcome,
 )
 from undercover_api.auth import (
+    CUSTOMERS_GROUP,
+    HANDLERS_GROUP,
     Database,
     LocalKeys,
     RemoteKeys,
@@ -90,6 +92,7 @@ from undercover_api.models import (
 )
 from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
+from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.records import check_calculation, check_request
 from undercover_api.settings import Settings, get_settings
 
@@ -457,17 +460,19 @@ def send_back_claim(
 
 @sign_in_router.post("/sign-in", operation_id="sign_in")
 def sign_in(request: Request, body: SignInRequest, db: Database) -> SignIn:
-    """Sign a seeded handler in with the shared local password; local only."""
+    """Sign a seeded handler or customer in with the shared local password; local only."""
     settings: Settings = request.app.state.settings
     issuer: LocalIssuer = request.app.state.issuer
     password = settings.handler_password.get_secret_value() if settings.handler_password else ""
+    people = handlers if body.role == "handler" else customers
     known = db.execute(
-        select(handlers.c.email).where(handlers.c.email == body.email.lower())
+        select(people.c.email).where(func.lower(people.c.email) == body.email.lower())
     ).scalar_one_or_none()
     right = secrets.compare_digest(body.password.encode(), password.encode())
     if known is None or not right:
         raise HTTPException(401, "The email or password is wrong")
-    return SignIn(id_token=issuer.issue(known), expires_in=TOKEN_LIFETIME)
+    group = HANDLERS_GROUP if body.role == "handler" else CUSTOMERS_GROUP
+    return SignIn(id_token=issuer.issue(known.lower(), group), expires_in=TOKEN_LIFETIME)
 
 
 @sign_in_router.get("/.well-known/jwks.json", operation_id="get_jwks")
@@ -519,6 +524,14 @@ def create_app(
             RemoteKeys(settings.token_issuer), settings.token_issuer, settings.token_audience
         )
     app.middleware("http")(log_requests)
-    for router in (health_router, shared_router, agent_router, handler_router):
+    for router in (
+        health_router,
+        shared_router,
+        agent_router,
+        agent_receipt_router,
+        handler_router,
+        receipt_router,
+        customer_router,
+    ):
         app.include_router(router)
     return app

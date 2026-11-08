@@ -73,5 +73,6 @@
   "approval_limit": 1000.0,
   "decision": null,
   "payment": null,
-  "sent_back_decisions": []
+  "sent_back_decisions": [],
+  "receipts": []
 }

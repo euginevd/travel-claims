@@ -45,8 +45,9 @@ def agent() -> FakeAgent:
 
 
 @pytest.fixture
-def client(database_url: str, agent: FakeAgent) -> Iterator[TestClient]:
-    app = create_app(make_settings(database_url), agent_service=agent)
+def client(database_url: str, agent: FakeAgent, tmp_path: Path) -> Iterator[TestClient]:
+    settings = make_settings(database_url, receipts_dir=tmp_path / "receipts")
+    app = create_app(settings, agent_service=agent)
     with TestClient(app) as test_client:
         yield test_client
 

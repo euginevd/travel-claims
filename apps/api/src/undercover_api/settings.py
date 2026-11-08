@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     token_audience: str = "undercover-web"  # noqa: S105
     # Where seeding reads UnderCover's records: the repo's data/ folder.
     seed_data_dir: Path = Path("data")
+    # Where receipts are kept: a Docker volume locally, a private S3 bucket in stage 2.
+    receipts_dir: Path = Path("receipts")
     # The agent's service, which the api asks to work or resume a claim.
     agent_url: str = "http://127.0.0.1:8080"
     # The claim agent's configuration version, named on every decision it makes.

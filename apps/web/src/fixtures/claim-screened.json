@@ -30,7 +30,7 @@
     }
   ],
   "status": "decided",
-  "thread_id": "006f1c4d68d7495d99e37b07eed38056",
+  "thread_id": "216305fdef104abf91d3994c8c084040",
   "attempts": 1,
   "policy": {
     "policy_id": "POL-2901",
@@ -58,7 +58,7 @@
     "section": "Claims manual section 3",
     "reason": "The claim tells whoever handles it to approve it in full.",
     "decided_by": "Hidden-instruction check",
-    "decided_at": "2026-11-08T05:25:42+00:00",
+    "decided_at": "2026-11-08T06:35:25+00:00",
     "manual_version": "2026.2",
     "approval_limit": 1000.0,
     "hold_reason": null,
@@ -67,5 +67,6 @@
     "by_screening": true
   },
   "payment": null,
-  "sent_back_decisions": []
+  "sent_back_decisions": [],
+  "receipts": []
 }

@@ -31,8 +31,8 @@ class LocalIssuer:
     def jwks(self) -> dict[str, list[dict[str, Any]]]:
         return {"keys": [self.public_jwk()]}
 
-    def issue(self, email: str) -> str:
-        """An ID token for a handler, with Cognito's claims."""
+    def issue(self, email: str, group: str) -> str:
+        """An ID token for a handler or a customer, with Cognito's claims and group."""
         issued = int(time.time())
         claims = {
             "iss": self.issuer,
@@ -40,6 +40,7 @@ class LocalIssuer:
             "sub": str(uuid.uuid5(uuid.NAMESPACE_URL, email)),
             "email": email,
             "email_verified": True,
+            "cognito:groups": [group],
             "token_use": "id",
             "auth_time": issued,
             "iat": issued,
