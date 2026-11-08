@@ -99,22 +99,25 @@ test("a new claim adds and removes items and shows the api's refusal", async () 
   const user = userEvent.setup();
   const api = apiFor({
     "GET /api/customer/policies": () => [200, [MY_POLICY]],
+    "POST /api/customer/drafts": () => [503, { detail: "Not available" }],
     "POST /api/customer/claims": () => [
       422,
       { detail: "The incident date must be during your trip" },
     ],
   });
   render(<NewClaimPage api={api} />);
-  await screen.findByRole("option", { name: /Rome, Italy/ });
-  await user.click(screen.getByRole("button", { name: "Add another item" }));
+  await user.click(await screen.findByRole("button", { name: "I don't have a receipt" }));
+  await user.type(screen.getByLabelText("A few words, if you like"), "Delayed overnight.");
+  await user.click(screen.getByRole("button", { name: /Draft my claim/ }));
+  await screen.findByText("Not available");
+  await user.click(screen.getByRole("button", { name: "Add an item" }));
   expect(screen.getByLabelText("Item 2")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Remove item 2" }));
   expect(screen.queryByLabelText("Item 2")).not.toBeInTheDocument();
 
-  await user.type(screen.getByLabelText("When it happened"), "2026-06-17");
-  await user.type(screen.getByLabelText("Where it happened"), "Rome");
+  await user.type(screen.getByLabelText("When"), "2026-06-17");
+  await user.type(screen.getByLabelText("Where"), "Rome");
   await user.type(screen.getByLabelText("In one line"), "Delayed");
-  await user.type(screen.getByLabelText("The whole story"), "Delayed overnight.");
   await user.type(screen.getByLabelText("Item 1"), "Hotel");
   await user.type(screen.getByLabelText("Amount (US$)"), "90");
   expect(screen.getByText("$90.00")).toBeInTheDocument();

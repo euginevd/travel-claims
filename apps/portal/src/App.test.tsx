@@ -21,7 +21,7 @@ test("a customer signs in and sees their own claims", async () => {
   const user = userEvent.setup();
   const fetchFn = fakeFetch(routes);
   render(<App fetchFn={fetchFn} />);
-  await user.click(screen.getByRole("radio", { name: /Maya Patel/ }));
+  await user.type(screen.getByLabelText("Email"), "maya.patel@example.com");
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
@@ -32,10 +32,25 @@ test("a customer signs in and sees their own claims", async () => {
   expect(fetchFn.calls.every((c) => c.path.startsWith("/api/customer/"))).toBe(true);
 });
 
-test("the sign-in page offers only customers", () => {
+test("the sign-in page is a normal sign-in with Google coming soon", () => {
   render(<App fetchFn={fakeFetch(routes)} />);
   expect(screen.queryByText(/claims handler/i)).not.toBeInTheDocument();
-  expect(screen.queryByRole("radio", { name: /Dana Whitfield/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Continue with Google/ })).toBeDisabled();
+  expect(screen.getByText("Coming soon")).toBeInTheDocument();
+});
+
+test("the test account signs in through the dev route, with no password in the browser", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    ...routes,
+    "POST /api/customer/dev/test-sign-in": () => [200, { id_token: "token-t", expires_in: 3600 }],
+  });
+  render(<App fetchFn={fetchFn} />);
+  await user.click(screen.getByRole("button", { name: /Use test account/ }));
+  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
+  const call = fetchFn.calls.find((c) => c.path === "/api/customer/dev/test-sign-in");
+  expect(call?.body).toEqual({ account: "customer" });
 });
 
 test("asks for both email and password", async () => {
@@ -51,11 +66,11 @@ test("says when the password is wrong", async () => {
     "POST /api/customer/dev/sign-in": () => [401, { detail: "The email or password is wrong" }],
   });
   render(<App fetchFn={fetchFn} />);
-  await user.click(screen.getByRole("radio", { name: /Maya Patel/ }));
+  await user.type(screen.getByLabelText("Email"), "maya.patel@example.com");
   await user.type(screen.getByLabelText("Password"), "nope");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "That email and password don't match a customer.",
+    "That email and password don't match an account.",
   );
 });
 
@@ -118,6 +133,6 @@ test("the make-a-claim link opens the form", async () => {
   window.location.hash = "#/new";
   render(<App fetchFn={fakeFetch(routes)} />);
   expect(
-    await screen.findByRole("heading", { level: 1, name: "Tell us what happened" }),
+    await screen.findByRole("heading", { level: 1, name: "Start with your receipts" }),
   ).toBeInTheDocument();
 });

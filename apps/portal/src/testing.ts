@@ -46,6 +46,8 @@ export function myClaim(overrides: Partial<CustomerClaim> = {}): CustomerClaim {
     paid_at: null,
     receipts: [],
     can_add_receipts: true,
+    review_requested: false,
+    can_request_review: false,
     ...overrides,
   };
 }

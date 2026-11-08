@@ -70,6 +70,26 @@ export const CustomerClaimSchema = CustomerClaimSummarySchema.extend({
   paid_at: z.string().nullable(),
   receipts: z.array(ReceiptSchema),
   can_add_receipts: z.boolean(),
+  review_requested: z.boolean(),
+  can_request_review: z.boolean(),
+});
+
+export const DraftSchema = z.object({
+  claim_type: z.string().nullable(),
+  summary: z.string(),
+  story: z.string(),
+  incident_date: z.string(),
+  incident_location: z.string(),
+  items: z.array(
+    z.object({
+      description: z.string(),
+      category: z.string(),
+      amount: z.number(),
+      source: z.string(),
+    }),
+  ),
+  missing_questions: z.array(z.string()),
+  low_confidence_fields: z.array(z.string()),
 });
 
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
@@ -82,6 +102,18 @@ export type Receipt = z.infer<typeof ReceiptSchema>;
 export type Item = z.infer<typeof ItemSchema>;
 export type CustomerClaimSummary = z.infer<typeof CustomerClaimSummarySchema>;
 export type CustomerClaim = z.infer<typeof CustomerClaimSchema>;
+export type Draft = z.infer<typeof DraftSchema>;
+
+export const caseChips = [
+  "lost_bag",
+  "delayed_bag",
+  "flight_delay",
+  "trip_cancelled",
+  "medical",
+  "stolen",
+  "passport",
+] as const;
+export type CaseChip = (typeof caseChips)[number];
 
 export interface NewClaim {
   policy_id: string;
@@ -111,6 +143,9 @@ export interface Api {
   myClaim: (claimId: string) => Promise<CustomerClaim>;
   makeClaim: (claim: NewClaim) => Promise<CustomerClaim>;
   addReceipts: (claimId: string, files: File[]) => Promise<CustomerClaim>;
+  draft: (policyId: string, text: string, chip: CaseChip | "", files: File[]) => Promise<Draft>;
+  requestReview: (claimId: string, note: string) => Promise<CustomerClaim>;
+  testSignIn: () => Promise<string>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -172,6 +207,12 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       });
       return answer.id_token;
     },
+    testSignIn: async () => {
+      const answer = await call(SignInSchema, "POST", "/dev/test-sign-in", {
+        body: { account: "customer" },
+      });
+      return answer.id_token;
+    },
     myProfile: () => call(CustomerSchema, "GET", "/profile"),
     myPolicies: () => call(z.array(PolicySchema), "GET", "/policies"),
     myClaims: () => call(z.array(CustomerClaimSummarySchema), "GET", "/claims"),
@@ -182,5 +223,17 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       for (const file of files) form.append("files", file);
       return call(CustomerClaimSchema, "POST", `${claimPath(claimId)}/receipts`, { form });
     },
+    draft: (policyId, text, chip, files) => {
+      const form = new FormData();
+      form.append("policy_id", policyId);
+      form.append("text", text);
+      form.append("case", chip);
+      for (const file of files) form.append("files", file);
+      return call(DraftSchema, "POST", "/drafts", { form });
+    },
+    requestReview: (claimId, note) =>
+      call(CustomerClaimSchema, "POST", `${claimPath(claimId)}/review-request`, {
+        body: { note },
+      }),
   };
 }

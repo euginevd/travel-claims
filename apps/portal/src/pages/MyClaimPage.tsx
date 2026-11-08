@@ -1,6 +1,7 @@
-import { Bot, FileText, Image as ImageIcon } from "lucide-react";
+import { FileText, Image as ImageIcon, Sparkle, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, type Api, type CustomerClaim } from "../api";
+import { ClaimTracker } from "../components/ClaimTracker";
 import { kilobytes, ReceiptPicker } from "../components/ReceiptPicker";
 import { CustomerStatusChip } from "../components/StatusChip";
 import { CLAIM_TYPES } from "./NewClaimPage";
@@ -21,6 +22,9 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askNote, setAskNote] = useState("");
+  const [askError, setAskError] = useState<string | null>(null);
   const heading = useFocusHeading();
   const retry = useCallback(() => {
     setError(null);
@@ -57,6 +61,18 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
     }
   }
 
+  async function askForPerson() {
+    setAsking(true);
+    setAskError(null);
+    try {
+      setClaim(await api.requestReview(claimId, askNote.trim()));
+    } catch (caught) {
+      setAskError(caught instanceof ApiError ? caught.message : "We couldn't send that.");
+    } finally {
+      setAsking(false);
+    }
+  }
+
   return (
     <section aria-labelledby="my-claim-heading" className="narrow">
       <p>
@@ -84,6 +100,7 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
       )}
       {claim && (
         <>
+          <ClaimTracker status={claim.status} />
           <div className="panel outcome-card">
             <div className="claim-card-head">
               <h2>Where it stands</h2>
@@ -103,11 +120,48 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
               </>
             )}
             {claim.outcome && claim.outcome !== "refer" && (
-              <p className="ai-label">
-                <Bot size={16} strokeWidth={2} aria-hidden="true" />
-                Decided with help from our AI claims agent. You can ask for a person to review it by
-                replying to your claim email or calling us.
+              <p className="ai-mark">
+                <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                Decided with help from our AI claims agent
               </p>
+            )}
+            {claim.review_requested && (
+              <p className="notice" role="status">
+                <UserRound size={16} strokeWidth={2} aria-hidden="true" /> A claims handler will
+                review your claim personally and contact you.
+              </p>
+            )}
+            {claim.can_request_review && (
+              <div className="ask-person">
+                <label htmlFor="ask-note">
+                  Want a person to look at this? Tell us why (optional)
+                </label>
+                <textarea
+                  id="ask-note"
+                  rows={2}
+                  maxLength={1000}
+                  value={askNote}
+                  onChange={(event) => {
+                    setAskNote(event.target.value);
+                  }}
+                />
+                {askError && (
+                  <p className="error" role="alert">
+                    {askError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={asking}
+                  onClick={() => {
+                    void askForPerson();
+                  }}
+                >
+                  <UserRound size={16} strokeWidth={2} aria-hidden="true" />
+                  {asking ? "Sending…" : "Ask a person to review"}
+                </button>
+              </div>
             )}
           </div>
 
