@@ -16,6 +16,11 @@ updates:
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
     groups: { web: { patterns: ["*"] } }
+    # Majors wait for the lint plugins to support them (jsx-a11y on ESLint 10, typescript-eslint on
+    # TypeScript 7); upgrade those by hand. Minor and patch updates still come through.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directories: ["/apps/*"]
     schedule: { interval: weekly }
