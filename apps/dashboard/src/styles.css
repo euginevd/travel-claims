@@ -1979,3 +1979,77 @@ kbd {
   border-color: var(--warn);
   background: var(--warn-tint);
 }
+
+/* Evaluations and improvement */
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table tr.miss td {
+  background: var(--bg-3);
+}
+
+.run-form-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.run-form-fields label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.run-form-fields select,
+.run-form-fields input {
+  min-height: 40px;
+  padding: 4px 8px;
+  border: 1px solid var(--ink-3);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.round {
+  margin: 24px 0;
+}
+
+.diff {
+  max-height: 360px;
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-3);
+  color: var(--ink);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+}
+
+.review {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.review textarea {
+  min-height: 80px;
+  padding: 8px;
+  border: 1px solid var(--ink-3);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.review .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

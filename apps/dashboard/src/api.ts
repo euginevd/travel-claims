@@ -262,6 +262,96 @@ export class ApiError extends Error {
   }
 }
 
+export const ScoresSchema = z.object({
+  claims: z.number(),
+  decided: z.number(),
+  accuracy: z.number(),
+  payout_accuracy: z.number(),
+  straight_through: z.number(),
+  cost_per_claim: z.number(),
+  seconds_per_claim: z.number(),
+  total_cost: z.number(),
+});
+
+export const RunSchema = z.object({
+  run_id: z.number(),
+  label_set: z.enum(["evaluation", "held_out"]),
+  size: z.enum(["tiny", "whole"]),
+  concurrency: z.number(),
+  config_version: z.number(),
+  round_id: z.number().nullable(),
+  status: z.string(),
+  started_by: z.string(),
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+  scores: ScoresSchema.nullable(),
+});
+
+export const RunClaimSchema = z.object({
+  claim_id: z.string(),
+  original_claim_id: z.string(),
+  summary: z.string(),
+  status: StatusSchema,
+  decision: DecisionKindSchema.nullable(),
+  payout: z.number().nullable(),
+  reason: z.string().nullable(),
+  handler_decision: z.string().nullable(),
+  handler_payout: z.number().nullable(),
+  handler_reason: z.string().nullable(),
+  matched: z.boolean(),
+  payout_matched: z.boolean(),
+  cost: z.number(),
+});
+
+export const RunInFullSchema = RunSchema.extend({ claims: z.array(RunClaimSchema) });
+
+export const ConfigurationSchema = z.object({
+  version: z.number(),
+  instructions: z.string(),
+  model: z.string(),
+  effort: z.string(),
+  reason: z.string(),
+  diff: z.string(),
+  status: z.string(),
+  parent_version: z.number().nullable(),
+  proposed_by: z.string(),
+  reviewed_by: z.string().nullable(),
+  created_at: z.string(),
+  current: z.boolean(),
+});
+
+export const RoundSchema = z.object({
+  round_id: z.number(),
+  status: z.string(),
+  baseline_version: z.number(),
+  candidate_version: z.number().nullable(),
+  baseline_eval_run: z.number().nullable(),
+  baseline_held_run: z.number().nullable(),
+  candidate_held_run: z.number().nullable(),
+  proposal: z.record(z.string(), z.unknown()).nullable(),
+  review: z.record(z.string(), z.unknown()).nullable(),
+  verdict: z.record(z.string(), z.unknown()).nullable(),
+  improver_cost: z.number(),
+  spend_limit: z.number(),
+  spent: z.number(),
+  diff: z.string().nullable(),
+  started_by: z.string(),
+  started_at: z.string(),
+});
+
+export type Scores = z.infer<typeof ScoresSchema>;
+export type Run = z.infer<typeof RunSchema>;
+export type RunClaim = z.infer<typeof RunClaimSchema>;
+export type RunInFull = z.infer<typeof RunInFullSchema>;
+export type Configuration = z.infer<typeof ConfigurationSchema>;
+export type Round = z.infer<typeof RoundSchema>;
+
+export interface StartRunRequest {
+  label_set: "evaluation" | "held_out";
+  size: "tiny" | "whole";
+  concurrency: number;
+}
+
 export interface Api {
   signIn: (email: string, password: string) => Promise<string>;
   testSignIn: (account: TestAccount) => Promise<string>;
@@ -278,6 +368,15 @@ export interface Api {
   getPayouts: () => Promise<PayoutSwitch>;
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
   getRedTeam: () => Promise<RedTeamReport>;
+  listRuns: () => Promise<Run[]>;
+  getRun: (runId: number, signal?: AbortSignal) => Promise<RunInFull>;
+  startRun: (request: StartRunRequest) => Promise<Run>;
+  resumeRun: (runId: number) => Promise<Run>;
+  listConfigurations: () => Promise<Configuration[]>;
+  listRounds: () => Promise<Round[]>;
+  startRound: () => Promise<Round>;
+  reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
+  stopRound: (roundId: number) => Promise<Round>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -380,5 +479,17 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     setPayouts: (paused, reason) =>
       call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),
     getRedTeam: () => call(RedTeamReportSchema, "GET", "/redteam"),
+    listRuns: () => call(z.array(RunSchema), "GET", "/runs"),
+    getRun: (runId, signal) => call(RunInFullSchema, "GET", `/runs/${String(runId)}`, { signal }),
+    startRun: (request) => call(RunSchema, "POST", "/runs", { body: request }),
+    resumeRun: (runId) => call(RunSchema, "POST", `/runs/${String(runId)}/resume`),
+    listConfigurations: () => call(z.array(ConfigurationSchema), "GET", "/configuration"),
+    listRounds: () => call(z.array(RoundSchema), "GET", "/rounds"),
+    startRound: () => call(RoundSchema, "POST", "/rounds"),
+    reviewRound: (roundId, approve, reason) =>
+      call(RoundSchema, "POST", `/rounds/${String(roundId)}/review`, {
+        body: { approve, reason },
+      }),
+    stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
   };
 }
