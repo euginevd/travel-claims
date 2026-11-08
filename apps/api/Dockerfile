@@ -7,6 +7,7 @@ COPY apps/api/pyproject.toml apps/api/
 COPY apps/agent/pyproject.toml apps/agent/
 COPY apps/context/pyproject.toml apps/context/
 RUN uv sync --frozen --no-dev --package undercover-api --no-install-workspace
+COPY apps/context apps/context
 COPY apps/api apps/api
 RUN uv sync --frozen --no-dev --package undercover-api --no-editable
 
@@ -14,8 +15,12 @@ FROM python:3.14.9-slim-bookworm@sha256:945c2676dc2b18e0c1f16879244122c57c0ffede
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
-ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
+# Only the records seeding loads: never data/evals/ or the security claim's decision.
+COPY data/claims.json data/policies.json data/customers.json data/handlers.json data/company.json /app/data/
+COPY data/security/claims.json data/security/policies.json data/security/customers.json /app/data/security/
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
-CMD ["uvicorn", "undercover_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Migrate, seed an empty database, then serve.
+CMD ["sh", "-c", "python -m undercover_api.migrate && python -m undercover_api.seed && exec uvicorn undercover_api.main:create_app --factory --host 0.0.0.0 --port 8000"]

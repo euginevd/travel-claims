@@ -68,11 +68,11 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 3. The `api`
 
-- [ ] Schema and migrations: policies, customers, handlers, claims, steps, model calls, calculations, decisions, payments, settings.
-- [ ] Seeding from `data/` and the context files, with CLM-1901 added from `data/security/`; the handlers' decisions in `data/evals/` are never loaded where the agent can reach them.
-- [ ] Payout rules and section 14 checks, with the course's cases as tests.
-- [ ] Payments module: limit first, one payment per claim, sign-off pays.
-- [ ] Sign-in stand-in, JWT checks, agent key, and per-route authorisation tests.
+- [x] Schema and migrations: policies, customers, handlers, claims, steps, model calls, calculations, decisions, payments, settings.
+- [x] Seeding from `data/` and the context files, with CLM-1901 added from `data/security/`; the handlers' decisions in `data/evals/` are never loaded where the agent can reach them.
+- [x] Payout rules and section 14 checks, with the course's cases as tests.
+- [x] Payments module: limit first, one payment per claim, sign-off pays.
+- [x] Sign-in stand-in, JWT checks, agent key, and per-route authorisation tests.
 
 ### 4. The claim agent
 

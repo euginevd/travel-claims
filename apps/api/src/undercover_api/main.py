@@ -1,11 +1,361 @@
-"""The api's FastAPI app."""
+"""The api's FastAPI app: claims, decisions, payments and sign-in.
 
-from fastapi import FastAPI
+Start it with uvicorn's factory mode: uvicorn undercover_api.main:create_app --factory
+"""
 
-app = FastAPI(title="UnderCover api")
+import secrets
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from sqlalchemy import Engine, delete, insert, select, update
+
+from undercover_api.auth import (
+    Database,
+    LocalKeys,
+    RemoteKeys,
+    SeniorHandler,
+    SignedIn,
+    TokenVerifier,
+    agent_or_handler,
+    require_agent,
+)
+from undercover_api.claims import (
+    add_step,
+    approval_limit,
+    attempts_calculation,
+    claim_history,
+    claim_in_full,
+    claims_policy,
+    find_claim,
+    find_decision,
+    keep_calculation,
+    list_claims,
+    manual_version,
+    move_claim,
+    plans,
+    policy_terms,
+    set_status,
+)
+from undercover_api.db import (
+    calculations,
+    claims,
+    decisions,
+    handlers,
+    make_engine,
+    model_calls,
+    now,
+    sent_back,
+)
+from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
+from undercover_api.logs import configure_logging, log_requests
+from undercover_api.models import (
+    Claim,
+    ClaimSummary,
+    DecisionKind,
+    DecisionRequest,
+    Handler,
+    HoldRequest,
+    ModelCallRequest,
+    NewStep,
+    PaymentRequest,
+    Payout,
+    PayoutRequest,
+    Policy,
+    PreviousClaim,
+    SendBackRequest,
+    SignIn,
+    SignInRequest,
+    StartRequest,
+    Status,
+    StepRequest,
+)
+from undercover_api.payments import pay, record_payment
+from undercover_api.payout import needs_sign_off, work_out_payout
+from undercover_api.records import check_calculation, check_request
+from undercover_api.settings import Settings, get_settings
+
+AGENT = [Depends(require_agent)]
+EITHER = [Depends(agent_or_handler)]
+
+health_router = APIRouter()
+agent_router = APIRouter(prefix="/api/agent/claims/{claim_id}", dependencies=AGENT)
+handler_router = APIRouter(prefix="/api")
+shared_router = APIRouter(prefix="/api", dependencies=EITHER)
+sign_in_router = APIRouter(prefix="/api/dev")
 
 
-@app.get("/api/health", operation_id="health")
+@health_router.get("/api/health", operation_id="health")
 def health() -> dict[str, str]:
     """Say the api is up."""
     return {"status": "ok"}
+
+
+# --- Read by the agent and handlers ---
+
+
+@shared_router.get("/claims/{claim_id}", operation_id="get_claim")
+def get_claim(claim_id: str, db: Database) -> Claim:
+    """A claim in full, with its decision, payment and any decisions sent back."""
+    return claim_in_full(db, claim_id)
+
+
+# --- The agent's, each scoped to the one claim it works on ---
+
+
+@agent_router.post("/start", operation_id="start_claim")
+def start_claim(claim_id: str, request: StartRequest, db: Database) -> Claim:
+    """Start a new attempt on a waiting claim, once."""
+    if not move_claim(
+        db,
+        claim_id,
+        Status.WAITING,
+        Status.IN_PROGRESS,
+        thread_id=request.thread_id,
+        attempts=claims.c.attempts + 1,
+    ):
+        find_claim(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} isn't waiting")
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.post("/take", operation_id="take_claim")
+def take_claim(claim_id: str, db: Database) -> Claim:
+    """Take a sent-back claim back into work, once."""
+    if not move_claim(db, claim_id, Status.SENT_BACK, Status.IN_PROGRESS):
+        find_claim(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} hasn't been sent back")
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.get("/policy", operation_id="get_policy")
+def get_policy(claim_id: str, db: Database) -> Policy:
+    """The policy the claim was made on."""
+    return claims_policy(db, claim_id)
+
+
+@agent_router.get("/history", operation_id="get_claim_history")
+def get_claim_history(claim_id: str, db: Database) -> list[PreviousClaim]:
+    """The claim's customer's earlier claims, with their outcome and amount paid."""
+    return claim_history(db, claim_id)
+
+
+@agent_router.post("/payout", operation_id="calculate_payout")
+def calculate_payout(claim_id: str, request: PayoutRequest, db: Database) -> Payout:
+    """Work out an approval's payout with UnderCover's payout rules, and keep it."""
+    claim = find_claim(db, claim_id)
+    if claim["status"] != Status.IN_PROGRESS or claim["thread_id"] is None:
+        raise HTTPException(409, f"Claim {claim_id} isn't in progress")
+    terms = policy_terms(claims_policy(db, claim_id))
+    payout = work_out_payout(terms, plans(db), request, approval_limit(db))
+    keep_calculation(db, claim_id, claim["thread_id"], payout)
+    return payout
+
+
+@agent_router.post("/decision", operation_id="record_decision")
+def record_decision(claim_id: str, request: DecisionRequest, db: Database) -> Claim:
+    """Record the claim's decision once, as claims manual section 14 asks."""
+    check_request(request)
+    claim = find_claim(db, claim_id)
+    current = find_decision(db, claim_id)
+    if current is not None:
+        if (current.decision, current.payout) == (request.decision, request.payout):
+            return claim_in_full(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} has already been decided")
+    if claim["status"] != Status.IN_PROGRESS:
+        raise HTTPException(409, f"Claim {claim_id} isn't in progress")
+    calculation = None
+    if request.decision == DecisionKind.APPROVE:
+        calculation = check_calculation(request.payout, attempts_calculation(db, claim))
+    limit = approval_limit(db)
+    db.execute(
+        insert(decisions).values(
+            claim_id=claim_id,
+            decision=request.decision,
+            payout=request.payout,
+            calculation=calculation and calculation.model_dump(),
+            section=request.section,
+            reason=request.reason,
+            decided_by=request.decided_by,
+            decided_at=now(),
+            manual_version=manual_version(db),
+            approval_limit=limit,
+        )
+    )
+    if request.decision != DecisionKind.APPROVE:
+        set_status(db, claim_id, Status.DECIDED)
+    elif needs_sign_off(request.payout, limit):
+        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.post("/payment", operation_id="pay_claim")
+def pay_claim(claim_id: str, request: PaymentRequest, db: Database) -> Claim:
+    """Pay an approved claim its payout once; never over the approval limit."""
+    if pay(db, claim_id, request.amount):
+        set_status(db, claim_id, Status.DECIDED)
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.post("/hold", operation_id="hold_payment")
+def hold_payment(claim_id: str, request: HoldRequest, db: Database) -> Claim:
+    """Hold an approval's payment for a handler's sign-off, with the reason."""
+    decision = find_decision(db, claim_id)
+    if decision is None or decision.decision != DecisionKind.APPROVE:
+        find_claim(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} has no approval to hold")
+    if not move_claim(db, claim_id, Status.IN_PROGRESS, Status.WAITING_FOR_SIGN_OFF):
+        if find_claim(db, claim_id)["status"] == Status.WAITING_FOR_SIGN_OFF:
+            return claim_in_full(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} can't be held")
+    db.execute(
+        update(decisions).where(decisions.c.claim_id == claim_id).values(hold_reason=request.reason)
+    )
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.post("/steps", operation_id="record_step", status_code=201)
+def record_step(claim_id: str, request: StepRequest, db: Database) -> dict[str, str]:
+    """Record one step of the agent's work on the claim."""
+    find_claim(db, claim_id)
+    add_step(db, claim_id, NewStep.model_validate(request.model_dump()))
+    return {"recorded": "step"}
+
+
+@agent_router.post("/model-calls", operation_id="record_model_call", status_code=201)
+def record_model_call(claim_id: str, request: ModelCallRequest, db: Database) -> dict[str, str]:
+    """Record one model call's tokens and cost on the claim."""
+    find_claim(db, claim_id)
+    db.execute(
+        insert(model_calls).values(claim_id=claim_id, created_at=now(), **request.model_dump())
+    )
+    return {"recorded": "model call"}
+
+
+# --- Handlers' ---
+
+
+@handler_router.get("/me", operation_id="get_signed_in_handler")
+def me(handler: SignedIn) -> Handler:
+    """The handler signed in."""
+    return handler
+
+
+@handler_router.get("/claims", operation_id="list_claims")
+def get_claims(_: SignedIn, db: Database) -> list[ClaimSummary]:
+    """The queue, oldest submitted first, with where each claim stands."""
+    return list_claims(db)
+
+
+def held(db: Database, claim_id: str, end: Status) -> Any:
+    """The held decision on a claim being moved on from waiting for sign-off."""
+    if not move_claim(db, claim_id, Status.WAITING_FOR_SIGN_OFF, end):
+        find_claim(db, claim_id)
+        raise HTTPException(409, f"Claim {claim_id} isn't waiting for sign-off")
+    decision = find_decision(db, claim_id)
+    if decision is None:
+        raise HTTPException(409, f"Claim {claim_id} has no decision")
+    return decision
+
+
+@handler_router.post("/claims/{claim_id}/sign-off", operation_id="sign_off_claim")
+def sign_off_claim(claim_id: str, handler: SeniorHandler, db: Database) -> Claim:
+    """Sign off a held payout as the handler signed in, which pays it."""
+    decision = held(db, claim_id, Status.DECIDED)
+    db.execute(
+        update(decisions)
+        .where(decisions.c.claim_id == claim_id)
+        .values(signed_off_by=handler.name, signed_off_at=now())
+    )
+    record_payment(db, claim_id, decision.payout, signed_off_by=handler.name)
+    return claim_in_full(db, claim_id)
+
+
+@handler_router.post("/claims/{claim_id}/send-back", operation_id="send_back_claim")
+def send_back_claim(
+    claim_id: str, request: SendBackRequest, handler: SeniorHandler, db: Database
+) -> Claim:
+    """Send a held decision back to the agent with a note, as the handler signed in."""
+    decision = held(db, claim_id, Status.SENT_BACK)
+    db.execute(
+        insert(sent_back).values(
+            claim_id=claim_id,
+            decision=decision.model_dump(mode="json"),
+            note=request.note,
+            sent_back_by=handler.name,
+            sent_back_at=now(),
+        )
+    )
+    db.execute(delete(decisions).where(decisions.c.claim_id == claim_id))
+    db.execute(delete(calculations).where(calculations.c.claim_id == claim_id))
+    thread_id = find_claim(db, claim_id)["thread_id"]
+    add_step(
+        db,
+        claim_id,
+        NewStep(
+            thread_id=thread_id,
+            kind="sent_back",
+            content=f"{handler.name}: {request.note}",
+            sources=[],
+        ),
+    )
+    return claim_in_full(db, claim_id)
+
+
+# --- The local sign-in stand-in ---
+
+
+@sign_in_router.post("/sign-in", operation_id="sign_in")
+def sign_in(request: Request, body: SignInRequest, db: Database) -> SignIn:
+    """Sign a seeded handler in with the shared local password; local only."""
+    settings: Settings = request.app.state.settings
+    issuer: LocalIssuer = request.app.state.issuer
+    password = settings.handler_password.get_secret_value() if settings.handler_password else ""
+    known = db.execute(
+        select(handlers.c.email).where(handlers.c.email == body.email.lower())
+    ).scalar_one_or_none()
+    right = secrets.compare_digest(body.password.encode(), password.encode())
+    if known is None or not right:
+        raise HTTPException(401, "The email or password is wrong")
+    return SignIn(id_token=issuer.issue(known), expires_in=TOKEN_LIFETIME)
+
+
+@sign_in_router.get("/.well-known/jwks.json", operation_id="get_jwks")
+def jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
+    """The stand-in's public signing keys, at the path Cognito uses."""
+    issuer: LocalIssuer = request.app.state.issuer
+    return issuer.jwks()
+
+
+def create_app(
+    settings: Annotated[Settings | None, "Read from the environment when not given"] = None,
+    engine: Engine | None = None,
+) -> FastAPI:
+    """Build the api for the settings and database given, or those in the environment."""
+    configure_logging()
+    settings = settings or get_settings()
+    database = engine or make_engine(settings.database_url)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+        yield
+        database.dispose()
+
+    app = FastAPI(title="UnderCover api", lifespan=lifespan)
+    app.state.settings = settings
+    app.state.engine = database
+    if settings.local_sign_in:
+        app.state.issuer = LocalIssuer(settings.token_issuer, settings.token_audience)
+        app.state.verifier = TokenVerifier(
+            LocalKeys(app.state.issuer), settings.token_issuer, settings.token_audience
+        )
+        app.include_router(sign_in_router)
+    else:
+        app.state.verifier = TokenVerifier(
+            RemoteKeys(settings.token_issuer), settings.token_issuer, settings.token_audience
+        )
+    app.middleware("http")(log_requests)
+    for router in (health_router, shared_router, agent_router, handler_router):
+        app.include_router(router)
+    return app

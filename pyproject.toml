@@ -39,7 +39,7 @@ known-first-party = ["undercover_api", "undercover_agent", "undercover_context"]
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-"apps/*/tests/*" = ["S101", "PLR2004"]
+"apps/*/tests/*" = ["S101", "S105", "S106", "PLR0913", "PLR0917", "PLR2004"]
 
 [tool.pyright]
 include = ["apps/api", "apps/agent", "apps/context"]
@@ -51,6 +51,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["apps/api/tests", "apps/agent/tests", "apps/context/tests"]
+pythonpath = ["apps/api/tests"]
 addopts = "--import-mode=importlib --cov --cov-report=term-missing"
 
 [tool.coverage.run]

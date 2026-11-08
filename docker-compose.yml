@@ -23,6 +23,9 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       ENVIRONMENT: ${ENVIRONMENT:-local}
+      UNDERCOVER_API_KEY: ${UNDERCOVER_API_KEY:?set it in .env}
+      LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
+      HANDLER_PASSWORD: ${HANDLER_PASSWORD:-}
     depends_on:
       postgres: { condition: service_healthy }
     ports:
