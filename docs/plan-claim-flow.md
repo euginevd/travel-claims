@@ -15,13 +15,25 @@ The first working slice of UnderCover on a laptop: a handler signs in, the agent
 
 ### How a claim is worked
 
-1. A handler presses **Work this claim** (or `uv run -m agent work <id>`). The `api` marks it in progress and calls the agent's `/work` with the agent's key.
+1. A handler presses **Work this claim** (or `uv run -m agent work <id>`). The `api` marks it in progress, commits, and calls the agent's `/work` with the agent's key (contract below).
 2. **Screen:** Claude Haiku reads the claim as the agent would and answers `{instructions_found, reason}` through structured output (`messages.parse`). A flagged claim is referred to a handler with the reason; the claim agent's model never sees it.
 3. **Decide:** a LangGraph `StateGraph` loop: Claude Sonnet with the tools `get_claim`, `get_policy`, `get_claim_history`, `calculate_payout`, `record_decision` and the context lookups. The tools take the claim, policy and customer from the graph's context, never from the model. Each step (tool call, lookup with sources, reply, refusal) is recorded on the claim.
 4. **Record:** the `api` checks the record against claims manual section 14 and refuses what falls short, with what's missing. An approval's payout must equal the calculation on file for that attempt.
 5. **Pay or hold:** code, not the model, calls `pay_claim`. The payments module refuses any amount over the approval limit before it reads the claim, and pays each claim at most once (unique payment per claim and attempt). Over the limit, the graph pauses with `interrupt()`.
-6. **Sign off or send back:** a handler who can sign off over the limit either signs off (which pays) or sends back with a note up to 1,000 characters. The `api` calls the agent's `/resume`, and the agent decides again with the note as a senior handler's review.
+6. **Sign off or send back:** a handler who can sign off over the limit either signs off (which pays) or sends back with a note up to 1,000 characters. The `api` calls the agent's `/resume`, and after a send-back the agent decides again with the note as a senior handler's review.
 7. Progress is saved after every step with LangGraph's `PostgresSaver`, so a restart carries on without deciding or paying twice.
+
+### The agent's service contract
+
+The `api` hands work to the agent over HTTP; `apps/api/src/undercover_api/agent_service.py` is the one definition, and the agent implements exactly this:
+
+- `POST {AGENT_URL}/work` with `{"claim_id": "CLM-1001", "thread_id": "<hex>"}`: start a new attempt on the claim, on that thread.
+- `POST {AGENT_URL}/resume` with `{"claim_id": "CLM-1001", "thread_id": "<hex>", "outcome": "signed_off" | "sent_back"}`: carry the paused graph on. `signed_off`: the payment is made; finish and record the last step. `sent_back`: read the handler's note (the latest `sent_back` step and `sent_back_decisions` on the claim) and decide again.
+- Both carry the agent's key in `X-API-Key`; the agent refuses anything without it. The `api` waits at most 10 seconds.
+- The agent answers at once and works in the background: `202 {"accepted": true}`, or `409 {"refused": "<why>"}` when it won't take the work (for example, already working that claim).
+- The `api` has already moved the claim (`waiting` → `in_progress` for `/work`; `sent_back` → `in_progress` for a sent-back `/resume`) and committed before it asks, so the agent never calls `/start` or `/take` for work the `api` handed it; those stay for `uv run -m agent work <id>`.
+- If the agent can't be reached or refuses, `/work` undoes the move and answers the handler 503 (unreachable) or 502 (refused); a send-back leaves the claim `sent_back` for **Work this claim** to retry; a sign-off stays paid, and the failure is logged.
+- The agent's decisions send `"maker": "claim_agent"` or `"hidden_instruction_check"`; the `api` names the maker on the record (`UnderCover Agent v<AGENT_VERSION>` or `Hidden-instruction check`) and the check may only refer.
 
 ### Claude
 
@@ -81,7 +93,7 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 5. The dashboard
 
-- [ ] Sign-in, queue, claim page, sign-off and send-back, with component tests and an accessibility check.
+- [x] Sign-in, queue, claim page, sign-off and send-back, with component tests; responses checked with zod against the api's real responses (`src/fixtures/`). An automated accessibility check is still to add.
 - [ ] Playwright end to end against the stack with a stub model: sign in, work a claim, sign off.
 
 ### 6. Live check
