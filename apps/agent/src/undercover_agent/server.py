@@ -83,6 +83,7 @@ def draft_content(request: DraftRequest) -> list[dict[str, object]]:
         f"Today is {request.today}. The customer's trip: {trip.destination}, "
         f"{trip.departs_on} to {trip.returns_on}.\n"
         f"What happened, as they picked it: {picked(request.case)}.\n"
+        # nosemgrep: raw-html-format - markers around data for the model, not HTML
         f"In their words, between the markers:\n<customer_words>\n{request.text}\n"
         "</customer_words>"
     )

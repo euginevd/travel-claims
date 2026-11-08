@@ -44,12 +44,13 @@ export function previewOf(source: string, steps: Step[]): string {
     const file = section[1]?.toLowerCase().startsWith("policy")
       ? "policy_wording"
       : "claims_manual";
-    const number = new RegExp(`"number":\\s*${section[2] ?? ""}\\b`);
+    const wanted = section[2] ?? "";
+    const numberOf = (content: string) => /"number":\s*(\d+)/.exec(content)?.[1];
     const found = steps.find(
       (step) =>
         step.kind === "lookup" &&
         step.sources.some((s) => s.file.startsWith(file)) &&
-        number.test(step.content),
+        numberOf(step.content) === wanted,
     );
     if (found) return found.content.slice(0, 280);
     return `${source}: the agent didn't record reading it.`;

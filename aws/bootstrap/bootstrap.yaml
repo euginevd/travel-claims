@@ -1,3 +1,9 @@
+# Once per AWS account (dev, then prod), by a person, never the agent: the apply environment is the deploy gate.
+# 1. CloudFormation: deploy this file as stack <ProjectName>-bootstrap.
+# 2. GitHub environments: aws-<Target>-plan, and aws-<Target>-apply with a required reviewer, main only.
+# 3. GitHub variables: PROJECT_NAME on the repo; this stack's outputs on the environments (see Outputs).
+# Deploy: a merge to main applies to dev after approval; prod is a manual run of the aws workflow.
+# Cleanup: run the aws workflow with destroy for each target, empty the state bucket, delete this stack and the environments.
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   Bootstrap for a project from sdlc-template: everything in the AWS account that Terraform
@@ -47,7 +53,7 @@ Resources:
       checkov:
         skip:
           - id: CKV_AWS_18
-            comment: Versioning and CloudTrail cover state changes; access logs would need a second bucket
+            comment: Versioning keeps every state change; access logs would need a second bucket. Turn on CloudTrail S3 data events if audits need who made each change
     Properties:
       BucketName: !Sub '${ProjectName}-tfstate-${AWS::AccountId}'
       VersioningConfiguration:
@@ -310,13 +316,13 @@ Outputs:
     Value: !Ref ProjectBoundary
 
   StateBucketName:
-    Description: GitHub repository variable TF_STATE_BUCKET
+    Description: TF_STATE_BUCKET on both GitHub environments
     Value: !Ref StateBucket
 
-  RoleArn:
-    Description: GitHub repository variable AWS_DEPLOY_ROLE_ARN
+  DeployRoleArn:
+    Description: AWS_DEPLOY_ROLE_ARN on the aws-<target>-apply environment
     Value: !GetAtt DeployRole.Arn
 
   PlanRoleArn:
-    Description: GitHub repository variable AWS_PLAN_ROLE_ARN
+    Description: AWS_PLAN_ROLE_ARN on the aws-<target>-plan environment
     Value: !GetAtt PlanRole.Arn

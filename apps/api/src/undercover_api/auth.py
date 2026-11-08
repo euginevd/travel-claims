@@ -77,6 +77,7 @@ class TokenVerifier:
                 options={"require": ["exp", "iat", "iss", "aud", "sub"]},
             )
         except jwt.PyJWTError as error:
+            # nosemgrep: python-logger-credential-disclosure - logs the error class name only
             log.info("token refused: %s", type(error).__name__)
             raise NOT_SIGNED_IN from error
         if (

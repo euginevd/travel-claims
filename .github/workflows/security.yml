@@ -1,11 +1,15 @@
 name: security
 
-# Re-runs the pre-push scan on every PR and on main, because a hook can be skipped with --no-verify.
+# The pre-push scan again on every PR and main (a hook can be skipped), plus Checkov and Semgrep.
 # Tools run from pinned container images, so no third-party action code runs in the pipeline.
+# Each scan marks its findings on the PR's changed lines; the report job posts one summary comment.
 on:
   pull_request:
   push:
     branches: [main]
+  # Operate: re-scan main weekly (early Monday, Sydney time), so a vulnerability published after merge still fails a run.
+  schedule:
+    - cron: "0 20 * * 0"
 
 permissions:
   contents: read
@@ -13,25 +17,128 @@ permissions:
 jobs:
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Gitleaks, full history
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner --exit-code 1
+        run: |
+          mkdir summary; code=0
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /repo --redact --no-banner --exit-code 1 --report-format json --report-path /repo/gitleaks.json || code=$?
+          python3 scripts/security-report.py parse gitleaks gitleaks.json summary/gitleaks.json
+          exit $code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: security-gitleaks
+          path: summary/
 
   packages-and-iac:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Trivy, vulnerable packages and IaC
         run: |
-          docker run --rm -v "$PWD:/repo" aquasec/trivy:0.76.2 fs /repo \
-            --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          mkdir summary; code=0
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb fs /repo --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format json --output /repo/trivy.json || code=$?
+          python3 scripts/security-report.py parse trivy trivy.json summary/trivy.json
+          exit $code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: security-trivy
+          path: summary/
 
   terraform:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Checkov, Terraform and CloudFormation
-        run: docker run --rm -v "$PWD:/repo" bridgecrew/checkov:3.4.3 -d /repo/aws --quiet --compact
+        run: |
+          mkdir summary; code=0
+          docker run --rm -v "$PWD:/repo" bridgecrew/checkov:3.4.3@sha256:bfe9d70bb7f044aba49bd99675813445f106dee6072da583f51008cb667f3a63 -d /repo/aws --quiet --compact -o cli -o json --output-file-path console,/repo/checkov.json || code=$?
+          python3 scripts/security-report.py parse checkov checkov.json summary/checkov.json
+          exit $code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: security-checkov
+          path: summary/
+
+  code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # aws/ is left to Checkov and Trivy, so the same finding isn't reported twice.
+      - name: Semgrep, static analysis of the code
+        run: |
+          mkdir summary; code=0
+          docker run --rm -v "$PWD:/src" semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6 semgrep scan /src --config p/default --exclude aws --error --metrics off --json-output /src/semgrep.json || code=$?
+          python3 scripts/security-report.py parse semgrep semgrep.json summary/semgrep.json
+          exit $code
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: security-semgrep
+          path: summary/
+
+  # Build: a list of every package in the code (SBOM, CycloneDX), kept 90 days for each change to main.
+  sbom:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Trivy, SBOM
+        run: docker run --rm -v "$PWD:/repo" aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb fs /repo --format cyclonedx --output /repo/sbom.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+
+  report:
+    if: always() && github.event_name == 'pull_request'
+    needs: [secrets, packages-and-iac, terraform, code]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: security-*
+          path: summary
+          merge-multiple: true
+      - name: Post the summary on the PR, updating it on each push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 scripts/security-report.py comment summary "$SHA" > comment.md
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- security-report -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi

@@ -8,7 +8,7 @@ from where it got to, and a held payout waits with interrupt() until the api res
 """
 
 import operator
-from importlib.resources import files
+from importlib.resources import files  # nosemgrep: python37-compatibility-importlib2 - Python 3.14
 from typing import Annotated, Any, Literal, TypedDict, cast
 
 from anthropic.types import Message

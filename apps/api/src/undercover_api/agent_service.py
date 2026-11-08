@@ -68,6 +68,8 @@ class HttpAgentService:
     """The agent's service over HTTP, at its url, with the agent's key."""
 
     def __init__(self, url: str, key: str) -> None:
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("The agent's address must be an http or https URL")
         self._url = url.rstrip("/")
         self._key = key
 
@@ -105,6 +107,7 @@ class HttpAgentService:
             raise AgentRefusedError("The agent didn't take the work")
 
     def _post(self, path: str, body: dict[str, object], timeout: float) -> object:
+        # nosemgrep: dynamic-urllib-use-detected - the url is our own http(s) setting
         request = urllib.request.Request(  # noqa: S310 - the url is our own setting
             f"{self._url}{path}",
             data=json.dumps(body).encode(),
@@ -112,6 +115,7 @@ class HttpAgentService:
             method="POST",
         )
         try:
+            # nosemgrep: dynamic-urllib-use-detected - checked as http(s) when it was set
             with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
                 return json.loads(response.read() or b"{}")
         except urllib.error.HTTPError as error:
