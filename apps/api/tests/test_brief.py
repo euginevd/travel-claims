@@ -224,6 +224,18 @@ def test_the_test_buttons_sign_in_only_the_fixed_accounts(client: TestClient) ->
     assert other.status_code == 404
 
 
+def test_the_red_team_signs_in_as_its_own_customer_only(client: TestClient) -> None:
+    attacker = client.post("/api/customer/dev/redteam-sign-in", json={"account": "attacker"})
+    assert attacker.status_code == 200
+    headers = {"Authorization": f"Bearer {attacker.json()['id_token']}"}
+    assert client.get("/api/customer/profile", headers=headers).json()["name"] == "Derek Vance"
+    # The portal's test button can't become the attacker, and the red team can't become Oliver.
+    body = {"account": "attacker"}
+    assert client.post("/api/customer/dev/test-sign-in", json=body).status_code == 404
+    body = {"account": "customer"}
+    assert client.post("/api/customer/dev/redteam-sign-in", json=body).status_code == 404
+
+
 def test_the_test_buttons_dont_exist_without_local_sign_in(database_url: str) -> None:
     settings = make_settings(
         database_url,

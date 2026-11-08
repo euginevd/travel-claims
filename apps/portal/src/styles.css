@@ -2192,6 +2192,11 @@ a.claim-card,
   }
 }
 
+/* The line into the step happening now is complete too: everything before it is done. */
+.tracker-stage.active::before {
+  background: var(--navy, var(--ink));
+}
+
 /* "Where?" suggestions: a list under the field, one airport per row. */
 .place-input {
   position: relative;

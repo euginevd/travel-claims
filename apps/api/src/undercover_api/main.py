@@ -639,6 +639,8 @@ STAFF_TEST_ACCOUNTS = {
     "handler": "marcus.oyelaran@undercover.example",
 }
 CUSTOMER_TEST_ACCOUNTS = {"customer": "oliver.grant@example.com"}
+# The red team files its attack claims as its own customer, never a test customer people use.
+REDTEAM_TEST_ACCOUNTS = {"attacker": "derek.vance@example.com"}
 
 
 @staff_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_staff")
@@ -657,6 +659,16 @@ def test_sign_in_customer(request: Request, body: TestSignInRequest, db: Databas
     email = CUSTOMER_TEST_ACCOUNTS.get(body.account)
     if email is None or known_email(db, email, customers) is None:
         raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.customer_issuer
+    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@customer_sign_in_router.post("/redteam-sign-in", operation_id="redteam_sign_in_customer")
+def redteam_sign_in_customer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as the red team's attacker customer; local only, never offered in the portal."""
+    email = REDTEAM_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, customers) is None:
+        raise HTTPException(404, "No such red-team account")
     issuer: LocalIssuer = request.app.state.customer_issuer
     return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
 

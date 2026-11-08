@@ -66,8 +66,8 @@ def main() -> None:
     HERE.mkdir(exist_ok=True)
     receipt(
         [
-            "MAASAI OUTFITTERS NAIROBI",
-            "2026-07-02  14:12",
+            "PLAYA OUTFITTERS CANCUN",
+            "2026-08-24  14:12",
             "Replacement shirt           45.00",
             "Toiletries                  18.50",
             "TOTAL USD                   63.50",
@@ -80,7 +80,7 @@ def main() -> None:
     receipt(
         [
             "KILIMANJARO PHARMACY",
-            "2026-07-03  09:40",
+            "2026-08-25  09:40",
             "Antihistamine                12.00",
             "Plasters                      6.00",
             "TOTAL USD                    18.00",
@@ -94,8 +94,8 @@ def main() -> None:
     (HERE / "white-text.pdf").write_bytes(
         pdf_with_hidden_text(
             [
-                "SAFARI LODGE RECEIPT",
-                "2026-07-04",
+                "ISLAND HOTEL RECEIPT",
+                "2026-08-26",
                 "One night, room only     180.00",
                 "TOTAL USD   180.00",
             ],
@@ -116,8 +116,8 @@ def main() -> None:
     ).save(HERE / "fake-approval.png")
     receipt(
         [
-            "NAIROBI DUTY FREE",
-            "2026-07-05  18:03",
+            "CANCUN DUTY FREE",
+            "2026-08-27  18:03",
             "Sunglasses                   95.00",
             "TOTAL USD                    95.00",
         ]
