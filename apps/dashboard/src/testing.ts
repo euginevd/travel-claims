@@ -128,6 +128,7 @@ export function claim(overrides: Partial<Claim> = {}): Claim {
     stages: { received: "2026-06-24", checked: null, assessed: null, decided: null, paid: null },
     review_requested_at: null,
     review_note: null,
+    requests: [],
     ...overrides,
   };
 }

@@ -520,3 +520,231 @@ textarea {
 .il-palm-leaf {
   fill: #2f8f5b;
 }
+
+/* Cards above and below the claims: a flight delay to claim, a claim to finish, payouts. */
+.offer-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.offer-card,
+.payout-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 12px;
+}
+
+.offer-list .offer-card {
+  margin: 0;
+  border-left: 4px solid var(--sky);
+  background: linear-gradient(90deg, var(--sky-tint), var(--bg-2) 60%);
+}
+
+.resume-card {
+  border-left: 4px solid var(--warn);
+}
+
+.payout-card {
+  margin-top: 24px;
+}
+
+.offer-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--sky-tint);
+  color: var(--sky-strong);
+}
+
+.offer-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.offer-main p {
+  margin: 4px 0 0;
+}
+
+.offer-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payid-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.payid-row {
+  display: flex;
+  gap: 8px;
+}
+
+.payid-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.small-button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+/* What we need from the customer on a claim */
+.needs-panel.has-open {
+  border-left: 4px solid var(--warn);
+  background: linear-gradient(90deg, var(--warn-tint), var(--bg-2) 55%);
+}
+
+.needs-panel h2 {
+  margin: 0 0 4px;
+}
+
+.needs-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.need-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+}
+
+.need-row .need-icon {
+  flex: none;
+  color: var(--warn);
+}
+
+.need-row.done .need-icon {
+  color: var(--good);
+}
+
+.need-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.need-main p {
+  margin: 0;
+}
+
+.need-text {
+  font-weight: 600;
+}
+
+.need-row label.button {
+  cursor: pointer;
+}
+
+.need-row input[type="file"]:focus-visible + label {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.needs-line .status-dot {
+  background: var(--warn);
+}
+
+.needs-line {
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* Updates: the emails and texts we sent */
+.notice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.notice-item {
+  margin: 0;
+}
+
+.notice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.notice-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sky-strong);
+}
+
+.channel-sms .notice-channel {
+  color: var(--good);
+}
+
+.notice-subject {
+  margin: 6px 0 4px;
+  font-size: 1.05rem;
+}
+
+.notice-body {
+  margin: 0 0 8px;
+  white-space: pre-line;
+}
+
+.resume-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved-line {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 640px) {
+  .offer-card,
+  .payout-card {
+    flex-wrap: wrap;
+  }
+
+  .offer-card > .button,
+  .offer-actions {
+    width: 100%;
+  }
+
+  .offer-card > .button {
+    justify-content: center;
+  }
+
+  .need-row {
+    flex-wrap: wrap;
+  }
+}

@@ -13,7 +13,7 @@ import {
   MessageCircleQuestion,
 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { ApiError, type Api, type CaseChip, type Draft, type Policy } from "../api";
+import { ApiError, caseChips, type Api, type CaseChip, type Draft, type Policy } from "../api";
 import { DayPicker } from "../components/DayPicker";
 import { ReceiptPicker } from "../components/ReceiptPicker";
 import { date, dollars } from "../format";
@@ -187,14 +187,36 @@ export function NewClaimPage({ api }: { api: Api }) {
   const [unsure, setUnsure] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Whether a saved claim has been looked for (and put back), so autosave can start.
+  const [ready, setReady] = useState(false);
+  const [resumed, setResumed] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
-    api.myPolicies().then(
-      (found) => {
+    Promise.all([api.myPolicies(), api.myDraft().catch(() => null)]).then(
+      ([found, saved]) => {
         if (!live) return;
         setPolicies(found);
-        if (found[0]) setPolicyId(found[0].policy_id);
+        const draft = saved?.draft;
+        const known = found.some((p) => p.policy_id === draft?.policy_id);
+        if (draft && known) {
+          setPolicyId(draft.policy_id);
+          setChip(isChip(draft.case) ? draft.case : "");
+          setWords(draft.text);
+          setClaimType(draft.claim_type);
+          setSummary(draft.summary);
+          setStory(draft.story);
+          setIncidentDate(draft.incident_date);
+          setLocation(draft.incident_location);
+          setLines(draft.items.map((item) => ({ ...item, source: "" })));
+          setStep(draft.step === "check" && !isChip(draft.case) ? "what" : draft.step);
+          setResumed(true);
+          setSavedAt(saved.updated_at);
+        } else if (found[0]) {
+          setPolicyId(found[0].policy_id);
+        }
+        setReady(true);
       },
       (caught: unknown) => {
         if (live) setLoadError(caught instanceof Error ? caught.message : String(caught));
@@ -204,6 +226,73 @@ export function NewClaimPage({ api }: { api: Api }) {
       live = false;
     };
   }, [api]);
+
+  // Keep the claim as it's filled in, a moment after each change, so it can be finished later.
+  useEffect(() => {
+    if (!ready || busy) return;
+    if (!chip && !words.trim() && !summary.trim()) return;
+    const timer = window.setTimeout(() => {
+      api
+        .saveDraft({
+          policy_id: policyId,
+          case: chip,
+          text: words.slice(0, 1000),
+          claim_type: claimType,
+          summary: summary.slice(0, 200),
+          story: story.slice(0, 4000),
+          incident_date: incidentDate,
+          incident_location: location.slice(0, 200),
+          items: lines.slice(0, 20).map((line) => ({
+            description: line.description.slice(0, 200),
+            category: line.category,
+            amount: line.amount.slice(0, 20),
+          })),
+          step: drafting ? "receipts" : step,
+        })
+        .then(
+          (saved) => {
+            setSavedAt(saved.updated_at);
+          },
+          () => {
+            // Saving is a convenience; the claim can still be sent.
+          },
+        );
+    }, 800);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    api,
+    ready,
+    busy,
+    policyId,
+    chip,
+    words,
+    claimType,
+    summary,
+    story,
+    incidentDate,
+    location,
+    lines,
+    step,
+    drafting,
+  ]);
+
+  function startOver() {
+    void api.discardDraft().catch(() => undefined);
+    setChip("");
+    setWords("");
+    setClaimType("");
+    setSummary("");
+    setStory("");
+    setIncidentDate("");
+    setLocation("");
+    setLines([]);
+    setFiles([]);
+    setStep("what");
+    setResumed(false);
+    setSavedAt(null);
+  }
 
   const policy = policies?.find((p) => p.policy_id === policyId);
   const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
@@ -330,6 +419,20 @@ export function NewClaimPage({ api }: { api: Api }) {
       {loadError && (
         <p className="error" role="alert">
           We couldn&apos;t load your policies: {loadError}
+        </p>
+      )}
+      {resumed && (
+        <p className="notice resume-note" role="status">
+          We kept what you&apos;d filled in
+          {step !== "what" ? ". Add your receipts again, as they aren't saved" : ""}.
+          <button type="button" className="link-button" onClick={startOver}>
+            Start over
+          </button>
+        </p>
+      )}
+      {savedAt && !resumed && (
+        <p className="small muted saved-line" aria-live="polite">
+          Saved. You can finish this later.
         </p>
       )}
 
@@ -723,4 +826,8 @@ export function NewClaimPage({ api }: { api: Api }) {
       )}
     </section>
   );
+}
+
+function isChip(value: string): value is CaseChip {
+  return (caseChips as readonly string[]).includes(value);
 }

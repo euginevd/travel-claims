@@ -31,6 +31,7 @@ export const MY_SUMMARY: CustomerClaimSummary = {
   submitted_on: "2026-06-24",
   status: "received",
   status_text: "Received. We'll start looking at it shortly.",
+  open_requests: 0,
 };
 
 export function myClaim(overrides: Partial<CustomerClaim> = {}): CustomerClaim {
@@ -44,7 +45,9 @@ export function myClaim(overrides: Partial<CustomerClaim> = {}): CustomerClaim {
     reason: null,
     paid: null,
     paid_at: null,
+    paid_to: null,
     receipts: [],
+    requests: [],
     can_add_receipts: true,
     review_requested: false,
     can_request_review: false,

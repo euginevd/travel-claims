@@ -9,6 +9,7 @@ from sqlalchemy import Connection, RowMapping, delete, func, insert, select, upd
 from undercover_api.db import (
     calculations,
     claims,
+    customer_requests,
     customers,
     decisions,
     now,
@@ -26,6 +27,7 @@ from undercover_api.models import (
     ClaimRef,
     ClaimSummary,
     CustomerMatch,
+    CustomerRequest,
     Decision,
     NewStep,
     Payment,
@@ -39,6 +41,7 @@ from undercover_api.models import (
     Status,
     Step,
 )
+from undercover_api.notices import announce, announce_requests
 from undercover_api.payout import PolicyTerms
 
 APPROVAL_LIMIT = "approval_limit"
@@ -66,11 +69,14 @@ def move_claim(db: Connection, claim_id: str, start: Status, end: Status, **valu
         .where(claims.c.claim_id == claim_id, claims.c.status == start)
         .values(status=end, **values)
     )
+    if moved.rowcount == 1:
+        announce(db, find_claim(db, claim_id))
     return moved.rowcount == 1
 
 
 def set_status(db: Connection, claim_id: str, status: Status) -> None:
     db.execute(update(claims).where(claims.c.claim_id == claim_id).values(status=status))
+    announce(db, find_claim(db, claim_id))
 
 
 def customer_name(db: Connection, customer_id: str) -> str:
@@ -111,6 +117,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "payment": payment,
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
+            "requests": list_requests(db, claim_id),
             "stages": stages(db, row, decision, payment),
             "evaluation": row["source"] == "evaluation",
         }
@@ -291,3 +298,38 @@ def list_receipts(db: Connection, claim_id: str) -> list[Receipt]:
         select(receipts).where(receipts.c.claim_id == claim_id).order_by(receipts.c.uploaded_at)
     ).mappings()
     return [Receipt.model_validate(dict(r)) for r in rows]
+
+
+MAX_REQUESTS = 5
+
+
+def list_requests(db: Connection, claim_id: str) -> list[CustomerRequest]:
+    """What we asked the claim's customer for, oldest first, with how many files each has."""
+    rows = db.execute(
+        select(customer_requests)
+        .where(customer_requests.c.claim_id == claim_id)
+        .order_by(customer_requests.c.request_id)
+    ).mappings()
+    found: list[CustomerRequest] = []
+    for r in rows:
+        files = db.execute(
+            select(func.count())
+            .select_from(receipts)
+            .where(receipts.c.claim_id == claim_id, receipts.c.request_id == r["request_id"])
+        ).scalar_one()
+        found.append(CustomerRequest.model_validate(dict(r) | {"files": files}))
+    return found
+
+
+def add_requests(db: Connection, claim_id: str, texts: list[str], asked_by: str) -> None:
+    """Ask the claim's customer for each thing, and tell them by email and text."""
+    texts = texts[:MAX_REQUESTS]
+    if not texts:
+        return
+    for text in texts:
+        db.execute(
+            insert(customer_requests).values(
+                claim_id=claim_id, text=text, asked_by=asked_by, asked_at=now()
+            )
+        )
+    announce_requests(db, find_claim(db, claim_id), texts)

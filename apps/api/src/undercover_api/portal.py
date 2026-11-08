@@ -8,15 +8,22 @@ from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import Path as FastPath
 from fastapi.responses import Response
 from pydantic import ValidationError
-from sqlalchemy import Connection, RowMapping, func, insert, select, update
+from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedIn, SignedInCustomer, require_agent
-from undercover_api.claims import find_claim, find_decision, find_payment, list_receipts
-from undercover_api.db import claims, now, policies, receipts
+from undercover_api.claims import (
+    find_claim,
+    find_decision,
+    find_payment,
+    list_receipts,
+    list_requests,
+)
+from undercover_api.db import claim_drafts, claims, customer_requests, now, policies, receipts
 from undercover_api.fingerprints import NEAR, distance, exact, perceptual
 from undercover_api.models import (
     AgentReceipt,
@@ -36,6 +43,7 @@ from undercover_api.models import (
     ReviewRequest,
     Status,
 )
+from undercover_api.notices import announce
 from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, ReceiptStore, sniff
 
 log = logging.getLogger(__name__)
@@ -116,6 +124,14 @@ def summary_of(db: Connection, row: RowMapping) -> CustomerClaimSummary:
         submitted_on=row["submitted_on"],
         status=status,
         status_text=STATUS_TEXT[status],
+        open_requests=db.execute(
+            select(func.count())
+            .select_from(customer_requests)
+            .where(
+                customer_requests.c.claim_id == row["claim_id"],
+                customer_requests.c.fulfilled_at.is_(None),
+            )
+        ).scalar_one(),
     )
 
 
@@ -129,6 +145,8 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
     if decision is not None:
         reason = REFERRED_REASON if decision.decision == DecisionKind.REFER else decision.reason
     found = list_receipts(db, row["claim_id"])
+    sent_for_requests = request_files(db, row["claim_id"])
+    general = [r for r in found if r.receipt_id not in sent_for_requests]
     return CustomerClaim(
         **summary.model_dump(),
         incident_date=row["incident_date"],
@@ -139,8 +157,10 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
         reason=reason,
         paid=payment.amount if payment else None,
         paid_at=payment.paid_at if payment else None,
-        receipts=found,
-        can_add_receipts=row["status"] == Status.WAITING and len(found) < MAX_RECEIPTS,
+        paid_to=payment.paid_to if payment else None,
+        receipts=general,
+        requests=list_requests(db, row["claim_id"]),
+        can_add_receipts=row["status"] == Status.WAITING and len(general) < MAX_RECEIPTS,
         review_requested=row["review_requested_at"] is not None,
         can_request_review=row["status"] == Status.DECIDED and row["review_requested_at"] is None,
     )
@@ -247,7 +267,10 @@ def make_claim(body: NewClaimRequest, customer: SignedInCustomer, db: Database) 
                 db.execute(insert(claims).values(claim_id=claim_id, **values))
         except IntegrityError:
             continue
-        return claim_for_customer(db, own_claim(db, customer, claim_id))
+        db.execute(delete(claim_drafts).where(claim_drafts.c.customer_id == customer.customer_id))
+        row = own_claim(db, customer, claim_id)
+        announce(db, row)
+        return claim_for_customer(db, row)
     raise HTTPException(503, "Couldn't number the claim; please try again")
 
 
@@ -275,10 +298,24 @@ async def add_receipts(
     if row["status"] != Status.WAITING:
         raise HTTPException(409, "Receipts can be added only before we start on the claim")
     held = db.execute(
-        select(func.count()).select_from(receipts).where(receipts.c.claim_id == claim_id)
+        select(func.count())
+        .select_from(receipts)
+        .where(receipts.c.claim_id == claim_id, receipts.c.request_id.is_(None))
     ).scalar_one()
     if not files or held + len(files) > MAX_RECEIPTS:
         raise HTTPException(422, f"A claim can have up to {MAX_RECEIPTS} receipts")
+    await save_files(db, receipt_store, claim_id, files)
+    return claim_for_customer(db, row)
+
+
+async def save_files(
+    db: Connection,
+    receipt_store: ReceiptStore,
+    claim_id: str,
+    files: list[UploadFile],
+    request_id: int | None = None,
+) -> None:
+    """Check every file is a JPEG, PNG or PDF of 5 MB or less, then keep them all."""
     checked: list[tuple[bytes, str]] = []
     for upload in files:
         content = await read_limited(upload)
@@ -296,9 +333,67 @@ async def add_receipts(
                 uploaded_at=now(),
                 sha256=exact(content),
                 phash=perceptual(content, media_type),
+                request_id=request_id,
             )
         )
-    log.info("claim %s: %d receipt(s) added", claim_id, len(checked))
+    log.info("claim %s: %d file(s) added", claim_id, len(checked))
+
+
+def request_files(db: Connection, claim_id: str) -> set[str]:
+    """The ids of the claim's files sent for a request, not as general receipts."""
+    return set(
+        db.execute(
+            select(receipts.c.receipt_id).where(
+                receipts.c.claim_id == claim_id, receipts.c.request_id.is_not(None)
+            )
+        ).scalars()
+    )
+
+
+@customer_router.post(
+    "/claims/{claim_id}/requests/{request_id}/files",
+    operation_id="answer_request",
+    status_code=201,
+)
+async def answer_request(  # noqa: PLR0913, PLR0917 - the route's parts
+    claim_id: ClaimId,
+    request_id: Annotated[int, FastPath(ge=1, le=2**31 - 1)],
+    files: Annotated[list[UploadFile], File(description="JPEG, PNG or PDF files")],
+    customer: SignedInCustomer,
+    db: Database,
+    receipt_store: Store,
+) -> CustomerClaim:
+    """Send the files for something we asked for on one of the customer's own claims: up to
+    five per request. Sending them marks the request done."""
+    row = own_claim(db, customer, claim_id)
+    asked = (
+        db.execute(
+            select(customer_requests).where(
+                customer_requests.c.request_id == request_id,
+                customer_requests.c.claim_id == claim_id,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if asked is None:
+        raise HTTPException(404, "Request not found")
+    held = db.execute(
+        select(func.count())
+        .select_from(receipts)
+        .where(receipts.c.claim_id == claim_id, receipts.c.request_id == request_id)
+    ).scalar_one()
+    if not files or held + len(files) > MAX_RECEIPTS:
+        raise HTTPException(422, f"Up to {MAX_RECEIPTS} files for each request")
+    await save_files(db, receipt_store, claim_id, files, request_id)
+    db.execute(
+        update(customer_requests)
+        .where(
+            customer_requests.c.request_id == request_id,
+            customer_requests.c.fulfilled_at.is_(None),
+        )
+        .values(fulfilled_at=now())
+    )
     return claim_for_customer(db, row)
 
 

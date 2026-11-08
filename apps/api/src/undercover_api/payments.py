@@ -2,14 +2,26 @@
 the payments table's key means a claim is paid once at most."""
 
 from fastapi import HTTPException
-from sqlalchemy import Connection, insert
+from sqlalchemy import Connection, insert, select
 from sqlalchemy.exc import IntegrityError
 
 from undercover_api.claims import approval_limit, find_claim, find_decision, find_payment
-from undercover_api.db import now, payments
+from undercover_api.db import customers, now, payments
 from undercover_api.kill_switch import refuse_while_paused
 from undercover_api.models import DecisionKind, Status
+from undercover_api.notices import announce
 from undercover_api.payout import dollars, needs_sign_off
+
+
+def mask_payid(payid: str) -> str:
+    """A PayID with most of it hidden: o***@example.com, 04** *** 678 or ABN ********901."""
+    if "@" in payid:
+        name, domain = payid.split("@", 1)
+        return f"{name[:1]}***@{domain}"
+    digits = payid.replace(" ", "")
+    if digits.startswith(("04", "+614")):
+        return f"04** *** {digits[-3:]}"
+    return f"ABN ********{digits[-3:]}"
 
 
 def over_the_limit(limit: float) -> HTTPException:
@@ -28,8 +40,12 @@ def record_payment(
     """Record a claim's one payment, with the handler who signed it off, if one did. A second,
     however it races in, is refused. Nothing is paid while payouts are paused."""
     refuse_while_paused(db)
-    if find_claim(db, claim_id)["source"] == "evaluation":
+    claim = find_claim(db, claim_id)
+    if claim["source"] == "evaluation":
         raise HTTPException(409, f"Claim {claim_id} is an evaluation's copy and is never paid")
+    payid = db.execute(
+        select(customers.c.payid).where(customers.c.customer_id == claim["customer_id"])
+    ).scalar_one_or_none()
     try:
         with db.begin_nested():
             db.execute(
@@ -39,10 +55,12 @@ def record_payment(
                     paid_at=now(),
                     signed_off_by=signed_off_by,
                     signed_off_by_id=signed_off_by_id,
+                    paid_to=f"PayID {mask_payid(payid)}" if payid else None,
                 )
             )
     except IntegrityError as error:
         raise HTTPException(409, f"Claim {claim_id} has already been paid") from error
+    announce(db, find_claim(db, claim_id))
 
 
 def pay(db: Connection, claim_id: str, amount: float) -> bool:

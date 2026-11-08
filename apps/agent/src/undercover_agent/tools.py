@@ -107,6 +107,13 @@ APP_TOOLS = [
                 "description": "What you verified, exceptions (warn, fail) first, 3 to 8 lines",
                 "items": CHECK,
             },
+            "customer_requests": {
+                "type": "array",
+                "description": "For a referral that needs something from the customer: each "
+                "document or detail, one per line, written to the customer in plain words. Never "
+                "mention checks, fraud, other claims or internal notes. Empty otherwise.",
+                "items": TEXT,
+            },
         },
     ),
 ]

@@ -2,6 +2,7 @@ import { FileText, Image as ImageIcon, Sparkle, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, type Api, type CustomerClaim } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
+import { NeedsPanel } from "../components/NeedsPanel";
 import { kilobytes, ReceiptPicker } from "../components/ReceiptPicker";
 import { CustomerStatusChip } from "../components/StatusChip";
 import { CLAIM_TYPES } from "./NewClaimPage";
@@ -101,6 +102,7 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
       {claim && (
         <>
           <ClaimTracker status={claim.status} />
+          <NeedsPanel api={api} claimId={claimId} requests={claim.requests} onUpdated={setClaim} />
           <div className="panel outcome-card">
             <div className="claim-card-head">
               <h2>Where it stands</h2>
@@ -110,7 +112,12 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
             {claim.paid !== null && (
               <p className="payout">
                 {dollars(claim.paid)}
-                {claim.paid_at && <span className="small muted"> paid {when(claim.paid_at)}</span>}
+                {claim.paid_at && (
+                  <span className="small muted">
+                    {" "}
+                    {claim.paid_to ? `sent to your ${claim.paid_to}` : "paid"} {when(claim.paid_at)}
+                  </span>
+                )}
               </p>
             )}
             {claim.reason && (
