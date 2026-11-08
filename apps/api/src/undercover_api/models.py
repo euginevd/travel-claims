@@ -188,6 +188,25 @@ class ClaimSummary(BaseModel):
     review_requested: bool
 
 
+# A name to look customers up by: a few letters, no more than a full name.
+CustomerName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)
+]
+
+
+class ClaimRef(BaseModel):
+    claim_id: str
+    status: Status
+
+
+class CustomerMatch(BaseModel):
+    """A customer found by name, with their claims, for a handler."""
+
+    customer_id: str
+    name: str
+    claims: list[ClaimRef]
+
+
 class Claim(BaseModel):
     claim_id: str
     policy_id: str
