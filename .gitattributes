@@ -1,3 +1,5 @@
 * text=auto
 # Hook scripts run in bash; CRLF breaks them on Windows clones.
 *.sh text eol=lf
+*.pdf binary
+*.png binary

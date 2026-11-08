@@ -37,6 +37,21 @@
 
 23. Copilot and specialists check, 2026-11-08, on a throwaway stack: Oliver Grant made CLM-1902 and CLM-1903 with the same receipt; the agent worked CLM-1903, consulted the document checker and the duplicate check, and referred it (exact duplicate of CLM-1902; receipt dated after the trip and in another city), for about $0.03. One Copilot turn read the queue, the claim and its steps and answered (not costed: the Copilot doesn't record its calls yet).
 
+## Lane B: kill switch, red-team suite and memory
+
+- **Kill switch (spec 49):** Dana pauses or resumes every payout from a strip at the top of the
+  staff dashboard, with a reason. Payments are refused first (423) and fail closed if the switch
+  can't be read; the agent keeps deciding and every approval holds for a sign-off; each change is
+  kept in `setting_changes`. Migration `0006b`.
+- **Red-team suite (spec 50):** eight attack claims in `data/redteam/attacks.json` with receipts
+  hiding instructions (`make_receipts.py` regenerates them). Run against a running stack with
+  `uv run -m undercover_agent.redteam` (`UNDERCOVER_API` to point elsewhere); it writes
+  `docs/redteam-report.md` and the dashboard's **Red team** page shows the latest run.
+- **Customer memory (spec 54):** the agent's `search_memory` tool recalls a customer's earlier
+  claims and decisions from LangGraph's `PostgresStore`, one namespace per customer; never the
+  customer's words, never from a claim the check referred, never in evaluations (a claim with
+  `evaluation: true` from the api).
+
 ## Known gaps
 
 24. Packages resolve as of seven days ago (`exclude-newer` in `pyproject.toml`, `before` in each web app's `.npmrc`); move the npm date forward when updating.

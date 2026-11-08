@@ -2,9 +2,15 @@ import { CircleAlert } from "lucide-react";
 import type { Claim } from "../api";
 import { dollars } from "../format";
 
+// The hold reason the api gives an approval while payouts are paused.
+const PAUSED = "Payouts are paused";
+
 /** What the claim needs from a handler, or null when it needs nothing. */
 export function needsYou(claim: Claim): string | null {
   const decision = claim.decision;
+  if (claim.status === "waiting_for_sign_off" && decision?.hold_reason?.startsWith(PAUSED)) {
+    return `Held: payouts are paused. Sign off ${dollars(decision.payout)} once they're back on.`;
+  }
   if (claim.status === "waiting_for_sign_off" && decision) {
     return `Waiting for your sign-off: ${dollars(decision.payout)} is over the ${dollars(
       claim.approval_limit,

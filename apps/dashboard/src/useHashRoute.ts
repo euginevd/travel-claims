@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 
-export type Route = { page: "queue" } | { page: "claim"; claimId: string };
+export type Route = { page: "queue" } | { page: "redteam" } | { page: "claim"; claimId: string };
 
 const CLAIM_PATH = /^#\/claims\/([^/]+)$/;
 
+export const REDTEAM_HREF = "#/redteam";
+
 export function parseHash(hash: string): Route {
+  if (hash === REDTEAM_HREF) return { page: "redteam" };
   const match = CLAIM_PATH.exec(hash);
   return match?.[1] ? { page: "claim", claimId: decodeURIComponent(match[1]) } : { page: "queue" };
 }

@@ -1890,3 +1890,92 @@ kbd {
     opacity: 0;
   }
 }
+
+/* The payouts kill switch */
+.payouts-on {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
+.payouts-on > span,
+.payouts-on .link-button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.payouts-paused {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 24px;
+  padding: 16px 18px;
+  border: 1px solid var(--warn);
+  border-left-width: 6px;
+  border-radius: 14px;
+  background: var(--warn-tint);
+  color: var(--ink);
+}
+
+.payouts-paused > svg {
+  color: var(--warn);
+  flex: none;
+  margin-top: 2px;
+}
+
+.payouts-paused .button {
+  margin-top: 10px;
+}
+
+.payouts-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.payouts-form input {
+  flex: 1 1 240px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--ink-3);
+  border-radius: 10px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* The red-team report */
+.redteam-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+  font-size: 1.14rem;
+}
+
+.redteam th[scope="row"] {
+  font-weight: 600;
+  min-width: 200px;
+}
+
+.chip-pass,
+.chip-fail {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.chip-fail {
+  border-color: var(--warn);
+  background: var(--warn-tint);
+}

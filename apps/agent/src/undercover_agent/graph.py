@@ -18,7 +18,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
-from undercover_agent.api_client import ApiClient
+from undercover_agent.api_client import ApiClient, ApiError
+from undercover_agent.memory import Memory, memory_of, uses_memory
 from undercover_agent.models import Call, Claude, SpecialistKind
 from undercover_agent.tools import (
     TOOLS,
@@ -31,6 +32,8 @@ from undercover_agent.tools import (
 )
 
 Json = dict[str, Any]
+# The api answers a payment with this while payouts are paused.
+PAUSED = 423
 INSTRUCTIONS = files("undercover_agent").joinpath("instructions.md").read_text(encoding="utf-8")
 SCREEN_SECTION = "Claims manual: referral when a claim needs a person's judgement"
 
@@ -52,14 +55,31 @@ def ids(config: RunnableConfig) -> tuple[str, str]:
     return str(configurable["claim_id"]), str(configurable["thread_id"])
 
 
-def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their dependencies
+def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over their dependencies
     api: ApiClient,
     claude: Claude,
     context: Context,
     checkpointer: BaseCheckpointSaver[Any],
+    *,
     max_model_calls: int,
+    memory: Memory | None = None,
 ) -> CompiledStateGraph[ClaimState, None, ClaimState, ClaimState]:
-    """The claim graph, wired to the api, Claude, the context layer and a checkpointer."""
+    """The claim graph, wired to the api, Claude, the context layer, a checkpointer and,
+    when there is one, the memory of each customer."""
+
+    def recall(claim_id: str) -> str:
+        claim = api.claim(claim_id)
+        if memory is None or not uses_memory(claim):
+            return "Memory isn't used for this claim."
+        found = memory.recall(str(claim["customer_id"]), claim_id)
+        if not found:
+            return "Nothing remembered about this customer yet."
+        return "Remembered about this customer:\n" + "\n".join(f"- {line}" for line in found)
+
+    def remember(claim: Json) -> None:
+        if memory is None or not uses_memory(claim) or not claim.get("decision"):
+            return
+        memory.remember(str(claim["customer_id"]), str(claim["claim_id"]), memory_of(claim))
 
     def record_call(claim_id: str, thread_id: str, call: Call) -> None:
         api.record_model_call(claim_id, thread_id, call)
@@ -148,9 +168,12 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
         for block in calls:
             name, args = str(block["name"]), cast(Json, block.get("input") or {})
             api.record_step(claim_id, thread_id, "tool_call", f"{name} {as_text(args)}")
-            result = run_tool(
-                api, context, claim_id, name, args, lambda k: consult(claim_id, thread_id, k)
-            )
+            if name == "search_memory":
+                result = Result(recall(claim_id))
+            else:
+                result = run_tool(
+                    api, context, claim_id, name, args, lambda k: consult(claim_id, thread_id, k)
+                )
             kind = "error" if result.is_error else ("lookup" if result.sources else "tool_result")
             api.record_step(claim_id, thread_id, kind, result.text, result.sources)
             results.append(
@@ -163,6 +186,7 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
             )
             if result.claim_after_decision is not None:
                 outcome, payout = settled(result.claim_after_decision)
+                remember(result.claim_after_decision)
         return {
             "messages": [{"role": "user", "content": results}],
             "outcome": outcome,
@@ -172,7 +196,15 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     def settle(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
         if state["outcome"] == "approved":
-            api.pay(claim_id, state["payout"])
+            try:
+                api.pay(claim_id, state["payout"])
+            except ApiError as error:
+                if error.status != PAUSED:
+                    raise
+                # Payouts were paused after the decision: hold it for a sign-off instead.
+                api.hold(claim_id, error.detail)
+                api.record_step(claim_id, thread_id, "message", "Payouts are paused; held.")
+                return {"outcome": "held"}
             api.record_step(claim_id, thread_id, "message", "Paid the approved payout.")
             return {"outcome": "decided"}
         if state["outcome"] != "held":
@@ -197,8 +229,15 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     graph.add_conditional_edges("screen", lambda s: END if s["outcome"] else "agent")
     graph.add_conditional_edges("agent", after_agent)
     graph.add_conditional_edges("act", lambda s: "settle" if s["outcome"] else "agent")
-    graph.add_conditional_edges("settle", lambda s: "agent" if not s["outcome"] else END)
+    graph.add_conditional_edges("settle", after_settle)
     return graph.compile(checkpointer=checkpointer)
+
+
+def after_settle(state: ClaimState) -> str:
+    """Decide again after a send-back, wait again after a paused payment, or finish."""
+    if not state["outcome"]:
+        return "agent"
+    return "settle" if state["outcome"] == "held" else END
 
 
 def after_agent(state: ClaimState) -> str:

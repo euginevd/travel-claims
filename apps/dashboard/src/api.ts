@@ -175,6 +175,32 @@ export const StepSchema = z.object({
   created_at: z.string(),
 });
 
+export const PayoutSwitchSchema = z.object({
+  paused: z.boolean(),
+  changed_by: z.string().nullable(),
+  changed_at: z.string().nullable(),
+  reason: z.string().nullable(),
+});
+
+const RedTeamResultSchema = z.object({
+  attack_id: z.string(),
+  name: z.string(),
+  technique: z.string(),
+  owasp: z.string(),
+  claim_id: z.string().nullable(),
+  outcome: z.string(),
+  decided_by: z.string(),
+  paid: z.number(),
+  passed: z.boolean(),
+  note: z.string(),
+});
+
+export const RedTeamReportSchema = z.object({
+  run_at: z.string(),
+  run_by: z.string(),
+  results: z.array(RedTeamResultSchema),
+});
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export const TraceSchema = z.object({
@@ -212,6 +238,8 @@ export type Check = z.infer<typeof CheckSchema>;
 export type ReasonCode = z.infer<typeof ReasonCodeSchema>;
 export type Stages = z.infer<typeof StagesSchema>;
 export type Trace = z.infer<typeof TraceSchema>;
+export type PayoutSwitch = z.infer<typeof PayoutSwitchSchema>;
+export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
 
 export interface OverrideRequest {
   decision: DecisionKind;
@@ -247,6 +275,9 @@ export interface Api {
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
   getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
+  getPayouts: () => Promise<PayoutSwitch>;
+  setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
+  getRedTeam: () => Promise<RedTeamReport>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -280,7 +311,7 @@ async function errorFrom(response: Response): Promise<ApiError> {
 
 export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
   async function send(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     path: string,
     options: { body?: unknown; form?: FormData; signal?: AbortSignal } = {},
     accept = "application/json",
@@ -304,7 +335,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
 
   async function call<T>(
     schema: z.ZodType<T>,
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     path: string,
     options: { body?: unknown; form?: FormData; signal?: AbortSignal } = {},
   ): Promise<T> {
@@ -345,5 +376,9 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       call(TraceSchema, "GET", `${claimPath(claimId)}/trace`, { signal }),
     override: (claimId, request) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/override`, { body: request }),
+    getPayouts: () => call(PayoutSwitchSchema, "GET", "/payouts"),
+    setPayouts: (paused, reason) =>
+      call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),
+    getRedTeam: () => call(RedTeamReportSchema, "GET", "/redteam"),
   };
 }

@@ -62,7 +62,15 @@ from undercover_api.db import (
     model_calls,
     now,
     payments,
+    redteam_reports,
     sent_back,
+)
+from undercover_api.kill_switch import (
+    PAUSED_REASON,
+    payout_switch,
+    payouts_paused,
+    refuse_while_paused,
+    set_payouts,
 )
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
@@ -85,8 +93,12 @@ from undercover_api.models import (
     PaymentRequest,
     Payout,
     PayoutRequest,
+    PayoutSwitch,
+    PayoutSwitchRequest,
     Policy,
     PreviousClaim,
+    RedTeamReport,
+    RedTeamRun,
     SendBackRequest,
     SignIn,
     SignInRequest,
@@ -238,6 +250,14 @@ def record_decision(
         set_status(db, claim_id, Status.DECIDED)
     elif needs_sign_off(request.payout, limit):
         set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
+    elif payouts_paused(db):
+        # Every approval holds while payouts are paused, for a sign-off once they're back on.
+        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
+        db.execute(
+            update(decisions)
+            .where(decisions.c.claim_id == claim_id)
+            .values(hold_reason=PAUSED_REASON)
+        )
     return claim_in_full(db, claim_id)
 
 
@@ -420,6 +440,7 @@ def sign_off_claim(
     claim_id: ClaimId, handler: SeniorHandler, db: Database, service: AgentCalls
 ) -> Claim:
     """Sign off a held payout as the handler signed in, which pays it."""
+    refuse_while_paused(db)
     decision = held(db, claim_id, Status.DECIDED)
     if decision.calculation is None or decision.payout != decision.calculation.payout:
         raise HTTPException(409, f"Claim {claim_id}'s payout isn't its calculation's")
@@ -542,6 +563,46 @@ def override_decision(
         ),
     )
     return claim_in_full(db, claim_id)
+
+
+@staff_router.get("/payouts", operation_id="get_payout_switch")
+def get_payout_switch(_: SignedIn, db: Database) -> PayoutSwitch:
+    """Whether payouts are paused, and who last changed it, when and why."""
+    return payout_switch(db)
+
+
+@staff_router.put("/payouts", operation_id="set_payout_switch")
+def set_payout_switch(
+    request: PayoutSwitchRequest, handler: SeniorHandler, db: Database
+) -> PayoutSwitch:
+    """Stop or restart every payout, with the reason. The agent keeps deciding; approvals hold."""
+    switch = set_payouts(db, request.paused, request.reason, handler)
+    log.warning(
+        "payouts %s by handler %s", "paused" if request.paused else "resumed", handler.handler_id
+    )
+    return switch
+
+
+@staff_router.get("/redteam", operation_id="get_redteam_report")
+def get_redteam_report(_: SignedIn, db: Database) -> RedTeamReport:
+    """The latest run of the red-team suite."""
+    row = (
+        db.execute(select(redteam_reports).order_by(redteam_reports.c.report_id.desc()).limit(1))
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(404, "The red-team suite hasn't run yet")
+    return RedTeamReport.model_validate(dict(row))
+
+
+@staff_router.put("/redteam", operation_id="record_redteam_report")
+def record_redteam_report(run: RedTeamRun, handler: SeniorHandler, db: Database) -> RedTeamReport:
+    """Keep a red-team run's results, run by the senior handler signed in."""
+    stamp = now()
+    results = [result.model_dump() for result in run.results]
+    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=handler.name, results=results))
+    return RedTeamReport(run_at=stamp, run_by=handler.name, results=run.results)
 
 
 @staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
