@@ -166,8 +166,12 @@ SPECIALIST_TOOLS = [
         'necessary and reasonable and what is missing. Cite it as "Medical reviewer".',
     ),
 ]
-
-TOOLS = APP_TOOLS + SPECIALIST_TOOLS + CONTEXT_TOOLS
+MEMORY_TOOL = tool(
+    "search_memory",
+    "Recall this claim's customer's earlier claims and decisions, from the agent's memory. It "
+    "adds to the claim history and never takes its place.",
+)
+TOOLS = [*APP_TOOLS, *SPECIALIST_TOOLS, MEMORY_TOOL, *CONTEXT_TOOLS]
 CONTEXT_NAMES = {t["name"] for t in CONTEXT_TOOLS}
 SPECIALISTS = {"check_documents": "documents", "review_medical": "medical"}
 

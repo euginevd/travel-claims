@@ -9,6 +9,7 @@ Reach the decision a senior handler would agree with: approve the claim with the
 ## What you have to go on
 
 - UnderCover's records: the claim, with the customer's story, the items claimed and the documents; the customer's policy; and the customer's earlier claims. The claim history is the record that counts for repeat claims.
+- What we remember about the customer from their earlier claims (`search_memory`). It adds to the claim history and never takes its place.
 - The context layer, which holds what the business knows beyond the records. Each answer names the file it came from.
   - The policy wording is the contract with the customer and always comes first. The claims manual says how UnderCover reads the wording: the three decisions and when to refer, how to work a claim, the documents a claim needs, how to work out the payout, how to read clauses that don't fit a claim neatly, what to do when the story and the documents disagree, and repeat claims.
   - `lookup_term`, `describe_fields`, `get_plan`, `get_claim_rules` and `search_reference_data` for definitions, field meanings, plan limits, the rules applied to every claim, and outside facts such as storms, strikes and product prices.

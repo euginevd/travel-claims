@@ -7,6 +7,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.graph import build_graph
+from undercover_agent.memory import Memory
 from undercover_agent.models import Call, Finding, Screening, SpecialistKind, SpecialistReview
 
 Json = dict[str, Any]
@@ -28,6 +29,8 @@ class FakeApi(ApiClient):
         self.seen_elsewhere: list[Json] = []
         self.payouts_paused = False
         self.holds: list[str] = []
+        self.customer_id = "CUS-1"
+        self.evaluation = False
 
     def receipts(self, claim_id: str) -> list[Json]:
         return self.attached
@@ -39,6 +42,11 @@ class FakeApi(ApiClient):
         self.claim_reads.append(claim_id)
         return {
             "claim_id": claim_id,
+            "customer_id": self.customer_id,
+            "claim_type": "baggage",
+            "incident_date": "2026-07-01",
+            "amount_claimed": 120.0,
+            "evaluation": self.evaluation,
             "story": "My bag was lost.",
             "status": self.status,
             "decision": self.decision,
@@ -147,8 +155,10 @@ class FakeContext:
         return {"text": "Section text", "sources": [source]}, False
 
 
-def graph_for(api: FakeApi, claude: FakeClaude):  # noqa: ANN201 - the compiled graph's type
-    return build_graph(api, claude, FakeContext(), InMemorySaver(), max_model_calls=10)
+def graph_for(api: FakeApi, claude: FakeClaude, memory: Memory | None = None):  # noqa: ANN201
+    return build_graph(
+        api, claude, FakeContext(), InMemorySaver(), max_model_calls=10, memory=memory
+    )
 
 
 def config(claim_id: str = "CLM-1001") -> Any:

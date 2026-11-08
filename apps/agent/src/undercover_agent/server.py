@@ -131,11 +131,13 @@ def start(begin: Callable[[], object]) -> JSONResponse:
 def build_app() -> FastAPI:
     """The service wired to the real api, Claude, the context layer and PostgreSQL."""
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
+    from langgraph.store.postgres import PostgresStore  # noqa: PLC0415
     from psycopg.rows import dict_row  # noqa: PLC0415
     from psycopg_pool import ConnectionPool  # noqa: PLC0415
 
     from undercover_agent.api_client import ApiClient  # noqa: PLC0415
     from undercover_agent.graph import build_graph  # noqa: PLC0415
+    from undercover_agent.memory import StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
     from undercover_agent.tools import McpContext  # noqa: PLC0415
@@ -150,13 +152,16 @@ def build_app() -> FastAPI:
         )
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
         saver.setup()
+        store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
+        store.setup()
         api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
         graph = build_graph(
             api,
             AnthropicClaude(settings),
             McpContext(settings.undercover_context),
             saver,
-            settings.max_model_calls,
+            max_model_calls=settings.max_model_calls,
+            memory=StoreMemory(store),
         )
         return Runner(graph, api)
 
