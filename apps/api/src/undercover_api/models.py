@@ -500,6 +500,22 @@ ItemCategory = Literal[
 ReceiptId = Annotated[str, Path(pattern=r"^[0-9a-f]{32}$")]
 
 
+MatchKind = Literal["exact", "near"]
+
+
+class DuplicateMatch(BaseModel):
+    claim_id: str
+    match: MatchKind
+
+
+class ReceiptDuplicates(BaseModel):
+    """Other claims holding the same receipt as one of this claim's, numbered as the agent
+    reads them."""
+
+    receipt: int
+    matches: list[DuplicateMatch]
+
+
 class AgentReceipt(BaseModel):
     """A receipt as the agent reads it, its bytes in base64."""
 
