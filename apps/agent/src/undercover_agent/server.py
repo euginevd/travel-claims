@@ -2,9 +2,11 @@
 undercover_api.agent_service. It answers at once and works in the background."""
 
 import logging
+import os
 import secrets
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -15,6 +17,7 @@ from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.improver import RoundImprover
 from undercover_agent.models import Draft, Drafter
+from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.tools import receipt_block
 
@@ -100,6 +103,8 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
     make_drafter: Callable[[], Drafter] | None = None,
     make_dispatcher: Callable[[Runner], Dispatcher] | None = None,
     make_improver: Callable[[], RoundImprover] | None = None,
+    *,
+    start_redteam: Callable[[], None] | None = None,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -158,6 +163,17 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
         improver["rounds"].improve(request.round_id)
         return JSONResponse({"accepted": True}, status_code=202)
 
+    @app.post("/redteam", operation_id="redteam", dependencies=[Depends(agents_key)])
+    def redteam() -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Run the red-team suite in the background; it reports to the api when done."""
+        if start_redteam is None:
+            return JSONResponse({"refused": "The red team isn't set up"}, status_code=409)
+        try:
+            start_redteam()
+        except (RedTeamBusyError, RedTeamUnavailableError) as refused:
+            return JSONResponse({"refused": str(refused)}, status_code=409)
+        return JSONResponse({"accepted": True}, status_code=202)
+
     @app.post("/draft", operation_id="draft", dependencies=[Depends(agents_key)])
     def draft(request: DraftRequest) -> Draft:  # pyright: ignore[reportUnusedFunction]
         """Draft a claim for a customer to check, from their words, case and receipts."""
@@ -190,6 +206,7 @@ def build_app() -> FastAPI:
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
     from undercover_agent.memory import StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude  # noqa: PLC0415
+    from undercover_agent.redteam import RedTeamStarter  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
     from undercover_agent.tools import McpContext  # noqa: PLC0415
 
@@ -234,4 +251,9 @@ def build_app() -> FastAPI:
         lambda: AnthropicClaude(settings),
         lambda runner: Dispatcher(runner, api_client()),
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
+        start_redteam=RedTeamStarter(
+            settings.undercover_api,
+            Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),
+            os.environ.get("REDTEAM_POLICY", "POL-2005"),
+        ).start,
     )

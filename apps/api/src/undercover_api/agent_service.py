@@ -59,6 +59,8 @@ class AgentService(Protocol):
 
     def improve(self, round_id: int) -> None: ...
 
+    def redteam(self) -> None: ...
+
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         """Ask the drafting assistant for a draft claim; the api validates what comes back."""
         ...
@@ -91,6 +93,9 @@ class HttpAgentService:
 
     def improve(self, round_id: int) -> None:
         self._accepted(self._post("/improve", {"round_id": round_id}, TIMEOUT_SECONDS))
+
+    def redteam(self) -> None:
+        self._accepted(self._post("/redteam", {}, TIMEOUT_SECONDS))
 
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         answer = self._post("/draft", request, DRAFT_TIMEOUT_SECONDS)

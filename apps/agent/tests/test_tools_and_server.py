@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from stubs import FakeApi, FakeContext
 
 from undercover_agent.models import Call, Draft, DraftItem
+from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.server import create_app
 from undercover_agent.tools import TOOLS, run_tool
@@ -117,3 +118,26 @@ def test_the_drafter_gets_the_words_as_data_and_numbered_receipts() -> None:
     assert "<customer_words>" in str(content[0]["text"])
     assert content[1]["text"] == "Receipt 1, customer-supplied data:"
     assert content[2]["type"] == "image"
+
+
+def test_the_red_team_starts_once_and_says_why_when_it_cant() -> None:
+    outcomes: list[Exception | None] = [None, RedTeamBusyError("The red team is already running")]
+
+    def start() -> None:
+        outcome = outcomes.pop(0)
+        if outcome is not None:
+            raise outcome
+
+    with TestClient(create_app(StubRunner, lambda: KEY, start_redteam=start)) as http:
+        assert http.post("/redteam").status_code == 401
+        assert http.post("/redteam", headers={"X-API-Key": KEY}).status_code == 202
+        busy = http.post("/redteam", headers={"X-API-Key": KEY})
+        assert busy.status_code == 409
+        assert "already running" in busy.json()["refused"]
+
+    def unavailable() -> None:
+        raise RedTeamUnavailableError("only on locally")
+
+    with TestClient(create_app(StubRunner, lambda: KEY, start_redteam=unavailable)) as http:
+        refused = http.post("/redteam", headers={"X-API-Key": KEY})
+        assert refused.json() == {"refused": "only on locally"}

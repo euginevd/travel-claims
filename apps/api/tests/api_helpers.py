@@ -137,6 +137,9 @@ class FakeAgent:
     def improve(self, round_id: int) -> None:
         self._take(("improve", str(round_id), None))
 
+    def redteam(self) -> None:
+        self._take(("redteam", "", None))
+
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         if self.failure is not None:
             raise self.failure
