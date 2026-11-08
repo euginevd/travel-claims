@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Scan of what is being pushed: each pushed commit's files, plus the diffs of its unpushed
-# commits, so a secret added and then removed before the push is still caught.
+# Scans each pushed commit's files and unpushed diffs, so a secret added then removed is still caught.
 set -uo pipefail
 
 tmp=$(mktemp -d)

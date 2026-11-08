@@ -1,4 +1,4 @@
-# Git hooks, managed by lefthook. Setup and the why: guides/02-git-hooks.md
+# Git hooks, managed by lefthook. Setup: bash scripts/setup.sh
 pre-push:
   jobs:
     - name: scan

@@ -6,7 +6,7 @@
 
 - **People** own the what and the why: approving the spec, the plan, the merge and the deploy. You're accountable for what ships, so anything that should last goes in a doc, not chat, and the agent shows evidence before you approve.
 - **Agents** own the how: they plan, write, test and review the code, inside written rules.
-- **Controls** check every change before it ships: the pre-push scan, an independent review, the Terraform checks in CI and an approval gate.
+- **Controls** check every change before it ships: the pre-push scan, the security checks and summary on every PR, an independent review, a protected `main`, the Terraform plan and an approval gate.
 
 The industry's emerging term is **agentic software development** (Forrester, Gartner), with no single standard yet; keeping "SDLC" in the name says existing security controls still apply. It draws on AWS's [AI-DLC](https://builder.aws.com/content/3KjWpM4sqd5f0zjUtE67OfUa7rk/ai-driven-development-life-cycle-ai-dlc-on-aws-a-new-approach-to-software-engineering), spec-driven development (GitHub Spec Kit), [AGENTS.md](https://agents.md), DevSecOps and the NIST Secure Software Development Framework (SSDF).
 
@@ -25,10 +25,17 @@ The end-to-end flow, through the stages in section 3, for both a new project and
 | 5 | Code | Developer | **Implement:** *"Implement the plan"*. The agent works through the phases |
 | 6 | Code | Agent | **Build each phase:** code, checks, subagent review, docs, then a local commit |
 | 7 | Code | Agent | **Push:** the pre-push scan runs. ↺ The agent fixes findings, then opens a PR |
-| 8 | Build and test | Pipeline, agent | **PR checks:** security scans and the Terraform plan. ↺ The agent fixes findings |
-| 9 | Release | Developer, agent | **Merge:** you review and approve; the agent squash-merges and deletes the branch |
-| 10 | Deploy | Developer, pipeline | **Apply:** you approve the Terraform plan; merges deploy `dev`, a manual run `prod` |
+| 8 | Build and test | Pipeline, agent | **PR checks:** security scans, a summary comment and the Terraform plan. ↺ The agent fixes findings |
+| 9 | Release | Developer, agent | **Merge:** you review the diff and security summary, then the agent squash-merges |
+| 10 | Deploy | Developer, pipeline | **Apply:** you approve the plan; it deploys (`dev` on merge, `prod` by hand) and checks `/health` |
 | 11 | Operate and monitor | Agent, developer | **Close the loop:** the agent updates status and decisions; findings feed step 2 |
+
+Step 1 in full, for a new project:
+
+1. `gh repo create <name> --template euginevd/sdlc-template --private --clone`, then `bash scripts/setup.sh` and `bash scripts/protect-main.sh` (Actions limits, squash-only merges, GitHub's security features and the `main` ruleset; rerun it after changing it). A private repo needs a paid GitHub plan for the ruleset and the approval environments; a public repo gets them free.
+2. Replace the worked example, keeping its structure: `business-context.md` per business; `spec.md`, `status.md`, the README and the root `pyproject.toml` name (then `uv lock`) per project; `decisions.md`. Keep `design-system.md`, `threat-model.md` and `costs.md` only if needed.
+3. Keep `AGENTS.md`, `code-standards.md`, the workflows and the scripts as they are.
+4. Bootstrap AWS: the steps at the top of [bootstrap.yaml](../aws/bootstrap/bootstrap.yaml).
 
 ## 3. The stages
 
@@ -36,8 +43,8 @@ The eight DevSecOps stages, the core security activities in each, and the open-s
 
 | # | Stage | Core components | Open-source tools |
 |:-:|-------|-----------------|-------------------|
-| 1 | Plan | Data classification · threat modelling · security requirements and architecture | Mermaid (data flow diagram) · OWASP Threat Dragon · OWASP ASVS |
-| 2 | Code | Secrets detection · static analysis (SAST, SCA, IaC) · repo hardening and code review | Gitleaks · Semgrep |
+| 1 | Plan | Data classification · threat modelling · security requirements and architecture | Mermaid · Threat Dragon · ASVS |
+| 2 | Code | Secrets detection · static analysis (SAST, SCA, IaC) · repo hardening and code review | Gitleaks · Semgrep · CodeQL |
 | 3 | Build | Image scanning and build gates · SBOM and signing · CI pipeline hardening | Trivy · Cosign |
 | 4 | Test | DAST, API and pen testing · security regression tests · AI security testing | OWASP ZAP · promptfoo |
 | 5 | Release | Artifact re-scan and promotion by digest · infrastructure plan review · release approval | Checkov · Trivy |
@@ -52,8 +59,8 @@ A typical project made from [euginevd/sdlc-template](https://github.com/euginevd
 ```
 travel-claims/
 ├── AGENTS.md              01 the agent's rules, the same for every project; read first
-├── README.md              02 front page: what it is and how to start
-├── docs/                  03 what the agent builds from, in reading order:
+├── README.md              02 front page: what the app does and how its users use it
+├── docs/                  03 what the agent builds from:
 │   ├── business-context.md   the business: industry, regulators, systems, people
 │   ├── spec.md               the project, its stack, what we're building, what done means
 │   ├── code-standards.md     how to write the code
@@ -64,22 +71,32 @@ travel-claims/
 │   ├── costs.md              what costs money, budget and alerts
 │   └── plan-<name>.md        the plan being built (per plan; deleted when done)
 ├── apps/                  04 the product: one folder per app
-│   ├── web/                  front end (example)
-│   └── api/                  backend or agent (example)
+│   ├── portal/               customers: sign in, make and track claims
+│   ├── dashboard/            staff: the queue, case briefs, sign-off, scoreboard
+│   ├── api/                  claims, decisions, payments and settings
+│   ├── agent/                the claim agent, specialists, dispatcher and improver
+│   ├── copilot/              the handlers' chat agent
+│   └── context/              policy wording and claims manual over MCP
 ├── aws/                   05 the infrastructure, as Terraform
 │   ├── bootstrap/            CloudFormation, run once: OIDC, state bucket, CI roles
-│   └── api/                  sample: Lambda behind an HTTP API, with logs
-├── .github/workflows/     06 the pipeline, one workflow per job
+│   └── api/                  Terraform for stage 2 on AWS (planned)
+├── .github/workflows/     06 the pipeline, one workflow per concern
 │   ├── aws.yml               plan on the PR, apply after your approval
-│   ├── ci.yml                each app's lint, types and tests (example)
-│   └── security.yml          Gitleaks, Trivy and Checkov on every PR
+│   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL
+│   └── security.yml          Gitleaks, Trivy, Checkov and Semgrep on every PR, main and weekly, with a summary comment and SBOM
+│                             (beside it, .github/dependabot.yml: weekly update PRs, week-old releases only;
+│                             .github/pull_request_template.md: every PR's What, Security and Checks)
 ├── lefthook.yml           07 runs the security scan on every push
 ├── .lefthook/             08 the pre-push hook script
 ├── scripts/               09 setup.sh installs the tools; scan.sh runs Gitleaks and Trivy;
-│                             protect-main.sh adds the main ruleset
-├── guides/                10 reference for people, numbered 01, 02, …
-│   └── 01-agentic-sdlc.md    this guide: the lifecycle, workflow and template
-└── SECURITY.md            11 how to report a vulnerability (GitHub's policy file)
+│                             security-report.py builds the PR summary; protect-main.sh hardens the repo and sets the main ruleset, safe to rerun
+├── .vscode/               10 the Trivy and Semgrep extensions, for your review
+├── pyproject.toml         11 the Python workspace and tool settings, with uv.lock and .python-version
+├── guides/                12 reference for people, numbered 01, 02, …
+│   ├── 01-agentic-sdlc.md    this guide: the lifecycle, workflow and template
+│   └── 02-security-trade-offs.md  accepted risks, why, and what to change for production
+├── SECURITY.md            13 how to report a vulnerability, what happens next and what's in scope
+└── CONTRIBUTING.md        14 how a change is made, by a person or an agent
 ```
 
 ## 5. The files
@@ -91,7 +108,7 @@ travel-claims/
 | `AGENTS.md` | Numbered rules for every coding agent: what to read, commands, workflow, boundaries, known mistakes. The same in every project | Rarely |
 | `docs/business-context.md` | The business: who it is, regulators, data rules, risk appetite, systems, owners and tone. The same for every project for that business | Rarely |
 | `docs/spec.md` | The project: name, problem, goal, users, AWS, stack, what done means, rules and what's out. The agent drafts it, you approve it | Often |
-| `docs/code-standards.md` | Numbered coding rules the pipeline can't check: general, errors and logs, safe by design, tests, Terraform, languages, AI, docs | Rarely |
+| `docs/code-standards.md` | Numbered coding rules the pipeline can't check: general, errors and logs, safe by design, tests, Terraform, languages, AI, containers, docs | Rarely |
 | `docs/status.md` | What's built, how to run it, known gaps, what's next | Always |
 | `docs/decisions.md` | Key decisions with why and the alternative; superseded, never deleted | Sometimes |
 | `docs/design-system.md` | The design system's tokens and rules an app uses, plus the project's UI choices. Optional | Rarely |

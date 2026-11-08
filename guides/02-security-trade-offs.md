@@ -1,0 +1,10 @@
+# Security trade-offs
+
+The risks the template accepts, each with why it's a risk and the fix for production. Numbered so reviews can cite them (trade-offs 1). An accepted risk is a decision: change it here, never by weakening a check.
+
+| # | Risk | Why it's a risk | Production fix |
+|:-:|------|-----------------|----------------|
+| 1 | The agent shares the developer's GitHub identity | It runs `gh` with the developer's token, so it could approve its own deploy, edit the apply environments or delete the ruleset; only `AGENTS.md` rules 20 and 21 ask it not to | Peer review: the `main` ruleset requires one approval from someone other than the author, and the apply environments turn on *Prevent self-review*, so the agent can't merge or deploy alone |
+| 2 | Pinned scanner and CI images go stale | The gitleaks, Trivy, Checkov, Semgrep, Python and Node images are pinned by digest in `docker run` and `container:` lines, which Dependabot doesn't update, so the scanners age and miss newer checks | Renovate, which opens update PRs for those digests with the same 7-day wait; until then, update the pins by hand when changing a workflow |
+| 3 | The deploy role is broad in two places | `apigateway:*` covers every API in the region, because API Gateway ARNs use generated IDs, not names; the log delivery actions, such as `logs:PutResourcePolicy`, need `*`. In a shared account, the pipeline could change another workload's API or log policies | A dedicated AWS account per project and environment, so there's nothing else in reach |
+| 4 | A failing Terraform plan can merge | The `aws` workflow runs only when `aws/`, `apps/` or the workflow changes, so `plan` can't be a required check; nothing broken reaches AWS, because the apply fails on the same error and needs approval | A small job that always runs, fails only when a plan failed, and is a required check |

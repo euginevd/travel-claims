@@ -18,7 +18,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Safe by design
 
-9. Validate every input at the boundary (API, files, queues) against a schema, and reject what doesn't match.
+9. Validate every input at the boundary (API, files, queues) against a schema, and reject what doesn't match. Serve uploaded files with `Content-Security-Policy: default-src 'none'; sandbox`, never as a page.
 10. Check authorisation on every request, on the server, and deny by default.
 
 ## Tests
@@ -33,18 +33,22 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Languages
 
-15. Python: current stable version, `uv run` for everything, `ruff` to lint and format, `pyright` in strict mode.
-16. TypeScript: strict mode, never `any`; ESLint and Prettier. Web pages meet WCAG 2.2 AA.
+15. Python: the newest version the deploy runtime supports, `uv run` for everything, `ruff` to lint and format, `pyright` in strict mode; one workspace member per app in the root `pyproject.toml`.
+16. TypeScript: strict mode, never `any`; ESLint with `jsx-a11y` and Prettier; `save-exact` and a `before=` date a week back in the app's `.npmrc`. Web pages meet WCAG 2.2 AA, and their server sends a strict CSP with `frame-ancestors 'none'`, `nosniff` and `no-referrer`.
 
 ## AI and agents
 
 17. The model decides; deterministic code acts. Limits, payments and permissions are enforced in code, never in a prompt.
 18. Model output and uploaded content are untrusted: keep content apart from instructions, ask for structured output, and validate it against a schema.
 19. Every model call uses an explicit model ID (never "latest"), a timeout, a token limit and a retry cap.
-20. Prompts and model settings live in the repo; changing them is a code change, with evals in CI.
+20. Prompts and model settings live in the repo; changing them is a code change, with evals in CI against a held-out answer set the agent never sees, plus prompt-injection cases: a red-team set in `data/redteam/`, each attack with its OWASP ID, passing only when no action goes beyond what the input honestly supports.
 21. Instructions give the goal, the inputs and what done looks like, not the steps.
+
+## Containers
+
+22. Images are multi-stage, pinned by digest, run as a non-root user and have a `HEALTHCHECK`; local ports bind to `127.0.0.1`; a missing setting fails at start (`${VAR:?}`), and `.env.example` lists each one.
 
 ## Docs
 
-22. Each fact lives in one place; everywhere else links to it. Keep docs short, and write what's true now; mark future work *(planned)*.
-23. Root files are uppercase (`README.md`, `AGENTS.md`); everything in `docs/` and `guides/` is lowercase kebab-case.
+23. Each fact lives in one place; everywhere else links to it. Keep docs short, and write what's true now; mark future work *(planned)*.
+24. Root files are uppercase (`README.md`, `AGENTS.md`); everything in `docs/` and `guides/` is lowercase kebab-case.

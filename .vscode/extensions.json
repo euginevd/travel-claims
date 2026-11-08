@@ -1,3 +1,3 @@
 {
-  "recommendations": ["hashicorp.terraform", "AquaSecurityOfficial.trivy-vulnerability-scanner"]
+  "recommendations": ["AquaSecurityOfficial.trivy-vulnerability-scanner", "Semgrep.semgrep"]
 }
