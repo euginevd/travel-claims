@@ -22,7 +22,7 @@ Stage 1 is built in four plans, each working end to end before the next: the cla
 
 Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks and Trivy pre-push scan. Each app has its own Dockerfile from stage 1, so stage 2 ships the same images.
 
-9. `web`: the customers' portal and the handlers' dashboard, in one app with two sign-ins. React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
+9. `portal` and `dashboard`: the customers' portal and the handlers' dashboard, as two React, Vite and TypeScript apps on separate addresses, each with its own sign-in, token issuer and audience (decision 10). React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
 10. `api`: claims, policies, decisions, payments, settings and records. Python, FastAPI and SQLAlchemy on PostgreSQL. Payments are a module of their own that checks every limit in code. Checks: `uv run ruff check`, `uv run pyright`, `uv run pytest`.
 11. `agent`: the claim agent, the hidden-instruction check, the dispatcher and the improver. Python and LangGraph, with progress saved to PostgreSQL. Same checks as `api`.
 12. `copilot`: the handlers' chat agent. Python and LangGraph. Same checks as `api`.
