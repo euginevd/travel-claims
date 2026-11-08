@@ -2565,5 +2565,29 @@ button.payouts-status.is-live:hover {
 
   .header nav a {
     padding: 0 0.5rem;
+/* Run the red team from the page */
+.redteam-run {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.redteam-run p {
+  margin: 0;
+}
+
+.redteam-progress {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }

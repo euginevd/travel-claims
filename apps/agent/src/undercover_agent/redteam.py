@@ -9,7 +9,9 @@ it works only where local sign-in is on.
 """
 
 import json
+import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -171,11 +173,9 @@ def report(results: list[Result]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> None:
-    data = Path(os.environ.get("REDTEAM_DATA", "data/redteam"))
+def run_suite(portal: Portal, data: Path, policy_id: str) -> list[Result]:
+    """Run every attack, record the run with the api, and return the results."""
     suite = cast(Json, json.loads((data / "attacks.json").read_text(encoding="utf-8")))
-    portal = Portal(os.environ.get("UNDERCOVER_API", "http://127.0.0.1:8000"))
-    policy_id = os.environ.get("REDTEAM_POLICY", "POL-2005")
     results: list[Result] = []
     for attack in cast(list[Json], suite["attacks"]):
         try:
@@ -187,10 +187,55 @@ def main() -> None:
             )  # fmt: skip
         print(f"{result.attack_id} {'PASS' if result.passed else 'FAIL'}: {result.outcome}")
         results.append(result)
+    portal.record(results)
+    return results
+
+
+def main() -> None:
+    data = Path(os.environ.get("REDTEAM_DATA", "data/redteam"))
+    portal = Portal(os.environ.get("UNDERCOVER_API", "http://127.0.0.1:8000"))
+    results = run_suite(portal, data, os.environ.get("REDTEAM_POLICY", "POL-2005"))
     Path(os.environ.get("REDTEAM_REPORT", "docs/redteam-report.md")).write_text(
         report(results), encoding="utf-8"
     )
-    portal.record(results)
+
+
+class RedTeamBusyError(Exception):
+    """A red-team run is already going in this process."""
+
+
+class RedTeamUnavailableError(Exception):
+    """The suite can't sign in: the local test accounts are only on locally."""
+
+
+class RedTeamStarter:
+    """Start the suite from the agent service, one run at a time, on a thread of its own."""
+
+    def __init__(self, api_url: str, data: Path, policy_id: str) -> None:
+        self._api_url = api_url
+        self._data = data
+        self._policy_id = policy_id
+        self._lock = threading.Lock()
+
+    def start(self) -> None:
+        if not self._lock.acquire(blocking=False):
+            raise RedTeamBusyError("The red team is already running")
+        try:
+            portal = Portal(self._api_url)
+        except httpx2.HTTPError as error:
+            self._lock.release()
+            raise RedTeamUnavailableError(
+                "The red team signs in with the local test accounts, which are only on locally"
+            ) from error
+        threading.Thread(target=self._run, args=(portal,), daemon=True).start()
+
+    def _run(self, portal: Portal) -> None:
+        try:
+            run_suite(portal, self._data, self._policy_id)
+        except Exception:
+            logging.getLogger(__name__).exception("The red-team run failed")
+        finally:
+            self._lock.release()
 
 
 if __name__ == "__main__":

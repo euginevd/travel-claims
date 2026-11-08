@@ -15,6 +15,8 @@ FROM python:3.15.0-slim-trixie@sha256:f5b92f2a669a4c347044f29367f31983280b648250
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
+COPY data/redteam/attacks.json /app/data/redteam/
+COPY data/redteam/receipts /app/data/redteam/receipts
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
 USER 10001
 EXPOSE 8080

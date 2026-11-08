@@ -3,7 +3,7 @@ kept with who made it."""
 
 from typing import Any, cast
 
-from api_helpers import AGENT
+from api_helpers import AGENT, FakeAgent
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, update
 from test_flow import approve, claim, pay
@@ -104,10 +104,31 @@ RESULT = {
 def test_the_latest_red_team_run_is_kept_for_staff(
     client: TestClient, dana: dict[str, str], marcus: dict[str, str]
 ) -> None:
-    assert client.get("/api/staff/redteam", headers=marcus).status_code == 404
+    assert client.get("/api/staff/redteam", headers=marcus).json()["report"] is None
     run = {"results": [RESULT]}
     assert client.put("/api/staff/redteam", json=run, headers=marcus).status_code == 403
     assert client.put("/api/staff/redteam", json=run, headers=dana).status_code == 200
-    latest = client.get("/api/staff/redteam", headers=marcus).json()
+    latest = client.get("/api/staff/redteam", headers=marcus).json()["report"]
     assert latest["run_by"] == "Dana Whitfield"
     assert latest["results"][0]["attack_id"] == "RT-01"
+
+
+def test_a_senior_starts_one_red_team_run_at_a_time(
+    client: TestClient, agent: FakeAgent, dana: dict[str, str], marcus: dict[str, str]
+) -> None:
+    assert client.post("/api/staff/redteam/runs", headers=marcus).status_code == 403
+    started = client.post("/api/staff/redteam/runs", headers=dana)
+    assert started.status_code == 202
+    assert started.json()["running"] is True
+    assert ("redteam", "", None) in agent.calls
+    assert client.post("/api/staff/redteam/runs", headers=dana).status_code == 409
+    client.put("/api/staff/redteam", json={"results": [RESULT]}, headers=dana)
+    assert client.get("/api/staff/redteam", headers=dana).json()["running"] is False
+
+
+def test_a_red_team_run_the_agent_cant_take_is_not_left_running(
+    client: TestClient, agent: FakeAgent, dana: dict[str, str]
+) -> None:
+    agent.unreachable()
+    assert client.post("/api/staff/redteam/runs", headers=dana).status_code == 503
+    assert client.get("/api/staff/redteam", headers=dana).json()["running"] is False
