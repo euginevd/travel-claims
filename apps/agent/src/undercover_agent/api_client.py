@@ -82,6 +82,7 @@ class ApiClient:
             "input_tokens": call.input_tokens,
             "output_tokens": call.output_tokens,
             "cost": round(call.cost, 6),
+            "latency_ms": call.latency_ms,
         }
         self._call("POST", f"/api/agent/claims/{claim_id}/model-calls", body)
 
