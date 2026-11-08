@@ -15,4 +15,4 @@
 
 ## Next
 
-5. Stage 1, plan 1, the claim flow: `docs/plan-claim-flow.md`.
+5. Stage 1, plan 1, the claim flow: [plan-claim-flow.md](plan-claim-flow.md), awaiting review.
