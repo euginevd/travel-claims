@@ -62,7 +62,6 @@ from undercover_api.db import (
     model_calls,
     now,
     payments,
-    redteam_reports,
     sent_back,
 )
 from undercover_api.evaluations import EVALUATION, version_for_attempt
@@ -99,8 +98,6 @@ from undercover_api.models import (
     PayoutSwitchRequest,
     Policy,
     PreviousClaim,
-    RedTeamReport,
-    RedTeamRun,
     SendBackRequest,
     SignIn,
     SignInRequest,
@@ -115,6 +112,7 @@ from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.records import check_calculation, check_request
+from undercover_api.redteam import redteam_router
 from undercover_api.settings import Settings, get_settings
 
 log = logging.getLogger(__name__)
@@ -587,28 +585,6 @@ def set_payout_switch(
     return switch
 
 
-@staff_router.get("/redteam", operation_id="get_redteam_report")
-def get_redteam_report(_: SignedIn, db: Database) -> RedTeamReport:
-    """The latest run of the red-team suite."""
-    row = (
-        db.execute(select(redteam_reports).order_by(redteam_reports.c.report_id.desc()).limit(1))
-        .mappings()
-        .first()
-    )
-    if row is None:
-        raise HTTPException(404, "The red-team suite hasn't run yet")
-    return RedTeamReport.model_validate(dict(row))
-
-
-@staff_router.put("/redteam", operation_id="record_redteam_report")
-def record_redteam_report(run: RedTeamRun, handler: SeniorHandler, db: Database) -> RedTeamReport:
-    """Keep a red-team run's results, run by the senior handler signed in."""
-    stamp = now()
-    results = [result.model_dump() for result in run.results]
-    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=handler.name, results=results))
-    return RedTeamReport(run_at=stamp, run_by=handler.name, results=run.results)
-
-
 @staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
 def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
     """Every step and model call on a claim, for the trace view."""
@@ -762,6 +738,7 @@ def create_app(
         receipt_router,
         customer_router,
         *EVALUATION_ROUTERS,
+        redteam_router,
     ):
         app.include_router(router)
     return app

@@ -201,6 +201,13 @@ export const RedTeamReportSchema = z.object({
   results: z.array(RedTeamResultSchema),
 });
 
+export const RedTeamStatusSchema = z.object({
+  running: z.boolean(),
+  started_at: z.string().nullable(),
+  started_by: z.string().nullable(),
+  report: RedTeamReportSchema.nullable(),
+});
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export const TraceSchema = z.object({
@@ -240,6 +247,7 @@ export type Stages = z.infer<typeof StagesSchema>;
 export type Trace = z.infer<typeof TraceSchema>;
 export type PayoutSwitch = z.infer<typeof PayoutSwitchSchema>;
 export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
+export type RedTeamStatus = z.infer<typeof RedTeamStatusSchema>;
 
 export interface OverrideRequest {
   decision: DecisionKind;
@@ -367,7 +375,8 @@ export interface Api {
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
   getPayouts: () => Promise<PayoutSwitch>;
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
-  getRedTeam: () => Promise<RedTeamReport>;
+  getRedTeam: () => Promise<RedTeamStatus>;
+  startRedTeam: () => Promise<RedTeamStatus>;
   listRuns: () => Promise<Run[]>;
   getRun: (runId: number, signal?: AbortSignal) => Promise<RunInFull>;
   startRun: (request: StartRunRequest) => Promise<Run>;
@@ -478,7 +487,8 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     getPayouts: () => call(PayoutSwitchSchema, "GET", "/payouts"),
     setPayouts: (paused, reason) =>
       call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),
-    getRedTeam: () => call(RedTeamReportSchema, "GET", "/redteam"),
+    getRedTeam: () => call(RedTeamStatusSchema, "GET", "/redteam"),
+    startRedTeam: () => call(RedTeamStatusSchema, "POST", "/redteam/runs"),
     listRuns: () => call(z.array(RunSchema), "GET", "/runs"),
     getRun: (runId, signal) => call(RunInFullSchema, "GET", `/runs/${String(runId)}`, { signal }),
     startRun: (request) => call(RunSchema, "POST", "/runs", { body: request }),

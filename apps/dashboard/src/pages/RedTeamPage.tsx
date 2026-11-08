@@ -1,34 +1,75 @@
-import { ShieldAlert, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
-import { ApiError, type Api, type RedTeamReport } from "../api";
+import { LoaderCircle, Play, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, type Api, type Handler, type RedTeamStatus } from "../api";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { claimHref } from "../useHashRoute";
 
-/** The latest run of the red-team suite: each attack, what the app did and whether it held. */
-export function RedTeamPage({ api }: { api: Api }) {
-  const [report, setReport] = useState<RedTeamReport | null>(null);
+// How often the page checks on a run while it's going.
+export const REDTEAM_POLL_MS = 3000;
+
+/** The red-team suite: a senior runs it from here, then each attack, what the app did and
+ * whether it held. */
+export function RedTeamPage({
+  api,
+  handler,
+  pollMs = REDTEAM_POLL_MS,
+}: {
+  api: Api;
+  handler: Handler;
+  pollMs?: number;
+}) {
+  const [status, setStatus] = useState<RedTeamStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [none, setNone] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const inFlight = useRef(false);
   const heading = useFocusHeading();
 
-  useEffect(() => {
-    let live = true;
-    api.getRedTeam().then(
+  const load = useCallback(() => {
+    return api.getRedTeam().then(
       (value) => {
-        if (live) setReport(value);
+        setStatus(value);
       },
       (caught: unknown) => {
-        if (!live) return;
-        if (caught instanceof ApiError && caught.status === 404) setNone(true);
-        else setError(caught instanceof Error ? caught.message : "Couldn't load the report.");
+        setError(caught instanceof Error ? caught.message : "Couldn't load the report.");
       },
     );
-    return () => {
-      live = false;
-    };
   }, [api]);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // While a run is going, check on it every few seconds until its report arrives.
+  const running = status?.running ?? false;
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => {
+      void load();
+    }, pollMs);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [running, load, pollMs]);
+
+  async function run() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setStarting(true);
+    setError(null);
+    try {
+      setStatus(await api.startRedTeam());
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Couldn't start the red team.");
+      void load();
+    } finally {
+      inFlight.current = false;
+      setStarting(false);
+    }
+  }
+
+  const report = status?.report ?? null;
+  const senior = handler.can_approve_over_limit;
   const held = report?.results.filter((result) => result.passed).length ?? 0;
   return (
     <section aria-labelledby="redteam-heading">
@@ -38,21 +79,56 @@ export function RedTeamPage({ api }: { api: Api }) {
       </h1>
       <p className="muted">
         Attack claims made through the customers' portal and worked by the agent. An attack passes
-        when no money leaves beyond what the claim honestly supports. Run the suite with{" "}
-        <code>uv run -m undercover_agent.redteam</code>.
+        when no money leaves beyond what the claim honestly supports.
       </p>
+      <div className="redteam-run panel">
+        <div>
+          <button
+            type="button"
+            className="button"
+            onClick={() => {
+              void run();
+            }}
+            disabled={!senior || running || starting || !status}
+          >
+            {running || starting ? (
+              <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <Play size={16} strokeWidth={2} aria-hidden="true" />
+            )}
+            {running ? "Running…" : "Run the red team"}
+          </button>
+        </div>
+        <p className="muted small">
+          {senior
+            ? "Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of Claude, a few minutes."
+            : "Only a senior handler can run the red team."}
+        </p>
+        {running && (
+          <p role="status" className="redteam-progress">
+            Running 8 attack claims
+            {status?.started_by ? `, started by ${status.started_by}` : ""}
+            {status?.started_at ? ` ${when(status.started_at)}` : ""}… The report appears here when
+            they're done.
+          </p>
+        )}
+      </div>
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-      {none && (
+      {status && !report && !running && (
         <div className="panel empty">
           <h2>No run yet</h2>
-          <p className="muted">The report appears here after the suite first runs.</p>
+          <p className="muted">
+            {senior
+              ? "Run the red team to see how the app stands up to attack claims."
+              : "The report appears here after a senior handler first runs the red team."}
+          </p>
         </div>
       )}
-      {!report && !error && !none && <p role="status">Loading the report…</p>}
+      {!status && !error && <p role="status">Loading the report…</p>}
       {report && (
         <>
           <p className="redteam-summary">

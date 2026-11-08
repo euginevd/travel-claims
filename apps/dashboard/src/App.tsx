@@ -206,7 +206,7 @@ function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
       />
     );
   }
-  if (route.page === "redteam") return <RedTeamPage api={api} />;
+  if (route.page === "redteam") return <RedTeamPage api={api} handler={handler} />;
   if (route.page === "scoreboard") return <ScoreboardPage api={api} handler={handler} />;
   if (route.page === "run") {
     return <RunPage key={route.runId} api={api} runId={route.runId} handler={handler} />;
