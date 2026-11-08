@@ -25,7 +25,12 @@ SUBURB = re.compile(r"\s*\(.*\)$")
 
 def rows(name: str) -> list[dict[str, str]]:
     """Download one OurAirports CSV as rows."""
-    with urllib.request.urlopen(BASE + name, timeout=60) as response:  # noqa: S310 - fixed https URL
+    url = BASE + name
+    if not url.startswith("https://"):
+        raise ValueError(f"Not an https URL: {url}")
+    # The URL is the fixed OurAirports address plus a file name from this script, never user input.
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310
         text = response.read().decode("utf-8")
     return list(csv.DictReader(io.StringIO(text)))
 
