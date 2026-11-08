@@ -46,22 +46,27 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 27. The Copilot answers a handler's questions from the records and signs off a held payout only after the handler confirms on a card.
 28. All checks and the injection tests pass, and the local stack is documented in `status.md`.
 29. A customer signs in, sees only their own policy and claims with a plain-English status and reason, and submits a claim with up to five receipts (JPEG, PNG or PDF, 5 MB each); the hidden-instruction check reads the receipts before the claim agent does, and Claude reads them when deciding.
+30. Customers file photo first and type little: they snap a receipt or pick a common case, an AI drafting assistant (Claude Haiku) asks only what's missing and drafts the summary, items, amounts and dates, tagging where each came from and highlighting what it's unsure of; the customer confirms or fixes it before submitting. The assistant only drafts; the hidden-instruction check screens the customer's own words and receipts, and the claim agent reads the customer's original story as the record.
+31. Customers follow their claim on a plain status tracker, and can ask for a person to review any decision.
+32. Handlers see a case brief by default: a stage tracker (received, checked, assessed, decided, paid), a banner only when something needs them, a recommendation card with the outcome, the reason and a checklist of what was verified (exceptions first, each line linked to its receipt or clause), and the payout bar. They can sign off, send back, or override with a reason code. The agent's live activity sits in a separate panel, and a trace toggle shows the raw tool calls, JSON, model, tokens and cost.
+33. The queue puts what needs a handler first, with keyboard shortcuts and a command palette. AI-produced content carries one consistent marker in both apps.
 
 ## Rules
 
-30. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
-31. Claim text and documents are untrusted input: text hidden in them must not change a decision.
-32. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
-33. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
-34. The agent and the improver never see the handlers' decisions on the held-out set.
-35. Every decision is logged with its reasons, with personal data redacted.
-36. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
-37. Amounts are in US dollars, as in the source data.
-38. Receipts are untrusted: their type is checked from the file's contents, they're never served on a public URL, and a customer reaches only their own policy, claims and receipts.
-39. Security requirements baseline: OWASP ASVS 5.0 Level 2.
+34. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
+35. Claim text and documents are untrusted input: text hidden in them must not change a decision.
+36. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
+37. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
+38. The agent and the improver never see the handlers' decisions on the held-out set.
+39. Every decision is logged with its reasons, with personal data redacted.
+40. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
+41. Amounts are in US dollars, as in the source data.
+42. Receipts are untrusted: their type is checked from the file's contents, they're never served on a public URL, and a customer reaches only their own policy, claims and receipts.
+43. A payout held for sign-off is never paid without a handler, however long it waits.
+44. Security requirements baseline: OWASP ASVS 5.0 Level 2.
 
 ## Not for now
 
-40. Real payments, and messages to customers.
-41. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
-42. Anything on AWS until stage 2 is spec'd.
+45. Real payments, and messages to customers.
+46. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
+47. Anything on AWS until stage 2 is spec'd.
