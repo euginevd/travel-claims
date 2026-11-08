@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent import redteam
 from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.improver import RoundImprover
@@ -254,6 +255,6 @@ def build_app() -> FastAPI:
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),
-            os.environ.get("REDTEAM_POLICY", "POL-2005"),
+            os.environ.get("REDTEAM_POLICY", redteam.POLICY),
         ).start,
     )
