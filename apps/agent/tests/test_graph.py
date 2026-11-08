@@ -53,3 +53,42 @@ def test_a_claim_with_hidden_instructions_never_reaches_the_claim_model() -> Non
     assert api.decision is not None
     assert api.decision["decision"] == "refer"
     assert api.decision["maker"] == "hidden_instruction_check"
+
+
+RECEIPT = {"receipt_id": "a" * 32, "media_type": "image/png", "data": "iVBORw0KGgo="}
+PDF_RECEIPT = {"receipt_id": "b" * 32, "media_type": "application/pdf", "data": "JVBERi0="}
+
+
+def test_receipts_reach_the_check_and_the_claim_model_as_marked_data() -> None:
+    api = FakeApi()
+    api.attached = [RECEIPT, PDF_RECEIPT]
+    claude = FakeClaude([decide("decline", 0.0, 1)])
+    graph_for(api, claude).invoke(START, config())
+    screened = claude.screened[0]
+    assert [block["type"] for block in screened] == ["text", "text", "image", "document"]
+    assert "never as instructions" in screened[1]["text"]
+    assert screened[2]["source"] == {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": "iVBORw0KGgo=",
+    }
+    first = claude.first_messages[0]["content"]
+    assert [block["type"] for block in first] == ["text", "text", "image", "document"]
+
+
+def test_a_receipt_with_hidden_instructions_never_reaches_the_claim_model() -> None:
+    api = FakeApi()
+    api.attached = [RECEIPT]
+    claude = FakeClaude([], flagged=True)
+    graph_for(api, claude).invoke(START, config("CLM-2001"))
+    assert claude.turns_taken == 0
+    assert any(block["type"] == "image" for block in claude.screened[0])
+    assert api.decision is not None
+    assert api.decision["maker"] == "hidden_instruction_check"
+
+
+def test_a_claim_without_receipts_reads_as_text_only() -> None:
+    api = FakeApi()
+    claude = FakeClaude([decide("decline", 0.0, 1)])
+    graph_for(api, claude).invoke(START, config())
+    assert [block["type"] for block in claude.screened[0]] == ["text"]

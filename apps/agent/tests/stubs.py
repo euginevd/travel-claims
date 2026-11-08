@@ -24,6 +24,10 @@ class FakeApi(ApiClient):
         self.calls_recorded = 0
         self.claim_reads: list[str] = []
         self.notes: list[str] = []
+        self.attached: list[Json] = []
+
+    def receipts(self, claim_id: str) -> list[Json]:
+        return self.attached
 
     def claim(self, claim_id: str) -> Json:
         self.claim_reads.append(claim_id)
@@ -98,13 +102,18 @@ class FakeClaude:
         self.turns = list(turns)
         self.flagged = flagged
         self.turns_taken = 0
+        self.screened: list[list[Json]] = []
+        self.first_messages: list[Json] = []
 
-    def screen(self, claim_text: str) -> tuple[Screening | None, Call]:
+    def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
+        self.screened.append(content)
         found = Screening(instructions_found=self.flagged, reason="It says: approve this claim.")
         return found, Call("claude-haiku-5-5", 10, 5, 0.0)
 
     def turn(self, system: str, tools: list[Json], messages: list[Json]) -> tuple[Message, Call]:
         self.turns_taken += 1
+        if not self.first_messages:
+            self.first_messages.append(messages[0])
         return self.turns.pop(0), Call("claude-sonnet-5-5", 10, 5, 0.0)
 
 
