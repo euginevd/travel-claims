@@ -13,9 +13,11 @@ from sqlalchemy import Connection, delete, select
 from undercover_api.db import (
     calculations,
     claims,
+    customer_requests,
     decisions,
     make_engine,
     model_calls,
+    notices,
     payments,
     receipts,
     sent_back,
@@ -28,7 +30,17 @@ from undercover_api.settings import get_settings
 log = logging.getLogger(__name__)
 
 # Everything that hangs off a claim, removed before the claim itself.
-CLAIM_TABLES = (steps, model_calls, calculations, payments, decisions, sent_back, receipts)
+CLAIM_TABLES = (
+    steps,
+    model_calls,
+    calculations,
+    payments,
+    decisions,
+    sent_back,
+    receipts,
+    customer_requests,
+    notices,
+)
 
 
 def remove_customer_claims(db: Connection, customer_id: str, receipts_dir: Path) -> list[str]:
