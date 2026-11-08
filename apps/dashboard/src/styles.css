@@ -1889,6 +1889,8 @@ kbd {
     transform: translateX(16px);
     opacity: 0;
   }
+}
+
 /* The payouts kill switch */
 .payouts-on {
   display: flex;
