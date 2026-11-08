@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.improver import RoundImprover
 from undercover_agent.models import Draft, Drafter
@@ -157,7 +158,7 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
         found, _ = drafter["claims"].draft(draft_content(request))
         if found is None:
             raise HTTPException(502, "The drafting assistant couldn't draft this claim")
-        return found
+        return customer_facing(found)
 
     return app
 
