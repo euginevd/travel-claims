@@ -2565,6 +2565,9 @@ button.payouts-status.is-live:hover {
 
   .header nav a {
     padding: 0 0.5rem;
+  }
+}
+
 /* Run the red team from the page */
 .redteam-run {
   display: grid;
