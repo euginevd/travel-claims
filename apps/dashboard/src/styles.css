@@ -2686,6 +2686,9 @@ button.payouts-status.is-live:hover {
     top: auto;
     bottom: 16px;
     right: 16px;
+  }
+}
+
 /* Header: a long, quiet search field, and Copilot as the one filled button. */
 .search-field {
   display: inline-flex;
