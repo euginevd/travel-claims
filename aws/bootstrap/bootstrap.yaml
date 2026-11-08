@@ -1,0 +1,322 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Bootstrap for a project from sdlc-template: everything in the AWS account that Terraform
+  needs before it can run. Deployed by hand as stack <ProjectName>-bootstrap; deleting the stack
+  removes all of it.
+
+Parameters:
+  ProjectName:
+    Type: String
+    AllowedPattern: '[a-z][a-z0-9-]{1,30}'
+    Description: Lowercase kebab-case; prefixes every resource name
+  GitHubOwner:
+    Type: String
+    Description: GitHub user or organisation that owns the repo
+  GitHubRepo:
+    Type: String
+    Description: Repository name
+  Target:
+    Type: String
+    Default: dev
+    Description: Deployment target; the GitHub environments are aws-<target>-plan and aws-<target>-apply
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: An account has one GitHub OIDC provider; set false if another stack already created it
+
+Conditions:
+  CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
+
+Resources:
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      Tags:
+        - { Key: ManagedBy, Value: CloudFormation }
+
+  # Deleted with the stack; empty it first (versions included) or the delete fails.
+  # trivy:ignore:AWS-0132 S3-managed encryption is enough for state; the bucket is private and TLS-only
+  StateBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_18
+            comment: Versioning and CloudTrail cover state changes; access logs would need a second bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-tfstate-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-state-versions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: ManagedBy, Value: CloudFormation }
+
+  StateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StateBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt StateBucket.Arn
+              - !Sub '${StateBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-github-deploy'
+      Description: !Sub 'GitHub Actions deploy role for ${GitHubRepo}, aws-${Target}-apply environment'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              # The provider's ARN when this stack creates it, so the role waits for it.
+              Federated: !If
+                - CreateOidc
+                - !Ref GitHubOidcProvider
+                - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
+      Policies:
+        - PolicyName: terraform-state
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StateBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: !Sub '${ProjectName}/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${StateBucket.Arn}/${ProjectName}/*'
+        # Add each AWS service's permissions here, scoped to ${ProjectName}-* resources, before a unit uses it.
+        - PolicyName: project-resources
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Project roles only, and only with the boundary attached.
+              - Sid: IamProjectRolesWriteWithBoundary
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:CreateRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePermissionsBoundary
+                  - iam:PutRolePolicy
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref ProjectBoundary
+              - Sid: IamProjectRoles
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:Get*
+                  - iam:List*
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
+              # Lets Terraform hand project roles to Lambda, nothing else.
+              - Sid: IamPassProjectRoles
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
+              # aws/api: functions, the HTTP API and their log groups.
+              - Sid: LambdaProjectFunctions
+                Effect: Allow
+                Action: lambda:*
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
+                  - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*:*'
+              # API Gateway has no name-based ARNs, so it's limited to this region.
+              - Sid: ApiGatewayRegion
+                Effect: Allow
+                Action: apigateway:*
+                Resource: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/*'
+              - Sid: LogsProjectGroups
+                Effect: Allow
+                Action: logs:*
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/apigateway/${ProjectName}-*'
+              # HTTP API access logging and log group listing need these account-wide actions.
+              - Sid: LogsDelivery
+                Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:DescribeLogGroups
+                  - logs:DescribeResourcePolicies
+                  - logs:GetLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:UpdateLogDelivery
+                Resource: '*'
+              # The pipeline roles are named ${ProjectName}-github-*, so they're out of reach.
+              - Sid: DenyPipelineRoles
+                Effect: Deny
+                Action: iam:*
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-github-*'
+              - Sid: DenyBoundaryRemoval
+                Effect: Deny
+                Action: iam:DeleteRolePermissionsBoundary
+                Resource: '*'
+              - Effect: Deny
+                Action: sts:AssumeRole
+                Resource: '*'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: ManagedBy, Value: CloudFormation }
+
+  # Runs terraform plan without approval, so it can only read.
+  PlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-github-plan'
+      Description: !Sub 'GitHub Actions read-only plan role for ${GitHubRepo}, aws-${Target}-plan environment'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              # The provider's ARN when this stack creates it, so the role waits for it.
+              Federated: !If
+                - CreateOidc
+                - !Ref GitHubOidcProvider
+                - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
+      Policies:
+        - PolicyName: terraform-plan
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt StateBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: !Sub '${ProjectName}/*'
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${StateBucket.Arn}/${ProjectName}/*'
+              # Plan takes the state lock.
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${StateBucket.Arn}/${ProjectName}/*.tflock'
+              # Add each AWS service's read actions here, scoped to ${ProjectName}-* resources where the service allows it.
+              - Effect: Allow
+                Action:
+                  - iam:Get*
+                  - iam:List*
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
+              - Effect: Allow
+                Action:
+                  - lambda:Get*
+                  - lambda:List*
+                Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
+              - Effect: Allow
+                Action: apigateway:GET
+                Resource: !Sub 'arn:${AWS::Partition}:apigateway:${AWS::Region}::/*'
+              - Effect: Allow
+                Action:
+                  - logs:Describe*
+                  - logs:ListTagsForResource
+                  - logs:ListTagsLogGroup
+                Resource: '*'
+              - Effect: Deny
+                Action: sts:AssumeRole
+                Resource: '*'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: ManagedBy, Value: CloudFormation }
+
+  # Ceiling for every role Terraform creates. Starts with logs only; widen it as the project needs.
+  # Changing Description or ManagedPolicyName replaces the policy, which fails on its fixed name.
+  ProjectBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-boundary'
+      Description: !Sub 'Permissions boundary for roles created by ${ProjectName} Terraform'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*:*'
+
+Outputs:
+  BoundaryArn:
+    Description: permissions_boundary for roles Terraform creates
+    Value: !Ref ProjectBoundary
+
+  StateBucketName:
+    Description: GitHub repository variable TF_STATE_BUCKET
+    Value: !Ref StateBucket
+
+  RoleArn:
+    Description: GitHub repository variable AWS_DEPLOY_ROLE_ARN
+    Value: !GetAtt DeployRole.Arn
+
+  PlanRoleArn:
+    Description: GitHub repository variable AWS_PLAN_ROLE_ARN
+    Value: !GetAtt PlanRole.Arn

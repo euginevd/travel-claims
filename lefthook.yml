@@ -1,0 +1,6 @@
+# Git hooks, managed by lefthook. Setup and the why: guides/02-git-hooks.md
+pre-push:
+  jobs:
+    - name: scan
+      run: bash .lefthook/pre-push-scan.sh
+      use_stdin: true
