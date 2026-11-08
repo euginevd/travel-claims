@@ -112,6 +112,7 @@ export const caseChips = [
   "medical",
   "stolen",
   "passport",
+  "other",
 ] as const;
 export type CaseChip = (typeof caseChips)[number];
 
