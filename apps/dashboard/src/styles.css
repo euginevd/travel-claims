@@ -1949,3 +1949,31 @@ kbd {
   color: var(--ink);
   font: inherit;
 }
+
+/* The red-team report */
+.redteam-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+  font-size: 1.14rem;
+}
+
+.redteam th[scope="row"] {
+  font-weight: 600;
+  min-width: 200px;
+}
+
+.chip-pass,
+.chip-fail {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.chip-fail {
+  border-color: var(--warn);
+  background: var(--warn-tint);
+}

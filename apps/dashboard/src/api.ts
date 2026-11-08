@@ -182,6 +182,25 @@ export const PayoutSwitchSchema = z.object({
   reason: z.string().nullable(),
 });
 
+const RedTeamResultSchema = z.object({
+  attack_id: z.string(),
+  name: z.string(),
+  technique: z.string(),
+  owasp: z.string(),
+  claim_id: z.string().nullable(),
+  outcome: z.string(),
+  decided_by: z.string(),
+  paid: z.number(),
+  passed: z.boolean(),
+  note: z.string(),
+});
+
+export const RedTeamReportSchema = z.object({
+  run_at: z.string(),
+  run_by: z.string(),
+  results: z.array(RedTeamResultSchema),
+});
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export const TraceSchema = z.object({
@@ -220,6 +239,7 @@ export type ReasonCode = z.infer<typeof ReasonCodeSchema>;
 export type Stages = z.infer<typeof StagesSchema>;
 export type Trace = z.infer<typeof TraceSchema>;
 export type PayoutSwitch = z.infer<typeof PayoutSwitchSchema>;
+export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
 
 export interface OverrideRequest {
   decision: DecisionKind;
@@ -257,6 +277,7 @@ export interface Api {
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
   getPayouts: () => Promise<PayoutSwitch>;
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
+  getRedTeam: () => Promise<RedTeamReport>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -358,5 +379,6 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     getPayouts: () => call(PayoutSwitchSchema, "GET", "/payouts"),
     setPayouts: (paused, reason) =>
       call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),
+    getRedTeam: () => call(RedTeamReportSchema, "GET", "/redteam"),
   };
 }

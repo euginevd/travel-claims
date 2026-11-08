@@ -1,4 +1,5 @@
-"""The payouts kill switch, on (payouts allowed) to start, and the history of setting changes
+"""The payouts kill switch, on (payouts allowed) to start, the history of setting changes, and
+the red-team suite's reports
 
 Revision ID: 0006b
 Revises: 0004
@@ -27,6 +28,13 @@ def upgrade() -> None:
         sa.Column("changed_by_id", sa.String(length=20), nullable=False),
         sa.Column("changed_at", sa.String(length=32), nullable=False),
     )
+    op.create_table(
+        "redteam_reports",
+        sa.Column("report_id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("run_at", sa.String(length=32), nullable=False),
+        sa.Column("run_by", sa.String(length=200), nullable=False),
+        sa.Column("results", sa.JSON(), nullable=False),
+    )
     settings = sa.table(
         "settings",
         sa.column("key", sa.String),
@@ -49,4 +57,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DELETE FROM settings WHERE key = 'payouts_paused'")
+    op.drop_table("redteam_reports")
     op.drop_table("setting_changes")

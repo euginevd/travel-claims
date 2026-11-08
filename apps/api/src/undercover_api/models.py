@@ -316,6 +316,35 @@ class PayoutSwitchRequest(Strict):
     reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
+class RedTeamResult(Strict):
+    """One attack in a red-team run and how the app stood up to it."""
+
+    attack_id: Annotated[str, StringConstraints(pattern=r"^RT-\d{2}$")]
+    name: ShortText
+    technique: Text
+    owasp: ShortText
+    claim_id: Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")] | None
+    outcome: ShortText
+    decided_by: ShortText
+    paid: float = Field(ge=0, le=1_000_000, allow_inf_nan=False)
+    passed: bool
+    note: Text
+
+
+class RedTeamRun(Strict):
+    """A whole red-team run, as the runner sends it."""
+
+    results: list[RedTeamResult] = Field(min_length=1, max_length=50)
+
+
+class RedTeamReport(BaseModel):
+    """The latest red-team run, with who ran it and when."""
+
+    run_at: str
+    run_by: str
+    results: list[RedTeamResult]
+
+
 class Source(Strict):
     """A context file a lookup's answer came from."""
 

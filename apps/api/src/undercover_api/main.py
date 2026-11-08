@@ -62,6 +62,7 @@ from undercover_api.db import (
     model_calls,
     now,
     payments,
+    redteam_reports,
     sent_back,
 )
 from undercover_api.kill_switch import (
@@ -96,6 +97,8 @@ from undercover_api.models import (
     PayoutSwitchRequest,
     Policy,
     PreviousClaim,
+    RedTeamReport,
+    RedTeamRun,
     SendBackRequest,
     SignIn,
     SignInRequest,
@@ -578,6 +581,28 @@ def set_payout_switch(
         "payouts %s by handler %s", "paused" if request.paused else "resumed", handler.handler_id
     )
     return switch
+
+
+@staff_router.get("/redteam", operation_id="get_redteam_report")
+def get_redteam_report(_: SignedIn, db: Database) -> RedTeamReport:
+    """The latest run of the red-team suite."""
+    row = (
+        db.execute(select(redteam_reports).order_by(redteam_reports.c.report_id.desc()).limit(1))
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(404, "The red-team suite hasn't run yet")
+    return RedTeamReport.model_validate(dict(row))
+
+
+@staff_router.put("/redteam", operation_id="record_redteam_report")
+def record_redteam_report(run: RedTeamRun, handler: SeniorHandler, db: Database) -> RedTeamReport:
+    """Keep a red-team run's results, run by the senior handler signed in."""
+    stamp = now()
+    results = [result.model_dump() for result in run.results]
+    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=handler.name, results=results))
+    return RedTeamReport(run_at=stamp, run_by=handler.name, results=run.results)
 
 
 @staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")

@@ -196,6 +196,16 @@ setting_changes = Table(
     Column("changed_at", String(32), nullable=False),
 )
 
+# Each run of the red-team suite, newest last.
+redteam_reports = Table(
+    "redteam_reports",
+    metadata,
+    Column("report_id", Integer, primary_key=True, autoincrement=True),
+    Column("run_at", String(32), nullable=False),
+    Column("run_by", String(200), nullable=False),
+    Column("results", JSON, nullable=False),
+)
+
 # What the api loads from the context layer when seeding: the plans and document versions.
 reference = Table(
     "reference",

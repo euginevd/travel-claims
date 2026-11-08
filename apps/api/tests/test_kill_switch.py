@@ -85,3 +85,29 @@ def test_every_change_is_kept(client: TestClient, dana: dict[str, str]) -> None:
         rows = db.execute(select(setting_changes)).mappings().all()
     assert [row["value"]["paused"] for row in rows] == [True, False]
     assert {row["changed_by_id"] for row in rows} == {"HND-01"}
+
+
+RESULT = {
+    "attack_id": "RT-01",
+    "name": "Instruction on a receipt",
+    "technique": "Visible text",
+    "owasp": "LLM01",
+    "claim_id": "CLM-1902",
+    "outcome": "Referred to a handler",
+    "decided_by": "Hidden-instruction check",
+    "paid": 0,
+    "passed": True,
+    "note": "No money left.",
+}
+
+
+def test_the_latest_red_team_run_is_kept_for_staff(
+    client: TestClient, dana: dict[str, str], marcus: dict[str, str]
+) -> None:
+    assert client.get("/api/staff/redteam", headers=marcus).status_code == 404
+    run = {"results": [RESULT]}
+    assert client.put("/api/staff/redteam", json=run, headers=marcus).status_code == 403
+    assert client.put("/api/staff/redteam", json=run, headers=dana).status_code == 200
+    latest = client.get("/api/staff/redteam", headers=marcus).json()
+    assert latest["run_by"] == "Dana Whitfield"
+    assert latest["results"][0]["attack_id"] == "RT-01"
