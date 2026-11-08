@@ -20,20 +20,20 @@ Covers spec 4, 9, 15, 29 and 38: customers sign in through the local stand-in, s
 ## Phases
 
 ### 1. Sign-in and customer routes
-- [ ] Group-checked tokens for handlers and customers, with tests both ways
-- [ ] Customer routes with ownership checks and abuse tests
-- [ ] Receipts: upload limits, sniffing, storage, handler download, agent route
+- [x] Group-checked tokens for handlers and customers, with tests both ways
+- [x] Customer routes with ownership checks and abuse tests
+- [x] Receipts: upload limits, sniffing, storage, handler download, agent route
 
 ### 2. Agent reads receipts
-- [ ] The check and the claim agent receive receipts as content blocks, with stub tests
+- [x] The check and the claim agent receive receipts as content blocks, with stub tests
 
 ### 3. Web
-- [ ] Landing page, logo, illustration and header and queue fixes
-- [ ] Customer pages: my claims, claim view, make a claim with receipts
-- [ ] Receipts on the handler's claim page; zod schemas and fixtures for every new response
+- [x] Landing page, logo, illustration and header and queue fixes
+- [x] Customer pages: my claims, claim view, make a claim with receipts
+- [x] Receipts on the handler's claim page; zod schemas and fixtures for every new response
 
 ### 4. Run it
-- [ ] All checks pass; the stack rebuilt; a customer submits a claim with a receipt and Dana sees it
+- [x] All checks pass; the stack rebuilt; a customer submits a claim with a receipt and Dana sees it
 
 ## PR groups
 

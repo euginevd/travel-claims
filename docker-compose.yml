@@ -27,6 +27,9 @@ services:
       LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
       HANDLER_PASSWORD: ${HANDLER_PASSWORD:-}
       AGENT_URL: http://agent:8080
+    volumes:
+      # Customers' receipts, kept under random names; a private S3 bucket in stage 2.
+      - receipts:/data/receipts
     depends_on:
       postgres: { condition: service_healthy }
     ports:
@@ -66,3 +69,4 @@ services:
 
 volumes:
   postgres-data:
+  receipts:
