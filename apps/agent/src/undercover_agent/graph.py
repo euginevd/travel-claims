@@ -19,10 +19,11 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
 from undercover_agent.api_client import ApiClient
-from undercover_agent.models import Call, Claude
+from undercover_agent.models import Call, Claude, SpecialistKind
 from undercover_agent.tools import (
     TOOLS,
     Context,
+    Result,
     as_text,
     claim_as_read,
     run_tool,
@@ -126,6 +127,18 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
             return {"messages": [assistant, nudge], "model_calls": 1}
         return {"messages": [assistant], "model_calls": 1}
 
+    def consult(claim_id: str, thread_id: str, kind: str) -> Result:
+        """Ask a specialist for its findings on the claim, its receipts and the trip."""
+        specialist = cast(SpecialistKind, kind)
+        claim = claim_as_read(api.claim(claim_id))
+        trip = api.policy(claim_id).get("trip", {})
+        facts = as_text({"claim": claim, "trip": trip})
+        found, call = claude.specialist(specialist, with_receipts(facts, api.receipts(claim_id)))
+        record_call(claim_id, thread_id, call)
+        if found is None:
+            return Result(f"The {kind} specialist couldn't review this claim.", is_error=True)
+        return Result(as_text(found.model_dump()))
+
     def act(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
         calls = [b for b in state["messages"][-1]["content"] if b.get("type") == "tool_use"]
@@ -135,7 +148,9 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
         for block in calls:
             name, args = str(block["name"]), cast(Json, block.get("input") or {})
             api.record_step(claim_id, thread_id, "tool_call", f"{name} {as_text(args)}")
-            result = run_tool(api, context, claim_id, name, args)
+            result = run_tool(
+                api, context, claim_id, name, args, lambda k: consult(claim_id, thread_id, k)
+            )
             kind = "error" if result.is_error else ("lookup" if result.sources else "tool_result")
             api.record_step(claim_id, thread_id, kind, result.text, result.sources)
             results.append(
