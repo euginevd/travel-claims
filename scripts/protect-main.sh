@@ -28,7 +28,8 @@ if [ "$public" = true ]; then
 {"security_and_analysis": {"secret_scanning": {"status": "enabled"}, "secret_scanning_push_protection": {"status": "enabled"}}}
 JSON
   api -X PUT "repos/$repo/private-vulnerability-reporting"
-  api -X PATCH "repos/$repo/code-scanning/default-setup" -f state=configured
+  # CodeQL runs from .github/workflows/codeql.yml; GitHub rejects its results while default setup is on.
+  api -X PATCH "repos/$repo/code-scanning/default-setup" -f state=not-configured
   # Anyone can open a PR on a public repo: their workflow runs wait for your approval.
   api -X PUT "repos/$repo/actions/permissions/fork-pr-contributor-approval" -f approval_policy=all_external_contributors
 fi
