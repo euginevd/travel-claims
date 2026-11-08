@@ -2,6 +2,8 @@ import { ListChecks } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Handler } from "./api";
 import { CommandPalette } from "./components/CommandPalette";
+import { Copilot } from "./components/Copilot";
+import { createCopilot } from "./copilot";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { ClaimPage } from "./pages/ClaimPage";
@@ -45,6 +47,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   const [meError, setMeError] = useState<string | null>(null);
   const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const signOut = useCallback(() => {
     saveToken(null);
@@ -56,6 +59,8 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
     () => guarded(createApi(fetchFn, loadToken), signOut),
     [fetchFn, signOut],
   );
+
+  const copilot = useMemo(() => createCopilot(fetchFn, loadToken), [fetchFn]);
 
   useEffect(() => {
     if (!token) return;
@@ -124,12 +129,23 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         onSearch={() => {
           window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
         }}
+        onCopilot={() => {
+          setCopilotOpen((open) => !open);
+        }}
       />
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>
           {handlerPage(route, api, person, pollMs)}
         </ErrorBoundary>
       </main>
+      {copilotOpen && (
+        <Copilot
+          copilot={copilot}
+          onClose={() => {
+            setCopilotOpen(false);
+          }}
+        />
+      )}
       <CommandPalette api={api} onSignOut={signOut} />
     </>
   );
