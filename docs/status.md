@@ -52,6 +52,11 @@
   claims and decisions from LangGraph's `PostgresStore`, one namespace per customer; never the
   customer's words, never from a claim the check referred, never in evaluations (a claim with
   `evaluation: true` from the api).
+- **Where-it-happened suggestions:** the portal's "Where?" field suggests airports and cities as
+  the customer types (a WAI-ARIA combobox; free text still allowed), the trip's own places first.
+  The list is 3,195 large and medium airports with scheduled service from OurAirports
+  (https://ourairports.com/data/, public domain), built by `scripts/make-airports.py` into
+  `apps/portal/src/data/airports.json` and loaded only when the field is used.
 
 20a. Evaluations and improvement, 2026-11-08: a tiny evaluation of v1 (Claude Sonnet, medium) matched the handlers on 5 of 5. Round 1's improver proposed Claude Haiku at low effort; it matched 5 of 5 on the held-out set at a twelfth of the cost but was rolled back, as cost wasn't yet a measure. With cost per claim counted, round 2's same proposal was kept: v3 (Haiku, low) is $0.002 a claim against $0.035. About $0.92 in all.
 
