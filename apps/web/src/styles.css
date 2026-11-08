@@ -228,6 +228,10 @@ label {
   color: var(--bad-text);
 }
 
+.table-wrap {
+  overflow-x: auto;
+}
+
 .queue {
   width: 100%;
   border-collapse: collapse;

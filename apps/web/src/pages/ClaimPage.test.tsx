@@ -231,3 +231,21 @@ test("says when working the claim fails", async () => {
   await user.click(await screen.findByRole("button", { name: "Work this claim" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("A dispatch is going.");
 });
+
+test("a sign-off that worked isn't reported as failed when the steps don't reload", async () => {
+  const user = userEvent.setup();
+  let signedOff = false;
+  show({
+    [`GET ${BASE}`]: () => [200, held],
+    [`GET ${BASE}/steps`]: () =>
+      signedOff ? [500, { detail: "Steps unavailable" }] : [200, STEPS],
+    [`POST ${BASE}/sign-off`]: () => {
+      signedOff = true;
+      return [200, claim({ status: "decided", decision: APPROVAL })];
+    },
+  });
+  await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
+  expect(await screen.findByRole("region", { name: "Decision" })).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText("Refused")).toBeInTheDocument();
+});

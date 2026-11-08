@@ -54,9 +54,15 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     };
   }, [api, claimId, working, pollMs]);
 
+  // The action's answer is what counts; if the steps then fail to load, the next poll or
+  // reload shows them, so that failure isn't reported as the action failing.
   async function act(action: () => Promise<Claim>) {
     setClaim(await action());
-    setSteps(await api.listSteps(claimId));
+    try {
+      setSteps(await api.listSteps(claimId));
+    } catch {
+      // Keep the steps already shown.
+    }
   }
 
   async function workClaim() {

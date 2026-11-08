@@ -38,41 +38,43 @@ export function QueuePage({ api }: { api: Api }) {
       {!claims && !error && <p role="status">Loading the queue…</p>}
       {claims?.length === 0 && <p>The queue is empty.</p>}
       {claims && claims.length > 0 && (
-        <table className="queue">
-          <caption className="visually-hidden">
-            {claims.length} claims, oldest submitted first
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Claim</th>
-              <th scope="col">Customer</th>
-              <th scope="col">Plan</th>
-              <th scope="col">What happened</th>
-              <th scope="col" className="number">
-                Claimed
-              </th>
-              <th scope="col">Submitted</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {claims.map((claim) => (
-              <tr key={claim.claim_id}>
-                <th scope="row">
-                  <a href={claimHref(claim.claim_id)}>{claim.claim_id}</a>
+        <div className="table-wrap">
+          <table className="queue">
+            <caption className="visually-hidden">
+              {claims.length} claims, oldest submitted first
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Claim</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Plan</th>
+                <th scope="col">What happened</th>
+                <th scope="col" className="number">
+                  Claimed
                 </th>
-                <td>{claim.customer_name}</td>
-                <td className="capitalise">{claim.plan}</td>
-                <td>{claim.summary}</td>
-                <td className="number">{dollars(claim.amount_claimed)}</td>
-                <td>{date(claim.submitted_on)}</td>
-                <td>
-                  <StatusChip status={claim.status} />
-                </td>
+                <th scope="col">Submitted</th>
+                <th scope="col">Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {claims.map((claim) => (
+                <tr key={claim.claim_id}>
+                  <th scope="row">
+                    <a href={claimHref(claim.claim_id)}>{claim.claim_id}</a>
+                  </th>
+                  <td>{claim.customer_name}</td>
+                  <td className="capitalise">{claim.plan}</td>
+                  <td>{claim.summary}</td>
+                  <td className="number">{dollars(claim.amount_claimed)}</td>
+                  <td>{date(claim.submitted_on)}</td>
+                  <td>
+                    <StatusChip status={claim.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
