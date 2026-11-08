@@ -1,6 +1,8 @@
 """Who is calling: the agent with its API key, a handler or a customer with an ID token. Every
 route but the health check and sign-in has exactly one of these gates, and anything else is
-refused. A token's Cognito group says which kind of person it is for."""
+refused. Handlers' and customers' tokens come from separate issuers with separate keys and
+audiences, so each audience's routes verify only their own; the token's Cognito group is
+checked too, as defence in depth."""
 
 import logging
 import secrets
@@ -132,7 +134,7 @@ def signed_in_handler(
         raise KEY_IS_NOT_A_HANDLER
     if bearer is None:
         raise NOT_SIGNED_IN
-    verifier: TokenVerifier = request.app.state.verifier
+    verifier: TokenVerifier = request.app.state.staff_verifier
     email, groups = verifier.identity(bearer.credentials)
     if HANDLERS_GROUP not in groups:
         raise HTTPException(403, "You aren't a claims handler")
@@ -159,18 +161,6 @@ def over_the_limit_handler(handler: SignedIn) -> Handler:
 SeniorHandler = Annotated[Handler, Depends(over_the_limit_handler)]
 
 
-def agent_or_handler(
-    request: Request,
-    db: Database,
-    key: Annotated[str | None, Depends(AGENT_KEY_HEADER)],
-    bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
-) -> None:
-    """The agent with its key, or a signed-in handler."""
-    if is_the_agent(request, key):
-        return
-    signed_in_handler(request, db, None, bearer)
-
-
 def signed_in_customer(
     request: Request,
     db: Database,
@@ -182,7 +172,7 @@ def signed_in_customer(
         raise KEY_IS_NOT_A_CUSTOMER
     if bearer is None:
         raise NOT_SIGNED_IN
-    verifier: TokenVerifier = request.app.state.verifier
+    verifier: TokenVerifier = request.app.state.customer_verifier
     email, groups = verifier.identity(bearer.credentials)
     if CUSTOMERS_GROUP not in groups:
         raise HTTPException(403, "You aren't signed in as a customer")

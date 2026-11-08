@@ -31,8 +31,8 @@ from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, ReceiptStore
 
 log = logging.getLogger(__name__)
 
-customer_router = APIRouter(prefix="/api/my")
-receipt_router = APIRouter(prefix="/api")
+customer_router = APIRouter(prefix="/api/customer")
+receipt_router = APIRouter(prefix="/api/staff")
 agent_receipt_router = APIRouter(
     prefix="/api/agent/claims/{claim_id}", dependencies=[Depends(require_agent)]
 )

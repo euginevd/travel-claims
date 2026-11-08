@@ -346,7 +346,6 @@ class Customer(BaseModel):
 
 
 class SignInRequest(Strict):
-    role: Literal["handler", "customer"] = "handler"
     email: Annotated[
         str, StringConstraints(strip_whitespace=True, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")
     ]

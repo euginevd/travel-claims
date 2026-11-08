@@ -134,5 +134,5 @@ def test_nothing_below_zero(client: TestClient) -> None:
 
 def test_working_out_a_payout_decides_nothing(client: TestClient) -> None:
     payout(client, "CLM-1001", "trip_delay", [line("Taxis", 80, kind="expense")])
-    claim = client.get("/api/claims/CLM-1001", headers={"X-API-Key": "k" * 64}).json()
+    claim = client.get("/api/agent/claims/CLM-1001", headers={"X-API-Key": "k" * 64}).json()
     assert (claim["status"], claim["decision"]) == ("in_progress", None)

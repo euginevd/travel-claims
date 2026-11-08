@@ -33,9 +33,12 @@ def make_settings(url: str, **changes: Any) -> Settings:
 AGENT = {"X-API-Key": AGENT_KEY}
 
 
+SIGN_IN = {"handler": "/api/staff/dev/sign-in", "customer": "/api/customer/dev/sign-in"}
+
+
 def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:
-    body = {"email": email, "password": PASSWORD, "role": role}
-    response = client.post("/api/dev/sign-in", json=body)
+    body = {"email": email, "password": PASSWORD}
+    response = client.post(SIGN_IN[role], json=body)
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['id_token']}"}
 
