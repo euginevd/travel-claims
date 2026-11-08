@@ -56,16 +56,28 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-  web:
+  # Customers and staff use separate web apps; each web server forwards only its own api prefix.
+  portal:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/portal/Dockerfile
       args:
         VITE_LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
     depends_on:
       api: { condition: service_healthy }
     ports:
       - "127.0.0.1:5173:8080"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        VITE_LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:5174:8080"
 
 volumes:
   postgres-data:

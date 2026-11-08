@@ -20,7 +20,8 @@ Built with a secure agentic SDLC: [guides/01-agentic-sdlc.md](guides/01-agentic-
 
 | App | What | Runs on |
 |-----|------|---------|
-| `web` | The handlers' dashboard | Docker locally; EKS *(planned)* |
+| `portal` | Customers make and track claims (127.0.0.1:5173) | Docker locally; EKS *(planned)* |
+| `dashboard` | Handlers work the queue and sign off payouts (127.0.0.1:5174) | Docker locally; EKS *(planned)* |
 | `api` | Claims, decisions, payments and settings | Docker locally; EKS *(planned)* |
 | `agent` | Claim agent, hidden-instruction check, dispatcher and improver | Docker locally; EKS *(planned)* |
 | `copilot` | The handlers' chat agent | Docker locally; EKS *(planned)* |
