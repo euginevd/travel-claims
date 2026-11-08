@@ -71,28 +71,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     }
   }
 
-  if (!claim) {
-    return (
-      <section>
-        <p>
-          <a href={QUEUE_HREF}>Back to the queue</a>
-        </p>
-        <h1 ref={heading} tabIndex={-1}>
-          Claim {claimId}
-        </h1>
-        {error ? (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        ) : (
-          <p role="status">Loading the claim…</p>
-        )}
-      </section>
-    );
-  }
-
-  const held = claim.status === "waiting_for_sign_off";
-
+  // One heading for every state, so the focus it takes on opening stays put once loaded.
   return (
     <article className="claim">
       <p>
@@ -100,131 +79,141 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
       </p>
       <div className="claim-title">
         <h1 ref={heading} tabIndex={-1}>
-          Claim {claim.claim_id}
+          Claim {claimId}
         </h1>
-        <StatusChip status={claim.status} />
+        {claim && <StatusChip status={claim.status} />}
       </div>
-      <p className="muted">
-        {claim.customer_name} · <span className="capitalise">{claim.policy.plan}</span> plan ·
-        claimed {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
-      </p>
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-
-      <div className="claim-grid">
-        <div className="claim-main">
-          <section className="panel" aria-labelledby="story-heading">
-            <h2 id="story-heading">What happened</h2>
-            <p className="muted small">
-              {date(claim.incident_date)}, {claim.incident_location}
-            </p>
-            <p className="story">{claim.story}</p>
-            <table className="items">
-              <caption>Items claimed</caption>
-              <tbody>
-                {claim.items.map((item, index) => (
-                  <tr key={index}>
-                    <th scope="row">{item.description}</th>
-                    <td className="number">{dollars(item.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <h3>Documents</h3>
-            {claim.documents.length === 0 ? (
-              <p className="muted">No documents.</p>
-            ) : (
-              claim.documents.map((document) => (
-                <details key={document.name} className="document">
-                  <summary>{document.name}</summary>
-                  <p>{document.content}</p>
-                </details>
-              ))
-            )}
-            <h3>Policy</h3>
-            <p className="small">
-              {claim.policy.policy_id} · {claim.policy.destination}, {date(claim.policy.trip_start)}{" "}
-              to {date(claim.policy.trip_end)} · {claim.policy.travelers}{" "}
-              {claim.policy.travelers === 1 ? "traveller" : "travellers"}
-              {claim.policy.add_ons.length > 0 && (
-                <> · add-ons: {claim.policy.add_ons.join(", ")}</>
-              )}
-            </p>
-          </section>
-
-          {WORKABLE.has(claim.status) && (
-            <div className="work">
-              <button
-                type="button"
-                className="button"
-                disabled={starting}
-                onClick={() => {
-                  void workClaim();
-                }}
-              >
-                {starting ? "Starting…" : "Work this claim"}
-              </button>
-              <p className="muted small">
-                The agent checks the claim for hidden instructions, then decides it.
-              </p>
-            </div>
-          )}
-
-          {held && (
-            <HeldPayout
-              claim={claim}
-              handler={handler}
-              onSignOff={() => act(() => api.signOff(claimId))}
-              onSendBack={(note) => act(() => api.sendBack(claimId, note))}
-            />
-          )}
-
-          {claim.decision && (
-            <DecisionCard
-              decision={claim.decision}
-              payment={claim.payment}
-              heading={held ? "The agent's decision" : "Decision"}
-            />
-          )}
-
-          {claim.sent_back_decisions.length > 0 && (
-            <section className="panel" aria-labelledby="sent-back-heading">
-              <h2 id="sent-back-heading">Sent back</h2>
-              <ol className="sent-back-list">
-                {claim.sent_back_decisions.map((sent) => (
-                  <li key={sent.sent_back_at}>
-                    <p>
-                      <strong>{sent.sent_back_by}</strong>{" "}
-                      <span className="muted">{when(sent.sent_back_at)}</span>
-                    </p>
-                    <blockquote>{sent.note}</blockquote>
-                    <p className="muted small">
-                      The decision sent back: {sent.decision.decision},{" "}
-                      {dollars(sent.decision.payout)}. {sent.decision.reason}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-        </div>
-
-        <div className="claim-side">
-          <section className="panel" aria-labelledby="steps-heading">
-            <h2 id="steps-heading">What the agent did</h2>
-            <p role="status" className="muted small">
-              {working
-                ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
-                : `${String(steps.length)} steps.`}
-            </p>
-            <StepList steps={steps} />
-          </section>
-          <SourcesPanel steps={steps} />
-        </div>
-      </div>
+      {claim ? details(claim) : !error && <p role="status">Loading the claim…</p>}
     </article>
   );
+
+  // A plain render helper, not a component, so React keeps the form state inside it.
+  function details(claim: Claim) {
+    const held = claim.status === "waiting_for_sign_off";
+    return (
+      <>
+        <p className="muted">
+          {claim.customer_name} · <span className="capitalise">{claim.policy.plan}</span> plan ·
+          claimed {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
+        </p>
+
+        <div className="claim-grid">
+          <div className="claim-main">
+            <section className="panel" aria-labelledby="story-heading">
+              <h2 id="story-heading">What happened</h2>
+              <p className="muted small">
+                {date(claim.incident_date)}, {claim.incident_location}
+              </p>
+              <p className="story">{claim.story}</p>
+              <table className="items">
+                <caption>Items claimed</caption>
+                <tbody>
+                  {claim.items.map((item, index) => (
+                    <tr key={index}>
+                      <th scope="row">{item.description}</th>
+                      <td className="number">{dollars(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <h3>Documents</h3>
+              {claim.documents.length === 0 ? (
+                <p className="muted">No documents.</p>
+              ) : (
+                claim.documents.map((document) => (
+                  <details key={document.name} className="document">
+                    <summary>{document.name}</summary>
+                    <p>{document.content}</p>
+                  </details>
+                ))
+              )}
+              <h3>Policy</h3>
+              <p className="small">
+                {claim.policy.policy_id} · {claim.policy.destination},{" "}
+                {date(claim.policy.trip_start)} to {date(claim.policy.trip_end)} ·{" "}
+                {claim.policy.travelers} {claim.policy.travelers === 1 ? "traveller" : "travellers"}
+                {claim.policy.add_ons.length > 0 && (
+                  <> · add-ons: {claim.policy.add_ons.join(", ")}</>
+                )}
+              </p>
+            </section>
+
+            {WORKABLE.has(claim.status) && (
+              <div className="work">
+                <button
+                  type="button"
+                  className="button"
+                  disabled={starting}
+                  onClick={() => {
+                    void workClaim();
+                  }}
+                >
+                  {starting ? "Starting…" : "Work this claim"}
+                </button>
+                <p className="muted small">
+                  The agent checks the claim for hidden instructions, then decides it.
+                </p>
+              </div>
+            )}
+
+            {held && (
+              <HeldPayout
+                claim={claim}
+                handler={handler}
+                onSignOff={() => act(() => api.signOff(claimId))}
+                onSendBack={(note) => act(() => api.sendBack(claimId, note))}
+              />
+            )}
+
+            {claim.decision && (
+              <DecisionCard
+                decision={claim.decision}
+                payment={claim.payment}
+                heading={held ? "The agent's decision" : "Decision"}
+              />
+            )}
+
+            {claim.sent_back_decisions.length > 0 && (
+              <section className="panel" aria-labelledby="sent-back-heading">
+                <h2 id="sent-back-heading">Sent back</h2>
+                <ol className="sent-back-list">
+                  {claim.sent_back_decisions.map((sent) => (
+                    <li key={sent.sent_back_at}>
+                      <p>
+                        <strong>{sent.sent_back_by}</strong>{" "}
+                        <span className="muted">{when(sent.sent_back_at)}</span>
+                      </p>
+                      <blockquote>{sent.note}</blockquote>
+                      <p className="muted small">
+                        The decision sent back: {sent.decision.decision},{" "}
+                        {dollars(sent.decision.payout)}. {sent.decision.reason}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+          </div>
+
+          <div className="claim-side">
+            <section className="panel" aria-labelledby="steps-heading">
+              <h2 id="steps-heading">What the agent did</h2>
+              <p role="status" className="muted small">
+                {working
+                  ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
+                  : `${String(steps.length)} steps.`}
+              </p>
+              <StepList steps={steps} />
+            </section>
+            <SourcesPanel steps={steps} />
+          </div>
+        </div>
+      </>
+    );
+  }
 }

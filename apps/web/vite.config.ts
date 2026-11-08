@@ -13,7 +13,7 @@ export default defineConfig({
     setupFiles: ["src/setupTests.ts"],
     coverage: {
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/main.tsx", "src/setupTests.ts", "src/**/*.test.{ts,tsx}"],
+      exclude: ["src/main.tsx", "src/setupTests.ts", "src/testing.ts", "src/**/*.test.{ts,tsx}"],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },
