@@ -10,6 +10,7 @@ import {
   Sparkle,
   Trash2,
   type LucideIcon,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { ApiError, type Api, type CaseChip, type Draft, type Policy } from "../api";
@@ -75,6 +76,13 @@ export const CHIPS: Record<CaseChip, Tile> = {
     claimType: "passport",
     Icon: IdCard,
   },
+  // No type up front: the assistant suggests one from the customer's words, or they pick it.
+  other: {
+    label: "Something else",
+    hint: "Tell us in a sentence",
+    claimType: "",
+    Icon: MessageCircleQuestion,
+  },
 };
 const TILE_ORDER: CaseChip[] = [
   "lost_bag",
@@ -84,6 +92,7 @@ const TILE_ORDER: CaseChip[] = [
   "medical",
   "stolen",
   "passport",
+  "other",
 ];
 
 const CATEGORIES: Record<string, string> = {
@@ -147,7 +156,7 @@ export function fromDraft(draft: Draft | null, chip: CaseChip, words: string) {
       .filter((q) => !isNote(q) && !ON_SCREEN.test(q))
       .slice(0, 2),
     unsure: new Set(draft?.low_confidence_fields ?? []),
-    claimType: CHIPS[chip].claimType,
+    claimType: CHIPS[chip].claimType || draft?.claim_type || "",
   };
 }
 
@@ -163,6 +172,7 @@ export function NewClaimPage({ api }: { api: Api }) {
   const [files, setFiles] = useState<File[]>([]);
   const [chip, setChip] = useState<CaseChip | "">("");
   const [words, setWords] = useState("");
+  const [claimType, setClaimType] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [drafted, setDrafted] = useState(false);
   const [draftNote, setDraftNote] = useState<string | null>(null);
@@ -197,6 +207,8 @@ export function NewClaimPage({ api }: { api: Api }) {
   const policy = policies?.find((p) => p.policy_id === policyId);
   const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
   const hasSomethingToRead = files.length > 0 || words.trim().length > 0;
+  // "Something else" needs the customer's own sentence, since no tile says what happened.
+  const needsWords = chip === "other" && words.trim().length === 0;
 
   async function goToCheck() {
     if (!chip) return;
@@ -223,6 +235,7 @@ export function NewClaimPage({ api }: { api: Api }) {
     setLines(filled.lines);
     setQuestions(filled.questions);
     setUnsure(filled.unsure);
+    setClaimType(filled.claimType);
     setDrafted(draft !== null);
     setDrafting(false);
   }
@@ -255,12 +268,16 @@ export function NewClaimPage({ api }: { api: Api }) {
       return;
     }
     if (!chip) return;
+    if (!claimType) {
+      setError("Choose the type of claim, then send it.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const made = await api.makeClaim({
         policy_id: policyId,
-        claim_type: CHIPS[chip].claimType,
+        claim_type: claimType,
         incident_date: incidentDate,
         incident_location: location.trim(),
         summary: summary.trim(),
@@ -394,7 +411,11 @@ export function NewClaimPage({ api }: { api: Api }) {
             less for you to type.
           </p>
           <ReceiptPicker files={files} onChange={setFiles} />
-          <label htmlFor={`${ids}-words`}>Anything to add? (optional)</label>
+          <label htmlFor={`${ids}-words`}>
+            {chip === "other"
+              ? "What happened? A sentence is enough"
+              : "Anything to add? (optional)"}
+          </label>
           <textarea
             id={`${ids}-words`}
             rows={3}
@@ -409,6 +430,7 @@ export function NewClaimPage({ api }: { api: Api }) {
             <button
               type="button"
               className="button wide"
+              disabled={needsWords}
               onClick={() => {
                 void goToCheck();
               }}
@@ -484,6 +506,27 @@ export function NewClaimPage({ api }: { api: Api }) {
               Change
             </button>
           </div>
+
+          {chip === "other" && (
+            <>
+              <label htmlFor={`${ids}-type`}>Type of claim</label>
+              <select
+                id={`${ids}-type`}
+                value={claimType}
+                className={claimType ? undefined : "unsure"}
+                onChange={(event) => {
+                  setClaimType(event.target.value);
+                }}
+              >
+                <option value="">Choose the closest</option>
+                {Object.entries(CLAIM_TYPES).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           {questions[0] && (
             <div className="question-card panel">

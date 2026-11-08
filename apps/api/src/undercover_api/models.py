@@ -629,6 +629,7 @@ CaseChip = Literal[
     "medical",
     "stolen",
     "passport",
+    "other",
 ]
 
 

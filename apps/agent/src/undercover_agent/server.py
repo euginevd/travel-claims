@@ -68,6 +68,13 @@ class DraftRequest(BaseModel):
     receipts: list[DraftReceipt] = Field(max_length=5)
 
 
+def picked(case: str) -> str:
+    """The tile the customer tapped, in words the assistant can act on."""
+    if case == "other":
+        return "something else, so work out which claim type fits from their words"
+    return case or "(not picked)"
+
+
 def draft_content(request: DraftRequest) -> list[dict[str, object]]:
     """What the drafting assistant reads: the facts, the customer's words, then each receipt
     labelled by number. All of it is data."""
@@ -75,7 +82,7 @@ def draft_content(request: DraftRequest) -> list[dict[str, object]]:
     facts = (
         f"Today is {request.today}. The customer's trip: {trip.destination}, "
         f"{trip.departs_on} to {trip.returns_on}.\n"
-        f"What happened, as they picked it: {request.case or '(not picked)'}.\n"
+        f"What happened, as they picked it: {picked(request.case)}.\n"
         f"In their words, between the markers:\n<customer_words>\n{request.text}\n"
         "</customer_words>"
     )
