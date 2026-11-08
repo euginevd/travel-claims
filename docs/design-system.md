@@ -38,4 +38,4 @@ Built on the [ArcVault design system](https://claude.ai/artifact/SWnGNCZKAxQBhxJ
 14. Payout bar: one horizontal bar from claimed to paid, with the deductible and anything over a limit in `bg-3`, the paid amount in `accent`, and every segment labelled.
 15. Every screen has loading skeletons in its own layout, an empty state that says what to do, and an error state with a retry.
 16. Status chips: Waiting, In progress, Waiting for sign-off, Sent back, Approved, Declined, Referred and Paid; `warn` only for a payment held over the limit.
-17. Numbers in tabular figures; money always shows 2 decimal places in US dollars (`$1,234.50`, spec 37). Dates as `8 Nov 2026`.
+17. Numbers in tabular figures; money always shows 2 decimal places in US dollars (`$1,234.50`, spec 41). Dates as `8 Nov 2026`.

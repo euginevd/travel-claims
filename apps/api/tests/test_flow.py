@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 
 def claim(client: TestClient, claim_id: str) -> dict[str, Any]:
-    return client.get(f"/api/claims/{claim_id}", headers=AGENT).json()
+    return client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).json()
 
 
 def approve(client: TestClient, claim_id: str, benefit: str, amount: float, kind: str) -> float:
@@ -59,19 +59,21 @@ def test_an_approval_over_the_limit_waits_for_sign_off(
     amount = approve(client, "CLM-1003", "emergency_medical", 3800, "expense")
     assert claim(client, "CLM-1003")["status"] == "waiting_for_sign_off"
     assert pay(client, "CLM-1003", amount) == 403
-    signed = client.post("/api/claims/CLM-1003/sign-off", headers=dana)
+    signed = client.post("/api/staff/claims/CLM-1003/sign-off", headers=dana)
     assert signed.status_code == 200, signed.text
     body = signed.json()
     assert body["status"] == "decided"
     assert body["payment"]["signed_off_by"] == "Dana Whitfield"
     assert body["decision"]["signed_off_by"] == "Dana Whitfield"
-    assert client.post("/api/claims/CLM-1003/sign-off", headers=dana).status_code == 409
+    assert client.post("/api/staff/claims/CLM-1003/sign-off", headers=dana).status_code == 409
 
 
 def test_only_a_senior_handler_signs_off(client: TestClient, marcus: dict[str, str]) -> None:
     approve(client, "CLM-1003", "emergency_medical", 3800, "expense")
-    assert client.post("/api/claims/CLM-1003/sign-off", headers=marcus).status_code == 403
-    sent = client.post("/api/claims/CLM-1003/send-back", json={"note": "Check"}, headers=marcus)
+    assert client.post("/api/staff/claims/CLM-1003/sign-off", headers=marcus).status_code == 403
+    sent = client.post(
+        "/api/staff/claims/CLM-1003/send-back", json={"note": "Check"}, headers=marcus
+    )
     assert sent.status_code == 403
     assert claim(client, "CLM-1003")["payment"] is None
 
@@ -81,7 +83,7 @@ def test_a_send_back_keeps_the_decision_with_the_note(
 ) -> None:
     approve(client, "CLM-1003", "emergency_medical", 3800, "expense")
     note = "Check the hospital invoice against the plan maximum."
-    sent = client.post("/api/claims/CLM-1003/send-back", json={"note": note}, headers=dana)
+    sent = client.post("/api/staff/claims/CLM-1003/send-back", json={"note": note}, headers=dana)
     assert sent.status_code == 200, sent.text
     body = sent.json()
     # The agent took it straight back to decide again.
@@ -96,7 +98,9 @@ def test_a_send_back_keeps_the_decision_with_the_note(
 
 def test_a_note_over_1000_characters_is_refused(client: TestClient, dana: dict[str, str]) -> None:
     approve(client, "CLM-1003", "emergency_medical", 3800, "expense")
-    sent = client.post("/api/claims/CLM-1003/send-back", json={"note": "x" * 1001}, headers=dana)
+    sent = client.post(
+        "/api/staff/claims/CLM-1003/send-back", json={"note": "x" * 1001}, headers=dana
+    )
     assert sent.status_code == 422
 
 
@@ -208,6 +212,6 @@ def test_the_agent_reads_only_its_claims_policy_and_history(client: TestClient) 
 
 
 def test_the_queue_lists_every_claim(client: TestClient, marcus: dict[str, str]) -> None:
-    queue = client.get("/api/claims", headers=marcus).json()
+    queue = client.get("/api/staff/claims", headers=marcus).json()
     assert len(queue) == 26
     assert {c["status"] for c in queue} == {"waiting"}

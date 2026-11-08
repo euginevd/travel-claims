@@ -90,6 +90,41 @@ class Calculation(BaseModel):
     payout: float
 
 
+CheckResult = Literal["pass", "warn", "fail"]
+ReasonCode = Literal[
+    "policy_wording",
+    "evidence",
+    "calculation",
+    "customer_circumstances",
+    "suspected_fraud",
+    "other",
+]
+
+
+class Check(Strict):
+    """One thing the agent verified, with its result and the source it relied on."""
+
+    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    result: CheckResult
+    detail: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+    source: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = Field(
+        description='Where it came from: "Receipt 1", "Policy wording 6", "Claims manual 9", '
+        '"Policy", "Claim" or "" for none'
+    )
+
+
+class Override(BaseModel):
+    """A senior handler's change to the agent's decision."""
+
+    reason_code: ReasonCode
+    note: str
+    by: str
+    by_id: str
+    at: str
+    previous_decision: DecisionKind
+    previous_payout: float
+
+
 class Decision(BaseModel):
     """A decision as claims manual section 14 records it."""
 
@@ -105,6 +140,8 @@ class Decision(BaseModel):
     hold_reason: str | None
     signed_off_by: str | None
     signed_off_at: str | None
+    checklist: list[Check] = Field(default_factory=list[Check])
+    override: Override | None = None
 
     @computed_field
     @property
@@ -148,6 +185,7 @@ class ClaimSummary(BaseModel):
     status: Status
     decision: DecisionKind | None
     payout: float | None
+    review_requested: bool
 
 
 class Claim(BaseModel):
@@ -173,6 +211,37 @@ class Claim(BaseModel):
     payment: Payment | None
     sent_back_decisions: list[SentBackDecision]
     receipts: list[Receipt]
+    stages: Stages
+    review_requested_at: str | None
+    review_note: str | None
+
+
+class Stages(BaseModel):
+    """When the claim reached each stage, or None while it hasn't."""
+
+    received: str
+    checked: str | None
+    assessed: str | None
+    decided: str | None
+    paid: str | None
+
+
+class ModelCall(BaseModel):
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cost: float
+    latency_ms: int | None
+    created_at: str
+
+
+class Trace(BaseModel):
+    """Everything the agent did on a claim, for the dashboard's trace view."""
+
+    steps: list[Step]
+    model_calls: list[ModelCall]
+    total_cost: float
+    total_tokens: int
 
 
 class Trip(BaseModel):
@@ -308,6 +377,7 @@ class DecisionRequest(Strict):
     maker: Literal["claim_agent", "hidden_instruction_check"] = Field(
         description="Which part of the agent decided; the api names it on the record"
     )
+    checklist: list[Check] = Field(default_factory=list[Check], max_length=20)
 
 
 class PaymentRequest(Strict):
@@ -316,6 +386,23 @@ class PaymentRequest(Strict):
 
 class HoldRequest(Strict):
     reason: Text
+
+
+class OverrideRequest(Strict):
+    """A senior handler's own decision in place of the agent's, with a reason code."""
+
+    decision: DecisionKind
+    payout: Dollars = Field(ge=0, le=1_000_000, description="0 for a decline or referral")
+    reason_code: ReasonCode
+    note: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=NOTE_LENGTH)
+    ]
+
+
+class ReviewRequest(Strict):
+    """A customer asking for a person to review their claim."""
+
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=NOTE_LENGTH)] = ""
 
 
 class SendBackRequest(Strict):
@@ -337,6 +424,7 @@ class ModelCallRequest(Strict):
     input_tokens: int = Field(ge=0, le=MAX_INT)
     output_tokens: int = Field(ge=0, le=MAX_INT)
     cost: float = Field(ge=0, le=MAX_COST, allow_inf_nan=False, description="In US dollars")
+    latency_ms: int | None = Field(default=None, ge=0, le=MAX_INT)
 
 
 class Customer(BaseModel):
@@ -346,11 +434,16 @@ class Customer(BaseModel):
 
 
 class SignInRequest(Strict):
-    role: Literal["handler", "customer"] = "handler"
     email: Annotated[
         str, StringConstraints(strip_whitespace=True, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")
     ]
     password: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
+class TestSignInRequest(Strict):
+    """Which fixed test account to sign in as, on the laptop only."""
+
+    account: Annotated[str, StringConstraints(pattern=r"^[a-z]{1,20}$")]
 
 
 class SignIn(BaseModel):
@@ -438,3 +531,47 @@ class CustomerClaim(CustomerClaimSummary):
     paid_at: str | None
     receipts: list[Receipt]
     can_add_receipts: bool
+    review_requested: bool
+    can_request_review: bool
+
+
+# --- The drafting assistant ---
+
+CaseChip = Literal[
+    "",
+    "lost_bag",
+    "delayed_bag",
+    "flight_delay",
+    "trip_cancelled",
+    "medical",
+    "stolen",
+    "passport",
+]
+
+
+class DraftItem(BaseModel):
+    description: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
+    category: ItemCategory
+    amount: float = Field(ge=0, le=100_000, allow_inf_nan=False)
+    source: Annotated[str, StringConstraints(max_length=50)] = Field(
+        description='"Receipt 1" etc. when read from a receipt, "You said" when from the text'
+    )
+
+
+class Draft(BaseModel):
+    """A claim the drafting assistant drafted for the customer to check. Never submitted as is."""
+
+    claim_type: ClaimType | None
+    summary: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+    story: Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]
+    incident_date: Annotated[str, StringConstraints(max_length=10)] = Field(
+        description="YYYY-MM-DD, or empty when unknown"
+    )
+    incident_location: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+    items: list[DraftItem] = Field(max_length=20)
+    missing_questions: list[Annotated[str, StringConstraints(max_length=200)]] = Field(max_length=5)
+    low_confidence_fields: list[Annotated[str, StringConstraints(max_length=50)]] = Field(
+        max_length=20
+    )

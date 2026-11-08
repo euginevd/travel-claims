@@ -7,32 +7,37 @@ import logging
 from datetime import UTC, date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import Connection, RowMapping, func, insert, select
+from pydantic import ValidationError
+from sqlalchemy import Connection, RowMapping, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
+from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedIn, SignedInCustomer, require_agent
 from undercover_api.claims import find_claim, find_decision, find_payment, list_receipts
 from undercover_api.db import claims, now, policies, receipts
 from undercover_api.models import (
     AgentReceipt,
+    CaseChip,
     ClaimId,
     Customer,
     CustomerClaim,
     CustomerClaimSummary,
     DecisionKind,
+    Draft,
     NewClaimRequest,
     Policy,
     ReceiptId,
+    ReviewRequest,
     Status,
 )
 from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, ReceiptStore, sniff
 
 log = logging.getLogger(__name__)
 
-customer_router = APIRouter(prefix="/api/my")
-receipt_router = APIRouter(prefix="/api")
+customer_router = APIRouter(prefix="/api/customer")
+receipt_router = APIRouter(prefix="/api/staff")
 agent_receipt_router = APIRouter(
     prefix="/api/agent/claims/{claim_id}", dependencies=[Depends(require_agent)]
 )
@@ -130,6 +135,8 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
         paid_at=payment.paid_at if payment else None,
         receipts=found,
         can_add_receipts=row["status"] == Status.WAITING and len(found) < MAX_RECEIPTS,
+        review_requested=row["review_requested_at"] is not None,
+        can_request_review=row["status"] == Status.DECIDED and row["review_requested_at"] is None,
     )
 
 
@@ -334,3 +341,97 @@ def agent_receipts(claim_id: ClaimId, db: Database, receipt_store: Store) -> lis
         )
         for receipt in list_receipts(db, claim_id)
     ]
+
+
+@customer_router.post("/claims/{claim_id}/review-request", operation_id="request_review")
+def request_review(
+    claim_id: ClaimId, body: ReviewRequest, customer: SignedInCustomer, db: Database
+) -> CustomerClaim:
+    """Ask for a person to review a decided claim; asking again changes nothing."""
+    row = own_claim(db, customer, claim_id)
+    if row["status"] != Status.DECIDED:
+        raise HTTPException(409, "You can ask for a review once your claim has a decision")
+    db.execute(
+        update(claims)
+        .where(claims.c.claim_id == claim_id, claims.c.review_requested_at.is_(None))
+        .values(review_requested_at=now(), review_note=body.note or None)
+    )
+    return claim_for_customer(db, own_claim(db, customer, claim_id))
+
+
+# --- The drafting assistant ---
+
+DRAFTS_PER_HOUR = 10
+HOUR_SECONDS = 3600
+
+
+class DraftLimiter:
+    """How many drafts each customer has asked for in the last hour, in this process."""
+
+    def __init__(self, per_hour: int = DRAFTS_PER_HOUR) -> None:
+        self._per_hour = per_hour
+        self._asked: dict[str, list[float]] = {}
+
+    def allow(self, customer_id: str, at: float) -> bool:
+        recent = [t for t in self._asked.get(customer_id, []) if at - t < HOUR_SECONDS]
+        if len(recent) >= self._per_hour:
+            self._asked[customer_id] = recent
+            return False
+        self._asked[customer_id] = [*recent, at]
+        return True
+
+
+def drafting(request: Request) -> tuple[AgentService, DraftLimiter]:
+    state = request.app.state
+    if not hasattr(state, "draft_limiter"):
+        state.draft_limiter = DraftLimiter()
+    return state.agent, state.draft_limiter
+
+
+Drafting = Annotated[tuple[AgentService, DraftLimiter], Depends(drafting)]
+
+
+@customer_router.post("/drafts", operation_id="draft_claim")
+async def draft_claim(  # noqa: PLR0913, PLR0917 - the form's fields
+    customer: SignedInCustomer,
+    db: Database,
+    tools: Drafting,
+    policy_id: Annotated[str, Form(pattern=r"^POL-\d{1,10}$")],
+    text: Annotated[str, Form(max_length=1000)] = "",
+    case: Annotated[CaseChip, Form()] = "",
+    files: Annotated[list[UploadFile] | None, File()] = None,
+) -> Draft:
+    """Draft a claim from a few words, a chosen case and receipts, for the customer to check.
+    The draft is never submitted for them, and what the assistant says is checked here."""
+    policy = own_active_policy(db, customer, policy_id)
+    service, limiter = tools
+    if not limiter.allow(customer.customer_id, datetime.now(UTC).timestamp()):
+        raise HTTPException(429, "That's a lot of drafts in an hour. Please try again later.")
+    uploads = files or []
+    if len(uploads) > MAX_RECEIPTS:
+        raise HTTPException(422, f"Up to {MAX_RECEIPTS} receipts")
+    if not text.strip() and not case and not uploads:
+        raise HTTPException(422, "Add a receipt, pick what happened or say a few words")
+    sent: list[dict[str, str]] = []
+    for upload in uploads:
+        content = await read_limited(upload)
+        media_type = sniff(content)
+        if media_type is None:
+            raise HTTPException(415, "Receipts must be JPEG, PNG or PDF files")
+        sent.append({"media_type": media_type, "data": base64.b64encode(content).decode()})
+    request: dict[str, object] = {
+        "text": text.strip(),
+        "case": case,
+        "trip": policy.trip.model_dump(),
+        "today": datetime.now(UTC).date().isoformat(),
+        "receipts": sent,
+    }
+    try:
+        answer = service.draft(request)
+    except AgentUnavailableError as error:
+        log.warning("a draft failed: %s", error)
+        raise HTTPException(503, "The assistant isn't available; fill it in yourself") from error
+    try:
+        return Draft.model_validate(answer)
+    except ValidationError as error:
+        raise HTTPException(502, "The assistant's draft didn't make sense; fill it in") from error

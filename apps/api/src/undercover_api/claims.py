@@ -33,6 +33,7 @@ from undercover_api.models import (
     PreviousClaim,
     Receipt,
     SentBackDecision,
+    Stages,
     Status,
     Step,
 )
@@ -80,7 +81,9 @@ def find_decision(db: Connection, claim_id: str) -> Decision | None:
     row = db.execute(select(decisions).where(decisions.c.claim_id == claim_id)).mappings().first()
     if row is None:
         return None
-    return Decision.model_validate({k: v for k, v in row.items() if k != "claim_id"})
+    values = {k: v for k, v in row.items() if k != "claim_id"}
+    values["checklist"] = values.get("checklist") or []
+    return Decision.model_validate(values)
 
 
 def find_payment(db: Connection, claim_id: str) -> Payment | None:
@@ -94,17 +97,44 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
     returned = db.execute(
         select(sent_back).where(sent_back.c.claim_id == claim_id).order_by(sent_back.c.sent_back_id)
     ).mappings()
+    decision = find_decision(db, claim_id)
+    payment = find_payment(db, claim_id)
     return Claim.model_validate(
         dict(row)
         | {
             "customer_name": customer_name(db, row["customer_id"]),
             "policy": claims_policy(db, claim_id),
             "approval_limit": approval_limit(db),
-            "decision": find_decision(db, claim_id),
-            "payment": find_payment(db, claim_id),
+            "decision": decision,
+            "payment": payment,
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
+            "stages": stages(db, row, decision, payment),
         }
+    )
+
+
+def stages(
+    db: Connection, row: RowMapping, decision: Decision | None, payment: Payment | None
+) -> Stages:
+    """When the claim reached each stage: checked is the hidden-instruction check, assessed the
+    agent's first step after it, on the current attempt."""
+    thread_id = row["thread_id"]
+    first: dict[str, str] = {}
+    if thread_id is not None:
+        for kind, created_at in db.execute(
+            select(steps.c.kind, steps.c.created_at)
+            .where(steps.c.claim_id == row["claim_id"], steps.c.thread_id == thread_id)
+            .order_by(steps.c.step_id)
+        ):
+            key = "checked" if kind == "screening" else "assessed"
+            first.setdefault(key, created_at)
+    return Stages(
+        received=row["submitted_on"],
+        checked=first.get("checked"),
+        assessed=first.get("assessed"),
+        decided=decision.decided_at if decision else None,
+        paid=payment.paid_at if payment else None,
     )
 
 
@@ -121,6 +151,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             claims.c.status,
             decisions.c.decision,
             decisions.c.payout,
+            claims.c.review_requested_at,
             policies.c.record.label("policy"),
         )
         .join(customers, customers.c.customer_id == claims.c.customer_id)
@@ -129,7 +160,13 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
     return [
-        ClaimSummary.model_validate(dict(r) | {"plan": r["policy"]["plan"]})
+        ClaimSummary.model_validate(
+            dict(r)
+            | {
+                "plan": r["policy"]["plan"],
+                "review_requested": r["review_requested_at"] is not None,
+            }
+        )
         for r in db.execute(query).mappings()
     ]
 

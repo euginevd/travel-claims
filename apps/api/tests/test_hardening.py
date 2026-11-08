@@ -31,9 +31,9 @@ def part(value: dict[str, Any]) -> str:
     return base64.urlsafe_b64encode(json.dumps(value).encode()).decode().rstrip("=")
 
 
-def issuer_of(client: TestClient) -> LocalIssuer:
-    """The local sign-in stand-in inside the api under test."""
-    return cast(LocalIssuer, cast(FastAPI, client.app).state.issuer)
+def issuer_of(client: TestClient, audience: str = "staff") -> LocalIssuer:
+    """One of the local sign-in stand-in's two issuers inside the api under test."""
+    return cast(LocalIssuer, getattr(cast(FastAPI, client.app).state, f"{audience}_issuer"))
 
 
 def own_token(client: TestClient, **changes: Any) -> dict[str, str]:
@@ -57,7 +57,7 @@ def own_token(client: TestClient, **changes: Any) -> dict[str, str]:
 
 
 def test_a_good_token_from_the_api_key_is_taken(client: TestClient) -> None:
-    assert client.get("/api/me", headers=own_token(client)).status_code == 200
+    assert client.get("/api/staff/me", headers=own_token(client)).status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ def test_a_good_token_from_the_api_key_is_taken(client: TestClient) -> None:
 def test_a_token_with_one_thing_wrong_is_refused(
     client: TestClient, changes: dict[str, Any]
 ) -> None:
-    assert client.get("/api/me", headers=own_token(client, **changes)).status_code == 401
+    assert client.get("/api/staff/me", headers=own_token(client, **changes)).status_code == 401
 
 
 @pytest.mark.parametrize("groups", [None, "handlers", ["customers"], []])
@@ -84,7 +84,7 @@ def test_a_token_without_the_handlers_group_is_kept_from_handler_routes(
     client: TestClient, groups: object
 ) -> None:
     code = client.get(
-        "/api/me", headers=own_token(client, **{"cognito:groups": groups})
+        "/api/staff/me", headers=own_token(client, **{"cognito:groups": groups})
     ).status_code
     assert code in {401, 403}
 
@@ -99,12 +99,14 @@ def test_an_hs256_token_keyed_with_the_public_key_is_refused(client: TestClient)
     signing_input = f"{part({'alg': 'HS256', 'typ': 'JWT'})}.{part(body)}"
     signature = hmac.new(public, signing_input.encode(), hashlib.sha256).digest()
     token = f"{signing_input}.{base64.urlsafe_b64encode(signature).decode().rstrip('=')}"
-    assert client.get("/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    assert (
+        client.get("/api/staff/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    )
 
 
 def test_a_handler_is_found_whatever_the_emails_case(client: TestClient) -> None:
     headers = own_token(client, email=DANA.upper())
-    assert client.get("/api/me", headers=headers).json()["name"] == "Dana Whitfield"
+    assert client.get("/api/staff/me", headers=headers).json()["name"] == "Dana Whitfield"
 
 
 # --- Money ---
@@ -182,7 +184,7 @@ def test_a_sign_off_tells_the_agent_and_records_the_handler(
         client, "CLM-1003", "emergency_medical", [line("Hospital", 3800, kind="expense")]
     )
     decide(client, "CLM-1003", "approve", worked["payout"])
-    assert client.post("/api/claims/CLM-1003/sign-off", headers=dana).status_code == 200
+    assert client.post("/api/staff/claims/CLM-1003/sign-off", headers=dana).status_code == 200
     assert agent.calls == [("resume", "CLM-1003", "signed_off")]
     engine = make_engine(database_url)
     with engine.connect() as db:
@@ -200,7 +202,7 @@ def test_a_sign_off_pays_even_when_the_agent_cant_be_told(
     )
     decide(client, "CLM-1003", "approve", worked["payout"])
     agent.unreachable()
-    signed = client.post("/api/claims/CLM-1003/sign-off", headers=dana)
+    signed = client.post("/api/staff/claims/CLM-1003/sign-off", headers=dana)
     assert signed.json()["payment"]["amount"] == worked["payout"]
 
 
@@ -231,18 +233,18 @@ def test_an_unknown_plan_is_a_409_not_a_crash(client: TestClient, database_url: 
 
 
 def status(client: TestClient, claim_id: str) -> str:
-    return client.get(f"/api/claims/{claim_id}", headers=AGENT).json()["status"]
+    return client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).json()["status"]
 
 
 def test_work_moves_a_waiting_claim_and_asks_the_agent(
     client: TestClient, dana: dict[str, str], agent: FakeAgent
 ) -> None:
-    worked = client.post("/api/claims/CLM-1001/work", headers=dana)
+    worked = client.post("/api/staff/claims/CLM-1001/work", headers=dana)
     assert worked.status_code == 200, worked.text
     body = worked.json()
     assert (body["status"], body["attempts"]) == ("in_progress", 1)
     assert agent.calls == [("work", "CLM-1001", None)]
-    assert client.post("/api/claims/CLM-1001/work", headers=dana).status_code == 409
+    assert client.post("/api/staff/claims/CLM-1001/work", headers=dana).status_code == 409
 
 
 @pytest.mark.parametrize(("failure", "code"), [("unreachable", 503), ("refusing", 502)])
@@ -250,10 +252,10 @@ def test_work_the_agent_doesnt_take_is_undone(
     client: TestClient, dana: dict[str, str], agent: FakeAgent, failure: str, code: int
 ) -> None:
     getattr(agent, failure)()
-    response = client.post("/api/claims/CLM-1001/work", headers=dana)
+    response = client.post("/api/staff/claims/CLM-1001/work", headers=dana)
     assert response.status_code == code
     assert "agent" in response.json()["detail"]
-    claim = client.get("/api/claims/CLM-1001", headers=AGENT).json()
+    claim = client.get("/api/agent/claims/CLM-1001", headers=AGENT).json()
     assert (claim["status"], claim["attempts"], claim["thread_id"]) == ("waiting", 0, None)
 
 
@@ -266,10 +268,15 @@ def test_a_sent_back_claim_the_agent_missed_is_worked_later(
     )
     decide(client, "CLM-1003", "approve", worked["payout"])
     agent.unreachable()
-    sent = client.post("/api/claims/CLM-1003/send-back", json={"note": "Look again"}, headers=dana)
+    sent = client.post(
+        "/api/staff/claims/CLM-1003/send-back", json={"note": "Look again"}, headers=dana
+    )
     assert sent.json()["status"] == "sent_back"
     agent.failure = None
-    assert client.post("/api/claims/CLM-1003/work", headers=dana).json()["status"] == "in_progress"
+    assert (
+        client.post("/api/staff/claims/CLM-1003/work", headers=dana).json()["status"]
+        == "in_progress"
+    )
     assert agent.calls == [("resume", "CLM-1003", "sent_back")]
 
 
@@ -279,11 +286,13 @@ def test_a_sent_back_claim_the_agent_missed_is_worked_later(
 def test_a_claim_carries_its_policy_plan_and_the_limit(
     client: TestClient, dana: dict[str, str]
 ) -> None:
-    claim = client.get("/api/claims/CLM-1001", headers=dana).json()
+    claim = client.get("/api/staff/claims/CLM-1001", headers=dana).json()
     assert claim["policy"]["plan"] in {"economy", "premium", "first"}
     assert claim["approval_limit"] == 1000.0
     [summary] = [
-        c for c in client.get("/api/claims", headers=dana).json() if c["claim_id"] == "CLM-1001"
+        c
+        for c in client.get("/api/staff/claims", headers=dana).json()
+        if c["claim_id"] == "CLM-1001"
     ]
     assert summary["plan"] == claim["policy"]["plan"]
 
@@ -295,7 +304,7 @@ def test_handlers_read_the_steps_in_order(client: TestClient, dana: dict[str, st
             json={"thread_id": None, "kind": "message", "content": content, "sources": []},
             headers=AGENT,
         )
-    steps = client.get("/api/claims/CLM-1001/steps", headers=dana).json()
+    steps = client.get("/api/staff/claims/CLM-1001/steps", headers=dana).json()
     assert [s["content"] for s in steps] == ["first", "second"]
     assert "created_at" in steps[0]
 
@@ -347,7 +356,7 @@ def test_a_model_call_out_of_the_columns_bounds_is_refused(
 
 @pytest.mark.parametrize("claim_id", ["CLM-1001x", "1001", "CLM-1%27"])
 def test_a_malformed_claim_id_is_refused(client: TestClient, claim_id: str) -> None:
-    assert client.get(f"/api/claims/{claim_id}", headers=AGENT).status_code == 422
+    assert client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).status_code == 422
 
 
 # --- Settings ---

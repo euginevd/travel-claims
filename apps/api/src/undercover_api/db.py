@@ -71,6 +71,9 @@ claims = Table(
     Column("attempts", Integer, nullable=False, default=0),
     # Where the claim came from: the seeded queue or a customer's own submission.
     Column("source", String(20), nullable=False, default="seeded"),
+    # When the customer asked for a person to review the claim, and what they said.
+    Column("review_requested_at", String(32)),
+    Column("review_note", Text),
 )
 
 # Receipts a customer uploaded, stored under a random name by the storage module.
@@ -102,6 +105,10 @@ decisions = Table(
     Column("signed_off_by", String(200)),
     Column("signed_off_at", String(32)),
     Column("signed_off_by_id", String(20)),
+    # What the agent checked, each line with its result and the source it relied on.
+    Column("checklist", JSON),
+    # A senior handler's override: the decision before, the reason code, note, who and when.
+    Column("override", JSON),
 )
 
 sent_back = Table(
@@ -160,6 +167,7 @@ model_calls = Table(
     Column("input_tokens", Integer, nullable=False),
     Column("output_tokens", Integer, nullable=False),
     Column("cost", Numeric(12, 6, asdecimal=False), nullable=False),
+    Column("latency_ms", Integer),
     Column("created_at", String(32), nullable=False),
 )
 

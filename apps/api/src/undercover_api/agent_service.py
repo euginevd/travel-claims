@@ -39,10 +39,17 @@ class AgentRefusedError(AgentUnavailableError):
     """The agent's service answered but didn't take the work."""
 
 
+DRAFT_TIMEOUT_SECONDS = 60
+
+
 class AgentService(Protocol):
     def work(self, claim_id: str, thread_id: str) -> None: ...
 
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None: ...
+
+    def draft(self, request: dict[str, object]) -> dict[str, object]:
+        """Ask the drafting assistant for a draft claim; the api validates what comes back."""
+        ...
 
 
 class HttpAgentService:
@@ -60,7 +67,18 @@ class HttpAgentService:
             "/resume", {"claim_id": claim_id, "thread_id": thread_id, "outcome": str(outcome)}
         )
 
+    def draft(self, request: dict[str, object]) -> dict[str, object]:
+        answer = self._post("/draft", request, DRAFT_TIMEOUT_SECONDS)
+        if not isinstance(answer, dict):
+            raise AgentRefusedError("The drafting assistant gave no draft")
+        return cast(dict[str, object], answer)
+
     def _send(self, path: str, body: dict[str, str]) -> None:
+        answer = self._post(path, dict(body), TIMEOUT_SECONDS)
+        if field(answer, "accepted") is not True:
+            raise AgentRefusedError("The agent didn't take the work")
+
+    def _post(self, path: str, body: dict[str, object], timeout: float) -> object:
         request = urllib.request.Request(  # noqa: S310 - the url is our own setting
             f"{self._url}{path}",
             data=json.dumps(body).encode(),
@@ -68,14 +86,12 @@ class HttpAgentService:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
-                answer = json.loads(response.read() or b"{}")
+            with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+                return json.loads(response.read() or b"{}")
         except urllib.error.HTTPError as error:
             raise AgentRefusedError(refusal(error)) from error
         except (urllib.error.URLError, TimeoutError, ValueError) as error:
             raise AgentUnavailableError("The agent's service isn't answering") from error
-        if field(answer, "accepted") is not True:
-            raise AgentRefusedError("The agent didn't take the work")
 
 
 def field(answer: object, name: str) -> object:

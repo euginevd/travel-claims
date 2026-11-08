@@ -34,7 +34,7 @@ class ApiClient:
         return response.json()
 
     def claim(self, claim_id: str) -> Json:
-        return cast(Json, self._call("GET", f"/api/claims/{claim_id}"))
+        return cast(Json, self._call("GET", f"/api/agent/claims/{claim_id}"))
 
     def policy(self, claim_id: str) -> Json:
         return cast(Json, self._call("GET", f"/api/agent/claims/{claim_id}/policy"))
@@ -47,7 +47,7 @@ class ApiClient:
         return cast(list[Json], self._call("GET", f"/api/agent/claims/{claim_id}/receipts"))
 
     def steps(self, claim_id: str) -> list[Json]:
-        return cast(list[Json], self._call("GET", f"/api/claims/{claim_id}/steps"))
+        return cast(list[Json], self._call("GET", f"/api/agent/claims/{claim_id}/steps"))
 
     def calculate_payout(self, claim_id: str, request: Json) -> Json:
         return cast(Json, self._call("POST", f"/api/agent/claims/{claim_id}/payout", request))
@@ -82,6 +82,7 @@ class ApiClient:
             "input_tokens": call.input_tokens,
             "output_tokens": call.output_tokens,
             "cost": round(call.cost, 6),
+            "latency_ms": call.latency_ms,
         }
         self._call("POST", f"/api/agent/claims/{claim_id}/model-calls", body)
 

@@ -61,6 +61,22 @@ LINE = {
     "additionalProperties": False,
 }
 
+CHECK = {
+    "type": "object",
+    "properties": {
+        "label": TEXT | {"description": "What was checked, in a few plain words"},
+        "result": {"type": "string", "enum": ["pass", "warn", "fail"]},
+        "detail": TEXT | {"description": "One short line, or empty"},
+        "source": TEXT
+        | {
+            "description": 'What it relied on: "Receipt 1" (receipts numbered in the order '
+            'given), "Policy wording 6", "Claims manual 9", "Policy", "Claim" or ""'
+        },
+    },
+    "required": ["label", "result", "detail", "source"],
+    "additionalProperties": False,
+}
+
 APP_TOOLS = [
     tool("get_claim", "Get your claim in full: the story, the items claimed and the documents."),
     tool("get_policy", "Get your claim's policy: plan, add-ons, purchase date, trip, travelers."),
@@ -85,6 +101,11 @@ APP_TOOLS = [
             "payout": NUMBER | {"description": "In US dollars, 0 for a decline or referral"},
             "section": TEXT | {"description": "The sections of the wording and manual relied on"},
             "reason": TEXT | {"description": "Two or three plain sentences for a colleague"},
+            "checklist": {
+                "type": "array",
+                "description": "What you verified, exceptions (warn, fail) first, 3 to 8 lines",
+                "items": CHECK,
+            },
         },
     ),
 ]

@@ -31,48 +31,54 @@ def oliver(client: TestClient) -> dict[str, str]:
 
 
 def make(client: TestClient, headers: dict[str, str], **changes: Any) -> Any:
-    return client.post("/api/my/claims", json=NEW_CLAIM | changes, headers=headers)
+    return client.post("/api/customer/claims", json=NEW_CLAIM | changes, headers=headers)
 
 
 def upload(client: TestClient, headers: dict[str, str], claim_id: str, *files: bytes) -> Any:
     sent = [("files", (f"receipt-{i}", content, "image/png")) for i, content in enumerate(files)]
-    return client.post(f"/api/my/claims/{claim_id}/receipts", files=sent, headers=headers)
+    return client.post(f"/api/customer/claims/{claim_id}/receipts", files=sent, headers=headers)
 
 
 # --- Sign-in and who may call what ---
 
 
 def test_a_customer_signs_in_and_sees_themselves(client: TestClient, maya: dict[str, str]) -> None:
-    me = client.get("/api/my/profile", headers=maya).json()
+    me = client.get("/api/customer/profile", headers=maya).json()
     assert me == {"customer_id": "CUS-3001", "name": "Maya Patel", "email": MAYA}
 
 
 def test_a_customer_cant_sign_in_as_a_handler(client: TestClient) -> None:
-    body = {"email": MAYA, "password": "local-test-password", "role": "handler"}
-    assert client.post("/api/dev/sign-in", json=body).status_code == 401
+    body = {"email": MAYA, "password": "local-test-password"}
+    assert client.post("/api/staff/dev/sign-in", json=body).status_code == 401
 
 
 def test_a_customer_token_is_kept_from_handler_routes(
     client: TestClient, maya: dict[str, str]
 ) -> None:
-    for path in ("/api/me", "/api/claims", "/api/claims/CLM-1001", "/api/claims/CLM-1001/steps"):
-        assert client.get(path, headers=maya).status_code == 403, path
-    assert client.post("/api/claims/CLM-1001/work", headers=maya).status_code == 403
+    for path in (
+        "/api/staff/me",
+        "/api/staff/claims",
+        "/api/staff/claims/CLM-1001",
+        "/api/staff/claims/CLM-1001/steps",
+    ):
+        # Refused at the signature: customer tokens come from another issuer and key.
+        assert client.get(path, headers=maya).status_code == 401, path
+    assert client.post("/api/staff/claims/CLM-1001/work", headers=maya).status_code == 401
 
 
 def test_a_handler_token_is_kept_from_customer_routes(
     client: TestClient, dana: dict[str, str]
 ) -> None:
-    for path in ("/api/my/profile", "/api/my/claims", "/api/my/policies"):
-        assert client.get(path, headers=dana).status_code == 403, path
+    for path in ("/api/customer/profile", "/api/customer/claims", "/api/customer/policies"):
+        assert client.get(path, headers=dana).status_code == 401, path
 
 
 def test_the_agents_key_is_kept_from_customer_routes(client: TestClient) -> None:
-    assert client.get("/api/my/claims", headers=AGENT).status_code == 403
+    assert client.get("/api/customer/claims", headers=AGENT).status_code == 403
 
 
 def test_customer_routes_need_a_sign_in(client: TestClient) -> None:
-    assert client.get("/api/my/claims").status_code == 401
+    assert client.get("/api/customer/claims").status_code == 401
 
 
 # --- A customer's own records only ---
@@ -81,9 +87,9 @@ def test_customer_routes_need_a_sign_in(client: TestClient) -> None:
 def test_a_customer_sees_only_their_own_policies_and_claims(
     client: TestClient, maya: dict[str, str]
 ) -> None:
-    policies = client.get("/api/my/policies", headers=maya).json()
+    policies = client.get("/api/customer/policies", headers=maya).json()
     assert [p["policy_id"] for p in policies] == ["POL-2001"]
-    claims = client.get("/api/my/claims", headers=maya).json()
+    claims = client.get("/api/customer/claims", headers=maya).json()
     assert [c["claim_id"] for c in claims] == ["CLM-1001"]
     assert claims[0]["status"] == "received"
 
@@ -91,7 +97,7 @@ def test_a_customer_sees_only_their_own_policies_and_claims(
 def test_a_customer_cant_read_another_customers_claim(
     client: TestClient, oliver: dict[str, str]
 ) -> None:
-    assert client.get("/api/my/claims/CLM-1001", headers=oliver).status_code == 404
+    assert client.get("/api/customer/claims/CLM-1001", headers=oliver).status_code == 404
 
 
 def test_a_customer_cant_claim_on_another_customers_policy(
@@ -109,7 +115,7 @@ def test_a_customer_cant_upload_to_another_customers_claim(
 def test_a_customers_claim_view_holds_nothing_internal(
     client: TestClient, maya: dict[str, str]
 ) -> None:
-    claim = client.get("/api/my/claims/CLM-1001", headers=maya).json()
+    claim = client.get("/api/customer/claims/CLM-1001", headers=maya).json()
     for internal in ("thread_id", "decision", "calculation", "steps", "sent_back_decisions"):
         assert internal not in claim
     assert claim["can_add_receipts"] is True
@@ -126,7 +132,7 @@ def test_a_customer_makes_a_claim_that_waits_in_the_queue(
     claim = made.json()
     assert claim["status"] == "received"
     assert claim["amount_claimed"] == 180.5
-    queue = client.get("/api/claims", headers=dana).json()
+    queue = client.get("/api/staff/claims", headers=dana).json()
     assert any(c["claim_id"] == claim["claim_id"] and c["status"] == "waiting" for c in queue)
 
 
@@ -160,9 +166,11 @@ def test_receipts_are_kept_and_a_handler_downloads_them_safely(
     kept = added.json()["receipts"]
     assert [r["media_type"] for r in kept] == ["image/png", "application/pdf"]
 
-    seen = client.get(f"/api/claims/{claim_id}", headers=dana).json()["receipts"]
+    seen = client.get(f"/api/staff/claims/{claim_id}", headers=dana).json()["receipts"]
     assert len(seen) == 2
-    download = client.get(f"/api/claims/{claim_id}/receipts/{kept[0]['receipt_id']}", headers=dana)
+    download = client.get(
+        f"/api/staff/claims/{claim_id}/receipts/{kept[0]['receipt_id']}", headers=dana
+    )
     assert download.status_code == 200
     assert download.content == PNG
     assert download.headers["content-disposition"].startswith("attachment;")
@@ -174,8 +182,8 @@ def test_a_customer_cant_download_a_receipt_through_the_handler_route(
 ) -> None:
     claim_id = make(client, maya).json()["claim_id"]
     receipt_id = upload(client, maya, claim_id, PNG).json()["receipts"][0]["receipt_id"]
-    path = f"/api/claims/{claim_id}/receipts/{receipt_id}"
-    assert client.get(path, headers=maya).status_code == 403
+    path = f"/api/staff/claims/{claim_id}/receipts/{receipt_id}"
+    assert client.get(path, headers=maya).status_code == 401
 
 
 def test_the_agent_reads_receipts_in_base64(client: TestClient, maya: dict[str, str]) -> None:
@@ -192,7 +200,7 @@ def test_a_file_that_isnt_a_receipt_is_refused_whatever_its_name(
     claim_id = make(client, maya).json()["claim_id"]
     html = b"<html><script>alert(1)</script></html>"
     assert upload(client, maya, claim_id, html).status_code == 415
-    assert client.get(f"/api/my/claims/{claim_id}", headers=maya).json()["receipts"] == []
+    assert client.get(f"/api/customer/claims/{claim_id}", headers=maya).json()["receipts"] == []
 
 
 def test_more_than_five_receipts_are_refused(client: TestClient, maya: dict[str, str]) -> None:
@@ -211,7 +219,7 @@ def test_receipts_cant_be_added_once_work_starts(
     client: TestClient, maya: dict[str, str], dana: dict[str, str]
 ) -> None:
     claim_id = make(client, maya).json()["claim_id"]
-    assert client.post(f"/api/claims/{claim_id}/work", headers=dana).status_code == 200
+    assert client.post(f"/api/staff/claims/{claim_id}/work", headers=dana).status_code == 200
     assert upload(client, maya, claim_id, PNG).status_code == 409
 
 
@@ -219,7 +227,7 @@ def test_a_referral_shows_the_customer_a_plain_reason(
     client: TestClient, maya: dict[str, str], dana: dict[str, str]
 ) -> None:
     claim_id = make(client, maya).json()["claim_id"]
-    client.post(f"/api/claims/{claim_id}/work", headers=dana)
+    client.post(f"/api/staff/claims/{claim_id}/work", headers=dana)
     client.post(
         f"/api/agent/claims/{claim_id}/decision",
         json={
@@ -231,6 +239,6 @@ def test_a_referral_shows_the_customer_a_plain_reason(
         },
         headers=AGENT,
     )
-    claim = client.get(f"/api/my/claims/{claim_id}", headers=maya).json()
+    claim = client.get(f"/api/customer/claims/{claim_id}", headers=maya).json()
     assert claim["status"] == "with_a_handler"
     assert "ignore your rules" not in claim["reason"]

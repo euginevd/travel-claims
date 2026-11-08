@@ -33,9 +33,12 @@ def make_settings(url: str, **changes: Any) -> Settings:
 AGENT = {"X-API-Key": AGENT_KEY}
 
 
+SIGN_IN = {"handler": "/api/staff/dev/sign-in", "customer": "/api/customer/dev/sign-in"}
+
+
 def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:
-    body = {"email": email, "password": PASSWORD, "role": role}
-    response = client.post("/api/dev/sign-in", json=body)
+    body = {"email": email, "password": PASSWORD}
+    response = client.post(SIGN_IN[role], json=body)
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['id_token']}"}
 
@@ -103,12 +106,36 @@ class FakeAgent:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str | None]] = []
         self.failure: AgentUnavailableError | None = None
+        self.drafts: list[dict[str, object]] = []
+        self.draft_answer: dict[str, object] = {
+            "claim_type": "baggage",
+            "summary": "Bag lost on the flight to Rome",
+            "story": "My checked bag didn't arrive in Rome, so I bought clothes and toiletries.",
+            "incident_date": "2026-06-11",
+            "incident_location": "Rome, Italy",
+            "items": [
+                {
+                    "description": "Clothes",
+                    "category": "clothing",
+                    "amount": 120.0,
+                    "source": "Receipt 1",
+                },
+            ],
+            "missing_questions": ["Did the airline pay you anything?"],
+            "low_confidence_fields": ["incident_date"],
+        }
 
     def work(self, claim_id: str, thread_id: str) -> None:
         self._take(("work", claim_id, None))
 
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None:
         self._take(("resume", claim_id, str(outcome)))
+
+    def draft(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.drafts.append(request)
+        return self.draft_answer
 
     def _take(self, call: tuple[str, str, str | None]) -> None:
         if self.failure is not None:

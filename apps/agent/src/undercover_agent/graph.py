@@ -63,13 +63,16 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     def record_call(claim_id: str, thread_id: str, call: Call) -> None:
         api.record_model_call(claim_id, thread_id, call)
 
-    def refer(claim_id: str, reason: str, maker: str, section: str) -> Json:
+    def refer(
+        claim_id: str, reason: str, maker: str, section: str, checklist: list[Json] | None = None
+    ) -> Json:
         request = {
             "decision": "refer",
             "payout": 0,
             "section": section,
             "reason": reason,
             "maker": maker,
+            "checklist": checklist or [],
         }
         return api.record_decision(claim_id, request)
 
@@ -90,7 +93,13 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
             reason = (
                 f"The hidden-instruction check referred this claim to a handler: {found_reason}"
             )
-            refer(claim_id, reason, "hidden_instruction_check", SCREEN_SECTION)
+            check = {
+                "label": "Instructions hidden in the claim",
+                "result": "fail",
+                "detail": found_reason[:500],
+                "source": "Claim",
+            }
+            refer(claim_id, reason, "hidden_instruction_check", SCREEN_SECTION, [check])
             return {"outcome": "referred"}
         start = f"Your claim is {claim_id}. Work it and record your decision."
         first = {"role": "user", "content": with_receipts(start, receipts)}

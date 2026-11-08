@@ -1,0 +1,95 @@
+{
+  "claim_id": "CLM-1003",
+  "policy_id": "POL-2003",
+  "customer_id": "CUS-3003",
+  "customer_name": "Aiko Tanaka",
+  "claim_type": "emergency_medical",
+  "submitted_on": "2026-07-06",
+  "incident_date": "2026-06-27",
+  "incident_location": "Lisbon, Portugal",
+  "summary": "Hospital visit abroad after a fall, fractured wrist",
+  "story": "On June 27 I slipped on wet cobblestones walking down a hill in the Alfama district of Lisbon and landed on my right hand. My wrist swelled up immediately, so I took a taxi to a private hospital. They took X-rays, found a fracture, set it under sedation and put on a cast. I paid the hospital bill myself by card. The itemized bill and the medical report are attached.",
+  "items": [
+    {
+      "description": "Emergency room visit, X-rays, fracture reduction under sedation and cast",
+      "category": "medical",
+      "amount": 3800.0
+    }
+  ],
+  "amount_claimed": 3800.0,
+  "documents": [
+    {
+      "name": "Hospital itemized bill",
+      "type": "invoice",
+      "content": "Hospital Santa Clara, Lisbon. Patient: Aiko Tanaka. June 27, 2026. Emergency consultation: $450.00. X-rays, right wrist, two series: $380.00. Closed reduction under sedation: $2,350.00. Cast and sling: $420.00. Medication: $200.00. Total paid by card: $3,800.00."
+    },
+    {
+      "name": "Medical report",
+      "type": "medical_record",
+      "content": "Hospital Santa Clara, emergency department, June 27, 2026. Patient Aiko Tanaka, age 34, presented after a fall on a wet street one hour earlier. No relevant medical history. No regular medication. Diagnosis: displaced distal radius fracture, right wrist. Treatment: closed reduction under sedation, below-elbow cast. Fit to fly with the cast split. Follow up with an orthopedic physician at home within 10 days."
+    }
+  ],
+  "status": "waiting_for_sign_off",
+  "thread_id": "68dbfa0518c140afbde380883a1755b0",
+  "attempts": 1,
+  "policy": {
+    "policy_id": "POL-2003",
+    "customer_id": "CUS-3003",
+    "plan": "premium",
+    "add_ons": [],
+    "purchased_on": "2026-05-04",
+    "sold_through": "TripNest checkout",
+    "trip": {
+      "destination": "Lisbon, Portugal",
+      "departs_on": "2026-06-22",
+      "returns_on": "2026-07-01",
+      "trip_cost": 2900.0
+    },
+    "travelers": [
+      "Aiko Tanaka"
+    ],
+    "status": "active"
+  },
+  "approval_limit": 1000.0,
+  "decision": {
+    "decision": "approve",
+    "payout": 3750.0,
+    "calculation": {
+      "lines": [
+        {
+          "step": "Hospital",
+          "amount": 3800.0
+        },
+        {
+          "step": "Less the deductible",
+          "amount": -50.0
+        }
+      ],
+      "payout": 3750.0
+    },
+    "section": "Policy wording section 10",
+    "reason": "The receipts support the claim under the plan's limits.",
+    "decided_by": "UnderCover Agent v1",
+    "decided_at": "2026-11-08T07:32:16+00:00",
+    "manual_version": "2026.2",
+    "approval_limit": 1000.0,
+    "hold_reason": null,
+    "signed_off_by": null,
+    "signed_off_at": null,
+    "checklist": [],
+    "override": null,
+    "by_screening": false
+  },
+  "payment": null,
+  "sent_back_decisions": [],
+  "receipts": [],
+  "stages": {
+    "received": "2026-07-06",
+    "checked": null,
+    "assessed": null,
+    "decided": "2026-11-08T07:32:16+00:00",
+    "paid": null
+  },
+  "review_requested_at": null,
+  "review_note": null
+}

@@ -1,0 +1,25 @@
+[
+  {
+    "step_id": 1,
+    "thread_id": null,
+    "kind": "screening",
+    "content": "No instructions found.",
+    "sources": [],
+    "created_at": "2026-11-08T07:32:16+00:00"
+  },
+  {
+    "step_id": 2,
+    "thread_id": null,
+    "kind": "lookup",
+    "content": "Read policy wording section 10.",
+    "sources": [
+      {
+        "file": "policy_wording.md",
+        "system": "Published policy documents",
+        "owner": "Legal",
+        "reviewed": "2026-09-01"
+      }
+    ],
+    "created_at": "2026-11-08T07:32:16+00:00"
+  }
+]

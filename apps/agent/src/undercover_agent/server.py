@@ -8,9 +8,11 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent.models import Draft, Drafter
 from undercover_agent.runner import Busy, Runner
+from undercover_agent.tools import receipt_block
 
 ClaimId = Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")]
 ThreadId = Annotated[str, StringConstraints(min_length=1, max_length=100)]
@@ -26,13 +28,60 @@ class ResumeRequest(WorkRequest):
     outcome: Literal["signed_off", "sent_back"]
 
 
-def create_app(make_runner: Callable[[], Runner], key: Callable[[], str]) -> FastAPI:
-    """The service, with how to build its runner and read the agent's key."""
+class DraftTrip(BaseModel):
+    destination: str
+    departs_on: str
+    returns_on: str
+    trip_cost: float
+
+
+class DraftReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    media_type: Literal["image/jpeg", "image/png", "application/pdf"]
+    data: str
+
+
+class DraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: Annotated[str, StringConstraints(max_length=1000)]
+    case: Annotated[str, StringConstraints(max_length=30)]
+    trip: DraftTrip
+    today: Annotated[str, StringConstraints(max_length=10)]
+    receipts: list[DraftReceipt] = Field(max_length=5)
+
+
+def draft_content(request: DraftRequest) -> list[dict[str, object]]:
+    """What the drafting assistant reads: the facts, the customer's words, then each receipt
+    labelled by number. All of it is data."""
+    trip = request.trip
+    facts = (
+        f"Today is {request.today}. The customer's trip: {trip.destination}, "
+        f"{trip.departs_on} to {trip.returns_on}.\n"
+        f"What happened, as they picked it: {request.case or '(not picked)'}.\n"
+        f"In their words, between the markers:\n<customer_words>\n{request.text}\n"
+        "</customer_words>"
+    )
+    content: list[dict[str, object]] = [{"type": "text", "text": facts}]
+    for number, receipt in enumerate(request.receipts, start=1):
+        content.append({"type": "text", "text": f"Receipt {number}, customer-supplied data:"})
+        content.append(receipt_block(receipt.model_dump()))
+    return content
+
+
+def create_app(  # noqa: C901 - the routes are closures over the runner and drafter
+    make_runner: Callable[[], Runner],
+    key: Callable[[], str],
+    make_drafter: Callable[[], Drafter] | None = None,
+) -> FastAPI:
+    """The service, with how to build its runner and drafter and read the agent's key."""
     runner: dict[str, Runner] = {}
+    drafter: dict[str, Drafter] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         runner["claims"] = make_runner()
+        if make_drafter is not None:
+            drafter["claims"] = make_drafter()
         yield
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
@@ -57,6 +106,16 @@ def create_app(make_runner: Callable[[], Runner], key: Callable[[], str]) -> Fas
         return start(
             lambda: runner["claims"].resume(request.claim_id, request.thread_id, request.outcome)
         )
+
+    @app.post("/draft", operation_id="draft", dependencies=[Depends(agents_key)])
+    def draft(request: DraftRequest) -> Draft:  # pyright: ignore[reportUnusedFunction]
+        """Draft a claim for a customer to check, from their words, case and receipts."""
+        if "claims" not in drafter:
+            raise HTTPException(503, "The drafting assistant isn't set up")
+        found, _ = drafter["claims"].draft(draft_content(request))
+        if found is None:
+            raise HTTPException(502, "The drafting assistant couldn't draft this claim")
+        return found
 
     return app
 
@@ -101,4 +160,8 @@ def build_app() -> FastAPI:
         )
         return Runner(graph, api)
 
-    return create_app(make_runner, settings.undercover_api_key.get_secret_value)
+    return create_app(
+        make_runner,
+        settings.undercover_api_key.get_secret_value,
+        lambda: AnthropicClaude(settings),
+    )

@@ -31,7 +31,6 @@ from undercover_api.auth import (
     SeniorHandler,
     SignedIn,
     TokenVerifier,
-    agent_or_handler,
     require_agent,
 )
 from undercover_api.claims import (
@@ -61,6 +60,7 @@ from undercover_api.db import (
     make_engine,
     model_calls,
     now,
+    payments,
     sent_back,
 )
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
@@ -75,8 +75,10 @@ from undercover_api.models import (
     DecisionRequest,
     Handler,
     HoldRequest,
+    ModelCall,
     ModelCallRequest,
     NewStep,
+    OverrideRequest,
     PaymentRequest,
     Payout,
     PayoutRequest,
@@ -89,6 +91,8 @@ from undercover_api.models import (
     Status,
     Step,
     StepRequest,
+    TestSignInRequest,
+    Trace,
 )
 from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
@@ -99,13 +103,14 @@ from undercover_api.settings import Settings, get_settings
 log = logging.getLogger(__name__)
 
 AGENT = [Depends(require_agent)]
-EITHER = [Depends(agent_or_handler)]
 
 health_router = APIRouter()
 agent_router = APIRouter(prefix="/api/agent/claims/{claim_id}", dependencies=AGENT)
-handler_router = APIRouter(prefix="/api")
-shared_router = APIRouter(prefix="/api", dependencies=EITHER)
-sign_in_router = APIRouter(prefix="/api/dev")
+# Staff and customers each have their own prefix; the dashboard's and the portal's web servers
+# each forward only theirs.
+staff_router = APIRouter(prefix="/api/staff")
+staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
+customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
 
 
 @health_router.get("/api/health", operation_id="health")
@@ -114,17 +119,29 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# --- Read by the agent and handlers ---
+# --- Read by the agent, on its own routes, and by handlers, on theirs ---
 
 
-@shared_router.get("/claims/{claim_id}", operation_id="get_claim")
-def get_claim(claim_id: ClaimId, db: Database) -> Claim:
+@agent_router.get("", operation_id="get_claim_for_agent")
+def get_claim_for_agent(claim_id: ClaimId, db: Database) -> Claim:
+    """The agent's claim in full, with its policy, decision, payment and decisions sent back."""
+    return claim_in_full(db, claim_id)
+
+
+@agent_router.get("/steps", operation_id="list_steps_for_agent")
+def get_steps_for_agent(claim_id: ClaimId, db: Database) -> list[Step]:
+    """The steps of the agent's work on its claim, oldest first."""
+    return list_steps(db, claim_id)
+
+
+@staff_router.get("/claims/{claim_id}", operation_id="get_claim")
+def get_claim(claim_id: ClaimId, _: SignedIn, db: Database) -> Claim:
     """A claim in full, with its policy, decision, payment and any decisions sent back."""
     return claim_in_full(db, claim_id)
 
 
-@shared_router.get("/claims/{claim_id}/steps", operation_id="list_steps")
-def get_steps(claim_id: ClaimId, db: Database) -> list[Step]:
+@staff_router.get("/claims/{claim_id}/steps", operation_id="list_steps")
+def get_steps(claim_id: ClaimId, _: SignedIn, db: Database) -> list[Step]:
     """The steps of the agent's work on a claim, oldest first."""
     return list_steps(db, claim_id)
 
@@ -207,6 +224,7 @@ def record_decision(
         decided_at=now(),
         manual_version=manual_version(db),
         approval_limit=limit,
+        checklist=[check.model_dump() for check in request.checklist],
     )
     try:
         with db.begin_nested():
@@ -349,7 +367,7 @@ def hand_over(db: Connection, claim_id: str, service: AgentService) -> Handover:
     raise HTTPException(409, f"Claim {claim_id} isn't waiting or sent back")
 
 
-@handler_router.post("/claims/{claim_id}/work", operation_id="work_claim")
+@staff_router.post("/claims/{claim_id}/work", operation_id="work_claim")
 def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls) -> Claim:
     """Ask the agent to work a waiting claim, or to take a sent-back one up again."""
     handover = hand_over(db, claim_id, service)
@@ -365,13 +383,13 @@ def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls
 # --- Handlers' ---
 
 
-@handler_router.get("/me", operation_id="get_signed_in_handler")
+@staff_router.get("/me", operation_id="get_signed_in_handler")
 def me(handler: SignedIn) -> Handler:
     """The handler signed in."""
     return handler
 
 
-@handler_router.get("/claims", operation_id="list_claims")
+@staff_router.get("/claims", operation_id="list_claims")
 def get_claims(_: SignedIn, db: Database) -> list[ClaimSummary]:
     """The queue, oldest submitted first, with where each claim stands."""
     return list_claims(db)
@@ -388,7 +406,7 @@ def held(db: Connection, claim_id: str, end: Status) -> Decision:
     return decision
 
 
-@handler_router.post("/claims/{claim_id}/sign-off", operation_id="sign_off_claim")
+@staff_router.post("/claims/{claim_id}/sign-off", operation_id="sign_off_claim")
 def sign_off_claim(
     claim_id: ClaimId, handler: SeniorHandler, db: Database, service: AgentCalls
 ) -> Claim:
@@ -412,7 +430,7 @@ def sign_off_claim(
     return claim_in_full(db, claim_id)
 
 
-@handler_router.post("/claims/{claim_id}/send-back", operation_id="send_back_claim")
+@staff_router.post("/claims/{claim_id}/send-back", operation_id="send_back_claim")
 def send_back_claim(
     claim_id: ClaimId,
     request: SendBackRequest,
@@ -455,30 +473,166 @@ def send_back_claim(
     return claim_in_full(db, claim_id)
 
 
+OVERRIDABLE = (Status.DECIDED, Status.WAITING_FOR_SIGN_OFF)
+
+
+@staff_router.post("/claims/{claim_id}/override", operation_id="override_decision")
+def override_decision(
+    claim_id: ClaimId, request: OverrideRequest, handler: SeniorHandler, db: Database
+) -> Claim:
+    """Put a senior handler's own decision in place of the agent's, with a reason code. An
+    approval is paid at once as the handler's sign-off; nothing already paid can change."""
+    claim = find_claim(db, claim_id)
+    current = find_decision(db, claim_id)
+    if current is None or claim["status"] not in OVERRIDABLE:
+        raise HTTPException(409, f"Claim {claim_id} has no decision to override")
+    if db.execute(select(payments.c.claim_id).where(payments.c.claim_id == claim_id)).first():
+        raise HTTPException(409, f"Claim {claim_id} has already been paid")
+    approve = request.decision == DecisionKind.APPROVE
+    if approve != (request.payout > 0):
+        raise HTTPException(422, "An approval needs a payout above zero; anything else pays 0")
+    if not move_claim(db, claim_id, claim["status"], Status.DECIDED):
+        raise HTTPException(409, f"Claim {claim_id} changed; reload and try again")
+    stamp = now()
+    # The calculation stays only when the amount does; a new amount is the handler's own.
+    kept = current.calculation if request.payout == current.payout else None
+    override = {
+        "reason_code": request.reason_code,
+        "note": request.note,
+        "by": handler.name,
+        "by_id": handler.handler_id,
+        "at": stamp,
+        "previous_decision": current.decision,
+        "previous_payout": current.payout,
+    }
+    db.execute(
+        update(decisions)
+        .where(decisions.c.claim_id == claim_id)
+        .values(
+            decision=request.decision,
+            payout=request.payout,
+            calculation=kept and kept.model_dump(),
+            decided_by=handler.name,
+            decided_at=stamp,
+            override=override,
+            signed_off_by=handler.name if approve else None,
+            signed_off_by_id=handler.handler_id if approve else None,
+            signed_off_at=stamp if approve else None,
+        )
+    )
+    if approve:
+        record_payment(db, claim_id, request.payout, handler.name, handler.handler_id)
+    add_step(
+        db,
+        claim_id,
+        NewStep(
+            thread_id=claim["thread_id"],
+            kind="message",
+            content=f"{handler.name} overrode the decision ({request.reason_code}): {request.note}",
+            sources=[],
+        ),
+    )
+    return claim_in_full(db, claim_id)
+
+
+@staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
+def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
+    """Every step and model call on a claim, for the trace view."""
+    found = list_steps(db, claim_id)
+    calls = [
+        ModelCall.model_validate(dict(r))
+        for r in db.execute(
+            select(model_calls)
+            .where(model_calls.c.claim_id == claim_id)
+            .order_by(model_calls.c.call_id)
+        ).mappings()
+    ]
+    return Trace(
+        steps=found,
+        model_calls=calls,
+        total_cost=round(sum(c.cost for c in calls), 6),
+        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
+    )
+
+
 # --- The local sign-in stand-in ---
 
 
-@sign_in_router.post("/sign-in", operation_id="sign_in")
-def sign_in(request: Request, body: SignInRequest, db: Database) -> SignIn:
-    """Sign a seeded handler or customer in with the shared local password; local only."""
-    settings: Settings = request.app.state.settings
-    issuer: LocalIssuer = request.app.state.issuer
-    password = settings.handler_password.get_secret_value() if settings.handler_password else ""
-    people = handlers if body.role == "handler" else customers
-    known = db.execute(
-        select(people.c.email).where(func.lower(people.c.email) == body.email.lower())
+def check_local_password(settings: Settings, password: str) -> bool:
+    """Whether the shared local password is right, compared in constant time."""
+    expected = settings.handler_password.get_secret_value() if settings.handler_password else ""
+    return secrets.compare_digest(password.encode(), expected.encode())
+
+
+def known_email(db: Connection, email: str, people: Any) -> str | None:
+    """The seeded email matching one given, ignoring case, or none."""
+    found = db.execute(
+        select(people.c.email).where(func.lower(people.c.email) == email.lower())
     ).scalar_one_or_none()
-    right = secrets.compare_digest(body.password.encode(), password.encode())
-    if known is None or not right:
+    return None if found is None else str(found).lower()
+
+
+@staff_sign_in_router.post("/sign-in", operation_id="sign_in_staff")
+def sign_in_staff(request: Request, body: SignInRequest, db: Database) -> SignIn:
+    """Sign a seeded handler in with the shared local password; local only."""
+    email = known_email(db, body.email, handlers)
+    right = check_local_password(request.app.state.settings, body.password)
+    if email is None or not right:
         raise HTTPException(401, "The email or password is wrong")
-    group = HANDLERS_GROUP if body.role == "handler" else CUSTOMERS_GROUP
-    return SignIn(id_token=issuer.issue(known.lower(), group), expires_in=TOKEN_LIFETIME)
+    issuer: LocalIssuer = request.app.state.staff_issuer
+    return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
-@sign_in_router.get("/.well-known/jwks.json", operation_id="get_jwks")
-def jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
-    """The stand-in's public signing keys, at the path Cognito uses."""
-    issuer: LocalIssuer = request.app.state.issuer
+# The only people the test buttons sign in as, on the laptop; no password reaches the browser.
+STAFF_TEST_ACCOUNTS = {
+    "senior": "dana.whitfield@undercover.example",
+    "handler": "marcus.oyelaran@undercover.example",
+}
+CUSTOMER_TEST_ACCOUNTS = {"customer": "oliver.grant@example.com"}
+
+
+@staff_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_staff")
+def test_sign_in_staff(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as one of the fixed staff test accounts; local only."""
+    email = STAFF_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, handlers) is None:
+        raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.staff_issuer
+    return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@customer_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_customer")
+def test_sign_in_customer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as the fixed customer test account; local only."""
+    email = CUSTOMER_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, customers) is None:
+        raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.customer_issuer
+    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@staff_sign_in_router.get("/.well-known/jwks.json", operation_id="get_staff_jwks")
+def staff_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
+    """The staff issuer's public signing keys, at the path Cognito uses."""
+    issuer: LocalIssuer = request.app.state.staff_issuer
+    return issuer.jwks()
+
+
+@customer_sign_in_router.post("/sign-in", operation_id="sign_in_customer")
+def sign_in_customer(request: Request, body: SignInRequest, db: Database) -> SignIn:
+    """Sign a seeded customer in with the shared local password; local only."""
+    email = known_email(db, body.email, customers)
+    right = check_local_password(request.app.state.settings, body.password)
+    if email is None or not right:
+        raise HTTPException(401, "The email or password is wrong")
+    issuer: LocalIssuer = request.app.state.customer_issuer
+    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@customer_sign_in_router.get("/.well-known/jwks.json", operation_id="get_customer_jwks")
+def customer_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
+    """The customer issuer's public signing keys, at the path Cognito uses."""
+    issuer: LocalIssuer = request.app.state.customer_issuer
     return issuer.jwks()
 
 
@@ -513,23 +667,24 @@ def create_app(
     app.state.agent = agent_service or HttpAgentService(
         settings.agent_url, settings.undercover_api_key.get_secret_value()
     )
+    staff = (settings.staff_token_issuer, settings.staff_token_audience)
+    customer = (settings.customer_token_issuer, settings.customer_token_audience)
     if settings.local_sign_in:
-        app.state.issuer = LocalIssuer(settings.token_issuer, settings.token_audience)
-        app.state.verifier = TokenVerifier(
-            LocalKeys(app.state.issuer), settings.token_issuer, settings.token_audience
-        )
-        app.include_router(sign_in_router)
+        app.state.staff_issuer = LocalIssuer(*staff)
+        app.state.customer_issuer = LocalIssuer(*customer)
+        app.state.staff_verifier = TokenVerifier(LocalKeys(app.state.staff_issuer), *staff)
+        app.state.customer_verifier = TokenVerifier(LocalKeys(app.state.customer_issuer), *customer)
+        app.include_router(staff_sign_in_router)
+        app.include_router(customer_sign_in_router)
     else:
-        app.state.verifier = TokenVerifier(
-            RemoteKeys(settings.token_issuer), settings.token_issuer, settings.token_audience
-        )
+        app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
+        app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
     app.middleware("http")(log_requests)
     for router in (
         health_router,
-        shared_router,
         agent_router,
         agent_receipt_router,
-        handler_router,
+        staff_router,
         receipt_router,
         customer_router,
     ):

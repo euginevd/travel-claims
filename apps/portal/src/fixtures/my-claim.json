@@ -1,0 +1,35 @@
+{
+  "claim_id": "CLM-1902",
+  "policy_id": "POL-2001",
+  "claim_type": "trip_delay",
+  "summary": "Flight delayed overnight",
+  "amount_claimed": 180.0,
+  "submitted_on": "2026-11-08",
+  "status": "received",
+  "status_text": "Received. We'll start looking at it shortly.",
+  "incident_date": "2026-06-17",
+  "incident_location": "Rome, Italy",
+  "story": "My flight home was delayed overnight.",
+  "items": [
+    {
+      "description": "Airport hotel",
+      "category": "accommodation",
+      "amount": 180.0
+    }
+  ],
+  "outcome": null,
+  "reason": null,
+  "paid": null,
+  "paid_at": null,
+  "receipts": [
+    {
+      "receipt_id": "7d0be01d00670b6988f6c7cb3ce52447",
+      "media_type": "image/png",
+      "size": 24,
+      "uploaded_at": "2026-11-08T07:32:16+00:00"
+    }
+  ],
+  "can_add_receipts": true,
+  "review_requested": false,
+  "can_request_review": false
+}

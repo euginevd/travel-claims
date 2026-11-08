@@ -42,11 +42,11 @@ AGENT_ROUTES: list[Route] = [
     ),
 ]
 HANDLER_ROUTES: list[Route] = [
-    ("get", "/api/me", None),
-    ("get", "/api/claims", None),
-    ("post", "/api/claims/CLM-1001/sign-off", None),
-    ("post", "/api/claims/CLM-1001/send-back", {"note": "n"}),
-    ("post", "/api/claims/CLM-1001/work", None),
+    ("get", "/api/staff/me", None),
+    ("get", "/api/staff/claims", None),
+    ("post", "/api/staff/claims/CLM-1001/sign-off", None),
+    ("post", "/api/staff/claims/CLM-1001/send-back", {"note": "n"}),
+    ("post", "/api/staff/claims/CLM-1001/work", None),
 ]
 
 
@@ -74,28 +74,30 @@ def test_handler_routes_refuse_the_agents_key(
     assert call(client, method, path, body, AGENT | dana) == 403
 
 
-def test_a_claim_is_read_by_the_agent_or_a_handler(
+def test_a_claim_is_read_by_the_agent_and_a_handler_on_their_own_routes(
     client: TestClient, marcus: dict[str, str]
 ) -> None:
-    assert client.get("/api/claims/CLM-1001", headers=AGENT).status_code == 200
-    assert client.get("/api/claims/CLM-1001", headers=marcus).status_code == 200
-    assert client.get("/api/claims/CLM-1001").status_code == 401
+    assert client.get("/api/agent/claims/CLM-1001", headers=AGENT).status_code == 200
+    assert client.get("/api/staff/claims/CLM-1001", headers=marcus).status_code == 200
+    assert client.get("/api/staff/claims/CLM-1001").status_code == 401
+    assert client.get("/api/staff/claims/CLM-1001", headers=AGENT).status_code == 403
+    assert client.get("/api/agent/claims/CLM-1001", headers=marcus).status_code == 401
 
 
 def test_me_is_the_handler_signed_in(client: TestClient, marcus: dict[str, str]) -> None:
-    me = client.get("/api/me", headers=marcus).json()
+    me = client.get("/api/staff/me", headers=marcus).json()
     assert (me["name"], me["can_approve_over_limit"]) == ("Marcus Oyelaran", False)
 
 
 def test_sign_in_refuses_a_wrong_password_or_unknown_email(client: TestClient) -> None:
     wrong = {"email": "dana.whitfield@undercover.example", "password": "nope"}
     unknown = {"email": "someone@undercover.example", "password": PASSWORD}
-    assert client.post("/api/dev/sign-in", json=wrong).status_code == 401
-    assert client.post("/api/dev/sign-in", json=unknown).status_code == 401
+    assert client.post("/api/staff/dev/sign-in", json=wrong).status_code == 401
+    assert client.post("/api/staff/dev/sign-in", json=unknown).status_code == 401
 
 
 def test_the_key_set_is_published(client: TestClient) -> None:
-    [key] = client.get("/api/dev/.well-known/jwks.json").json()["keys"]
+    [key] = client.get("/api/staff/dev/.well-known/jwks.json").json()["keys"]
     assert (key["kty"], key["alg"], key["use"]) == ("RSA", "RS256", "sig")
     assert "d" not in key  # never the private part
 
@@ -105,8 +107,8 @@ def forged(client: TestClient, **claims: object) -> dict[str, str]:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = int(time.time())
     body = {
-        "iss": "http://127.0.0.1:8000/api/dev",
-        "aud": "undercover-web",
+        "iss": "http://127.0.0.1:8000/api/staff/dev",
+        "aud": "undercover-staff",
         "sub": "x",
         "email": "dana.whitfield@undercover.example",
         "token_use": "id",
@@ -117,7 +119,7 @@ def forged(client: TestClient, **claims: object) -> dict[str, str]:
 
 
 def test_a_token_signed_by_another_key_is_refused(client: TestClient) -> None:
-    assert client.get("/api/me", headers=forged(client)).status_code == 401
+    assert client.get("/api/staff/me", headers=forged(client)).status_code == 401
 
 
 def test_an_unsigned_token_is_refused(client: TestClient) -> None:
@@ -126,10 +128,13 @@ def test_an_unsigned_token_is_refused(client: TestClient) -> None:
 
     claims = {"email": "dana.whitfield@undercover.example", "token_use": "id"}
     token = f"{part({'alg': 'none', 'typ': 'JWT'})}.{part(claims)}."
-    assert client.get("/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    assert (
+        client.get("/api/staff/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    )
 
 
 def test_the_agent_key_is_compared_whole(client: TestClient) -> None:
     assert (
-        client.get("/api/claims/CLM-1001", headers={"X-API-Key": AGENT_KEY[:-1]}).status_code == 401
+        client.get("/api/agent/claims/CLM-1001", headers={"X-API-Key": AGENT_KEY[:-1]}).status_code
+        == 401
     )

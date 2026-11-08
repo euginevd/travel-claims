@@ -20,9 +20,13 @@ class Settings(BaseSettings):
     # The local sign-in stand-in issues tokens shaped like Cognito's; never on outside a laptop.
     local_sign_in: bool = False
     handler_password: SecretStr | None = None
-    # Where ID tokens come from and who they are for: names, not secrets.
-    token_issuer: str = "http://127.0.0.1:8000/api/dev"  # noqa: S105
-    token_audience: str = "undercover-web"  # noqa: S105
+    # Where each audience's ID tokens come from and who they are for: names, not secrets.
+    # Staff and customers have separate issuers (two Cognito user pools in stage 2), so a
+    # token for one audience fails the other's signature and audience checks.
+    staff_token_issuer: str = "http://127.0.0.1:8000/api/staff/dev"  # noqa: S105
+    staff_token_audience: str = "undercover-staff"  # noqa: S105
+    customer_token_issuer: str = "http://127.0.0.1:8000/api/customer/dev"  # noqa: S105
+    customer_token_audience: str = "undercover-customer"  # noqa: S105
     # Where seeding reads UnderCover's records: the repo's data/ folder.
     seed_data_dir: Path = Path("data")
     # Where receipts are kept: a Docker volume locally, a private S3 bucket in stage 2.
@@ -39,8 +43,13 @@ class Settings(BaseSettings):
             raise ValueError("LOCAL_SIGN_IN may be true only when ENVIRONMENT is local")
         if self.local_sign_in and not self.handler_password:
             raise ValueError("LOCAL_SIGN_IN needs HANDLER_PASSWORD")
-        if self.environment != "local" and not self.token_issuer.startswith("https://"):
-            raise ValueError("TOKEN_ISSUER must be https outside ENVIRONMENT=local")
+        issuers = (self.staff_token_issuer, self.customer_token_issuer)
+        if self.environment != "local" and not all(i.startswith("https://") for i in issuers):
+            raise ValueError("Token issuers must be https outside ENVIRONMENT=local")
+        if self.staff_token_issuer == self.customer_token_issuer:
+            raise ValueError("Staff and customers need separate token issuers")
+        if self.staff_token_audience == self.customer_token_audience:
+            raise ValueError("Staff and customers need separate token audiences")
         return self
 
 
