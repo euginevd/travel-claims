@@ -41,15 +41,21 @@ function PayoutBar({ decision, claimed }: { decision: Decision; claimed: number 
       <figcaption className="eyebrow">
         Claimed {dollars(claimed)}, paid {dollars(decision.payout)}
       </figcaption>
-      <div className="payout-bar" aria-hidden="true">
-        {segments.map((segment, index) => (
-          <span
-            key={index}
-            className={segment.paid ? "bar-paid" : "bar-kept"}
-            style={{ width: `${String((segment.amount / total) * 100)}%` }}
-          />
-        ))}
-      </div>
+      {/* SVG widths are attributes, not inline styles, so the strict CSP allows them. */}
+      <svg className="payout-bar" aria-hidden="true" preserveAspectRatio="none">
+        {segments.map((segment, index) => {
+          const before = segments.slice(0, index).reduce((sum, s) => sum + s.amount, 0);
+          return (
+            <rect
+              key={index}
+              className={segment.paid ? "bar-paid" : "bar-kept"}
+              x={`${String((before / total) * 100)}%`}
+              width={`${String((segment.amount / total) * 100)}%`}
+              height="100%"
+            />
+          );
+        })}
+      </svg>
       <ul className="bar-legend">
         {segments.map((segment, index) => (
           <li key={index}>
