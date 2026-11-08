@@ -31,58 +31,6 @@
 
 ## 📦 Apps
 
-```mermaid
-flowchart TB
-  customer(["Customer"])
-  handler(["Handler"])
-
-  subgraph web ["Web apps, each behind its own nginx"]
-    portal["portal<br/>make and track claims"]
-    dashboard["dashboard<br/>queue, case brief, sign-off"]
-  end
-
-  subgraph services ["Services"]
-    api["api<br/>claims, payments, limits in code"]
-    agent["agent<br/>claim agent, specialists,<br/>dispatcher, improver"]
-    copilot["copilot<br/>handlers' chat agent"]
-    context["context<br/>MCP: policy wording, claims manual"]
-  end
-
-  subgraph data ["Data"]
-    db[("PostgreSQL<br/>claims, agent progress, memory")]
-    receipts[("Receipts<br/>private volume")]
-  end
-
-  claude{{"Claude<br/>Anthropic API; Bedrock in stage 2"}}
-
-  customer --> portal
-  handler --> dashboard
-  portal -- "/api/customer" --> api
-  dashboard -- "/api/staff" --> api
-  dashboard -- "/api/copilot" --> copilot
-  api -- "work, resume, draft" --> agent
-  agent -- "tools, agent key" --> api
-  copilot -- "as the handler" --> api
-  agent -- "lookups" --> context
-  agent & copilot --> claude
-  api & agent & copilot --> db
-  api --> receipts
-
-  classDef person fill:none,stroke:#8b949e,stroke-width:1.5px
-  classDef app fill:none,stroke:#2f81f7,stroke-width:1.5px
-  classDef ai fill:none,stroke:#d97757,stroke-width:1.5px
-  classDef store fill:none,stroke:#3fb950,stroke-width:1.5px
-  class customer,handler person
-  class portal,dashboard,api,context app
-  class agent,copilot,claude ai
-  class db,receipts store
-  style web fill:none,stroke:#8b949e,stroke-dasharray:4 4
-  style services fill:none,stroke:#8b949e,stroke-dasharray:4 4
-  style data fill:none,stroke:#8b949e,stroke-dasharray:4 4
-```
-
-<sub>Blue: apps · orange: AI agents and Claude · green: data. Trust boundaries and attacks: [threat-model.md](docs/threat-model.md).</sub>
-
 | App | What | Runs on |
 |-----|------|---------|
 | `portal` | Customers make and track claims | Docker locally; EKS *(planned)* |
