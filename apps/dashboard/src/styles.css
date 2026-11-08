@@ -16,6 +16,13 @@
   --warn-tint: #f8ead2;
   --bad-tint: #f6e1dc;
   --bad: #a3341c;
+  /* Status tones: a tint behind dark ink text, and the tone itself for icons and edges. */
+  --good: #2f7a4b;
+  --good-tint: #e3f1e6;
+  --info: #2c6a8f;
+  --info-tint: #e2eff5;
+  --refer: #6b4fa3;
+  --refer-tint: #ece6f6;
   --shadow: 0 8px 24px rgb(23 18 12 / 12%);
 
   --font-head: "Geist", system-ui, sans-serif;
@@ -31,6 +38,12 @@
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -318,8 +331,34 @@ label {
 .figure {
   background: var(--bg-2);
   border: 1px solid var(--line);
+  border-top: 4px solid var(--tone, var(--line));
   border-radius: 14px;
   padding: 1rem 1.25rem;
+}
+
+.figure-info {
+  --tone: var(--info);
+  --tone-tint: var(--info-tint);
+}
+.figure-warn {
+  --tone: var(--warn);
+  --tone-tint: var(--warn-tint);
+}
+.figure-refer {
+  --tone: var(--refer);
+  --tone-tint: var(--refer-tint);
+}
+.figure-good {
+  --tone: var(--good);
+  --tone-tint: var(--good-tint);
+}
+
+.figure .figure-label svg {
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 999px;
+  color: var(--tone, var(--ink-2));
+  background: var(--tone-tint, var(--bg-3));
 }
 
 .figure-value {
@@ -386,12 +425,39 @@ label {
   border: 1px solid var(--line);
 }
 
-.chip-held {
+.chip-info {
+  background: var(--info-tint);
+  border-color: color-mix(in srgb, var(--info) 35%, transparent);
+}
+.chip-info svg {
+  color: var(--info);
+}
+.chip-good {
+  background: var(--good-tint);
+  border-color: color-mix(in srgb, var(--good) 35%, transparent);
+}
+.chip-good svg {
+  color: var(--good);
+}
+.chip-bad {
+  background: var(--bad-tint);
+  border-color: color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.chip-bad svg {
+  color: var(--bad);
+}
+.chip-refer {
+  background: var(--refer-tint);
+  border-color: color-mix(in srgb, var(--refer) 35%, transparent);
+}
+.chip-refer svg {
+  color: var(--refer);
+}
+.chip-warn {
   background: var(--warn-tint);
   border-color: var(--warn);
 }
-
-.chip-held svg {
+.chip-warn svg {
   color: var(--warn);
 }
 
@@ -1583,6 +1649,15 @@ a.button {
   font-variant-numeric: tabular-nums;
   margin-left: 4px;
   opacity: 0.8;
+}
+
+.tab-needs .tab-count {
+  opacity: 1;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--warn-tint);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .shortcuts-hint {

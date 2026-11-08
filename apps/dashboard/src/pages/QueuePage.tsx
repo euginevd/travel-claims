@@ -1,7 +1,7 @@
 import { CircleCheck, Clock, Hourglass, Wallet, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Api, ClaimSummary } from "../api";
-import { StatusChip } from "../components/StatusChip";
+import { StatusChip, type Tone } from "../components/StatusChip";
 import { useFocusHeading } from "../useFocusHeading";
 import { date, dollars } from "../format";
 import { claimHref } from "../useHashRoute";
@@ -10,6 +10,7 @@ interface Figure {
   label: string;
   value: string;
   Icon: LucideIcon;
+  tone: Tone;
 }
 
 // The four figures above the queue, worked out from the claims themselves.
@@ -20,14 +21,20 @@ export function figuresOf(claims: ClaimSummary[]): Figure[] {
     .filter((claim) => claim.status === "decided" && claim.decision === "approve")
     .reduce((sum, claim) => sum + (claim.payout ?? 0), 0);
   return [
-    { label: "Waiting", value: String(count("waiting") + count("sent_back")), Icon: Clock },
+    {
+      label: "Waiting",
+      value: String(count("waiting") + count("sent_back")),
+      Icon: Clock,
+      tone: "info",
+    },
     {
       label: "Waiting for sign-off",
       value: String(count("waiting_for_sign_off")),
       Icon: Hourglass,
+      tone: "warn",
     },
-    { label: "Decided", value: String(count("decided")), Icon: CircleCheck },
-    { label: "Paid so far", value: dollars(paid), Icon: Wallet },
+    { label: "Decided", value: String(count("decided")), Icon: CircleCheck, tone: "refer" },
+    { label: "Paid so far", value: dollars(paid), Icon: Wallet, tone: "good" },
   ];
 }
 
@@ -181,7 +188,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
     <>
       <ul className="figures" aria-label="The queue at a glance">
         {figuresOf(claims).map((figure) => (
-          <li key={figure.label} className="figure">
+          <li key={figure.label} className={`figure figure-${figure.tone}`}>
             <p className="eyebrow figure-label">
               <figure.Icon size={16} strokeWidth={2} aria-hidden="true" />
               {figure.label}
@@ -197,7 +204,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
             <button
               key={name}
               type="button"
-              className={`tab${name === view ? " current" : ""}`}
+              className={`tab${name === view ? " current" : ""}${name === "needs_me" && count > 0 ? " tab-needs" : ""}`}
               aria-pressed={name === view}
               onClick={() => {
                 onView(name);
@@ -250,7 +257,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
                   <td className="nowrap">{date(claim.submitted_on)}</td>
                   <td className="nowrap">
                     <StatusChip status={claim.status} decision={claim.decision} />
-                    {claim.review_requested && <span className="chip chip-held">Review asked</span>}
+                    {claim.review_requested && <span className="chip chip-warn">Review asked</span>}
                   </td>
                 </tr>
               ))}
