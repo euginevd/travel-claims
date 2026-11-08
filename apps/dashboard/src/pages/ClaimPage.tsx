@@ -1,3 +1,4 @@
+import { Sparkle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
 import { ActivityRail, storedTrace } from "../components/ActivityRail";
@@ -231,28 +232,30 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
         </p>
         <StageTracker claim={claim} />
         <NeedsYouBanner claim={claim} />
+        {WORKABLE.has(claim.status) && (
+          <div className="action-bar">
+            <p>
+              <strong>Ready for the agent.</strong>{" "}
+              <span className="muted">
+                It checks for hidden instructions, then assesses the claim against the policy.
+              </span>
+            </p>
+            <button
+              type="button"
+              className="button"
+              disabled={starting}
+              onClick={() => {
+                void workClaim();
+              }}
+            >
+              <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+              {starting ? "Starting…" : "Work this claim"}
+            </button>
+          </div>
+        )}
 
         <div className="claim-grid">
           <div className="claim-main">
-            {WORKABLE.has(claim.status) && (
-              <div className="work panel">
-                <button
-                  type="button"
-                  className="button"
-                  disabled={starting}
-                  onClick={() => {
-                    void workClaim();
-                  }}
-                >
-                  {starting ? "Starting…" : "Work this claim"}
-                </button>
-                <p className="muted small">
-                  The agent checks the claim for hidden instructions, then assesses it against the
-                  policy.
-                </p>
-              </div>
-            )}
-
             <section className="panel" aria-labelledby="story-heading">
               <h2 id="story-heading">Evidence</h2>
               <p className="muted small">
@@ -358,15 +361,27 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 }
               />
             )}
-            <ActivityRail
-              api={api}
-              claimId={claimId}
-              steps={steps}
-              working={working}
-              trace={trace}
-              onTraceChange={setTrace}
-            />
-            {trace && <SourcesPanel steps={steps} />}
+            {(steps.length > 0 || working) && (
+              <ActivityRail
+                api={api}
+                claimId={claimId}
+                steps={steps}
+                working={working}
+                trace={trace}
+                onTraceChange={setTrace}
+              />
+            )}
+            {trace && steps.some((step) => step.kind === "lookup") && (
+              <SourcesPanel steps={steps} />
+            )}
+            {steps.length === 0 && !working && !claim.decision && (
+              <div className="panel waiting-card">
+                <p className="ai-line">
+                  <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+                  The agent&apos;s recommendation appears here once it has worked the claim.
+                </p>
+              </div>
+            )}
           </aside>
         </div>
       </>

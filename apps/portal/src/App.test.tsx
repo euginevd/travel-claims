@@ -133,6 +133,6 @@ test("the make-a-claim link opens the form", async () => {
   window.location.hash = "#/new";
   render(<App fetchFn={fakeFetch(routes)} />);
   expect(
-    await screen.findByRole("heading", { level: 1, name: "Start with your receipts" }),
+    await screen.findByRole("heading", { level: 1, name: "What happened?" }),
   ).toBeInTheDocument();
 });

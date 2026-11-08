@@ -1,6 +1,19 @@
-import { Plus, Sparkle, Trash2 } from "lucide-react";
+import {
+  CalendarX,
+  Clock,
+  HeartPulse,
+  IdCard,
+  Luggage,
+  PlaneTakeoff,
+  Plus,
+  ShieldAlert,
+  Sparkle,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { ApiError, caseChips, type Api, type CaseChip, type Draft, type Policy } from "../api";
+import { ApiError, type Api, type CaseChip, type Draft, type Policy } from "../api";
+import { DayPicker } from "../components/DayPicker";
 import { ReceiptPicker } from "../components/ReceiptPicker";
 import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -16,15 +29,62 @@ export const CLAIM_TYPES: Record<string, string> = {
   emergency_medical: "Medical emergency",
 };
 
-export const CHIPS: Record<CaseChip, { label: string; claimType: string }> = {
-  lost_bag: { label: "Lost bag", claimType: "baggage" },
-  delayed_bag: { label: "Bag arrived late", claimType: "baggage_delay" },
-  flight_delay: { label: "Delayed flight", claimType: "trip_delay" },
-  trip_cancelled: { label: "Trip cancelled", claimType: "trip_cancellation" },
-  medical: { label: "Medical", claimType: "emergency_medical" },
-  stolen: { label: "Something stolen", claimType: "baggage" },
-  passport: { label: "Lost passport", claimType: "passport" },
+interface Tile {
+  label: string;
+  hint: string;
+  claimType: string;
+  Icon: LucideIcon;
+}
+
+// What happened, as large tiles: the customer taps one instead of typing.
+export const CHIPS: Record<CaseChip, Tile> = {
+  lost_bag: { label: "Lost bag", hint: "It never arrived", claimType: "baggage", Icon: Luggage },
+  delayed_bag: {
+    label: "Bag arrived late",
+    hint: "Had to buy essentials",
+    claimType: "baggage_delay",
+    Icon: Clock,
+  },
+  flight_delay: {
+    label: "Delayed flight",
+    hint: "Hours waiting or a missed night",
+    claimType: "trip_delay",
+    Icon: PlaneTakeoff,
+  },
+  trip_cancelled: {
+    label: "Trip cancelled",
+    hint: "Couldn't go at all",
+    claimType: "trip_cancellation",
+    Icon: CalendarX,
+  },
+  medical: {
+    label: "Medical",
+    hint: "Doctor, hospital or dentist",
+    claimType: "emergency_medical",
+    Icon: HeartPulse,
+  },
+  stolen: {
+    label: "Something stolen",
+    hint: "Bag, phone or valuables",
+    claimType: "baggage",
+    Icon: ShieldAlert,
+  },
+  passport: {
+    label: "Lost passport",
+    hint: "Lost or stolen abroad",
+    claimType: "passport",
+    Icon: IdCard,
+  },
 };
+const TILE_ORDER: CaseChip[] = [
+  "lost_bag",
+  "delayed_bag",
+  "flight_delay",
+  "trip_cancelled",
+  "medical",
+  "stolen",
+  "passport",
+];
 
 const CATEGORIES: Record<string, string> = {
   accommodation: "Accommodation",
@@ -50,54 +110,67 @@ interface Line {
 }
 
 const BLANK: Line = { description: "", category: "other", amount: "", source: "" };
-type Step = "receipts" | "what" | "check";
+type Step = "what" | "receipts" | "check";
 
-/** The claim to check, from the assistant's draft or, without one, from what the customer gave. */
-export function fromDraft(draft: Draft | null, chip: CaseChip | "", words: string) {
-  const lines: Line[] = draft?.items.length
-    ? draft.items.map((item) => ({
-        description: item.description,
-        category: item.category,
-        amount: item.amount > 0 ? item.amount.toFixed(2) : "",
-        source: item.source,
-      }))
-    : [{ ...BLANK }];
+// Text written about the customer or the draft, never for them. The agent filters these too;
+// this keeps them off the screen even if one slips through.
+const NOTE =
+  /\b(the customer|customer has|claimant|the user|draft|pending|not yet (described|provided|selected|given)|no (information|details) (was |were )?provided|unknown|n\/a)\b/i;
+// Questions about fields the form already shows.
+const ON_SCREEN =
+  /\b(type of (claim|problem)|kind of (claim|problem)|what type|when did|what date|which date|where did|where were|what (city|country|place)|how much|amount|cost|item)\b/i;
+
+/** Whether text reads as an assistant's internal note rather than the customer's own words. */
+export function isNote(text: string): boolean {
+  return NOTE.test(text);
+}
+
+const clean = (text: string | undefined) => (text && !isNote(text) ? text : "");
+
+/** The claim to check, from the assistant's draft and the customer's own words and choice. */
+export function fromDraft(draft: Draft | null, chip: CaseChip, words: string) {
   return {
-    claimType: draft?.claim_type ?? (chip ? CHIPS[chip].claimType : "trip_delay"),
-    summary: draft?.summary ?? "",
+    summary: clean(draft?.summary),
     // The customer's own words are the record; the assistant's story only fills a blank.
-    story: words.trim() || draft?.story || "",
+    story: words.trim() || clean(draft?.story),
     incidentDate: /^\d{4}-\d{2}-\d{2}$/.test(draft?.incident_date ?? "")
       ? (draft?.incident_date ?? "")
       : "",
-    location: draft?.incident_location ?? "",
-    lines,
-    questions: draft?.missing_questions ?? [],
+    location: clean(draft?.incident_location),
+    lines: (draft?.items ?? []).map((item) => ({
+      description: item.description,
+      category: item.category,
+      amount: item.amount > 0 ? item.amount.toFixed(2) : "",
+      source: item.source,
+    })),
+    questions: (draft?.missing_questions ?? [])
+      .filter((q) => !isNote(q) && !ON_SCREEN.test(q))
+      .slice(0, 2),
     unsure: new Set(draft?.low_confidence_fields ?? []),
+    claimType: CHIPS[chip].claimType,
   };
 }
 
-/** Photo first: receipts, then what happened in a tap or a few words, then the assistant's
- * draft to check, one question at a time for anything missing. Nothing is sent until the
- * customer presses Send. */
+/** What happened in a tap, then receipts, then a short check. The assistant only drafts when
+ * there's something to read, and nothing is sent until the customer presses Send. */
 export function NewClaimPage({ api }: { api: Api }) {
   const ids = useId();
   const heading = useFocusHeading();
   const [policies, setPolicies] = useState<Policy[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [policyId, setPolicyId] = useState("");
-  const [step, setStep] = useState<Step>("receipts");
+  const [step, setStep] = useState<Step>("what");
   const [files, setFiles] = useState<File[]>([]);
   const [chip, setChip] = useState<CaseChip | "">("");
   const [words, setWords] = useState("");
   const [drafting, setDrafting] = useState(false);
+  const [drafted, setDrafted] = useState(false);
   const [draftNote, setDraftNote] = useState<string | null>(null);
-  const [claimType, setClaimType] = useState("trip_delay");
   const [summary, setSummary] = useState("");
   const [story, setStory] = useState("");
   const [incidentDate, setIncidentDate] = useState("");
   const [location, setLocation] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ ...BLANK }]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [questions, setQuestions] = useState<string[]>([]);
   const [answer, setAnswer] = useState("");
   const [unsure, setUnsure] = useState<Set<string>>(new Set());
@@ -123,28 +196,34 @@ export function NewClaimPage({ api }: { api: Api }) {
 
   const policy = policies?.find((p) => p.policy_id === policyId);
   const total = lines.reduce((sum, line) => sum + (Number(line.amount) || 0), 0);
+  const hasSomethingToRead = files.length > 0 || words.trim().length > 0;
 
-  async function draftIt() {
+  async function goToCheck() {
+    if (!chip) return;
     setStep("check");
-    setDrafting(true);
     setDraftNote(null);
     let draft: Draft | null = null;
-    try {
-      draft = await api.draft(policyId, words, chip, files);
-    } catch (caught) {
-      setDraftNote(
-        caught instanceof ApiError ? caught.message : "The assistant isn't available; fill it in.",
-      );
+    if (hasSomethingToRead) {
+      setDrafting(true);
+      try {
+        draft = await api.draft(policyId, words, chip, files);
+      } catch (caught) {
+        setDraftNote(
+          caught instanceof ApiError
+            ? `Our assistant couldn't help this time (${caught.message}). Fill in the details below.`
+            : "Our assistant isn't available right now. Fill in the details below.",
+        );
+      }
     }
     const filled = fromDraft(draft, chip, words);
-    setClaimType(filled.claimType);
-    setSummary(filled.summary);
+    setSummary(filled.summary || CHIPS[chip].label);
     setStory(filled.story);
     setIncidentDate(filled.incidentDate);
     setLocation(filled.location);
     setLines(filled.lines);
     setQuestions(filled.questions);
     setUnsure(filled.unsure);
+    setDrafted(draft !== null);
     setDrafting(false);
   }
 
@@ -159,10 +238,10 @@ export function NewClaimPage({ api }: { api: Api }) {
 
   function problem(): string | null {
     if (!policy) return "Choose the trip this is for.";
-    if (!incidentDate) return "Say when it happened.";
-    if (!location.trim() || !summary.trim() || !story.trim()) {
-      return "Fill in where it happened, a one-line summary and what happened.";
-    }
+    if (!incidentDate) return "Choose the day it happened.";
+    if (!location.trim()) return "Say where it happened.";
+    if (!summary.trim()) return "Add a one-line summary.";
+    if (lines.length === 0) return "Add at least one thing you're claiming for.";
     if (lines.some((line) => !line.description.trim() || !(Number(line.amount) > 0))) {
       return "Give each item a description and an amount above zero.";
     }
@@ -175,16 +254,17 @@ export function NewClaimPage({ api }: { api: Api }) {
       setError(found);
       return;
     }
+    if (!chip) return;
     setBusy(true);
     setError(null);
     try {
       const made = await api.makeClaim({
         policy_id: policyId,
-        claim_type: claimType,
+        claim_type: CHIPS[chip].claimType,
         incident_date: incidentDate,
         incident_location: location.trim(),
         summary: summary.trim(),
-        story: story.trim(),
+        story: story.trim() || summary.trim(),
         items: lines.map((line) => ({
           description: line.description.trim(),
           category: line.category,
@@ -212,16 +292,21 @@ export function NewClaimPage({ api }: { api: Api }) {
   }
 
   const flag = (field: string) => (unsure.has(field) ? " unsure" : "");
-  const stepNumber = { receipts: 1, what: 2, check: 3 }[step];
+  const stepNumber = { what: 1, receipts: 2, check: 3 }[step];
 
   return (
     <section aria-labelledby="new-claim-heading" className="form-page">
+      <ol className="step-dots" aria-label={`Step ${String(stepNumber)} of 3`}>
+        {[1, 2, 3].map((n) => (
+          <li key={n} className={n <= stepNumber ? "on" : ""} aria-hidden="true" />
+        ))}
+      </ol>
       <p className="eyebrow">Make a claim · step {stepNumber} of 3</p>
       <h1 id="new-claim-heading" ref={heading} tabIndex={-1}>
-        {step === "receipts"
-          ? "Start with your receipts"
-          : step === "what"
-            ? "What happened?"
+        {step === "what"
+          ? "What happened?"
+          : step === "receipts"
+            ? "Add your receipts"
             : "Check your claim"}
       </h1>
       {loadError && (
@@ -229,73 +314,87 @@ export function NewClaimPage({ api }: { api: Api }) {
           We couldn&apos;t load your policies: {loadError}
         </p>
       )}
-      {policies && policies.length > 1 && step !== "check" && (
-        <p className="trip-pick">
-          <label htmlFor={`${ids}-policy`}>Trip</label>
-          <select
-            id={`${ids}-policy`}
-            value={policyId}
-            onChange={(event) => {
-              setPolicyId(event.target.value);
-            }}
-          >
-            {policies.map((p) => (
-              <option key={p.policy_id} value={p.policy_id}>
-                {p.trip.destination}, {date(p.trip.departs_on)} to {date(p.trip.returns_on)}
-              </option>
-            ))}
-          </select>
-        </p>
-      )}
-      {policies?.length === 1 && policy && step !== "check" && (
-        <p className="muted small">
-          Your trip to {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}
-          {date(policy.trip.returns_on)}.
-        </p>
-      )}
 
-      {step === "receipts" && (
+      {step === "what" && (
         <div className="flow-step">
-          <p className="muted">
-            Snap a photo or add a PDF of each receipt. Our assistant reads them for you, so
-            there&apos;s less to type.
-          </p>
-          <ReceiptPicker files={files} onChange={setFiles} />
+          {policies && policies.length > 1 && (
+            <fieldset className="trip-cards">
+              <legend>Which trip?</legend>
+              {policies.map((p) => (
+                <label
+                  key={p.policy_id}
+                  className={`trip-card${p.policy_id === policyId ? " chosen" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name={`${ids}-policy`}
+                    value={p.policy_id}
+                    checked={p.policy_id === policyId}
+                    onChange={() => {
+                      setPolicyId(p.policy_id);
+                    }}
+                  />
+                  <span className="trip-name">{p.trip.destination}</span>
+                  <span className="trip-dates">
+                    {date(p.trip.departs_on)} – {date(p.trip.returns_on)}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {policies?.length === 1 && policy && (
+            <p className="trip-line">
+              Your trip to <strong>{policy.trip.destination}</strong>,{" "}
+              {date(policy.trip.departs_on)} – {date(policy.trip.returns_on)}
+            </p>
+          )}
+          <fieldset className="tiles">
+            <legend>Tap the closest one</legend>
+            {TILE_ORDER.map((name) => {
+              const { label, hint, Icon } = CHIPS[name];
+              return (
+                <label key={name} className={`tile${chip === name ? " chosen" : ""}`}>
+                  <input
+                    type="radio"
+                    name={`${ids}-chip`}
+                    value={name}
+                    checked={chip === name}
+                    onChange={() => {
+                      setChip(name);
+                    }}
+                  />
+                  <span className="tile-icon" aria-hidden="true">
+                    <Icon size={22} strokeWidth={2} />
+                  </span>
+                  <span className="tile-label">{label}</span>
+                  <span className="tile-hint">{hint}</span>
+                </label>
+              );
+            })}
+          </fieldset>
           <div className="flow-actions">
             <button
               type="button"
               className="button wide"
-              disabled={!policy}
+              disabled={!policy || !chip}
               onClick={() => {
-                setStep("what");
+                setStep("receipts");
               }}
             >
-              {files.length > 0 ? "Next" : "I don't have a receipt"}
+              Next
             </button>
           </div>
         </div>
       )}
 
-      {step === "what" && (
+      {step === "receipts" && (
         <div className="flow-step">
-          <fieldset className="chips">
-            <legend>Tap the closest one</legend>
-            {caseChips.map((name) => (
-              <label key={name} className={`chip-choice${chip === name ? " chosen" : ""}`}>
-                <input
-                  type="radio"
-                  name={`${ids}-chip`}
-                  value={name}
-                  checked={chip === name}
-                  onChange={() => {
-                    setChip(name);
-                  }}
-                />
-                {CHIPS[name].label}
-              </label>
-            ))}
-          </fieldset>
-          <label htmlFor={`${ids}-words`}>A few words, if you like</label>
+          <p className="muted">
+            Snap a photo or add a PDF of each receipt. Our assistant reads them, so there&apos;s
+            less for you to type.
+          </p>
+          <ReceiptPicker files={files} onChange={setFiles} />
+          <label htmlFor={`${ids}-words`}>Anything to add? (optional)</label>
           <textarea
             id={`${ids}-words`}
             rows={3}
@@ -310,19 +409,24 @@ export function NewClaimPage({ api }: { api: Api }) {
             <button
               type="button"
               className="button wide"
-              disabled={!chip && !words.trim() && files.length === 0}
               onClick={() => {
-                void draftIt();
+                void goToCheck();
               }}
             >
-              <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
-              Draft my claim
+              {hasSomethingToRead ? (
+                <>
+                  <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+                  Draft my claim
+                </>
+              ) : (
+                "Continue without receipts"
+              )}
             </button>
             <button
               type="button"
               className="link-button"
               onClick={() => {
-                setStep("receipts");
+                setStep("what");
               }}
             >
               Back
@@ -332,33 +436,60 @@ export function NewClaimPage({ api }: { api: Api }) {
       )}
 
       {step === "check" && drafting && (
-        <div className="flow-step" aria-hidden="true">
+        <div className="flow-step">
           <p role="status" className="ai-mark live-draft">
-            <Sparkle size={14} strokeWidth={2} />
+            <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
             Reading your receipts and drafting your claim…
           </p>
-          <span className="skeleton skeleton-line" />
-          <span className="skeleton skeleton-line" />
-          <span className="skeleton skeleton-card" />
+          <div aria-hidden="true">
+            <span className="skeleton skeleton-line" />
+            <span className="skeleton skeleton-line" />
+            <span className="skeleton skeleton-card" />
+          </div>
         </div>
       )}
 
-      {step === "check" && !drafting && (
+      {step === "check" && !drafting && chip && (
         <div className="flow-step">
-          {draftNote ? (
+          {draftNote && (
             <p className="notice" role="status">
               {draftNote}
             </p>
-          ) : (
+          )}
+          {drafted && !draftNote && (
             <p className="ai-mark">
               <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
               Drafted by our AI assistant. Check it and fix anything that&apos;s wrong.
             </p>
           )}
 
+          <div className="chosen-line">
+            <span className="tile-icon" aria-hidden="true">
+              {(() => {
+                const { Icon } = CHIPS[chip];
+                return <Icon size={18} strokeWidth={2} />;
+              })()}
+            </span>
+            <span>
+              <strong>{CHIPS[chip].label}</strong>
+              {policy && <span className="muted small"> · {policy.trip.destination}</span>}
+            </span>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setStep("what");
+              }}
+            >
+              Change
+            </button>
+          </div>
+
           {questions[0] && (
             <div className="question-card panel">
-              <p className="question">{questions[0]}</p>
+              <p className="question">
+                <Sparkle size={14} strokeWidth={2} aria-hidden="true" /> {questions[0]}
+              </p>
               <label htmlFor={`${ids}-answer`} className="visually-hidden">
                 Your answer
               </label>
@@ -402,55 +533,37 @@ export function NewClaimPage({ api }: { api: Api }) {
               setSummary(event.target.value);
             }}
           />
-          <div className="pair">
-            <div>
-              <label htmlFor={`${ids}-date`}>When</label>
-              <input
-                id={`${ids}-date`}
-                type="date"
-                className={flag("incident_date")}
-                value={incidentDate}
-                min={policy?.trip.departs_on}
-                max={policy?.trip.returns_on}
-                onChange={(event) => {
-                  setIncidentDate(event.target.value);
-                }}
-              />
-            </div>
-            <div>
-              <label htmlFor={`${ids}-where`}>Where</label>
-              <input
-                id={`${ids}-where`}
-                className={flag("incident_location")}
-                maxLength={200}
-                value={location}
-                onChange={(event) => {
-                  setLocation(event.target.value);
-                }}
-              />
-            </div>
-          </div>
+          {policy && (
+            <DayPicker
+              label="When did it happen?"
+              from={policy.trip.departs_on}
+              to={policy.trip.returns_on}
+              value={incidentDate}
+              unsure={unsure.has("incident_date")}
+              onChange={setIncidentDate}
+            />
+          )}
+          <label htmlFor={`${ids}-where`}>Where?</label>
+          <input
+            id={`${ids}-where`}
+            className={flag("incident_location")}
+            maxLength={200}
+            placeholder="City or airport"
+            value={location}
+            onChange={(event) => {
+              setLocation(event.target.value);
+            }}
+          />
           {unsure.size > 0 && (
             <p className="small muted">
-              Highlighted fields are ones the assistant wasn&apos;t sure of.
+              Highlighted fields are ones our assistant wasn&apos;t sure of.
             </p>
           )}
-          <label htmlFor={`${ids}-type`}>Type of claim</label>
-          <select
-            id={`${ids}-type`}
-            value={claimType}
-            onChange={(event) => {
-              setClaimType(event.target.value);
-            }}
-          >
-            {Object.entries(CLAIM_TYPES).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
 
           <h2 className="h3">What you&apos;re claiming</h2>
+          {lines.length === 0 && (
+            <p className="muted small">Add each thing you paid for, with what it cost.</p>
+          )}
           {lines.map((line, index) => (
             <div key={String(index)} className="item-row">
               <div className="item-head">
@@ -494,33 +607,33 @@ export function NewClaimPage({ api }: { api: Api }) {
                   />
                 </div>
               </div>
-              {lines.length > 1 && (
-                <button
-                  type="button"
-                  className="link-button small"
-                  onClick={() => {
-                    setLines(lines.filter((_, i) => i !== index));
-                  }}
-                >
-                  <Trash2 size={14} strokeWidth={2} aria-hidden="true" /> Remove item {index + 1}
-                </button>
-              )}
+              <button
+                type="button"
+                className="link-button small"
+                onClick={() => {
+                  setLines(lines.filter((_, i) => i !== index));
+                }}
+              >
+                <Trash2 size={14} strokeWidth={2} aria-hidden="true" /> Remove item {index + 1}
+              </button>
             </div>
           ))}
           {lines.length < 20 && (
             <button
               type="button"
-              className="link-button"
+              className="button secondary add-item"
               onClick={() => {
                 setLines([...lines, { ...BLANK }]);
               }}
             >
-              <Plus size={14} strokeWidth={2} aria-hidden="true" /> Add an item
+              <Plus size={16} strokeWidth={2} aria-hidden="true" /> Add an item
             </button>
           )}
-          <p className="total">
-            Total claimed <span className="number">{dollars(total)}</span>
-          </p>
+          {lines.length > 0 && (
+            <p className="total">
+              Total claimed <span className="number">{dollars(total)}</span>
+            </p>
+          )}
 
           <details className="your-words">
             <summary>What happened, in your words</summary>
@@ -559,7 +672,7 @@ export function NewClaimPage({ api }: { api: Api }) {
               className="link-button"
               disabled={busy}
               onClick={() => {
-                setStep("what");
+                setStep("receipts");
               }}
             >
               Back

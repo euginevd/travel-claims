@@ -36,6 +36,17 @@ export function TravelIllustration() {
         <path d="M-52 18c6-30 28-48 52-48s46 18 52 48c-8-7-17-7-26 0-8-7-18-7-26 0-8-7-18-7-26 0-9-7-18-7-26 0z" />
         <path className="il-umbrella-stem" d="M0 18v52a9 9 0 0 1-18 0" fill="none" />
       </g>
+      <path
+        className="il-cloud"
+        d="M44 92a16 16 0 0 1 30-8 12 12 0 0 1 20 10h-50a10 10 0 0 1 0-2z"
+      />
+      <g className="il-receipt" transform="translate(150 40)">
+        <rect className="il-card" width="96" height="112" rx="12" />
+        <path className="il-card-line" d="M18 30h44M18 50h60M18 70h36" />
+        <circle className="il-check" cx="78" cy="94" r="16" />
+        <path className="il-check-mark" d="M71 94l5 5 9-10" />
+      </g>
+      <path className="il-spark" d="M268 40l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" />
       <path className="il-ground" d="M20 290h380" />
     </svg>
   );

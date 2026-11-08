@@ -2127,4 +2127,240 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+
+/* --- Premium layer: status tones, layered cards, header edge, motion (design-system 18–23) --- */
+:root {
+  --good: #2f7a4b;
+  --good-tint: #e3f1e6;
+  --info: #2c6a8f;
+  --info-tint: #e2eff5;
+  --refer: #6b4fa3;
+  --refer-tint: #ece6f6;
+  --bad: #a3341c;
+  --bad-tint: #f6e1dc;
+  --accent-tint: #def2f2;
+  --line-2: #efe6d6;
+  --lift: 0 1px 0 rgb(23 18 12 / 4%), 0 6px 18px -10px rgb(23 18 12 / 18%);
+  --lift-hover: 0 1px 0 rgb(23 18 12 / 5%), 0 14px 30px -14px rgb(23 18 12 / 28%);
+  --ease: 0.18s ease;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* The header band gets a teal edge and a little more presence. */
+.header {
+  border-bottom: 3px solid var(--accent);
+  padding-block: 0.9rem;
+}
+
+.header nav a {
+  border-radius: 999px;
+  padding: 0 0.75rem;
+  transition: background var(--ease);
+}
+
+.header nav a:hover,
+.header nav a[aria-current="page"] {
+  background: rgb(246 239 227 / 10%);
+  text-decoration: none;
+}
+
+/* Cards: a hairline border, an inner highlight and a soft shadow, so they sit on the page. */
+.panel,
+.figure,
+.claim-card,
+.table-wrap,
+.landing-form {
+  border: 1px solid var(--line);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    var(--lift);
+}
+
+.panel,
+.claim-card {
+  padding: 1.5rem;
+}
+
+a.claim-card,
+.claim-card:has(a),
+.figure,
+.tile,
+.trip-card {
+  transition:
+    box-shadow var(--ease),
+    border-color var(--ease),
+    transform var(--ease);
+}
+
+.claim-card:has(a:hover),
+.tile:hover,
+.trip-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    var(--lift-hover);
+  border-color: var(--ink-3);
+}
+
+.button {
+  transition:
+    background var(--ease),
+    color var(--ease),
+    border-color var(--ease),
+    transform var(--ease);
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+/* Status chips: a tint behind dark ink text; the tone colours the icon and edge. */
+.chip-info {
+  background: var(--info-tint);
+  border-color: color-mix(in srgb, var(--info) 35%, transparent);
+}
+.chip-info svg {
+  color: var(--info);
+}
+.chip-good {
+  background: var(--good-tint);
+  border-color: color-mix(in srgb, var(--good) 35%, transparent);
+}
+.chip-good svg {
+  color: var(--good);
+}
+.chip-bad {
+  background: var(--bad-tint);
+  border-color: color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.chip-bad svg {
+  color: var(--bad);
+}
+.chip-refer {
+  background: var(--refer-tint);
+  border-color: color-mix(in srgb, var(--refer) 35%, transparent);
+}
+.chip-refer svg {
+  color: var(--refer);
+}
+.chip-warn {
+  background: var(--warn-tint);
+  border-color: var(--warn);
+}
+.chip-warn svg {
+  color: var(--warn);
+}
+
+/* The sign-in page: a larger mark and more room. */
+.landing-hero .logo-mark {
+  width: 52px;
+  height: 52px;
+}
+
+.landing-hero .logo-word {
+  font-size: 1.6rem;
+}
+
+.landing-hero h1 {
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  letter-spacing: -0.02em;
+}
+
+.il-card {
+  fill: var(--bg-2);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.il-card-line {
+  stroke: var(--line);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.il-check {
+  fill: var(--accent);
+}
+
+.il-check-mark {
+  fill: none;
+  stroke: var(--bg-2);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.il-spark {
+  fill: var(--accent);
+}
+
+.il-cloud {
+  fill: var(--bg-2);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+/* AI marker line */
+.ai-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.ai-line svg {
+  color: var(--accent);
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .button:not(:disabled):hover {
+    transform: none;
+  }
+}
+
+/* --- Dashboard: the action bar and the waiting card --- */
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0 1.5rem;
+  padding: 0.9rem 1rem 0.9rem 1.25rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 14px;
+  background: var(--accent-tint);
+}
+
+.action-bar p {
+  margin: 0;
+}
+
+.waiting-card {
+  border-style: dashed;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* The figure strip's tone edge reads better on the layered card. */
+.figure {
+  border-top: 4px solid var(--tone, var(--line));
 }

@@ -20,12 +20,12 @@ export function stageOf(status: CustomerStatus): number {
   }
 }
 
-export function ClaimTracker({ status }: { status: CustomerStatus }) {
+export function ClaimTracker({ status, mini = false }: { status: CustomerStatus; mini?: boolean }) {
   const reached = stageOf(status);
   // A declined claim or one with a person stops at the decision; there's nothing to pay.
   const stages = status === "declined" || status === "with_a_handler" ? STAGES.slice(0, 3) : STAGES;
   return (
-    <ol className="tracker" aria-label="Where your claim is">
+    <ol className={`tracker${mini ? " tracker-mini" : ""}`} aria-label="Where your claim is">
       {stages.map((label, index) => {
         const done = index <= reached;
         const active = index === reached + 1 && (status === "received" || status === "assessing");

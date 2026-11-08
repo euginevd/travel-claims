@@ -106,18 +106,19 @@ test("a new claim adds and removes items and shows the api's refusal", async () 
     ],
   });
   render(<NewClaimPage api={api} />);
-  await user.click(await screen.findByRole("button", { name: "I don't have a receipt" }));
-  await user.type(screen.getByLabelText("A few words, if you like"), "Delayed overnight.");
+  await user.click(await screen.findByRole("radio", { name: /Delayed flight/ }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.type(screen.getByLabelText("Anything to add? (optional)"), "Delayed overnight.");
   await user.click(screen.getByRole("button", { name: /Draft my claim/ }));
-  await screen.findByText("Not available");
+  await screen.findByText(/Not available/);
+  await user.click(screen.getByRole("button", { name: "Add an item" }));
   await user.click(screen.getByRole("button", { name: "Add an item" }));
   expect(screen.getByLabelText("Item 2")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Remove item 2" }));
   expect(screen.queryByLabelText("Item 2")).not.toBeInTheDocument();
 
-  await user.type(screen.getByLabelText("When"), "2026-06-17");
-  await user.type(screen.getByLabelText("Where"), "Rome");
-  await user.type(screen.getByLabelText("In one line"), "Delayed");
+  await user.click(screen.getByRole("radio", { name: "Wednesday 17 June 2026" }));
+  await user.type(screen.getByLabelText("Where?"), "Rome");
   await user.type(screen.getByLabelText("Item 1"), "Hotel");
   await user.type(screen.getByLabelText("Amount (US$)"), "90");
   expect(screen.getByText("$90.00")).toBeInTheDocument();
