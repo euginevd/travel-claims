@@ -50,7 +50,7 @@
     }
   ],
   "status": "in_progress",
-  "thread_id": "57151a14f29b46f4802babe1e38a97ba",
+  "thread_id": "9049a10d626446ae90e322b6009f26a4",
   "attempts": 1,
   "policy": {
     "policy_id": "POL-2001",
@@ -83,5 +83,6 @@
     "paid": null
   },
   "review_requested_at": null,
-  "review_note": null
+  "review_note": null,
+  "evaluation": false
 }

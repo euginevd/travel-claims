@@ -23,10 +23,10 @@
   "paid_at": null,
   "receipts": [
     {
-      "receipt_id": "7d0be01d00670b6988f6c7cb3ce52447",
+      "receipt_id": "362649cf1f9f980ec1e7643ff43c52d6",
       "media_type": "image/png",
       "size": 24,
-      "uploaded_at": "2026-11-08T07:32:16+00:00"
+      "uploaded_at": "2026-11-08T11:21:59+00:00"
     }
   ],
   "can_add_receipts": true,

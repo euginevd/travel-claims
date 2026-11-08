@@ -75,6 +75,31 @@ def test_a_copy_is_never_paid_and_an_approval_over_the_limit_isnt_held(
     assert paid.status_code == 409
 
 
+def test_a_copy_says_it_is_an_evaluation_and_no_payment_path_reaches_it(
+    client: TestClient, dana: dict[str, str]
+) -> None:
+    register(client)
+    run_id = start_run(client, dana).json()["run_id"]
+    claim_id = copies(client, run_id, dana)[0]["claim_id"]
+    start(client, claim_id, "t-1")
+    claim = client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).json()
+    assert claim["evaluation"] is True
+    amount = payout(client, claim_id, "baggage", [line("Suitcase", 200)])["payout"]
+    decide(client, claim_id, "approve", amount)
+    for paused in (True, False):
+        client.put("/api/staff/payouts", json={"paused": paused, "reason": "Testing"}, headers=dana)
+        paid = client.post(
+            f"/api/agent/claims/{claim_id}/payment", json={"amount": amount}, headers=AGENT
+        )
+        assert paid.status_code in (409, 423)
+        assert client.post(f"/api/staff/claims/{claim_id}/sign-off", headers=dana).status_code in (
+            404,
+            409,
+            423,
+        )
+    assert client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).json()["payment"] is None
+
+
 def test_a_finished_run_is_scored_against_the_handlers(
     client: TestClient, dana: dict[str, str]
 ) -> None:

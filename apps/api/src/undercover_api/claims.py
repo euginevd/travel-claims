@@ -112,6 +112,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
             "stages": stages(db, row, decision, payment),
+            "evaluation": row["source"] == "evaluation",
         }
     )
 

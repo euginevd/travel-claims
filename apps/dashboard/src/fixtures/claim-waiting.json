@@ -83,5 +83,6 @@
     "paid": null
   },
   "review_requested_at": null,
-  "review_note": null
+  "review_note": null,
+  "evaluation": false
 }

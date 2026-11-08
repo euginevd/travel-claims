@@ -65,6 +65,8 @@ from undercover_api.db import (
     redteam_reports,
     sent_back,
 )
+from undercover_api.evaluations import EVALUATION, version_for_attempt
+from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
     PAUSED_REASON,
     payout_switch,
@@ -72,8 +74,6 @@ from undercover_api.kill_switch import (
     refuse_while_paused,
     set_payouts,
 )
-from undercover_api.evaluations import EVALUATION, version_for_attempt
-from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (

@@ -233,6 +233,9 @@ class Claim(BaseModel):
     stages: Stages
     review_requested_at: str | None
     review_note: str | None
+    evaluation: bool = Field(
+        default=False, description="An evaluation's copy: never paid and never remembered"
+    )
 
 
 class Stages(BaseModel):
