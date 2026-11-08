@@ -10,6 +10,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from sqlalchemy import Engine, delete, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from undercover_api.auth import (
     Database,
@@ -53,6 +54,7 @@ from undercover_api.logs import configure_logging, log_requests
 from undercover_api.models import (
     Claim,
     ClaimSummary,
+    Decision,
     DecisionKind,
     DecisionRequest,
     Handler,
@@ -169,20 +171,22 @@ def record_decision(claim_id: str, request: DecisionRequest, db: Database) -> Cl
     if request.decision == DecisionKind.APPROVE:
         calculation = check_calculation(request.payout, attempts_calculation(db, claim))
     limit = approval_limit(db)
-    db.execute(
-        insert(decisions).values(
-            claim_id=claim_id,
-            decision=request.decision,
-            payout=request.payout,
-            calculation=calculation and calculation.model_dump(),
-            section=request.section,
-            reason=request.reason,
-            decided_by=request.decided_by,
-            decided_at=now(),
-            manual_version=manual_version(db),
-            approval_limit=limit,
-        )
+    record = dict(
+        decision=request.decision,
+        payout=request.payout,
+        calculation=calculation and calculation.model_dump(),
+        section=request.section,
+        reason=request.reason,
+        decided_by=request.decided_by,
+        decided_at=now(),
+        manual_version=manual_version(db),
+        approval_limit=limit,
     )
+    try:
+        with db.begin_nested():
+            db.execute(insert(decisions).values(claim_id=claim_id, **record))
+    except IntegrityError as error:
+        raise HTTPException(409, f"Claim {claim_id} has already been decided") from error
     if request.decision != DecisionKind.APPROVE:
         set_status(db, claim_id, Status.DECIDED)
     elif needs_sign_off(request.payout, limit):
@@ -248,7 +252,7 @@ def get_claims(_: SignedIn, db: Database) -> list[ClaimSummary]:
     return list_claims(db)
 
 
-def held(db: Database, claim_id: str, end: Status) -> Any:
+def held(db: Database, claim_id: str, end: Status) -> Decision:
     """The held decision on a claim being moved on from waiting for sign-off."""
     if not move_claim(db, claim_id, Status.WAITING_FOR_SIGN_OFF, end):
         find_claim(db, claim_id)
