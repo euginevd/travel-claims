@@ -7,7 +7,7 @@
 1. Name: `travel-claims`. The business is UnderCover, a fictional insurer (`business-context.md`).
 2. Problem: claims handlers work through a queue of travel insurance claims by hand, so simple claims wait days to be paid.
 3. Goal: an AI agent decides routine claims as accurately as a handler, and handlers spend their time only on claims that need judgement.
-4. Users: handlers work the queue and sign off large payouts; senior handlers also run evaluations and improvement rounds and change settings.
+4. Users: customers (policyholders) sign in, submit a claim with receipts and track their own claims; handlers work the queue and sign off large payouts; senior handlers also run evaluations and improvement rounds and change settings.
 5. Source: the course repo's `week3day5-end` branch is the reference for behaviour and data. The code here is written fresh, with credit to the course.
 
 ## Stages
@@ -22,13 +22,13 @@ Stage 1 is built in four plans, each working end to end before the next: the cla
 
 Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks and Trivy pre-push scan. Each app has its own Dockerfile from stage 1, so stage 2 ships the same images.
 
-9. `web`: the handlers' dashboard. React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
+9. `web`: the customers' portal and the handlers' dashboard, in one app with two sign-ins. React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
 10. `api`: claims, policies, decisions, payments, settings and records. Python, FastAPI and SQLAlchemy on PostgreSQL. Payments are a module of their own that checks every limit in code. Checks: `uv run ruff check`, `uv run pyright`, `uv run pytest`.
 11. `agent`: the claim agent, the hidden-instruction check, the dispatcher and the improver. Python and LangGraph, with progress saved to PostgreSQL. Same checks as `api`.
 12. `copilot`: the handlers' chat agent. Python and LangGraph. Same checks as `api`.
 13. `context`: the context layer, an MCP server over the policy wording, claims manual, plans, rules and reference data. Same checks as `api`.
 14. Models: one module per app reaches Claude, through the Anthropic API in stage 1 and Bedrock in stage 2, chosen by settings. The claim agent runs on Claude Sonnet, and the hidden-instruction check and the judge on Claude Haiku, with explicit model IDs (code-standards 19).
-15. Local services: PostgreSQL in Docker; a local sign-in stand-in that issues tokens shaped like Cognito's, so the `api` checks them the same way in both stages. The agent's memory of customers is kept in PostgreSQL.
+15. Local services: PostgreSQL in Docker; a local sign-in stand-in for handlers and customers that issues tokens shaped like Cognito's, so the `api` checks them the same way in both stages (customers get Google through Cognito in stage 2); receipts on a local Docker volume behind one storage module (a private, encrypted S3 bucket in stage 2). The agent's memory of customers is kept in PostgreSQL.
 16. End-to-end: Playwright against the running stack, with the models stubbed.
 17. Machine: Docker Desktop, uv, Node and an Anthropic API key in `.env`, which is never committed.
 
@@ -45,22 +45,23 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 26. The improver proposes a new configuration, a senior handler approves or rejects it, and the keep-or-roll-back rule decides on the held-out set.
 27. The Copilot answers a handler's questions from the records and signs off a held payout only after the handler confirms on a card.
 28. All checks and the injection tests pass, and the local stack is documented in `status.md`.
+29. A customer signs in, sees only their own policy and claims with a plain-English status and reason, and submits a claim with up to five receipts (JPEG, PNG or PDF, 5 MB each); the hidden-instruction check reads the receipts before the claim agent does, and Claude reads them when deciding.
 
 ## Rules
 
-29. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
-30. Claim text and documents are untrusted input: text hidden in them must not change a decision.
-31. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
-32. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
-33. The agent and the improver never see the handlers' decisions on the held-out set.
-34. Every decision is logged with its reasons, with personal data redacted.
-35. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
-36. Amounts are in US dollars, as in the source data.
-37. Security requirements baseline: OWASP ASVS 5.0 Level 2.
+30. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
+31. Claim text and documents are untrusted input: text hidden in them must not change a decision.
+32. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
+33. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
+34. The agent and the improver never see the handlers' decisions on the held-out set.
+35. Every decision is logged with its reasons, with personal data redacted.
+36. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
+37. Amounts are in US dollars, as in the source data.
+38. Receipts are untrusted: their type is checked from the file's contents, they're never served on a public URL, and a customer reaches only their own policy, claims and receipts.
+39. Security requirements baseline: OWASP ASVS 5.0 Level 2.
 
 ## Not for now
 
-38. A claimant portal: claims come from the seeded data, as in the course. *Nice to have, later:* claimants sign in with Google (Cognito in stage 2), link a policy by number and surname, submit a claim with up to five receipts, and track their own claims; the hidden-instruction check reads every receipt before the claim agent does.
-39. Real payments, and messages to customers.
-40. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
-41. Anything on AWS until stage 2 is spec'd.
+40. Real payments, and messages to customers.
+41. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
+42. Anything on AWS until stage 2 is spec'd.
