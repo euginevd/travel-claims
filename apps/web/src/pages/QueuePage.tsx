@@ -1,3 +1,4 @@
+import { CircleCheck, Clock, Hourglass, Wallet, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, ClaimSummary } from "../api";
 import { StatusChip } from "../components/StatusChip";
@@ -8,6 +9,7 @@ import { claimHref } from "../useHashRoute";
 interface Figure {
   label: string;
   value: string;
+  Icon: LucideIcon;
 }
 
 // The four figures above the queue, worked out from the claims themselves.
@@ -18,10 +20,14 @@ export function figuresOf(claims: ClaimSummary[]): Figure[] {
     .filter((claim) => claim.status === "decided" && claim.decision === "approve")
     .reduce((sum, claim) => sum + (claim.payout ?? 0), 0);
   return [
-    { label: "Waiting", value: String(count("waiting") + count("sent_back")) },
-    { label: "Waiting for sign-off", value: String(count("waiting_for_sign_off")) },
-    { label: "Decided", value: String(count("decided")) },
-    { label: "Paid so far", value: dollars(paid) },
+    { label: "Waiting", value: String(count("waiting") + count("sent_back")), Icon: Clock },
+    {
+      label: "Waiting for sign-off",
+      value: String(count("waiting_for_sign_off")),
+      Icon: Hourglass,
+    },
+    { label: "Decided", value: String(count("decided")), Icon: CircleCheck },
+    { label: "Paid so far", value: dollars(paid), Icon: Wallet },
   ];
 }
 
@@ -98,7 +104,10 @@ export function QueuePage({ api }: { api: Api }) {
           <ul className="figures" aria-label="The queue at a glance">
             {figuresOf(claims).map((figure) => (
               <li key={figure.label} className="figure">
-                <p className="eyebrow">{figure.label}</p>
+                <p className="eyebrow figure-label">
+                  <figure.Icon size={16} strokeWidth={2} aria-hidden="true" />
+                  {figure.label}
+                </p>
                 <p className="figure-value">{figure.value}</p>
               </li>
             ))}
@@ -124,15 +133,15 @@ export function QueuePage({ api }: { api: Api }) {
               <tbody>
                 {claims.map((claim) => (
                   <tr key={claim.claim_id}>
-                    <th scope="row">
+                    <th scope="row" className="nowrap">
                       <a href={claimHref(claim.claim_id)}>{claim.claim_id}</a>
                     </th>
-                    <td>{claim.customer_name}</td>
+                    <td className="nowrap">{claim.customer_name}</td>
                     <td className="capitalise">{claim.plan}</td>
                     <td dir="auto">{claim.summary}</td>
-                    <td className="number">{dollars(claim.amount_claimed)}</td>
-                    <td>{date(claim.submitted_on)}</td>
-                    <td>
+                    <td className="number nowrap">{dollars(claim.amount_claimed)}</td>
+                    <td className="nowrap">{date(claim.submitted_on)}</td>
+                    <td className="nowrap">
                       <StatusChip status={claim.status} decision={claim.decision} />
                     </td>
                   </tr>

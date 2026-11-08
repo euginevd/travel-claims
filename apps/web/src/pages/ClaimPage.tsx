@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
 import { DecisionCard } from "../components/DecisionCard";
 import { HeldPayout } from "../components/HeldPayout";
+import { ReceiptsPanel } from "../components/ReceiptsPanel";
 import { SourcesPanel } from "../components/SourcesPanel";
 import { StatusChip } from "../components/StatusChip";
 import { StepList } from "../components/StepList";
@@ -225,6 +226,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                   </details>
                 ))
               )}
+              <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
               <h3>Policy</h3>
               <p className="small">
                 {policy.policy_id} · {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}

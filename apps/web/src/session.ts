@@ -1,25 +1,49 @@
-// The handler's access token for this browser tab: kept in memory, and in sessionStorage so a
-// reload keeps the sign-in (it clears when the tab closes). Storage can be unavailable
-// (private windows, blocked site data), so every access is guarded and the app still works.
-const KEY = "undercover.token";
-let memory: string | null = null;
+// The signed-in person's access token and role for this browser tab: kept in memory, and in
+// sessionStorage so a reload keeps the sign-in (it clears when the tab closes). Storage can be
+// unavailable (private windows, blocked site data), so every access is guarded and the app
+// still works.
+import type { Role } from "./api";
 
-export function loadToken(): string | null {
-  if (memory) return memory;
+const TOKEN_KEY = "undercover.token";
+const ROLE_KEY = "undercover.role";
+let token: string | null = null;
+let role: Role | null = null;
+
+function read(key: string): string | null {
   try {
-    memory = window.sessionStorage.getItem(KEY);
+    return window.sessionStorage.getItem(key);
   } catch {
-    memory = null;
+    return null;
   }
-  return memory;
 }
 
-export function saveToken(token: string | null): void {
-  memory = token;
+function write(key: string, value: string | null): void {
   try {
-    if (token) window.sessionStorage.setItem(KEY, token);
-    else window.sessionStorage.removeItem(KEY);
+    if (value) window.sessionStorage.setItem(key, value);
+    else window.sessionStorage.removeItem(key);
   } catch {
-    // Storage blocked: the token lives in memory only.
+    // Storage blocked: the value lives in memory only.
   }
+}
+
+export function loadToken(): string | null {
+  token ??= read(TOKEN_KEY);
+  return token;
+}
+
+export function saveToken(value: string | null): void {
+  token = value;
+  write(TOKEN_KEY, value);
+  if (!value) saveRole(null);
+}
+
+/** Who the token is for; a token kept from before roles existed is a handler's. */
+export function loadRole(): Role {
+  role ??= read(ROLE_KEY) === "customer" ? "customer" : "handler";
+  return role;
+}
+
+export function saveRole(value: Role | null): void {
+  role = value;
+  write(ROLE_KEY, value);
 }
