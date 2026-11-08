@@ -1,9 +1,35 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { createApi } from "../api";
+import { createApi, type Api, type Handler } from "../api";
 import { needsYou } from "./NeedsYou";
-import { PayoutsSwitch } from "./PayoutsSwitch";
+import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./PayoutsSwitch";
 import { APPROVAL, claim, DANA, fakeFetch, MARCUS } from "../testing";
+
+// The header status and the page panel wired together, as App does.
+function Harness({ api, handler }: { api: Api; handler: Handler }) {
+  const payouts = usePayouts(api, true);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <PayoutsStatus
+        state={payouts.state}
+        senior={handler.can_approve_over_limit}
+        onOpen={() => {
+          setOpen(true);
+        }}
+      />
+      <PayoutsSwitch
+        api={api}
+        handler={handler}
+        state={payouts.state}
+        onState={payouts.setState}
+        editing={open}
+        onEditing={setOpen}
+      />
+    </>
+  );
+}
 
 const ON = { paused: false, changed_by: "Migration", changed_at: null, reason: "On" };
 const OFF = {
@@ -18,31 +44,28 @@ test("a senior handler pauses all payouts with a reason", async () => {
     "GET /api/staff/payouts": () => [200, ON],
     "PUT /api/staff/payouts": () => [200, OFF],
   });
-  render(<PayoutsSwitch api={createApi(fetchFn, () => "t")} handler={DANA} />);
+  render(<Harness api={createApi(fetchFn, () => "t")} handler={DANA} />);
   await userEvent.click(await screen.findByRole("button", { name: /pause all payouts/i }));
-  await userEvent.type(screen.getByLabelText("Reason"), "Investigating a fraud ring");
-  await userEvent.click(screen.getByRole("button", { name: /pause all payouts/i }));
+  await userEvent.click(screen.getByRole("radio", { name: "Suspected attack or fraud" }));
+  await userEvent.type(screen.getByLabelText(/add a note/i), "fraud ring");
+  await userEvent.click(screen.getByRole("button", { name: "Pause all payouts" }));
   expect(await screen.findByText(/payouts are paused\./i)).toBeInTheDocument();
   const put = fetchFn.calls.find((call) => call.method === "PUT");
-  expect(put?.body).toEqual({ paused: true, reason: "Investigating a fraud ring" });
+  expect(put?.body).toEqual({ paused: true, reason: "Suspected attack or fraud: fraud ring" });
 });
 
 test("every handler sees the banner while paused, but only a senior can resume", async () => {
   const fetchFn = fakeFetch({ "GET /api/staff/payouts": () => [200, OFF] });
-  render(<PayoutsSwitch api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
+  render(<Harness api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
   expect(await screen.findByText(/payouts are paused\./i)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /resume payouts/i })).toBeNull();
 });
 
-test("a handler without sign-off rights sees nothing while payouts are on", async () => {
+test("a handler without sign-off rights sees payouts are live but can't change them", async () => {
   const fetchFn = fakeFetch({ "GET /api/staff/payouts": () => [200, ON] });
-  const { container } = render(
-    <PayoutsSwitch api={createApi(fetchFn, () => "t")} handler={MARCUS} />,
-  );
-  await waitFor(() => {
-    expect(fetchFn.calls.length).toBe(1);
-  });
-  expect(container.textContent).toBe("");
+  render(<Harness api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
+  expect(await screen.findByRole("status")).toHaveTextContent("Payouts live");
+  expect(screen.queryByRole("button", { name: /pause all payouts/i })).toBeNull();
 });
 
 test("an approval held because payouts are paused says so", () => {

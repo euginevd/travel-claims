@@ -1,52 +1,134 @@
-import { CirclePause, CirclePlay, OctagonX } from "lucide-react";
+import { CirclePlay, OctagonX } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError, type Api, type Handler, type PayoutSwitch } from "../api";
 import { when } from "../format";
 
-interface Props {
-  api: Api;
-  handler: Handler;
+// Reasons a senior handler picks from, so the audit log reads consistently. "Other" needs a note.
+export const PAUSE_REASONS = [
+  "Suspected attack or fraud",
+  "Agent behaving unexpectedly",
+  "Payment provider problem",
+  "Investigating an incident",
+  "Planned maintenance",
+  "Other",
+] as const;
+export const RESUME_REASONS = [
+  "Issue resolved",
+  "Checks complete, safe to pay",
+  "Paused by mistake",
+  "Other",
+] as const;
+
+/** The reason recorded in the audit log: the chosen reason, with the note when there is one. */
+export function reasonText(choice: string, note: string): string {
+  const extra = note.trim();
+  if (choice === "Other") return extra;
+  return extra ? `${choice}: ${extra}` : choice;
 }
 
-/** The payouts kill switch: a banner on every page while payouts are paused, and for a
- * senior handler the control to pause or resume them, with a reason. */
-export function PayoutsSwitch({ api, handler }: Props) {
+/** The payouts switch as the api reports it, loaded once a person is signed in. */
+export function usePayouts(api: Api, enabled: boolean) {
   const [state, setState] = useState<PayoutSwitch | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const inFlight = useRef(false);
-  const reasonId = useId();
-
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     api.getPayouts().then(
       (value) => {
         if (live) setState(value);
       },
       () => {
-        // The banner is advisory; the api refuses payments whatever the page shows.
+        // The status is advisory; the api refuses payments whatever the page shows.
       },
     );
     return () => {
       live = false;
     };
-  }, [api]);
+  }, [api, enabled]);
+  return { state, setState };
+}
+
+interface StatusProps {
+  state: PayoutSwitch | null;
+  senior: boolean;
+  onOpen: () => void;
+}
+
+/** The bold status in the header: live or paused, and for a senior the way to change it. */
+export function PayoutsStatus({ state, senior, onOpen }: StatusProps) {
+  if (!state) return null;
+  const paused = state.paused;
+  const label = paused ? "Payouts paused" : "Payouts live";
+  const Icon = paused ? OctagonX : CirclePlay;
+  const content = (
+    <>
+      <span className="payouts-status-dot" aria-hidden="true" />
+      <Icon size={16} strokeWidth={2.4} aria-hidden="true" />
+      {label}
+    </>
+  );
+  const className = `payouts-status${paused ? " is-paused" : " is-live"}`;
+  if (!senior) {
+    return (
+      <span className={className} role="status">
+        {content}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onOpen}
+      aria-label={paused ? "Payouts paused. Resume payouts" : "Payouts live. Pause all payouts"}
+      title={paused ? "Resume payouts" : "Pause all payouts"}
+    >
+      {content}
+    </button>
+  );
+}
+
+interface Props {
+  api: Api;
+  handler: Handler;
+  state: PayoutSwitch | null;
+  onState: (state: PayoutSwitch) => void;
+  editing: boolean;
+  onEditing: (editing: boolean) => void;
+}
+
+/** The payouts kill switch: a banner on every page while payouts are paused, and for a
+ * senior handler the control to pause or resume them, with a reason. */
+export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing }: Props) {
+  const [choice, setChoice] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const ids = useId();
 
   if (!state) return null;
   const senior = handler.can_approve_over_limit;
   if (!state.paused && !senior) return null;
 
+  const reason = reasonText(choice, note);
+  const ready = choice !== "" && reason !== "";
+  const reasons = state.paused ? RESUME_REASONS : PAUSE_REASONS;
+
+  function close() {
+    onEditing(false);
+    setChoice("");
+    setNote("");
+    setError(null);
+  }
+
   async function change(paused: boolean) {
-    if (inFlight.current || !reason.trim()) return;
+    if (inFlight.current || !ready) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      setState(await api.setPayouts(paused, reason.trim()));
-      setEditing(false);
-      setReason("");
+      onState(await api.setPayouts(paused, reason));
+      close();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Couldn't change payouts. Try again.");
     } finally {
@@ -57,35 +139,63 @@ export function PayoutsSwitch({ api, handler }: Props) {
 
   const form = editing && (
     <form
-      className="payouts-form"
+      className="payouts-panel panel"
+      aria-labelledby={`${ids}-title`}
       onSubmit={(event) => {
         event.preventDefault();
         void change(!state.paused);
       }}
     >
-      <label htmlFor={reasonId}>Reason</label>
+      <h2 id={`${ids}-title`} className="payouts-panel-title">
+        {state.paused ? "Resume payouts?" : "Pause all payouts?"}
+      </h2>
+      <p className="muted small">
+        {state.paused
+          ? "Held approvals can then be signed off and paid."
+          : "The agent keeps deciding, but nothing is paid until payouts are back on."}
+      </p>
+      <fieldset className="reason-options" disabled={busy}>
+        <legend>Why?</legend>
+        {reasons.map((option) => (
+          <label key={option} className={`reason-option${choice === option ? " chosen" : ""}`}>
+            <input
+              type="radio"
+              name={`${ids}-reason`}
+              value={option}
+              checked={choice === option}
+              onChange={() => {
+                setChoice(option);
+              }}
+            />
+            {option}
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor={`${ids}-note`}>
+        {choice === "Other" ? "Tell us why" : "Add a note (optional)"}
+      </label>
       <input
-        id={reasonId}
-        value={reason}
-        maxLength={500}
-        required
+        id={`${ids}-note`}
+        value={note}
+        maxLength={300}
+        required={choice === "Other"}
         disabled={busy}
         onChange={(event) => {
-          setReason(event.target.value);
+          setNote(event.target.value);
         }}
       />
-      <button className="button" type="submit" disabled={busy || !reason.trim()}>
-        {state.paused ? "Resume payouts" : "Pause all payouts"}
-      </button>
-      <button
-        className="button secondary"
-        type="button"
-        onClick={() => {
-          setEditing(false);
-        }}
-      >
-        Cancel
-      </button>
+      <div className="actions">
+        <button
+          className={`button${state.paused ? "" : " danger"}`}
+          type="submit"
+          disabled={busy || !ready}
+        >
+          {state.paused ? "Resume payouts" : "Pause all payouts"}
+        </button>
+        <button className="button secondary" type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -94,27 +204,7 @@ export function PayoutsSwitch({ api, handler }: Props) {
     </form>
   );
 
-  if (!state.paused) {
-    return (
-      <div className="payouts-on">
-        <span>
-          <CirclePlay size={16} strokeWidth={2} aria-hidden="true" /> Payouts are on
-        </span>
-        {!editing && (
-          <button
-            className="link-button"
-            type="button"
-            onClick={() => {
-              setEditing(true);
-            }}
-          >
-            <CirclePause size={16} strokeWidth={2} aria-hidden="true" /> Pause all payouts
-          </button>
-        )}
-        {form}
-      </div>
-    );
-  }
+  if (!state.paused) return form || null;
 
   return (
     <div className="payouts-paused" role="status">
@@ -136,7 +226,7 @@ export function PayoutsSwitch({ api, handler }: Props) {
               className="button"
               type="button"
               onClick={() => {
-                setEditing(true);
+                onEditing(true);
               }}
             >
               <CirclePlay size={16} strokeWidth={2} aria-hidden="true" /> Resume payouts

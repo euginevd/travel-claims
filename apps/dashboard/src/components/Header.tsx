@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { LogOut, Search, Sparkle, type LucideIcon } from "lucide-react";
 import { Logo } from "./Logo";
 
@@ -15,6 +16,7 @@ interface HeaderProps {
   onSignOut: () => void;
   onSearch?: () => void;
   onCopilot?: () => void;
+  status?: ReactNode;
 }
 
 /** Up to two initials for the avatar, e.g. "Dana Whitfield" -> "DW". */
@@ -29,7 +31,16 @@ export function initials(name: string): string {
 
 // The header band: logo, navigation, who is signed in and sign-out. It wraps rather than
 // clipping, so nothing falls off the edge at any width.
-export function Header({ name, detail, home, links, onSignOut, onSearch, onCopilot }: HeaderProps) {
+export function Header({
+  name,
+  detail,
+  home,
+  links,
+  onSignOut,
+  onSearch,
+  onCopilot,
+  status,
+}: HeaderProps) {
   return (
     <header className="header">
       <a className="brand" href={home} aria-label="UnderCover Claims, home">
@@ -39,9 +50,9 @@ export function Header({ name, detail, home, links, onSignOut, onSearch, onCopil
         <ul>
           {links.map(({ href, label, Icon }) => (
             <li key={href}>
-              <a href={href}>
+              <a href={href} title={label}>
                 <Icon size={18} strokeWidth={2} aria-hidden="true" />
-                {label}
+                <span className="nav-label">{label}</span>
               </a>
             </li>
           ))}
@@ -66,6 +77,7 @@ export function Header({ name, detail, home, links, onSignOut, onSearch, onCopil
         </button>
       )}
       <div className="who">
+        {status}
         <span className="avatar" aria-hidden="true">
           {initials(name)}
         </span>
