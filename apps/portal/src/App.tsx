@@ -124,8 +124,9 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         ]}
         onSignOut={signOut}
       />
+      <div className="sky-band" aria-hidden="true" />
       <main id="main" tabIndex={-1}>
-        <ErrorBoundary key={routeKey(route)}>{page(route, api)}</ErrorBoundary>
+        <ErrorBoundary key={routeKey(route)}>{page(route, api, customer.name)}</ErrorBoundary>
       </main>
     </>
   );
@@ -135,10 +136,10 @@ function routeKey(route: Route): string {
   return "claimId" in route ? `${route.page}:${route.claimId}` : route.page;
 }
 
-function page(route: Route, api: Api) {
+function page(route: Route, api: Api, name: string) {
   if (route.page === "my-claim") {
     return <MyClaimPage key={route.claimId} api={api} claimId={route.claimId} />;
   }
   if (route.page === "new-claim") return <NewClaimPage api={api} />;
-  return <MyClaimsPage api={api} />;
+  return <MyClaimsPage api={api} name={name} />;
 }

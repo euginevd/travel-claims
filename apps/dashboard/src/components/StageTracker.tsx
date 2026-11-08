@@ -30,7 +30,7 @@ export function StageTracker({ claim }: { claim: Claim }) {
             aria-current={active ? "step" : undefined}
           >
             <span className="tracker-dot" aria-hidden="true">
-              {done && <Check size={12} strokeWidth={3} />}
+              {done && <Check size={16} strokeWidth={3} />}
             </span>
             <span className="tracker-label">{stage.label}</span>
             <span className="tracker-time muted small">

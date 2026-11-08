@@ -17,6 +17,16 @@ interface HeaderProps {
   onCopilot?: () => void;
 }
 
+/** Up to two initials for the avatar, e.g. "Dana Whitfield" -> "DW". */
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 // The header band: logo, navigation, who is signed in and sign-out. It wraps rather than
 // clipping, so nothing falls off the edge at any width.
 export function Header({ name, detail, home, links, onSignOut, onSearch, onCopilot }: HeaderProps) {
@@ -38,10 +48,15 @@ export function Header({ name, detail, home, links, onSignOut, onSearch, onCopil
         </ul>
       </nav>
       {onSearch && (
-        <button type="button" className="search-button" onClick={onSearch}>
+        <button
+          type="button"
+          className="search-button"
+          onClick={onSearch}
+          aria-label="Search (Ctrl K)"
+          title="Search (Ctrl K)"
+        >
           <Search size={16} strokeWidth={2} aria-hidden="true" />
-          Search
-          <kbd>Ctrl K</kbd>
+          <kbd aria-hidden="true">Ctrl K</kbd>
         </button>
       )}
       {onCopilot && (
@@ -51,13 +66,21 @@ export function Header({ name, detail, home, links, onSignOut, onSearch, onCopil
         </button>
       )}
       <div className="who">
+        <span className="avatar" aria-hidden="true">
+          {initials(name)}
+        </span>
         <span className="who-name">
           {name}
           <span className="who-detail">{detail}</span>
         </span>
-        <button type="button" className="button secondary" onClick={onSignOut}>
-          <LogOut size={16} strokeWidth={2} aria-hidden="true" />
-          Sign out
+        <button
+          type="button"
+          className="icon-button on-ink"
+          onClick={onSignOut}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut size={18} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
     </header>

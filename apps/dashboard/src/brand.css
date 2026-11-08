@@ -1,0 +1,496 @@
+/* UnderCover's brand, "Sky and sunset" (docs/design-system.md, decision 11). Loaded after
+   styles.css, so these tokens and rules win. Code uses the tokens, never raw values.
+   Contrast: ink and ink-2 meet 4.5:1 on white and on the page; sky (primary) meets 4.5:1 on
+   white for links and button text on it is white (5:1); coral is a graphic colour only, and
+   coral-ink is the coral for text. */
+:root {
+  --navy: #0b2545;
+  --navy-2: #13355f;
+  --sky: #1e6fd9;
+  --sky-strong: #175bb5;
+  --sky-tint: #e8f3fb;
+  --sky-tint-2: #d6e9f8;
+  --coral: #ff6b4a;
+  --coral-ink: #c23f22;
+  --coral-tint: #ffede8;
+
+  --bg: #f4f7fb;
+  --bg-2: #ffffff;
+  --bg-3: #eef3f9;
+  --bg-ink: var(--navy);
+  --on-ink: #ffffff;
+  --ink: var(--navy);
+  --ink-2: #4a5b73;
+  --ink-3: #8a9ab0;
+  --line: #dce5f0;
+  --line-2: #e8eef6;
+  --accent: var(--sky);
+  --accent-tint: var(--sky-tint);
+  --primary: var(--navy);
+
+  --good: #1b7f4c;
+  --good-tint: #e6f4ec;
+  --info: var(--sky);
+  --info-tint: var(--sky-tint);
+  --refer: #6941c6;
+  --refer-tint: #f1ecfb;
+  --warn: #b45309;
+  --warn-tint: #fef3e2;
+  --bad: #b42318;
+  --bad-tint: #fdecea;
+
+  --radius-card: 18px;
+  --shadow: 0 12px 32px -12px rgb(11 37 69 / 28%);
+  --lift: 0 1px 2px rgb(11 37 69 / 6%), 0 8px 24px -14px rgb(11 37 69 / 22%);
+  --lift-hover: 0 2px 4px rgb(11 37 69 / 6%), 0 18px 36px -16px rgb(11 37 69 / 30%);
+
+  --font-head: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  font-family: var(--font-body);
+}
+
+body {
+  background: var(--bg);
+}
+
+a {
+  color: var(--sky-strong);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 2.1rem;
+}
+
+.eyebrow {
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* Surfaces */
+.panel,
+.figure,
+.claim-card,
+.table-wrap,
+.tile {
+  border-radius: var(--radius-card);
+  border-color: var(--line);
+  background: var(--bg-2);
+  box-shadow: var(--lift);
+}
+
+/* Buttons are pills; the main action is sky blue. */
+.button {
+  border-radius: 999px;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.button:not(:disabled):hover {
+  background: var(--navy-2);
+  border-color: var(--navy-2);
+}
+
+.button.secondary {
+  background: var(--bg-2);
+  color: var(--navy);
+  border-color: var(--line);
+}
+
+.button.secondary:not(:disabled):hover {
+  background: var(--sky-tint);
+  border-color: var(--sky);
+}
+
+.button:disabled {
+  background: var(--bg-3);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+
+:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  border-radius: 12px;
+  border-color: var(--ink-3);
+}
+
+/* Header: navy with a thin sunset edge. */
+.header {
+  background: var(--navy);
+  color: var(--on-ink);
+  border-bottom: 3px solid var(--coral);
+}
+
+.header nav a {
+  border-radius: 999px;
+  padding: 0 0.75rem;
+}
+
+.header nav a:hover,
+.header nav a[aria-current="page"] {
+  background: rgb(255 255 255 / 10%);
+  text-decoration: none;
+}
+
+.header .button.secondary,
+.header .icon-button.on-ink {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgb(255 255 255 / 45%);
+}
+
+.header .button.secondary:not(:disabled):hover,
+.header .icon-button.on-ink:hover {
+  background: rgb(255 255 255 / 12%);
+  border-color: #ffffff;
+}
+
+/* Logo: a sky disc, white canopy, coral suitcase. */
+.logo-disc {
+  fill: var(--sky);
+}
+
+.logo-canopy {
+  fill: #ffffff;
+}
+
+.logo-stem,
+.logo-handle {
+  stroke: #ffffff;
+}
+
+.logo-case {
+  fill: var(--coral);
+}
+
+.logo-strap {
+  stroke: #ffffff;
+}
+
+.logo-word {
+  font-family: var(--font-head);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.logo-sub {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+/* Status chips: tint, toned edge, ink text. */
+.chip {
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-weight: 600;
+}
+
+/* Trackers: big dots, a white check on navy when done, a coral ring for now, grey ahead.
+   The connector runs centre to centre between dots, never before the first or after the last. */
+.tracker {
+  --dot: 28px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-columns: none;
+  margin: 20px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.tracker-mini {
+  --dot: 22px;
+  margin: 14px 0 0;
+}
+
+.tracker-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: calc(var(--dot) + 8px);
+  min-width: 0;
+}
+
+.tracker-stage::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--dot) / 2 - 1.5px);
+  left: calc(-50% + var(--dot) / 2);
+  right: calc(50% + var(--dot) / 2);
+  height: 3px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.tracker-stage:first-child::before {
+  display: none;
+}
+
+.tracker-stage.done::before {
+  background: var(--navy);
+}
+
+.tracker-dot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--bg-2);
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  z-index: 1;
+}
+
+.tracker-stage.done .tracker-dot {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.tracker-stage.active .tracker-dot {
+  border: 3px solid var(--coral);
+  background: var(--bg-2);
+  box-shadow: 0 0 0 5px var(--coral-tint);
+  animation: tracker-halo 1.8s ease-in-out infinite;
+}
+
+@keyframes tracker-halo {
+  50% {
+    box-shadow: 0 0 0 8px var(--coral-tint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tracker-stage.active .tracker-dot {
+    animation: none;
+  }
+}
+
+.tracker-label {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+.tracker-mini .tracker-label {
+  font-size: 0.8rem;
+}
+
+.tracker-stage.done .tracker-label,
+.tracker-stage.active .tracker-label {
+  color: var(--ink);
+}
+
+/* ---- Dashboard only: a calmer, denser variant ---- */
+
+.queue th,
+.queue td {
+  padding: 0.6rem 0.9rem;
+}
+
+.queue thead th {
+  background: var(--bg-3);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
+}
+
+.queue tbody tr:hover {
+  background: var(--sky-tint);
+}
+
+.figure {
+  border-top-width: 4px;
+}
+
+.figure-value {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.tab {
+  border-color: var(--line);
+  background: var(--bg-2);
+}
+
+.tab.current {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #ffffff;
+}
+
+.tab-needs .tab-count {
+  background: var(--coral-tint);
+  color: var(--coral-ink);
+}
+
+/* Codes and the trace stay monospace. */
+kbd,
+code,
+pre,
+.mono,
+.trace-steps pre {
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+
+.search-button {
+  border-radius: 999px;
+}
+
+.avatar {
+  background: var(--coral);
+  color: var(--navy);
+}
+
+.payouts-on {
+  border-radius: 999px;
+}
+
+.il-globe {
+  fill: var(--sky-tint);
+}
+
+.il-ground {
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.il-spark {
+  fill: var(--coral);
+}
+
+/* Illustration colours */
+.il-sky {
+  fill: var(--sky-tint);
+}
+
+.il-sun {
+  fill: var(--coral);
+}
+
+.il-sun-glow {
+  fill: var(--coral-tint);
+}
+
+.il-sea {
+  fill: var(--sky-tint-2);
+}
+
+.il-wave {
+  fill: none;
+  stroke: var(--sky);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.il-land {
+  fill: #cfe3d4;
+}
+
+.il-land-2 {
+  fill: #b5d3bd;
+}
+
+.il-orbit {
+  fill: none;
+  stroke: var(--sky);
+  stroke-width: 2.5;
+  stroke-dasharray: 7 9;
+  stroke-linecap: round;
+}
+
+.il-plane {
+  fill: var(--navy);
+}
+
+.il-case {
+  fill: var(--navy);
+}
+
+.il-case-band {
+  stroke: var(--coral);
+  stroke-width: 5;
+}
+
+.il-case-handle {
+  fill: none;
+  stroke: var(--navy);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.il-umbrella {
+  fill: var(--sky);
+}
+
+.il-umbrella-stem {
+  fill: none;
+  stroke: var(--navy);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.il-cloud {
+  fill: #ffffff;
+}
+
+.il-card {
+  fill: #ffffff;
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.il-card-line {
+  stroke: var(--ink-3);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.il-check {
+  fill: var(--good);
+}
+
+.il-check-mark {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.il-palm {
+  fill: none;
+  stroke: var(--navy);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.il-palm-leaf {
+  fill: #2f8f5b;
+}

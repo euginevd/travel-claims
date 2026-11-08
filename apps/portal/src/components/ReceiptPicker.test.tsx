@@ -63,7 +63,7 @@ test("my claims lists a claim with where it stands", async () => {
     "href",
     "#/claims/CLM-1001",
   );
-  expect(screen.getByText("Delayed travel")).toBeInTheDocument();
+  expect(screen.getByText(/Delayed travel/)).toBeInTheDocument();
 });
 
 test("a paid claim shows the amount and a failed upload says why", async () => {

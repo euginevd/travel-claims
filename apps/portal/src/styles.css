@@ -1977,12 +1977,103 @@ a.claim-card,
   font-size: 0.8rem;
 }
 
-.tracker-mini .tracker-dot {
-  width: 14px;
-  height: 14px;
+/* My claims cards: icon, title and amount on top, a status line, then the tracker. */
+.claim-card {
+  position: relative;
 }
 
-.tracker-mini .tracker-dot svg {
-  width: 9px;
-  height: 9px;
+.claim-card-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.claim-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-tint, var(--bg-3));
+  color: var(--accent);
+}
+
+.claim-card-main {
+  min-width: 0;
+}
+
+.claim-card .claim-card-link {
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.claim-card .claim-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.claim-card:hover .claim-card-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.claim-card .claim-meta {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+
+.claim-amount {
+  margin: 0;
+  display: grid;
+  justify-items: end;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.claim-amount-label {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.claim-card-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tone, var(--info));
+  flex: none;
+}
+
+@media (max-width: 520px) {
+  .claim-card-top {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .claim-amount {
+    grid-column: 2;
+    justify-items: start;
+  }
 }
