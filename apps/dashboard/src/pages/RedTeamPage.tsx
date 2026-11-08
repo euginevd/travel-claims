@@ -102,11 +102,11 @@ export function RedTeamPage({ api }: { api: Api }) {
                     <td className="number">{dollars(result.paid)}</td>
                     <td>
                       {result.passed ? (
-                        <span className="chip chip-pass">
+                        <span className="chip chip-good">
                           <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" /> Held
                         </span>
                       ) : (
-                        <span className="chip chip-fail" title={result.note}>
+                        <span className="chip chip-bad" title={result.note}>
                           <ShieldAlert size={14} strokeWidth={2} aria-hidden="true" /> Failed
                         </span>
                       )}

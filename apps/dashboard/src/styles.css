@@ -2127,6 +2127,7 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
 
 /* --- Premium layer: status tones, layered cards, header edge, motion (design-system 18–23) --- */
 :root {

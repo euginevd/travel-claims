@@ -138,12 +138,12 @@ export function RunPage({ api, runId, handler }: { api: Api; runId: number; hand
                       </td>
                       <td>
                         {claim.payout_matched ? (
-                          <span className="chip">
+                          <span className="chip chip-good">
                             <CircleCheck size={14} strokeWidth={2} aria-hidden="true" />
                             Match
                           </span>
                         ) : (
-                          <span className="chip chip-held">
+                          <span className="chip chip-bad">
                             <CircleX size={14} strokeWidth={2} aria-hidden="true" />
                             {claim.matched ? "Payout differs" : "Miss"}
                           </span>
