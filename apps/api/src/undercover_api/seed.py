@@ -2,8 +2,9 @@
 
 From data/: the policies, customers, handlers, the claims queue and the approval limit, plus
 the security claim CLM-1901 with its policy and customer. From the context layer: the plans and
-the claims manual's version. The handlers' decisions (data/evals/, data/security/decisions.json)
-are never loaded: the agent must not reach them.
+the claims manual's version. The handlers' decisions on the two labelled sets
+(data/evals/) go into the labelled_claims table, which no agent route returns except the
+evaluation set's misses for the improver; the security claim's decision is never loaded.
 """
 
 import json
@@ -17,6 +18,7 @@ from undercover_api.db import (
     claims,
     customers,
     handlers,
+    labelled_claims,
     make_engine,
     now,
     policies,
@@ -114,9 +116,41 @@ def seed(db: Connection, data: Path) -> None:
     )
 
 
+LABEL_SETS = (
+    ("evaluation", "claims.json", "evals/decisions.json"),
+    ("held_out", "evals/held_out_claims.json", "evals/held_out_decisions.json"),
+)
+
+
+def seed_labels(db: Connection, data: Path) -> None:
+    """Load the two labelled sets for evaluations, once."""
+    if db.execute(select(func.count()).select_from(labelled_claims)).scalar_one():
+        return
+    rows: list[dict[str, Any]] = []
+    for label_set, claims_file, decisions_file in LABEL_SETS:
+        if not (data / decisions_file).exists():
+            log.warning("no %s labels in %s; evaluations of that set are off", label_set, data)
+            continue
+        found = {c["claim_id"]: c for c in read(data, claims_file)}
+        for label in read(data, decisions_file):
+            claim = found[label["claim_id"]]
+            rows.append(
+                {
+                    "claim_id": label["claim_id"],
+                    "label_set": label_set,
+                    "tiny": bool(label.get("tiny")),
+                    "claim": {k: claim[k] for k in CLAIM_FIELDS},
+                    "label": {k: label[k] for k in ("decision", "payout", "reason", "calculation")},
+                }
+            )
+    if rows:
+        db.execute(insert(labelled_claims), rows)
+
+
 def seed_if_empty(engine: Engine, data: Path) -> bool:
     """Seed the database unless it already holds claims. Says whether it seeded."""
     with engine.begin() as db:
+        seed_labels(db, data)
         if is_seeded(db):
             return False
         seed(db, data)

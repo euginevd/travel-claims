@@ -131,6 +131,12 @@ class FakeAgent:
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None:
         self._take(("resume", claim_id, str(outcome)))
 
+    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
+        self._take(("dispatch", str(run_id), ",".join(claim_ids)))
+
+    def improve(self, round_id: int) -> None:
+        self._take(("improve", str(round_id), None))
+
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         if self.failure is not None:
             raise self.failure

@@ -74,7 +74,9 @@ def own_claim(db: Connection, customer: Customer, claim_id: str) -> RowMapping:
     row = (
         db.execute(
             select(claims).where(
-                claims.c.claim_id == claim_id, claims.c.customer_id == customer.customer_id
+                claims.c.claim_id == claim_id,
+                claims.c.customer_id == customer.customer_id,
+                claims.c.source != "evaluation",
             )
         )
         .mappings()
@@ -166,7 +168,7 @@ def my_claims(customer: SignedInCustomer, db: Database) -> list[CustomerClaimSum
     """The signed-in customer's claims, newest first."""
     rows = db.execute(
         select(claims)
-        .where(claims.c.customer_id == customer.customer_id)
+        .where(claims.c.customer_id == customer.customer_id, claims.c.source != "evaluation")
         .order_by(claims.c.submitted_on.desc(), claims.c.claim_id.desc())
     ).mappings()
     return [summary_of(db, row) for row in rows]
@@ -212,7 +214,7 @@ def check_incident_date(policy: Policy, incident: str) -> None:
 
 def next_claim_id(db: Connection) -> str:
     """The next claim number after the highest there is."""
-    ids = db.execute(select(claims.c.claim_id)).scalars()
+    ids = db.execute(select(claims.c.claim_id).where(claims.c.source != "evaluation")).scalars()
     highest = max((int(claim_id.removeprefix("CLM-")) for claim_id in ids), default=1000)
     return f"CLM-{highest + 1}"
 

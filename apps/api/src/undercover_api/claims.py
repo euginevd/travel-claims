@@ -185,6 +185,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
         .join(customers, customers.c.customer_id == claims.c.customer_id)
         .join(policies, policies.c.policy_id == claims.c.policy_id)
         .outerjoin(decisions, decisions.c.claim_id == claims.c.claim_id)
+        .where(claims.c.source != "evaluation")
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
     return [

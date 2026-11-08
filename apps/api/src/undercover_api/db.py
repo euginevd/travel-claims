@@ -74,6 +74,78 @@ claims = Table(
     # When the customer asked for a person to review the claim, and what they said.
     Column("review_requested_at", String(32)),
     Column("review_note", Text),
+    # An evaluation's copy: the run it belongs to and the labelled claim it copies.
+    Column("run_id", Integer, index=True),
+    Column("original_claim_id", String(20)),
+    # The claim agent's configuration version the current attempt works with.
+    Column("config_version", Integer),
+)
+
+# The labelled claims evaluations copy, with the handlers' decisions. No route the agent can
+# call returns a label, except the evaluation set's misses the improver reads; never held-out.
+labelled_claims = Table(
+    "labelled_claims",
+    metadata,
+    Column("claim_id", String(20), primary_key=True),
+    Column("label_set", String(20), nullable=False),
+    Column("tiny", Boolean, nullable=False),
+    Column("claim", JSON, nullable=False),
+    Column("label", JSON, nullable=False),
+)
+
+# The claim agent's configuration: its instructions, model and reasoning effort, in versions.
+configurations = Table(
+    "configurations",
+    metadata,
+    Column("version", Integer, primary_key=True),
+    Column("instructions", Text, nullable=False),
+    Column("model", String(50), nullable=False),
+    Column("effort", String(10), nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("diff", Text, nullable=False),
+    # proposed, rejected, candidate, kept or rolled_back; the current one is a setting.
+    Column("status", String(20), nullable=False),
+    Column("parent_version", Integer),
+    Column("proposed_by", String(200), nullable=False),
+    Column("reviewed_by", String(200)),
+    Column("created_at", String(32), nullable=False),
+)
+
+# Dispatches over a labelled set: who started them, how, and their scores when finished.
+runs = Table(
+    "runs",
+    metadata,
+    Column("run_id", Integer, primary_key=True, autoincrement=True),
+    Column("label_set", String(20), nullable=False),
+    Column("size", String(10), nullable=False),
+    Column("concurrency", Integer, nullable=False),
+    Column("config_version", Integer, nullable=False),
+    Column("round_id", Integer),
+    Column("status", String(20), nullable=False),
+    Column("started_by", String(200), nullable=False),
+    Column("started_at", String(32), nullable=False),
+    Column("finished_at", String(32)),
+    Column("scores", JSON),
+)
+
+# Improvement rounds: the baseline runs, the improver's proposal, the review and the verdict.
+rounds = Table(
+    "rounds",
+    metadata,
+    Column("round_id", Integer, primary_key=True, autoincrement=True),
+    Column("status", String(30), nullable=False),
+    Column("baseline_version", Integer, nullable=False),
+    Column("candidate_version", Integer),
+    Column("baseline_eval_run", Integer),
+    Column("baseline_held_run", Integer),
+    Column("candidate_held_run", Integer),
+    Column("proposal", JSON),
+    Column("review", JSON),
+    Column("verdict", JSON),
+    Column("improver_cost", Numeric(12, 6, asdecimal=False), nullable=False, default=0),
+    Column("spend_limit", Money, nullable=False),
+    Column("started_by", String(200), nullable=False),
+    Column("started_at", String(32), nullable=False),
 )
 
 # Receipts a customer uploaded, stored under a random name by the storage module.

@@ -51,6 +51,8 @@ def pay(db: Connection, claim_id: str, amount: float) -> bool:
     if needs_sign_off(amount, limit):
         raise over_the_limit(limit)
     claim = find_claim(db, claim_id)
+    if claim["source"] == "evaluation":
+        raise HTTPException(409, f"Claim {claim_id} is an evaluation's copy and is never paid")
     decision = find_decision(db, claim_id)
     if decision is None or decision.decision != DecisionKind.APPROVE:
         raise HTTPException(409, f"Claim {claim_id} has no approval to pay")
