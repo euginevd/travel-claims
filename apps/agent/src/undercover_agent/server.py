@@ -1,6 +1,7 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
 undercover_api.agent_service. It answers at once and works in the background."""
 
+import logging
 import secrets
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
@@ -10,9 +11,13 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent.dispatcher import Dispatcher
+from undercover_agent.improver import RoundImprover
 from undercover_agent.models import Draft, Drafter
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.tools import receipt_block
+
+log = logging.getLogger(__name__)
 
 ClaimId = Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")]
 ThreadId = Annotated[str, StringConstraints(min_length=1, max_length=100)]
@@ -26,6 +31,18 @@ class WorkRequest(BaseModel):
 
 class ResumeRequest(WorkRequest):
     outcome: Literal["signed_off", "sent_back"]
+
+
+class DispatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    run_id: int = Field(ge=1)
+    claim_ids: list[ClaimId] = Field(min_length=1, max_length=50)
+    concurrency: int = Field(ge=1, le=25)
+
+
+class ImproveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    round_id: int = Field(ge=1)
 
 
 class DraftTrip(BaseModel):
@@ -68,20 +85,29 @@ def draft_content(request: DraftRequest) -> list[dict[str, object]]:
     return content
 
 
-def create_app(  # noqa: C901 - the routes are closures over the runner and drafter
+def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they work with
     make_runner: Callable[[], Runner],
     key: Callable[[], str],
     make_drafter: Callable[[], Drafter] | None = None,
+    make_dispatcher: Callable[[Runner], Dispatcher] | None = None,
+    make_improver: Callable[[], RoundImprover] | None = None,
 ) -> FastAPI:
-    """The service, with how to build its runner and drafter and read the agent's key."""
+    """The service, with how to build its runner, dispatcher, improver and drafter, and read
+    the agent's key."""
     runner: dict[str, Runner] = {}
     drafter: dict[str, Drafter] = {}
+    dispatcher: dict[str, Dispatcher] = {}
+    improver: dict[str, RoundImprover] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         runner["claims"] = make_runner()
         if make_drafter is not None:
             drafter["claims"] = make_drafter()
+        if make_dispatcher is not None:
+            dispatcher["runs"] = make_dispatcher(runner["claims"])
+        if make_improver is not None:
+            improver["rounds"] = make_improver()
         yield
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
@@ -106,6 +132,22 @@ def create_app(  # noqa: C901 - the routes are closures over the runner and draf
         return start(
             lambda: runner["claims"].resume(request.claim_id, request.thread_id, request.outcome)
         )
+
+    @app.post("/dispatch", operation_id="dispatch", dependencies=[Depends(agents_key)])
+    def dispatch(request: DispatchRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Work an evaluation run's copies, up to its concurrency at once."""
+        if "runs" not in dispatcher:
+            return JSONResponse({"refused": "The dispatcher isn't set up"}, status_code=409)
+        dispatcher["runs"].dispatch(request.run_id, request.claim_ids, request.concurrency)
+        return JSONResponse({"accepted": True}, status_code=202)
+
+    @app.post("/improve", operation_id="improve", dependencies=[Depends(agents_key)])
+    def improve(request: ImproveRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Ask the improver for a proposal for an improvement round."""
+        if "rounds" not in improver:
+            return JSONResponse({"refused": "The improver isn't set up"}, status_code=409)
+        improver["rounds"].improve(request.round_id)
+        return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/draft", operation_id="draft", dependencies=[Depends(agents_key)])
     def draft(request: DraftRequest) -> Draft:  # pyright: ignore[reportUnusedFunction]
@@ -135,8 +177,8 @@ def build_app() -> FastAPI:
     from psycopg.rows import dict_row  # noqa: PLC0415
     from psycopg_pool import ConnectionPool  # noqa: PLC0415
 
-    from undercover_agent.api_client import ApiClient  # noqa: PLC0415
-    from undercover_agent.graph import build_graph  # noqa: PLC0415
+    from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
+    from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
     from undercover_agent.memory import StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
@@ -155,6 +197,15 @@ def build_app() -> FastAPI:
         store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
         store.setup()
         api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
+        first = {
+            "instructions": INSTRUCTIONS,
+            "model": settings.claim_model,
+            "effort": settings.claim_effort,
+        }
+        try:
+            api.register_configuration(first)
+        except ApiError:
+            log.warning("couldn't register the first configuration; using the built-in one")
         graph = build_graph(
             api,
             AnthropicClaude(settings),
@@ -165,8 +216,13 @@ def build_app() -> FastAPI:
         )
         return Runner(graph, api)
 
+    def api_client() -> ApiClient:
+        return ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
+
     return create_app(
         make_runner,
         settings.undercover_api_key.get_secret_value,
         lambda: AnthropicClaude(settings),
+        lambda runner: Dispatcher(runner, api_client()),
+        lambda: RoundImprover(AnthropicClaude(settings), api_client()),
     )

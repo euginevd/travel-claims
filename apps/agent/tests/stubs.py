@@ -32,6 +32,14 @@ class FakeApi(ApiClient):
         self.customer_id = "CUS-1"
         self.evaluation = False
 
+    def configuration(self, claim_id: str) -> Json:
+        return {
+            "version": 2,
+            "instructions": "Version two's instructions.",
+            "model": "claude-haiku-5-5",
+            "effort": "low",
+        }
+
     def receipts(self, claim_id: str) -> list[Json]:
         return self.attached
 
@@ -126,6 +134,7 @@ class FakeClaude:
         self.screened: list[list[Json]] = []
         self.first_messages: list[Json] = []
         self.consulted: list[str] = []
+        self.systems: list[tuple[str, str | None, str | None]] = []
 
     def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
         self.screened.append(content)
@@ -142,8 +151,16 @@ class FakeClaude:
         review = SpecialistReview(summary=f"{kind} look fine.", findings=[finding])
         return review, Call("claude-haiku-5-5", 10, 5, 0.0)
 
-    def turn(self, system: str, tools: list[Json], messages: list[Json]) -> tuple[Message, Call]:
+    def turn(
+        self,
+        system: str,
+        tools: list[Json],
+        messages: list[Json],
+        model: str | None = None,
+        effort: str | None = None,
+    ) -> tuple[Message, Call]:
         self.turns_taken += 1
+        self.systems.append((system, model, effort))
         if not self.first_messages:
             self.first_messages.append(messages[0])
         return self.turns.pop(0), Call("claude-sonnet-5-5", 10, 5, 0.0)
@@ -165,4 +182,10 @@ def config(claim_id: str = "CLM-1001") -> Any:
     return {"configurable": {"claim_id": claim_id, "thread_id": "t-1"}}
 
 
-START: Any = {"messages": [], "model_calls": 0, "outcome": "", "payout": 0.0}
+START: Any = {
+    "messages": [],
+    "model_calls": 0,
+    "outcome": "",
+    "payout": 0.0,
+    "configuration": {},
+}

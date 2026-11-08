@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     specialist_max_tokens: int = 3_000
     drafting_model: str = "claude-haiku-5-5"
     drafting_max_tokens: int = 2_000
+    improver_model: str = "claude-sonnet-5-5"
+    improver_max_tokens: int = 16_000
     model_timeout_seconds: float = 60.0
     model_retries: int = 2
     # The most model calls one attempt at a claim may make before it is referred.

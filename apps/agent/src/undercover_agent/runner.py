@@ -17,6 +17,15 @@ from undercover_agent.graph import ClaimState
 log = logging.getLogger(__name__)
 
 
+START_STATE: ClaimState = {
+    "messages": [],
+    "model_calls": 0,
+    "outcome": "",
+    "payout": 0.0,
+    "configuration": {},
+}
+
+
 class Busy(Exception):
     """The claim is already being worked here."""
 
@@ -33,8 +42,7 @@ class Runner:
         self._lock = threading.Lock()
 
     def work(self, claim_id: str, thread_id: str) -> threading.Thread:
-        start: ClaimState = {"messages": [], "model_calls": 0, "outcome": "", "payout": 0.0}
-        return self._start(claim_id, thread_id, start)
+        return self._start(claim_id, thread_id, START_STATE)
 
     def resume(self, claim_id: str, thread_id: str, outcome: str) -> threading.Thread:
         return self._start(claim_id, thread_id, Command(resume=outcome))
@@ -49,6 +57,16 @@ class Runner:
         )
         thread.start()
         return thread
+
+    def carry_on(self, claim_id: str, thread_id: str) -> None:
+        """Work a claim on this thread: carry on from its saved progress if it has any, else
+        start it afresh. A claim decided before a restart is never decided twice."""
+        config: RunnableConfig = {"configurable": {"claim_id": claim_id, "thread_id": thread_id}}
+        saved = self._graph.get_state(config)
+        payload: Any = None if saved.next else START_STATE
+        if saved.values and not saved.next:
+            return
+        self._run(claim_id, thread_id, payload)
 
     def _run(self, claim_id: str, thread_id: str, payload: Any) -> None:
         config: RunnableConfig = {
