@@ -25,11 +25,12 @@ test("a handler signs in and sees the queue", async () => {
   const fetchFn = fakeFetch(signedInRoutes);
   render(<App fetchFn={fetchFn} />);
 
-  await user.click(screen.getByRole("radio", { name: /Dana Whitfield/ }));
-  expect(screen.getByLabelText("Email")).toHaveValue("dana.whitfield@undercover.example");
+  await user.type(screen.getByLabelText("Work email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
+  // What needs a handler shows first; All shows the rest.
+  await user.click(await screen.findByRole("button", { name: /^All/ }));
   const table = await screen.findByRole("table");
   expect(within(table).getByRole("link", { name: "CLM-1001" })).toHaveAttribute(
     "href",
@@ -41,18 +42,43 @@ test("a handler signs in and sees the queue", async () => {
   expect(fetchFn.calls.find((c) => c.path === "/api/staff/me")?.auth).toBe("Bearer token-1");
 });
 
-test("the sign-in page offers only claims handlers", () => {
+test("the sign-in page is a plain staff sign-in with no list of people", () => {
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
-  expect(screen.getByRole("heading", { name: "Staff sign-in" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   expect(screen.queryByText(/customer/i)).not.toBeInTheDocument();
-  expect(screen.queryByRole("radio", { name: /Maya Patel/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+});
+
+test("the test account signs in through the dev route, with no password in the browser", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    ...signedInRoutes,
+    "POST /api/staff/dev/test-sign-in": () => [200, { id_token: "token-2", expires_in: 3600 }],
+  });
+  render(<App fetchFn={fetchFn} />);
+  await user.click(screen.getByRole("button", { name: /Use test account/ }));
+  await screen.findByRole("heading", { name: "Claims queue" });
+  const call = fetchFn.calls.find((c) => c.path === "/api/staff/dev/test-sign-in");
+  expect(call?.body).toEqual({ account: "senior" });
+});
+
+test("the needs-me view is first and J moves through the claims", async () => {
+  const user = userEvent.setup();
+  saveToken("token-1");
+  render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  const needsMe = await screen.findByRole("button", { name: /Needs me/ });
+  expect(needsMe).toHaveAttribute("aria-pressed", "true");
+  const table = screen.getByRole("table");
+  expect(within(table).queryByRole("link", { name: "CLM-1001" })).not.toBeInTheDocument();
+  await user.keyboard("j");
+  expect(within(table).getByRole("link", { name: "CLM-1002" })).toHaveFocus();
 });
 
 test("signs in on the staff route only", async () => {
   const user = userEvent.setup();
   const fetchFn = fakeFetch(signedInRoutes);
   render(<App fetchFn={fetchFn} />);
-  await user.click(screen.getByRole("radio", { name: /Dana Whitfield/ }));
+  await user.type(screen.getByLabelText("Work email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   await screen.findByRole("table");
@@ -72,17 +98,17 @@ test("says when the password is wrong", async () => {
     "POST /api/staff/dev/sign-in": () => [401, { detail: "Wrong email or password" }],
   });
   render(<App fetchFn={fetchFn} />);
-  await user.type(screen.getByLabelText("Email"), "dana.whitfield@undercover.example");
+  await user.type(screen.getByLabelText("Work email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "nope");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("don't match a claims handler");
+  expect(await screen.findByRole("alert")).toHaveTextContent("don't match a staff account");
 });
 
 test("says when the server can't be reached", async () => {
   const user = userEvent.setup();
   const fetchFn = () => Promise.reject(new TypeError("Failed to fetch"));
   render(<App fetchFn={fetchFn} />);
-  await user.type(screen.getByLabelText("Email"), "dana.whitfield@undercover.example");
+  await user.type(screen.getByLabelText("Work email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "pw");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("couldn't reach the server");
@@ -106,6 +132,7 @@ test("following a claim link opens the claim page with focus on its heading", as
   const user = userEvent.setup();
   saveToken("token-1");
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  await user.click(await screen.findByRole("button", { name: /^All/ }));
   await user.click(await screen.findByRole("link", { name: "CLM-1001" }));
   const heading = await screen.findByRole("heading", { level: 1, name: "Claim CLM-1001" });
   await waitFor(() => {

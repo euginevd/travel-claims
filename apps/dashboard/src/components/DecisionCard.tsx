@@ -1,12 +1,15 @@
-import { Bot, ShieldAlert } from "lucide-react";
-import type { Decision, Payment } from "../api";
-import { dollars, when } from "../format";
+import { ShieldAlert, UserRoundPen } from "lucide-react";
+import type { Decision, Payment, Step } from "../api";
+import { dollars, REASON_LABELS, when } from "../format";
+import { AiMark } from "./AiMark";
+import { Checklist } from "./Checklist";
 import { OutcomeChip } from "./StatusChip";
 
 interface DecisionCardProps {
   decision: Decision;
   payment: Payment | null;
   claimed: number;
+  steps: Step[];
   heading?: string;
 }
 
@@ -25,7 +28,7 @@ export function segmentsOf(decision: Decision, claimed: number): Segment[] {
   for (const line of lines) {
     if (line.amount < 0) segments.push({ label: line.step, amount: -line.amount, paid: false });
   }
-  const outside = Math.round((claimed - counted) * 100) / 100;
+  const outside = Math.round((claimed - (lines.length ? counted : decision.payout)) * 100) / 100;
   if (outside > 0) {
     segments.push({ label: "Not covered or over a limit", amount: outside, paid: false });
   }
@@ -74,62 +77,79 @@ function PayoutBar({ decision, claimed }: { decision: Decision; claimed: number 
   );
 }
 
+/** The recommendation: the outcome and amount, the reason, what was checked with its sources,
+ * and the payout bar. The working-out is folded away. */
 export function DecisionCard({
   decision,
   payment,
   claimed,
-  heading = "Decision",
+  steps,
+  heading = "Recommendation",
 }: DecisionCardProps) {
   const approved = decision.decision === "approve";
+  const byPerson = decision.override !== null;
   return (
     <section className="panel decision" aria-label={heading}>
-      <h2>{heading}</h2>
-      <p className="ai-label muted small">
-        {decision.by_screening ? (
-          <ShieldAlert size={16} strokeWidth={2} aria-hidden="true" />
+      <div className="decision-head">
+        <h2>{heading}</h2>
+        {byPerson ? (
+          <span className="ai-mark person">
+            <UserRoundPen size={14} strokeWidth={2} aria-hidden="true" />
+            Overridden by {decision.override?.by}
+          </span>
+        ) : decision.by_screening ? (
+          <span className="ai-mark">
+            <ShieldAlert size={14} strokeWidth={2} aria-hidden="true" />
+            Hidden-instruction check
+          </span>
         ) : (
-          <Bot size={16} strokeWidth={2} aria-hidden="true" />
+          <AiMark label="UnderCover Agent" />
         )}
-        Decided by {decision.by_screening ? "the hidden-instruction check" : "the UnderCover Agent"}
-        , an AI
-      </p>
-      {decision.by_screening && (
-        <p className="notice" role="note">
-          The hidden-instruction check referred this claim. The claim agent never saw it.
-        </p>
-      )}
+      </div>
       <div className="decision-line">
         <OutcomeChip decision={decision.decision} />
         {approved && <span className="payout">{dollars(decision.payout)}</span>}
       </div>
-      <p>{decision.reason}</p>
+      <p dir="auto">{decision.reason}</p>
+      {decision.override && (
+        <p className="notice small">
+          {REASON_LABELS[decision.override.reason_code]}: {decision.override.note}. The agent had{" "}
+          {decision.override.previous_decision === "approve"
+            ? `approved ${dollars(decision.override.previous_payout)}`
+            : decision.override.previous_decision === "decline"
+              ? "declined"
+              : "referred"}{" "}
+          it.
+        </p>
+      )}
+      <Checklist checks={decision.checklist} steps={steps} />
       {approved && <PayoutBar decision={decision} claimed={claimed} />}
       {decision.calculation && decision.calculation.lines.length > 0 && (
-        <table className="calculation">
-          <caption>How the payout was worked out</caption>
-          <tbody>
-            {decision.calculation.lines.map((line, index) => (
-              <tr key={index}>
-                <th scope="row">{line.step}</th>
-                <td className="number">{dollars(line.amount)}</td>
+        <details className="working">
+          <summary>How the payout was worked out</summary>
+          <table className="calculation">
+            <tbody>
+              {decision.calculation.lines.map((line, index) => (
+                <tr key={index}>
+                  <th scope="row">{line.step}</th>
+                  <td className="number">{dollars(line.amount)}</td>
+                </tr>
+              ))}
+              <tr className="total">
+                <th scope="row">Payout</th>
+                <td className="number">{dollars(decision.payout)}</td>
               </tr>
-            ))}
-            <tr className="total">
-              <th scope="row">Payout</th>
-              <td className="number">{dollars(decision.payout)}</td>
-            </tr>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </details>
       )}
       <dl className="facts">
         <dt>Relied on</dt>
         <dd>{decision.section}</dd>
-        <dt>Decided by</dt>
+        <dt>Decided</dt>
         <dd>
           {decision.decided_by}, {when(decision.decided_at)}
         </dd>
-        <dt>Claims manual</dt>
-        <dd>Version {decision.manual_version}</dd>
         {payment && (
           <>
             <dt>Paid</dt>
@@ -140,10 +160,12 @@ export function DecisionCard({
           </>
         )}
       </dl>
-      <p className="muted small">
-        This decision was made by an AI. A senior handler can send it back for the agent to look at
-        again, and the customer can ask for a person to review it.
-      </p>
+      {!byPerson && (
+        <p className="muted small">
+          Made by an AI. A senior handler can send it back or override it, and the customer can ask
+          for a person to review it.
+        </p>
+      )}
     </section>
   );
 }

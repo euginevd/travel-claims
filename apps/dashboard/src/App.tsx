@@ -1,6 +1,7 @@
 import { ListChecks } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Handler } from "./api";
+import { CommandPalette } from "./components/CommandPalette";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { ClaimPage } from "./pages/ClaimPage";
@@ -120,12 +121,16 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         home={QUEUE_HREF}
         links={[{ href: QUEUE_HREF, label: "Queue", Icon: ListChecks }]}
         onSignOut={signOut}
+        onSearch={() => {
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+        }}
       />
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>
           {handlerPage(route, api, person, pollMs)}
         </ErrorBoundary>
       </main>
+      <CommandPalette api={api} onSignOut={signOut} />
     </>
   );
 }

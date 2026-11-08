@@ -4,6 +4,10 @@ import { createApi, type Claim, type Handler, type Step } from "../api";
 import { APPROVAL, claim, DANA, fakeFetch, MARCUS, REFERRAL, STEPS, type Routes } from "../testing";
 import { ClaimPage } from "./ClaimPage";
 
+beforeEach(() => {
+  window.localStorage.clear();
+});
+
 const BASE = "/api/staff/claims/CLM-1001";
 
 function show(routes: Routes, handler: Handler = DANA) {
@@ -34,8 +38,8 @@ test("shows the claim, its documents and policy", async () => {
   expect(screen.getByText("My flight home from Rome was cancelled.")).toBeInTheDocument();
   expect(screen.getByText("Hotel receipt")).toBeInTheDocument();
   expect(screen.getByText(/POL-2001/)).toBeInTheDocument();
-  expect(screen.getByText("No steps yet.")).toBeInTheDocument();
-  expect(screen.getByText("Nothing looked up yet.")).toBeInTheDocument();
+  expect(screen.getByText("Nothing yet.")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Where this claim is" })).toBeInTheDocument();
 });
 
 test("working a claim shows its steps live until the agent decides", async () => {
@@ -57,8 +61,8 @@ test("working a claim shows its steps live until the agent decides", async () =>
   });
 
   await user.click(await screen.findByRole("button", { name: "Work this claim" }));
-  expect(await screen.findByText(/The agent is working on this claim/)).toBeInTheDocument();
-  expect(screen.getByText("Hidden-instruction check")).toBeInTheDocument();
+  expect(await screen.findByText("The agent is working…")).toBeInTheDocument();
+  expect(screen.getByText("Checked for hidden instructions")).toBeInTheDocument();
 
   expect(await screen.findByText("Approved", {}, { timeout: 2000 })).toBeInTheDocument();
   expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === `${BASE}/work`)).toBe(true);
@@ -73,15 +77,22 @@ test("refusals and failures stand out, and sources are listed once per file", as
     sources: [],
     created_at: "2026-11-08T05:00:00Z",
   };
-  show(fixed(claim({ status: "in_progress" }), [...STEPS, failure]));
-  expect((await screen.findByText("Refused")).closest("li")).toHaveClass("step-alert");
-  expect(screen.getByText("Something went wrong").closest("li")).toHaveClass("step-alert");
+  show({
+    ...fixed(claim({ status: "in_progress" }), [...STEPS, failure]),
+    [`GET ${BASE}/trace`]: () => [
+      200,
+      { steps: [...STEPS, failure], model_calls: [], total_cost: 0, total_tokens: 0 },
+    ],
+  });
+  expect(await screen.findByText("The model declined to continue")).toBeInTheDocument();
+  // The trace shows every step's raw content, with the sources looked up.
+  await userEvent.setup().click(screen.getByRole("switch", { name: /Show trace/ }));
 
   const sources = screen.getByRole("region", { name: "What the agent looked up" });
   expect(within(sources).getAllByText("policy_wording.md")).toHaveLength(1);
   expect(within(sources).getByText(/2 lookups/)).toBeInTheDocument();
   expect(within(sources).getByText("Legal")).toBeInTheDocument();
-  expect(screen.getByText("Show the result")).toBeInTheDocument();
+  expect(screen.getAllByText("Tool result").length).toBeGreaterThan(0);
 });
 
 test("a decided claim shows the calculation line by line and the payment", async () => {
@@ -94,20 +105,21 @@ test("a decided claim shows the calculation line by line and the payment", async
       }),
     ),
   );
-  const card = await screen.findByRole("region", { name: "Decision" });
-  const calculation = within(card).getByRole("table", { name: "How the payout was worked out" });
+  const card = await screen.findByRole("region", { name: "Recommendation" });
+  const calculation = within(card).getByRole("table");
   expect(within(calculation).getByText("Less the deductible")).toBeInTheDocument();
   expect(within(calculation).getByText("-$100.00")).toBeInTheDocument();
   expect(within(card).getByText(/signed off by Dana Whitfield/)).toBeInTheDocument();
-  expect(within(card).getByText("Version 2026.2")).toBeInTheDocument();
+  expect(within(card).getByRole("list", { name: "What was checked" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Sign off/ })).not.toBeInTheDocument();
 });
 
 test("a claim the check referred says the claim agent never saw it", async () => {
   show(fixed(claim({ status: "left_for_handler", decision: REFERRAL }), STEPS.slice(0, 1)));
-  const card = await screen.findByRole("region", { name: "Decision" });
+  const card = await screen.findByRole("region", { name: "Recommendation" });
   expect(within(card).getByText("Referred")).toBeInTheDocument();
-  expect(screen.getByRole("note")).toHaveTextContent("The claim agent never saw it.");
+  expect(screen.getByText(/tries to instruct whoever assesses it/)).toBeInTheDocument();
+  expect(within(card).getByText("Instructions hidden in the claim")).toBeInTheDocument();
   expect(screen.queryByRole("table", { name: /payout/ })).not.toBeInTheDocument();
 });
 
@@ -147,8 +159,9 @@ test("a senior handler signs off a held payout", async () => {
       return [200, paid];
     },
   });
-  expect(await screen.findByText(/over the \$1,000.00 approval limit/)).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "The agent's decision" })).toBeInTheDocument();
+  expect(await screen.findByText(/Waiting for your sign-off: \$1,250.00/)).toBeInTheDocument();
+  expect(screen.getByText("Signing off pays $1,250.00 to Maya Patel now.")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Sign off and pay $1,250.00" }));
   expect(await screen.findByText(/signed off by Dana Whitfield/)).toBeInTheDocument();
   expect(screen.getByText("Signed off and paid $1,250.00.")).toHaveFocus();
@@ -244,9 +257,9 @@ test("a sign-off that worked says so even when the steps don't reload", async ()
     },
   });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
-  expect(await screen.findByRole("region", { name: "Decision" })).toBeInTheDocument();
+  expect(await screen.findByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   expect(screen.getByText(/Signed off and paid/)).toBeInTheDocument();
   // The steps already shown stay while the reload's failure is reported.
-  expect(screen.getByText("Refused")).toBeInTheDocument();
+  expect(screen.getByText("The model declined to continue")).toBeInTheDocument();
   expect(await screen.findByRole("alert")).toHaveTextContent("Steps unavailable");
 });

@@ -53,6 +53,7 @@ export const ClaimSummarySchema = z.object({
   status: StatusSchema,
   decision: DecisionKindSchema.nullable(),
   payout: z.number().nullable(),
+  review_requested: z.boolean(),
 });
 
 const PolicySchema = z.object({
@@ -80,6 +81,33 @@ export const ReceiptSchema = z.object({
 
 const ItemSchema = z.object({ description: z.string(), category: z.string(), amount: z.number() });
 
+export const reasonCodes = [
+  "policy_wording",
+  "evidence",
+  "calculation",
+  "customer_circumstances",
+  "suspected_fraud",
+  "other",
+] as const;
+const ReasonCodeSchema = z.enum(reasonCodes);
+
+const CheckSchema = z.object({
+  label: z.string(),
+  result: z.enum(["pass", "warn", "fail"]),
+  detail: z.string(),
+  source: z.string(),
+});
+
+const OverrideSchema = z.object({
+  reason_code: ReasonCodeSchema,
+  note: z.string(),
+  by: z.string(),
+  by_id: z.string(),
+  at: z.string(),
+  previous_decision: DecisionKindSchema,
+  previous_payout: z.number(),
+});
+
 const DecisionSchema = z.object({
   decision: DecisionKindSchema,
   payout: z.number(),
@@ -94,6 +122,16 @@ const DecisionSchema = z.object({
   signed_off_by: z.string().nullable(),
   signed_off_at: z.string().nullable(),
   by_screening: z.boolean(),
+  checklist: z.array(CheckSchema),
+  override: OverrideSchema.nullable(),
+});
+
+const StagesSchema = z.object({
+  received: z.string(),
+  checked: z.string().nullable(),
+  assessed: z.string().nullable(),
+  decided: z.string().nullable(),
+  paid: z.string().nullable(),
 });
 
 export const ClaimSchema = z.object({
@@ -124,6 +162,9 @@ export const ClaimSchema = z.object({
     }),
   ),
   receipts: z.array(ReceiptSchema),
+  stages: StagesSchema,
+  review_requested_at: z.string().nullable(),
+  review_note: z.string().nullable(),
 });
 
 export const StepSchema = z.object({
@@ -135,6 +176,22 @@ export const StepSchema = z.object({
 });
 
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
+
+export const TraceSchema = z.object({
+  steps: z.array(StepSchema),
+  model_calls: z.array(
+    z.object({
+      model: z.string(),
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cost: z.number(),
+      latency_ms: z.number().nullable(),
+      created_at: z.string(),
+    }),
+  ),
+  total_cost: z.number(),
+  total_tokens: z.number(),
+});
 
 export type Status = z.infer<typeof StatusSchema>;
 export type DecisionKind = z.infer<typeof DecisionKindSchema>;
@@ -151,6 +208,19 @@ export type Payment = NonNullable<Claim["payment"]>;
 export type Step = z.infer<typeof StepSchema>;
 export type Receipt = z.infer<typeof ReceiptSchema>;
 export type Item = z.infer<typeof ItemSchema>;
+export type Check = z.infer<typeof CheckSchema>;
+export type ReasonCode = z.infer<typeof ReasonCodeSchema>;
+export type Stages = z.infer<typeof StagesSchema>;
+export type Trace = z.infer<typeof TraceSchema>;
+
+export interface OverrideRequest {
+  decision: DecisionKind;
+  payout: number;
+  reason_code: ReasonCode;
+  note: string;
+}
+
+export type TestAccount = "senior" | "handler";
 
 export const NOTE_LIMIT = 1000;
 
@@ -166,6 +236,7 @@ export class ApiError extends Error {
 
 export interface Api {
   signIn: (email: string, password: string) => Promise<string>;
+  testSignIn: (account: TestAccount) => Promise<string>;
   me: () => Promise<Handler>;
   listClaims: () => Promise<ClaimSummary[]>;
   getClaim: (claimId: string, signal?: AbortSignal) => Promise<Claim>;
@@ -174,6 +245,8 @@ export interface Api {
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
+  getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
+  override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -250,6 +323,10 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       });
       return answer.id_token;
     },
+    testSignIn: async (account) => {
+      const answer = await call(SignInSchema, "POST", "/dev/test-sign-in", { body: { account } });
+      return answer.id_token;
+    },
     me: () => call(HandlerSchema, "GET", "/me"),
     listClaims: () => call(z.array(ClaimSummarySchema), "GET", "/claims"),
     getClaim: (claimId, signal) => call(ClaimSchema, "GET", claimPath(claimId), { signal }),
@@ -264,5 +341,9 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       const response = await send("GET", path, {}, "*/*");
       return response.blob();
     },
+    getTrace: (claimId, signal) =>
+      call(TraceSchema, "GET", `${claimPath(claimId)}/trace`, { signal }),
+    override: (claimId, request) =>
+      call(ClaimSchema, "POST", `${claimPath(claimId)}/override`, { body: request }),
   };
 }

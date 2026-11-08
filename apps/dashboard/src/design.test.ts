@@ -18,6 +18,8 @@ const DECISION: Decision = {
   reason: "Covered.",
   decided_by: "UnderCover Agent v1",
   decided_at: "2026-11-08T05:00:00Z",
+  checklist: [],
+  override: null,
   manual_version: "2026.2",
   by_screening: false,
   approval_limit: 1000,
@@ -51,6 +53,7 @@ test("the queue's figures count the claims and add up what's paid", () => {
     summary: "",
     amount_claimed: 0,
     submitted_on: "",
+    review_requested: false,
   };
   const claims: ClaimSummary[] = [
     { ...base, claim_id: "CLM-1", status: "waiting", decision: null, payout: null },

@@ -63,10 +63,13 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
 
   return (
     <section className="panel held" aria-labelledby={`${ids}-heading`}>
-      <h2 id={`${ids}-heading`}>Waiting for sign-off</h2>
+      <h2 id={`${ids}-heading`}>Your sign-off</h2>
       <p>
-        The agent approved {dollars(payout)}, over the {dollars(claim.approval_limit)} approval
-        limit, so nothing is paid until a senior handler signs it off.
+        The agent approved {dollars(payout)}, over the {dollars(claim.approval_limit)} limit.
+        Nothing is paid until a senior handler signs it off, however long it waits.
+      </p>
+      <p className="checkpoint">
+        Signing off pays {dollars(payout)} to {claim.customer_name} now.
       </p>
       {refusal && (
         <p id={`${ids}-refusal`} className="notice" role="status">
@@ -81,8 +84,10 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
       <button
         type="button"
         className="button"
+        data-shortcut="sign-off"
         disabled={blocked || busy}
         aria-describedby={refusal ? `${ids}-refusal` : undefined}
+        aria-keyshortcuts="S"
         onClick={() => {
           void run(onSignOff);
         }}
@@ -93,6 +98,8 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
         <label htmlFor={`${ids}-note`}>Or send it back to the agent with a note</label>
         <textarea
           id={`${ids}-note`}
+          data-shortcut="send-back"
+          aria-keyshortcuts="B"
           rows={4}
           value={note}
           disabled={blocked || busy}

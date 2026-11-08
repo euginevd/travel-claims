@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
+import { ActivityRail, storedTrace } from "../components/ActivityRail";
 import { DecisionCard } from "../components/DecisionCard";
 import { HeldPayout } from "../components/HeldPayout";
+import { NeedsYouBanner } from "../components/NeedsYou";
+import { OverridePanel } from "../components/OverridePanel";
 import { ReceiptsPanel } from "../components/ReceiptsPanel";
 import { SourcesPanel } from "../components/SourcesPanel";
+import { StageTracker } from "../components/StageTracker";
 import { StatusChip } from "../components/StatusChip";
-import { StepList } from "../components/StepList";
 import { date, dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
@@ -18,6 +21,14 @@ interface ClaimPageProps {
 }
 
 const WORKABLE = new Set<Claim["status"]>(["waiting", "sent_back"]);
+const OVERRIDABLE = new Set<Claim["status"]>(["decided", "waiting_for_sign_off"]);
+
+/** Whether a key press is a shortcut, not typing in a field or a combination. */
+function isShortcut(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  const typing = target?.closest("input, textarea, select, [contenteditable='true']");
+  return !typing && !event.ctrlKey && !event.metaKey && !event.altKey;
+}
 // After failed polls, wait longer each time, up to this many times the usual wait.
 const MOST_BACK_OFF = 16;
 
@@ -87,6 +98,27 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const heading = useFocusHeading();
+  const [trace, setTrace] = useState(storedTrace);
+
+  // Keyboard: S to the sign-off button, B to the send-back note, T for the trace, U for the queue.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (!isShortcut(event)) return;
+      const key = event.key.toLowerCase();
+      const focus = (name: string) =>
+        document.querySelector<HTMLElement>(`[data-shortcut="${name}"]`)?.focus();
+      if (key === "s") focus("sign-off");
+      else if (key === "b") focus("send-back");
+      else if (key === "t") setTrace((on) => !on);
+      else if (key === "u") window.location.hash = QUEUE_HREF;
+      else return;
+      event.preventDefault();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   // Focus the outcome of an action, since the panel it was taken from has gone.
   useEffect(() => {
@@ -183,19 +215,46 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   // A plain render helper, not a component, so React keeps the form state inside it.
   function details(claim: Claim) {
     const held = claim.status === "waiting_for_sign_off";
+    const paid = claim.payment !== null;
     const { policy } = claim;
     const travellers = policy.travelers.length;
+    const canOverride =
+      handler.can_approve_over_limit &&
+      OVERRIDABLE.has(claim.status) &&
+      !paid &&
+      claim.decision !== null;
     return (
       <>
         <p className="muted">
           {claim.customer_name} · <span className="capitalise">{policy.plan}</span> plan · claimed{" "}
           {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
         </p>
+        <StageTracker claim={claim} />
+        <NeedsYouBanner claim={claim} />
 
         <div className="claim-grid">
           <div className="claim-main">
+            {WORKABLE.has(claim.status) && (
+              <div className="work panel">
+                <button
+                  type="button"
+                  className="button"
+                  disabled={starting}
+                  onClick={() => {
+                    void workClaim();
+                  }}
+                >
+                  {starting ? "Starting…" : "Work this claim"}
+                </button>
+                <p className="muted small">
+                  The agent checks the claim for hidden instructions, then assesses it against the
+                  policy.
+                </p>
+              </div>
+            )}
+
             <section className="panel" aria-labelledby="story-heading">
-              <h2 id="story-heading">What happened</h2>
+              <h2 id="story-heading">Evidence</h2>
               <p className="muted small">
                 {date(claim.incident_date)}, {claim.incident_location}
               </p>
@@ -215,18 +274,18 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                   ))}
                 </tbody>
               </table>
-              <h3>Documents</h3>
-              {claim.documents.length === 0 ? (
-                <p className="muted">No documents.</p>
-              ) : (
-                claim.documents.map((document, index) => (
-                  <details key={index} className="document">
-                    <summary dir="auto">{document.name}</summary>
-                    <p dir="auto">{document.content}</p>
-                  </details>
-                ))
-              )}
               <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
+              {claim.documents.length > 0 && (
+                <>
+                  <h3>Documents</h3>
+                  {claim.documents.map((document, index) => (
+                    <details key={index} className="document">
+                      <summary dir="auto">{document.name}</summary>
+                      <p dir="auto">{document.content}</p>
+                    </details>
+                  ))}
+                </>
+              )}
               <h3>Policy</h3>
               <p className="small">
                 {policy.policy_id} · {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}
@@ -234,34 +293,6 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 {travellers === 1 ? "traveller" : "travellers"}
                 {policy.add_ons.length > 0 && <> · add-ons: {policy.add_ons.join(", ")}</>}
               </p>
-            </section>
-
-            {WORKABLE.has(claim.status) && (
-              <div className="work">
-                <button
-                  type="button"
-                  className="button"
-                  disabled={starting}
-                  onClick={() => {
-                    void workClaim();
-                  }}
-                >
-                  {starting ? "Starting…" : "Work this claim"}
-                </button>
-                <p className="muted small">
-                  The agent checks the claim for hidden instructions, then decides it.
-                </p>
-              </div>
-            )}
-
-            <section className="panel" aria-labelledby="steps-heading">
-              <h2 id="steps-heading">What the agent did</h2>
-              <p className="muted small">
-                {working
-                  ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
-                  : `${String(steps.length)} steps.`}
-              </p>
-              <StepList steps={steps} />
             </section>
 
             {claim.sent_back_decisions.length > 0 && (
@@ -286,7 +317,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
             )}
           </div>
 
-          <aside className="claim-side" aria-label="Decision and sources">
+          <aside className="claim-side" aria-label="Recommendation and agent activity">
             {held && (
               <HeldPayout
                 claim={claim}
@@ -294,7 +325,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 onSignOff={() =>
                   act(
                     () => api.signOff(claimId),
-                    (paid) => `Signed off and paid ${dollars(paid.payment?.amount ?? 0)}.`,
+                    (done) => `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
                   )
                 }
                 onSendBack={(note) =>
@@ -310,10 +341,32 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 decision={claim.decision}
                 payment={claim.payment}
                 claimed={claim.amount_claimed}
-                heading={held ? "The agent's decision" : "Decision"}
+                steps={steps}
               />
             )}
-            <SourcesPanel steps={steps} />
+            {canOverride && (
+              <OverridePanel
+                customerName={claim.customer_name}
+                onOverride={(request) =>
+                  act(
+                    () => api.override(claimId, request),
+                    (done) =>
+                      done.payment
+                        ? `Overridden and paid ${dollars(done.payment.amount)}.`
+                        : "Overridden. Your decision is on the record.",
+                  )
+                }
+              />
+            )}
+            <ActivityRail
+              api={api}
+              claimId={claimId}
+              steps={steps}
+              working={working}
+              trace={trace}
+              onTraceChange={setTrace}
+            />
+            {trace && <SourcesPanel steps={steps} />}
           </aside>
         </div>
       </>

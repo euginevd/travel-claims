@@ -1,28 +1,24 @@
 import { useId, useState, type SubmitEvent } from "react";
-import { ApiError, type Api } from "../api";
+import { ApiError, type Api, type TestAccount } from "../api";
 import { TravelIllustration } from "../components/Illustration";
 import { Logo } from "../components/Logo";
 
-// The seeded handlers, offered as one-click choices only where the local sign-in stand-in runs:
-// a development build, or a local image built with VITE_LOCAL_SIGN_IN=true. Anywhere else
-// people sign in through Cognito instead.
+// The test-account buttons appear only where the local sign-in stand-in runs: a development
+// build, or a local image built with VITE_LOCAL_SIGN_IN=true. They ask the api's dev route to
+// sign in a fixed test account, so no password is ever in the browser.
 export const LOCAL_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_LOCAL_SIGN_IN === "true";
-export const PEOPLE: { email: string; name: string; note: string }[] = LOCAL_SIGN_IN
-  ? [
-      {
-        email: "dana.whitfield@undercover.example",
-        name: "Dana Whitfield",
-        note: "Senior handler",
-      },
-      { email: "marcus.oyelaran@undercover.example", name: "Marcus Oyelaran", note: "Handler" },
-      { email: "priya.raman@undercover.example", name: "Priya Raman", note: "Handler" },
-    ]
-  : [];
 
 interface SignInPageProps {
   api: Api;
   onSignedIn: (token: string) => void;
   checking: boolean;
+}
+
+function problem(caught: unknown): string {
+  if (caught instanceof ApiError && caught.status === 401) {
+    return "That email and password don't match a staff account.";
+  }
+  return caught instanceof ApiError ? caught.message : "We couldn't reach the server.";
 }
 
 export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
@@ -31,30 +27,31 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ids = useId();
-  const people = PEOPLE;
 
-  async function submit(event: SubmitEvent<HTMLFormElement>) {
+  async function attempt(signIn: () => Promise<string>) {
+    setBusy(true);
+    setError(null);
+    try {
+      onSignedIn(await signIn());
+    } catch (caught) {
+      setError(problem(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email.trim() || !password) {
       setError("Enter your email and password.");
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
-      onSignedIn(await api.signIn(email.trim(), password));
-    } catch (caught) {
-      setError(
-        caught instanceof ApiError && caught.status === 401
-          ? "That email and password don't match a claims handler."
-          : caught instanceof ApiError
-            ? caught.message
-            : "We couldn't reach the server. Is the app running?",
-      );
-    } finally {
-      setBusy(false);
-    }
+    void attempt(() => api.signIn(email.trim(), password));
   }
+
+  const test = (account: TestAccount) => () => {
+    void attempt(() => api.testSignIn(account));
+  };
 
   if (checking) {
     return (
@@ -68,45 +65,18 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     <main className="landing" id="main">
       <section className="landing-hero">
         <Logo />
-        <h1>Claims handlers&apos; dashboard</h1>
+        <h1>Claims workspace</h1>
         <p className="lead">
-          Work the queue with the UnderCover agent: it checks each claim against the policy, and you
-          sign off anything large. Staff only.
+          Review what the claims agent recommends, sign off large payouts and step in where a
+          person&apos;s judgement is needed.
         </p>
         <TravelIllustration />
       </section>
       <section className="landing-form panel" aria-labelledby={`${ids}-title`}>
-        <h2 id={`${ids}-title`}>Staff sign-in</h2>
-        <form
-          onSubmit={(event) => {
-            void submit(event);
-          }}
-          noValidate
-        >
-          {people.length > 0 && (
-            <fieldset className="person-cards">
-              <legend>Choose a handler</legend>
-              {people.map((person) => (
-                <label
-                  key={person.email}
-                  className={`person-card${email === person.email ? " chosen" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name={`${ids}-person`}
-                    value={person.email}
-                    checked={email === person.email}
-                    onChange={() => {
-                      setEmail(person.email);
-                    }}
-                  />
-                  <span className="person-name">{person.name}</span>
-                  <span className="person-note">{person.note}</span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          <label htmlFor={`${ids}-email`}>Email</label>
+        <h2 id={`${ids}-title`}>Sign in</h2>
+        <p className="muted small">UnderCover staff only.</p>
+        <form onSubmit={submit} noValidate>
+          <label htmlFor={`${ids}-email`}>Work email</label>
           <input
             id={`${ids}-email`}
             type="email"
@@ -117,7 +87,10 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               setEmail(event.target.value);
             }}
           />
-          <label htmlFor={`${ids}-password`}>Password</label>
+          <div className="label-row">
+            <label htmlFor={`${ids}-password`}>Password</label>
+            <span className="muted small">Forgot password?</span>
+          </div>
           <input
             id={`${ids}-password`}
             type="password"
@@ -137,6 +110,26 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
             {busy ? "Signing in…" : "Sign in"}
           </button>
         </form>
+        {LOCAL_SIGN_IN && (
+          <div className="test-sign-in">
+            <button
+              type="button"
+              className="button secondary small-button"
+              disabled={busy}
+              onClick={test("senior")}
+            >
+              <span className="test-tag">Test</span> Use test account
+            </button>
+            <button
+              type="button"
+              className="link-button small"
+              disabled={busy}
+              onClick={test("handler")}
+            >
+              Test as a handler without sign-off rights
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );
