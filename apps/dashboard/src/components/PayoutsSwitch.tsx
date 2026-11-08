@@ -1,4 +1,4 @@
-import { CirclePlay, OctagonX } from "lucide-react";
+import { Check, CirclePlay, OctagonX, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError, type Api, type Handler, type PayoutSwitch } from "../api";
 import { when } from "../format";
@@ -106,6 +106,18 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
   const inFlight = useRef(false);
   const ids = useId();
 
+  // Escape closes the popover, wherever focus is inside it.
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onEditing(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [editing, onEditing]);
+
   if (!state) return null;
   const senior = handler.can_approve_over_limit;
   if (!state.paused && !senior) return null;
@@ -139,16 +151,22 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
 
   const form = editing && (
     <form
-      className="payouts-panel panel"
+      className="payouts-popover"
+      role="dialog"
       aria-labelledby={`${ids}-title`}
       onSubmit={(event) => {
         event.preventDefault();
         void change(!state.paused);
       }}
     >
-      <h2 id={`${ids}-title`} className="payouts-panel-title">
-        {state.paused ? "Resume payouts?" : "Pause all payouts?"}
-      </h2>
+      <div className="payouts-popover-head">
+        <h2 id={`${ids}-title`} className="payouts-panel-title">
+          {state.paused ? "Resume payouts?" : "Pause all payouts?"}
+        </h2>
+        <button type="button" className="popover-close" aria-label="Close" onClick={close}>
+          <X size={18} strokeWidth={2} aria-hidden="true" />
+        </button>
+      </div>
       <p className="muted small">
         {state.paused
           ? "Held approvals can then be signed off and paid."
@@ -160,6 +178,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
           <label key={option} className={`reason-option${choice === option ? " chosen" : ""}`}>
             <input
               type="radio"
+              className="visually-hidden"
               name={`${ids}-reason`}
               value={option}
               checked={choice === option}
@@ -167,6 +186,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
                 setChoice(option);
               }}
             />
+            {choice === option && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}
             {option}
           </label>
         ))}
@@ -184,16 +204,16 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
           setNote(event.target.value);
         }}
       />
-      <div className="actions">
+      <div className="actions popover-actions">
+        <button className="button secondary small-button" type="button" onClick={close}>
+          Cancel
+        </button>
         <button
-          className={`button${state.paused ? "" : " danger"}`}
+          className={`button small-button${state.paused ? "" : " danger"}`}
           type="submit"
           disabled={busy || !ready}
         >
           {state.paused ? "Resume payouts" : "Pause all payouts"}
-        </button>
-        <button className="button secondary" type="button" onClick={close}>
-          Cancel
         </button>
       </div>
       {error && (
