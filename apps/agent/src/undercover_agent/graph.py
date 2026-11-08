@@ -20,7 +20,14 @@ from langgraph.types import interrupt
 
 from undercover_agent.api_client import ApiClient
 from undercover_agent.models import Call, Claude
-from undercover_agent.tools import TOOLS, Context, as_text, claim_as_read, run_tool
+from undercover_agent.tools import (
+    TOOLS,
+    Context,
+    as_text,
+    claim_as_read,
+    run_tool,
+    with_receipts,
+)
 
 Json = dict[str, Any]
 INSTRUCTIONS = files("undercover_agent").joinpath("instructions.md").read_text(encoding="utf-8")
@@ -69,7 +76,8 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
     def screen(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
         claim = claim_as_read(api.claim(claim_id))
-        found, call = claude.screen(as_text(claim))
+        receipts = api.receipts(claim_id)
+        found, call = claude.screen(with_receipts(as_text(claim), receipts))
         record_call(claim_id, thread_id, call)
         if found is None:
             found_reason = "The check couldn't read the claim, so a person should look at it."
@@ -85,7 +93,8 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
             refer(claim_id, reason, "hidden_instruction_check", SCREEN_SECTION)
             return {"outcome": "referred"}
         start = f"Your claim is {claim_id}. Work it and record your decision."
-        return {"messages": [{"role": "user", "content": start}], "outcome": ""}
+        first = {"role": "user", "content": with_receipts(start, receipts)}
+        return {"messages": [first], "outcome": ""}
 
     def agent(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)

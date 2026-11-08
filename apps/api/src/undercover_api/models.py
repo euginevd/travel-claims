@@ -128,6 +128,15 @@ class SentBackDecision(BaseModel):
     sent_back_at: str
 
 
+class Receipt(BaseModel):
+    """A receipt's metadata; its bytes come from its own route."""
+
+    receipt_id: str
+    media_type: str
+    size: int
+    uploaded_at: str
+
+
 class ClaimSummary(BaseModel):
     claim_id: str
     customer_name: str
@@ -163,6 +172,7 @@ class Claim(BaseModel):
     decision: Decision | None
     payment: Payment | None
     sent_back_decisions: list[SentBackDecision]
+    receipts: list[Receipt]
 
 
 class Trip(BaseModel):
@@ -329,7 +339,14 @@ class ModelCallRequest(Strict):
     cost: float = Field(ge=0, le=MAX_COST, allow_inf_nan=False, description="In US dollars")
 
 
+class Customer(BaseModel):
+    customer_id: str
+    name: str
+    email: str
+
+
 class SignInRequest(Strict):
+    role: Literal["handler", "customer"] = "handler"
     email: Annotated[
         str, StringConstraints(strip_whitespace=True, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$")
     ]
@@ -339,3 +356,85 @@ class SignInRequest(Strict):
 class SignIn(BaseModel):
     id_token: str
     expires_in: int
+
+
+# --- Receipts and the customers' portal ---
+
+ClaimType = Literal[
+    "trip_cancellation",
+    "trip_interruption",
+    "trip_delay",
+    "baggage_delay",
+    "baggage",
+    "passport",
+    "emergency_medical",
+]
+ItemCategory = Literal[
+    "accommodation",
+    "clothing",
+    "document_fees",
+    "electronics",
+    "luggage",
+    "meals",
+    "medical",
+    "other",
+    "personal_item",
+    "rebooking",
+    "toiletries",
+    "transport",
+    "trip_cost",
+]
+# Every receipt id in a path: 32 hex characters, checked before anything reads the database.
+ReceiptId = Annotated[str, Path(pattern=r"^[0-9a-f]{32}$")]
+
+
+class AgentReceipt(BaseModel):
+    """A receipt as the agent reads it, its bytes in base64."""
+
+    receipt_id: str
+    media_type: str
+    data: str
+
+
+class NewItem(Strict):
+    description: ShortText
+    category: ItemCategory
+    amount: float = Field(gt=0, le=100_000, allow_inf_nan=False)
+
+
+class NewClaimRequest(Strict):
+    policy_id: Annotated[str, StringConstraints(pattern=r"^POL-\d{1,10}$")]
+    claim_type: ClaimType
+    incident_date: Annotated[str, StringConstraints(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+    incident_location: ShortText
+    summary: ShortText
+    story: Text
+    items: list[NewItem] = Field(min_length=1, max_length=20)
+
+
+class CustomerClaimSummary(BaseModel):
+    """A claim as its customer sees it in their list: where it stands, in plain words."""
+
+    claim_id: str
+    policy_id: str
+    claim_type: str
+    summary: str
+    amount_claimed: float
+    submitted_on: str
+    status: str
+    status_text: str
+
+
+class CustomerClaim(CustomerClaimSummary):
+    """One claim as its customer sees it: no steps, calculation, sources or handler notes."""
+
+    incident_date: str
+    incident_location: str
+    story: str
+    items: list[Item]
+    outcome: DecisionKind | None
+    reason: str | None
+    paid: float | None
+    paid_at: str | None
+    receipts: list[Receipt]
+    can_add_receipts: bool

@@ -102,3 +102,32 @@ def test_the_dashboards_fixtures_match_the_api(client: TestClient, dana: dict[st
         "error-422",
         client.post("/api/dev/sign-in", json={"email": "not-an-email", "password": "x"}).json(),
     )
+
+
+def test_the_portals_fixtures_match_the_api(client: TestClient) -> None:
+    body = {"email": "maya.patel@example.com", "password": PASSWORD, "role": "customer"}
+    token = client.post("/api/dev/sign-in", json=body).json()["id_token"]
+    maya = {"Authorization": f"Bearer {token}"}
+    keep("my-profile", client.get("/api/my/profile", headers=maya).json())
+    keep("my-policies", client.get("/api/my/policies", headers=maya).json())
+    made = client.post(
+        "/api/my/claims",
+        json={
+            "policy_id": "POL-2001",
+            "claim_type": "trip_delay",
+            "incident_date": "2026-06-17",
+            "incident_location": "Rome, Italy",
+            "summary": "Flight delayed overnight",
+            "story": "My flight home was delayed overnight.",
+            "items": [{"description": "Airport hotel", "category": "accommodation", "amount": 180}],
+        },
+        headers=maya,
+    ).json()
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+    with_receipt = client.post(
+        f"/api/my/claims/{made['claim_id']}/receipts",
+        files=[("files", ("r.png", png, "image/png"))],
+        headers=maya,
+    ).json()
+    keep("my-claim", with_receipt)
+    keep("my-claims", client.get("/api/my/claims", headers=maya).json())

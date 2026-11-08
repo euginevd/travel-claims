@@ -1,0 +1,336 @@
+"""The customers' portal: a signed-in customer's own policies and claims, new claims and their
+receipts. Every query here filters on the signed-in customer, so nobody reaches anyone else's.
+Also the handlers' and the agent's ways to read receipts."""
+
+import base64
+import logging
+from datetime import UTC, date, datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
+from sqlalchemy import Connection, RowMapping, func, insert, select
+from sqlalchemy.exc import IntegrityError
+
+from undercover_api.auth import Database, SignedIn, SignedInCustomer, require_agent
+from undercover_api.claims import find_claim, find_decision, find_payment, list_receipts
+from undercover_api.db import claims, now, policies, receipts
+from undercover_api.models import (
+    AgentReceipt,
+    ClaimId,
+    Customer,
+    CustomerClaim,
+    CustomerClaimSummary,
+    DecisionKind,
+    NewClaimRequest,
+    Policy,
+    ReceiptId,
+    Status,
+)
+from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, ReceiptStore, sniff
+
+log = logging.getLogger(__name__)
+
+customer_router = APIRouter(prefix="/api/my")
+receipt_router = APIRouter(prefix="/api")
+agent_receipt_router = APIRouter(
+    prefix="/api/agent/claims/{claim_id}", dependencies=[Depends(require_agent)]
+)
+
+# What a customer reads about where their claim stands; never the handlers' own words.
+STATUS_TEXT = {
+    "received": "Received. We'll start looking at it shortly.",
+    "assessing": "We're assessing your claim now.",
+    "reviewing": "A senior claims handler is reviewing your claim.",
+    "approved": "Approved. Your payment is on its way.",
+    "paid": "Approved and paid.",
+    "declined": "Declined. The reason is below.",
+    "with_a_handler": "A claims handler is looking at your claim and will be in touch.",
+}
+REFERRED_REASON = "A claims handler will look at your claim personally and contact you."
+SOURCE_CUSTOMER = "customer"
+CLAIM_ID_ATTEMPTS = 3
+EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
+
+
+def store(request: Request) -> ReceiptStore:
+    return ReceiptStore(request.app.state.settings.receipts_dir)
+
+
+Store = Annotated[ReceiptStore, Depends(store)]
+
+
+def own_claim(db: Connection, customer: Customer, claim_id: str) -> RowMapping:
+    """One of the customer's own claims, or a 404 that says nothing about anyone else's."""
+    row = (
+        db.execute(
+            select(claims).where(
+                claims.c.claim_id == claim_id, claims.c.customer_id == customer.customer_id
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(404, f"Claim {claim_id} not found")
+    return row
+
+
+def plain_status(db: Connection, row: RowMapping) -> str:
+    """Where a claim stands, in the customer's words."""
+    match row["status"]:
+        case Status.WAITING:
+            return "received"
+        case Status.IN_PROGRESS:
+            return "assessing"
+        case Status.WAITING_FOR_SIGN_OFF | Status.SENT_BACK:
+            return "reviewing"
+        case _:
+            decision = find_decision(db, row["claim_id"])
+            if decision is None or decision.decision == DecisionKind.REFER:
+                return "with_a_handler"
+            if decision.decision == DecisionKind.DECLINE:
+                return "declined"
+            return "paid" if find_payment(db, row["claim_id"]) else "approved"
+
+
+def summary_of(db: Connection, row: RowMapping) -> CustomerClaimSummary:
+    status = plain_status(db, row)
+    return CustomerClaimSummary(
+        claim_id=row["claim_id"],
+        policy_id=row["policy_id"],
+        claim_type=row["claim_type"],
+        summary=row["summary"],
+        amount_claimed=row["amount_claimed"],
+        submitted_on=row["submitted_on"],
+        status=status,
+        status_text=STATUS_TEXT[status],
+    )
+
+
+def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
+    """A claim as its customer sees it: the outcome and its reason, but nothing internal.
+    A referral's reason is never shown, since it may quote the hidden-instruction check."""
+    summary = summary_of(db, row)
+    decision = find_decision(db, row["claim_id"]) if row["status"] == Status.DECIDED else None
+    payment = find_payment(db, row["claim_id"])
+    reason = None
+    if decision is not None:
+        reason = REFERRED_REASON if decision.decision == DecisionKind.REFER else decision.reason
+    found = list_receipts(db, row["claim_id"])
+    return CustomerClaim(
+        **summary.model_dump(),
+        incident_date=row["incident_date"],
+        incident_location=row["incident_location"],
+        story=row["story"],
+        items=row["items"],
+        outcome=decision.decision if decision else None,
+        reason=reason,
+        paid=payment.amount if payment else None,
+        paid_at=payment.paid_at if payment else None,
+        receipts=found,
+        can_add_receipts=row["status"] == Status.WAITING and len(found) < MAX_RECEIPTS,
+    )
+
+
+@customer_router.get("/profile", operation_id="get_signed_in_customer")
+def profile(customer: SignedInCustomer) -> Customer:
+    """The customer signed in."""
+    return customer
+
+
+@customer_router.get("/policies", operation_id="list_my_policies")
+def my_policies(customer: SignedInCustomer, db: Database) -> list[Policy]:
+    """The signed-in customer's policies."""
+    rows = db.execute(
+        select(policies.c.record)
+        .where(policies.c.customer_id == customer.customer_id)
+        .order_by(policies.c.policy_id)
+    ).scalars()
+    return [Policy.model_validate(record) for record in rows]
+
+
+@customer_router.get("/claims", operation_id="list_my_claims")
+def my_claims(customer: SignedInCustomer, db: Database) -> list[CustomerClaimSummary]:
+    """The signed-in customer's claims, newest first."""
+    rows = db.execute(
+        select(claims)
+        .where(claims.c.customer_id == customer.customer_id)
+        .order_by(claims.c.submitted_on.desc(), claims.c.claim_id.desc())
+    ).mappings()
+    return [summary_of(db, row) for row in rows]
+
+
+@customer_router.get("/claims/{claim_id}", operation_id="get_my_claim")
+def my_claim(claim_id: ClaimId, customer: SignedInCustomer, db: Database) -> CustomerClaim:
+    """One of the signed-in customer's claims, in plain words."""
+    return claim_for_customer(db, own_claim(db, customer, claim_id))
+
+
+def own_active_policy(db: Connection, customer: Customer, policy_id: str) -> Policy:
+    record = db.execute(
+        select(policies.c.record).where(
+            policies.c.policy_id == policy_id, policies.c.customer_id == customer.customer_id
+        )
+    ).scalar_one_or_none()
+    if record is None:
+        raise HTTPException(404, f"Policy {policy_id} not found")
+    policy = Policy.model_validate(record)
+    if policy.status != "active":
+        raise HTTPException(422, f"Policy {policy_id} isn't active")
+    return policy
+
+
+def check_incident_date(policy: Policy, incident: str) -> None:
+    """The incident must be a real date on the policy's trip, and not in the future."""
+    try:
+        day = date.fromisoformat(incident)
+    except ValueError as error:
+        raise HTTPException(422, "The incident date isn't a real date") from error
+    if day > datetime.now(UTC).date():
+        raise HTTPException(422, "The incident date can't be in the future")
+    departs = date.fromisoformat(policy.trip.departs_on)
+    returns = date.fromisoformat(policy.trip.returns_on)
+    if not departs <= day <= returns:
+        raise HTTPException(
+            422,
+            f"The incident date must be during your trip, {policy.trip.departs_on} to "
+            f"{policy.trip.returns_on}",
+        )
+
+
+def next_claim_id(db: Connection) -> str:
+    """The next claim number after the highest there is."""
+    ids = db.execute(select(claims.c.claim_id)).scalars()
+    highest = max((int(claim_id.removeprefix("CLM-")) for claim_id in ids), default=1000)
+    return f"CLM-{highest + 1}"
+
+
+@customer_router.post("/claims", operation_id="make_claim", status_code=201)
+def make_claim(body: NewClaimRequest, customer: SignedInCustomer, db: Database) -> CustomerClaim:
+    """Make a claim on one of the signed-in customer's active policies. It waits for work."""
+    policy = own_active_policy(db, customer, body.policy_id)
+    check_incident_date(policy, body.incident_date)
+    values = {
+        "policy_id": policy.policy_id,
+        "customer_id": customer.customer_id,
+        "claim_type": body.claim_type,
+        "submitted_on": datetime.now(UTC).date().isoformat(),
+        "incident_date": body.incident_date,
+        "incident_location": body.incident_location,
+        "summary": body.summary,
+        "story": body.story,
+        "items": [item.model_dump() for item in body.items],
+        "amount_claimed": round(sum(item.amount for item in body.items), 2),
+        "documents": [],
+        "status": Status.WAITING,
+        "attempts": 0,
+        "source": SOURCE_CUSTOMER,
+    }
+    for _ in range(CLAIM_ID_ATTEMPTS):
+        claim_id = next_claim_id(db)
+        try:
+            with db.begin_nested():
+                db.execute(insert(claims).values(claim_id=claim_id, **values))
+        except IntegrityError:
+            continue
+        return claim_for_customer(db, own_claim(db, customer, claim_id))
+    raise HTTPException(503, "Couldn't number the claim; please try again")
+
+
+async def read_limited(upload: UploadFile) -> bytes:
+    """A file's bytes, refusing one over the size limit without reading it all."""
+    content = await upload.read(MAX_RECEIPT_BYTES + 1)
+    if len(content) > MAX_RECEIPT_BYTES:
+        raise HTTPException(413, "Each receipt must be 5 MB or smaller")
+    if not content:
+        raise HTTPException(422, "A receipt is empty")
+    return content
+
+
+@customer_router.post("/claims/{claim_id}/receipts", operation_id="add_receipts", status_code=201)
+async def add_receipts(
+    claim_id: ClaimId,
+    files: Annotated[list[UploadFile], File(description="JPEG, PNG or PDF receipts")],
+    customer: SignedInCustomer,
+    db: Database,
+    receipt_store: Store,
+) -> CustomerClaim:
+    """Add receipts to one of the customer's own claims while it waits: up to five in all,
+    JPEG, PNG or PDF by their contents, 5 MB each."""
+    row = own_claim(db, customer, claim_id)
+    if row["status"] != Status.WAITING:
+        raise HTTPException(409, "Receipts can be added only before we start on the claim")
+    held = db.execute(
+        select(func.count()).select_from(receipts).where(receipts.c.claim_id == claim_id)
+    ).scalar_one()
+    if not files or held + len(files) > MAX_RECEIPTS:
+        raise HTTPException(422, f"A claim can have up to {MAX_RECEIPTS} receipts")
+    checked: list[tuple[bytes, str]] = []
+    for upload in files:
+        content = await read_limited(upload)
+        media_type = sniff(content)
+        if media_type is None:
+            raise HTTPException(415, "Receipts must be JPEG, PNG or PDF files")
+        checked.append((content, media_type))
+    for content, media_type in checked:
+        db.execute(
+            insert(receipts).values(
+                receipt_id=receipt_store.save(content),
+                claim_id=claim_id,
+                media_type=media_type,
+                size=len(content),
+                uploaded_at=now(),
+            )
+        )
+    log.info("claim %s: %d receipt(s) added", claim_id, len(checked))
+    return claim_for_customer(db, row)
+
+
+def receipt_row(db: Connection, claim_id: str, receipt_id: str) -> RowMapping:
+    row = (
+        db.execute(
+            select(receipts).where(
+                receipts.c.claim_id == claim_id, receipts.c.receipt_id == receipt_id
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(404, "Receipt not found")
+    return row
+
+
+@receipt_router.get("/claims/{claim_id}/receipts/{receipt_id}", operation_id="download_receipt")
+def download_receipt(
+    claim_id: ClaimId, receipt_id: ReceiptId, _: SignedIn, db: Database, receipt_store: Store
+) -> Response:
+    """A receipt for a handler, always as a download and never run by the browser."""
+    find_claim(db, claim_id)
+    row = receipt_row(db, claim_id, receipt_id)
+    name = f"{claim_id}-{receipt_id[:8]}.{EXTENSIONS[row['media_type']]}"
+    return Response(
+        receipt_store.read(row["receipt_id"]),
+        media_type=row["media_type"],
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
+
+
+@agent_receipt_router.get("/receipts", operation_id="get_receipts")
+def agent_receipts(claim_id: ClaimId, db: Database, receipt_store: Store) -> list[AgentReceipt]:
+    """The claim's receipts for the agent, their bytes in base64."""
+    find_claim(db, claim_id)
+    return [
+        AgentReceipt(
+            receipt_id=receipt.receipt_id,
+            media_type=receipt.media_type,
+            data=base64.b64encode(receipt_store.read(receipt.receipt_id)).decode(),
+        )
+        for receipt in list_receipts(db, claim_id)
+    ]

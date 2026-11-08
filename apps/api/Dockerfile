@@ -12,13 +12,13 @@ COPY apps/api apps/api
 RUN uv sync --frozen --no-dev --package undercover-api --no-editable
 
 FROM python:3.14.9-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
-RUN useradd --system --uid 10001 app
+RUN useradd --system --uid 10001 app     && mkdir -p /data/receipts && chown 10001 /data/receipts
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 # Only the records seeding loads: never data/evals/ or the security claim's decision.
 COPY data/claims.json data/policies.json data/customers.json data/handlers.json data/company.json /app/data/
 COPY data/security/claims.json data/security/policies.json data/security/customers.json /app/data/security/
-ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data
+ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data RECEIPTS_DIR=/data/receipts
 USER 10001
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]

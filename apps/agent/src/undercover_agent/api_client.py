@@ -42,6 +42,10 @@ class ApiClient:
     def history(self, claim_id: str) -> list[Json]:
         return cast(list[Json], self._call("GET", f"/api/agent/claims/{claim_id}/history"))
 
+    def receipts(self, claim_id: str) -> list[Json]:
+        """The claim's receipts, each with its media type and bytes in base64."""
+        return cast(list[Json], self._call("GET", f"/api/agent/claims/{claim_id}/receipts"))
+
     def steps(self, claim_id: str) -> list[Json]:
         return cast(list[Json], self._call("GET", f"/api/claims/{claim_id}/steps"))
 

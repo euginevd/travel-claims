@@ -1,25 +1,44 @@
-import { LogOut } from "lucide-react";
-import type { Handler } from "../api";
-import { QUEUE_HREF } from "../useHashRoute";
+import { LogOut, type LucideIcon } from "lucide-react";
+import { Logo } from "./Logo";
+
+export interface NavLink {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+}
 
 interface HeaderProps {
-  handler: Handler;
+  name: string;
+  detail: string;
+  home: string;
+  links: NavLink[];
   onSignOut: () => void;
 }
 
-export function Header({ handler, onSignOut }: HeaderProps) {
+// The header band: logo, navigation, who is signed in and sign-out. It wraps rather than
+// clipping, so nothing falls off the edge at any width.
+export function Header({ name, detail, home, links, onSignOut }: HeaderProps) {
   return (
     <header className="header">
-      <a className="brand" href={QUEUE_HREF}>
-        UnderCover <span className="eyebrow">Claims</span>
+      <a className="brand" href={home} aria-label="UnderCover Claims, home">
+        <Logo tone="on-ink" />
       </a>
       <nav aria-label="Main">
-        <a href={QUEUE_HREF}>Queue</a>
+        <ul>
+          {links.map(({ href, label, Icon }) => (
+            <li key={href}>
+              <a href={href}>
+                <Icon size={18} strokeWidth={2} aria-hidden="true" />
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
       </nav>
       <div className="who">
-        <span>
-          {handler.name}
-          <span className="muted"> · {handler.role}</span>
+        <span className="who-name">
+          {name}
+          <span className="who-detail">{detail}</span>
         </span>
         <button type="button" className="button secondary" onClick={onSignOut}>
           <LogOut size={16} strokeWidth={2} aria-hidden="true" />

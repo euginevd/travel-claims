@@ -27,6 +27,8 @@ customers = Table(
     metadata,
     Column("customer_id", String(20), primary_key=True),
     Column("name", String(200), nullable=False),
+    # The email a customer signs in with, lower-cased.
+    Column("email", String(320), unique=True),
     Column("record", JSON, nullable=False),
 )
 
@@ -67,6 +69,19 @@ claims = Table(
     # The thread of the attempt in progress, and how many attempts there have been.
     Column("thread_id", String(100)),
     Column("attempts", Integer, nullable=False, default=0),
+    # Where the claim came from: the seeded queue or a customer's own submission.
+    Column("source", String(20), nullable=False, default="seeded"),
+)
+
+# Receipts a customer uploaded, stored under a random name by the storage module.
+receipts = Table(
+    "receipts",
+    metadata,
+    Column("receipt_id", String(32), primary_key=True),
+    Column("claim_id", String(20), ForeignKey("claims.claim_id"), nullable=False, index=True),
+    Column("media_type", String(50), nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("uploaded_at", String(32), nullable=False),
 )
 
 # The current decision on a claim, one at most. A decision sent back moves to sent_back.

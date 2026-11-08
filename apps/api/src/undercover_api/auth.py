@@ -1,5 +1,6 @@
-"""Who is calling: the agent with its API key, or a handler with an ID token. Every route but
-the health check and sign-in has exactly one of these gates, and anything else is refused."""
+"""Who is calling: the agent with its API key, a handler or a customer with an ID token. Every
+route but the health check and sign-in has exactly one of these gates, and anything else is
+refused. A token's Cognito group says which kind of person it is for."""
 
 import logging
 import secrets
@@ -11,9 +12,9 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Connection, Engine, func, select
 
-from undercover_api.db import handlers
+from undercover_api.db import customers, handlers
 from undercover_api.local_sign_in import LocalIssuer
-from undercover_api.models import Handler
+from undercover_api.models import Customer, Handler
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ BEARER = HTTPBearer(auto_error=False)
 
 NOT_SIGNED_IN = HTTPException(401, "Sign in first", headers={"WWW-Authenticate": "Bearer"})
 KEY_IS_NOT_A_HANDLER = HTTPException(403, "The agent's key can't act as a handler")
+KEY_IS_NOT_A_CUSTOMER = HTTPException(403, "The agent's key can't act as a customer")
+HANDLERS_GROUP = "handlers"
+CUSTOMERS_GROUP = "customers"
 OVER_THE_LIMIT_ONLY = HTTPException(
     403, "Only a handler who can sign off over the approval limit may do this"
 )
@@ -59,7 +63,8 @@ class TokenVerifier:
         self._issuer = issuer
         self._audience = audience
 
-    def email(self, token: str) -> str:
+    def identity(self, token: str) -> tuple[str, list[str]]:
+        """The verified email and Cognito groups of an ID token, or a 401."""
         try:
             claims = jwt.decode(
                 token,
@@ -78,7 +83,10 @@ class TokenVerifier:
             or claims.get("email_verified") is not True
         ):
             raise NOT_SIGNED_IN
-        return claims["email"]
+        groups = claims.get("cognito:groups")
+        if not isinstance(groups, list):
+            raise NOT_SIGNED_IN
+        return claims["email"], [str(group) for group in groups]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
 
 
 def get_db(request: Request) -> Iterator[Connection]:
@@ -125,7 +133,9 @@ def signed_in_handler(
     if bearer is None:
         raise NOT_SIGNED_IN
     verifier: TokenVerifier = request.app.state.verifier
-    email = verifier.email(bearer.credentials)
+    email, groups = verifier.identity(bearer.credentials)
+    if HANDLERS_GROUP not in groups:
+        raise HTTPException(403, "You aren't a claims handler")
     row = (
         db.execute(select(handlers).where(func.lower(handlers.c.email) == email.lower()))
         .mappings()
@@ -159,3 +169,35 @@ def agent_or_handler(
     if is_the_agent(request, key):
         return
     signed_in_handler(request, db, None, bearer)
+
+
+def signed_in_customer(
+    request: Request,
+    db: Database,
+    key: Annotated[str | None, Depends(AGENT_KEY_HEADER)],
+    bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
+) -> Customer:
+    """The customer signed in. Neither the agent's key nor a handler's token stands in."""
+    if key is not None:
+        raise KEY_IS_NOT_A_CUSTOMER
+    if bearer is None:
+        raise NOT_SIGNED_IN
+    verifier: TokenVerifier = request.app.state.verifier
+    email, groups = verifier.identity(bearer.credentials)
+    if CUSTOMERS_GROUP not in groups:
+        raise HTTPException(403, "You aren't signed in as a customer")
+    row = (
+        db.execute(
+            select(customers.c.customer_id, customers.c.name, customers.c.email).where(
+                customers.c.email == email.lower()
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(403, "You aren't a customer")
+    return Customer.model_validate(dict(row))
+
+
+SignedInCustomer = Annotated[Customer, Depends(signed_in_customer)]

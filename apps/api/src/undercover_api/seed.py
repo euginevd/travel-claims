@@ -61,7 +61,15 @@ def seed(db: Connection, data: Path) -> None:
 
     db.execute(
         insert(customers),
-        [{"customer_id": c["customer_id"], "name": c["name"], "record": c} for c in every_customer],
+        [
+            {
+                "customer_id": c["customer_id"],
+                "name": c["name"],
+                "email": str(c["email"]).lower(),
+                "record": c,
+            }
+            for c in every_customer
+        ],
     )
     db.execute(
         insert(policies),
@@ -80,7 +88,8 @@ def seed(db: Connection, data: Path) -> None:
     db.execute(
         insert(claims),
         [
-            {k: c[k] for k in CLAIM_FIELDS} | {"status": Status.WAITING, "attempts": 0}
+            {k: c[k] for k in CLAIM_FIELDS}
+            | {"status": Status.WAITING, "attempts": 0, "source": "seeded"}
             for c in queue
         ],
     )

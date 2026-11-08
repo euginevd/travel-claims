@@ -45,6 +45,7 @@ def own_token(client: TestClient, **changes: Any) -> dict[str, str]:
         "sub": "s",
         "email": DANA,
         "email_verified": True,
+        "cognito:groups": ["handlers"],
         "token_use": "id",
         "iat": now,
         "exp": now + 60,
@@ -76,6 +77,16 @@ def test_a_token_with_one_thing_wrong_is_refused(
     client: TestClient, changes: dict[str, Any]
 ) -> None:
     assert client.get("/api/me", headers=own_token(client, **changes)).status_code == 401
+
+
+@pytest.mark.parametrize("groups", [None, "handlers", ["customers"], []])
+def test_a_token_without_the_handlers_group_is_kept_from_handler_routes(
+    client: TestClient, groups: object
+) -> None:
+    code = client.get(
+        "/api/me", headers=own_token(client, **{"cognito:groups": groups})
+    ).status_code
+    assert code in {401, 403}
 
 
 def test_an_hs256_token_keyed_with_the_public_key_is_refused(client: TestClient) -> None:

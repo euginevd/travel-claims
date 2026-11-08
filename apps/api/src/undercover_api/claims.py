@@ -14,6 +14,7 @@ from undercover_api.db import (
     now,
     payments,
     policies,
+    receipts,
     reference,
     sent_back,
     settings,
@@ -30,6 +31,7 @@ from undercover_api.models import (
     Plans,
     Policy,
     PreviousClaim,
+    Receipt,
     SentBackDecision,
     Status,
     Step,
@@ -101,6 +103,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "decision": find_decision(db, claim_id),
             "payment": find_payment(db, claim_id),
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
+            "receipts": list_receipts(db, claim_id),
         }
     )
 
@@ -213,3 +216,11 @@ def list_steps(db: Connection, claim_id: str) -> list[Step]:
 def add_step(db: Connection, claim_id: str, step: NewStep) -> None:
     """Add one step to a claim's record of work."""
     db.execute(insert(steps).values(claim_id=claim_id, created_at=now(), **step.model_dump()))
+
+
+def list_receipts(db: Connection, claim_id: str) -> list[Receipt]:
+    """A claim's receipts, oldest first."""
+    rows = db.execute(
+        select(receipts).where(receipts.c.claim_id == claim_id).order_by(receipts.c.uploaded_at)
+    ).mappings()
+    return [Receipt.model_validate(dict(r)) for r in rows]

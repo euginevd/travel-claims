@@ -14,6 +14,8 @@ AGENT_KEY = "k" * 64
 PASSWORD = "local-test-password"
 DANA = "dana.whitfield@undercover.example"
 MARCUS = "marcus.oyelaran@undercover.example"
+MAYA = "maya.patel@example.com"  # CUS-3001, policy POL-2001, trip 10-18 June 2026
+OLIVER = "oliver.grant@example.com"
 
 
 def make_settings(url: str, **changes: Any) -> Settings:
@@ -31,8 +33,9 @@ def make_settings(url: str, **changes: Any) -> Settings:
 AGENT = {"X-API-Key": AGENT_KEY}
 
 
-def sign_in(client: TestClient, email: str) -> dict[str, str]:
-    response = client.post("/api/dev/sign-in", json={"email": email, "password": PASSWORD})
+def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:
+    body = {"email": email, "password": PASSWORD, "role": role}
+    response = client.post("/api/dev/sign-in", json=body)
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['id_token']}"}
 
