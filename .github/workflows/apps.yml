@@ -1,17 +1,54 @@
 name: apps
 
-# Each app's checks on every PR and on main. Tools run in pinned container images,
+# Each app's checks on every PR. Tools run in pinned container images,
 # so no third-party action code runs in the pipeline.
+# A PR runs only the jobs its changed files need: a docs-only PR skips them all, and a skipped
+# required check counts as passed. Not rerun on main: the ruleset makes each PR test against the
+# latest main before it merges, so the merged code is what was tested.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
+  # Which apps the PR touches. A file outside the known paths runs every job, and so does a
+  # failure here: the jobs below run unless this job says "false".
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.diff.outputs.python }}
+      dashboard: ${{ steps.diff.outputs.dashboard }}
+      portal: ${{ steps.diff.outputs.portal }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: diff
+        name: Apps changed by this PR
+        run: |
+          # HEAD is the PR merged into main; its first parent is main.
+          files=$(git diff --name-only HEAD^1 HEAD) || { { echo "python=true"; echo "dashboard=true"; echo "portal=true"; } >> "$GITHUB_OUTPUT"; exit 0; }
+          python=false; dashboard=false; portal=false
+          while IFS= read -r f; do
+            case "$f" in
+              "") ;;
+              apps/dashboard/*) dashboard=true ;;
+              apps/portal/*) portal=true ;;
+              apps/* | data/* | *.py | pyproject.toml | uv.lock | .python-version) python=true ;;
+              *.md | docs/* | guides/* | LICENSE | aws/* | .vscode/*) ;;
+              *) python=true; dashboard=true; portal=true ;;
+            esac
+          done <<< "$files"
+          echo "$files"
+          echo "python=$python dashboard=$dashboard portal=$portal"
+          { echo "python=$python"; echo "dashboard=$dashboard"; echo "portal=$portal"; } >> "$GITHUB_OUTPUT"
+
   python:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.python != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie@sha256:9335539f5fb873b1d0b0aa1885dcd2ce3cea8473d9c47c5f24ce2e00fd3a158f
@@ -28,6 +65,8 @@ jobs:
       - run: uv run pytest -q
 
   api-on-postgres:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.python != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie@sha256:9335539f5fb873b1d0b0aa1885dcd2ce3cea8473d9c47c5f24ce2e00fd3a158f
@@ -54,6 +93,8 @@ jobs:
       - run: uv run pytest -q --no-cov apps/api/tests
 
   dashboard:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.dashboard != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
@@ -71,6 +112,8 @@ jobs:
       - run: npm run build
 
   portal:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.portal != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c

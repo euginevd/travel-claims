@@ -82,8 +82,10 @@ travel-claims/
 │   └── api/                  Terraform for stage 2 on AWS (planned)
 ├── .github/workflows/     06 the pipeline, one workflow per concern
 │   ├── aws.yml               plan on the PR, apply after your approval
-│   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL
-│   └── security.yml          Gitleaks, Trivy, Checkov and Semgrep on every PR, main and weekly, with a summary comment and SBOM
+│   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL, for the apps a PR changes
+│   ├── codeql.yml            CodeQL on every PR except docs-only, main and weekly
+│   └── security.yml          Gitleaks, Trivy, Checkov and Semgrep on every PR, main and weekly, with a summary comment and SBOM;
+│                             a PR's Gitleaks and Semgrep cover only what it adds
 │                             (beside it, .github/dependabot.yml: weekly update PRs, week-old releases only;
 │                             .github/pull_request_template.md: every PR's What, Security and Checks)
 ├── lefthook.yml           07 runs the security scan on every push
