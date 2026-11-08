@@ -36,6 +36,22 @@ test("a source chip previews what the agent read", () => {
   expect(previewOf("Policy", [])).toBe("Policy");
 });
 
+test("a specialist's chip previews what it found", () => {
+  const step = (step_id: number, kind: Step["kind"], content: string): Step => ({
+    step_id,
+    kind,
+    content,
+    sources: [],
+    created_at: "2026-11-08T05:00:00Z",
+  });
+  const steps = [
+    step(1, "tool_call", "find_duplicate_receipts {}"),
+    step(2, "tool_result", "Receipt 1: also on CLM-1902 (exact match)."),
+  ];
+  expect(previewOf("Duplicate check", steps)).toBe("Receipt 1: also on CLM-1902 (exact match).");
+  expect(previewOf("Document checker", steps)).toContain("no findings recorded");
+});
+
 test("the banner says what a claim needs, and nothing when it needs nothing", () => {
   expect(needsYou(claim({ status: "waiting_for_sign_off", decision: APPROVAL }))).toMatch(
     /Waiting for your sign-off/,

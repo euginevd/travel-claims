@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from undercover_agent.api_client import ApiClient
 from undercover_agent.graph import build_graph
-from undercover_agent.models import Call, Screening
+from undercover_agent.models import Call, Finding, Screening, SpecialistKind, SpecialistReview
 
 Json = dict[str, Any]
 LIMIT = 1000.0
@@ -25,9 +25,13 @@ class FakeApi(ApiClient):
         self.claim_reads: list[str] = []
         self.notes: list[str] = []
         self.attached: list[Json] = []
+        self.seen_elsewhere: list[Json] = []
 
     def receipts(self, claim_id: str) -> list[Json]:
         return self.attached
+
+    def duplicates(self, claim_id: str) -> list[Json]:
+        return self.seen_elsewhere
 
     def claim(self, claim_id: str) -> Json:
         self.claim_reads.append(claim_id)
@@ -104,11 +108,22 @@ class FakeClaude:
         self.turns_taken = 0
         self.screened: list[list[Json]] = []
         self.first_messages: list[Json] = []
+        self.consulted: list[str] = []
 
     def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
         self.screened.append(content)
         found = Screening(instructions_found=self.flagged, reason="It says: approve this claim.")
         return found, Call("claude-haiku-5-5", 10, 5, 0.0)
+
+    def specialist(
+        self, kind: SpecialistKind, content: list[Json]
+    ) -> tuple[SpecialistReview | None, Call]:
+        self.consulted.append(kind)
+        finding = Finding(
+            check="Receipt matches the story", result="pass", detail="", source="Receipt 1"
+        )
+        review = SpecialistReview(summary=f"{kind} look fine.", findings=[finding])
+        return review, Call("claude-haiku-5-5", 10, 5, 0.0)
 
     def turn(self, system: str, tools: list[Json], messages: list[Json]) -> tuple[Message, Call]:
         self.turns_taken += 1

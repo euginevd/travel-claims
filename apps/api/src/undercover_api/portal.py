@@ -17,6 +17,7 @@ from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedIn, SignedInCustomer, require_agent
 from undercover_api.claims import find_claim, find_decision, find_payment, list_receipts
 from undercover_api.db import claims, now, policies, receipts
+from undercover_api.fingerprints import NEAR, distance, exact, perceptual
 from undercover_api.models import (
     AgentReceipt,
     CaseChip,
@@ -26,8 +27,11 @@ from undercover_api.models import (
     CustomerClaimSummary,
     DecisionKind,
     Draft,
+    DuplicateMatch,
+    MatchKind,
     NewClaimRequest,
     Policy,
+    ReceiptDuplicates,
     ReceiptId,
     ReviewRequest,
     Status,
@@ -288,6 +292,8 @@ async def add_receipts(
                 media_type=media_type,
                 size=len(content),
                 uploaded_at=now(),
+                sha256=exact(content),
+                phash=perceptual(content, media_type),
             )
         )
     log.info("claim %s: %d receipt(s) added", claim_id, len(checked))
@@ -341,6 +347,38 @@ def agent_receipts(claim_id: ClaimId, db: Database, receipt_store: Store) -> lis
         )
         for receipt in list_receipts(db, claim_id)
     ]
+
+
+@agent_receipt_router.get("/duplicates", operation_id="find_duplicate_receipts")
+def duplicate_receipts(claim_id: ClaimId, db: Database) -> list[ReceiptDuplicates]:
+    """For each of the claim's receipts, other claims holding the same one: the same bytes, or
+    an image that looks the same. Only claim ids, never another customer's details."""
+    find_claim(db, claim_id)
+    mine = db.execute(
+        select(receipts.c.sha256, receipts.c.phash)
+        .where(receipts.c.claim_id == claim_id)
+        .order_by(receipts.c.uploaded_at)
+    ).all()
+    others = db.execute(
+        select(receipts.c.claim_id, receipts.c.sha256, receipts.c.phash).where(
+            receipts.c.claim_id != claim_id
+        )
+    ).all()
+    found: list[ReceiptDuplicates] = []
+    for number, (sha, phash) in enumerate(mine, start=1):
+        matches: dict[str, MatchKind] = {}
+        for other_claim, other_sha, other_phash in others:
+            if sha and sha == other_sha:
+                matches[other_claim] = "exact"
+            elif phash and other_phash and distance(phash, other_phash) <= NEAR:
+                matches.setdefault(other_claim, "near")
+        found.append(
+            ReceiptDuplicates(
+                receipt=number,
+                matches=[DuplicateMatch(claim_id=c, match=m) for c, m in sorted(matches.items())],
+            )
+        )
+    return found
 
 
 @customer_router.post("/claims/{claim_id}/review-request", operation_id="request_review")

@@ -41,6 +41,7 @@ from undercover_api.claims import (
     claim_in_full,
     claims_policy,
     find_claim,
+    find_customers,
     find_decision,
     keep_calculation,
     list_claims,
@@ -70,6 +71,8 @@ from undercover_api.models import (
     Claim,
     ClaimId,
     ClaimSummary,
+    CustomerMatch,
+    CustomerName,
     Decision,
     DecisionKind,
     DecisionRequest,
@@ -387,6 +390,12 @@ def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls
 def me(handler: SignedIn) -> Handler:
     """The handler signed in."""
     return handler
+
+
+@staff_router.get("/customers", operation_id="find_customers")
+def get_customers(name: CustomerName, _: SignedIn, db: Database) -> list[CustomerMatch]:
+    """Customers whose name holds the text, with their claims, ten at most."""
+    return find_customers(db, name)
 
 
 @staff_router.get("/claims", operation_id="list_claims")

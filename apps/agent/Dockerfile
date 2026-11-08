@@ -6,6 +6,7 @@ COPY pyproject.toml uv.lock ./
 COPY apps/api/pyproject.toml apps/api/
 COPY apps/agent/pyproject.toml apps/agent/
 COPY apps/context/pyproject.toml apps/context/
+COPY apps/copilot/pyproject.toml apps/copilot/
 RUN uv sync --frozen --no-dev --package undercover-agent --no-install-workspace
 COPY apps/agent apps/agent
 RUN uv sync --frozen --no-dev --package undercover-agent --no-editable

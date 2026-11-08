@@ -1,4 +1,4 @@
-import { LogOut, Search, type LucideIcon } from "lucide-react";
+import { LogOut, Search, Sparkle, type LucideIcon } from "lucide-react";
 import { Logo } from "./Logo";
 
 export interface NavLink {
@@ -14,11 +14,12 @@ interface HeaderProps {
   links: NavLink[];
   onSignOut: () => void;
   onSearch?: () => void;
+  onCopilot?: () => void;
 }
 
 // The header band: logo, navigation, who is signed in and sign-out. It wraps rather than
 // clipping, so nothing falls off the edge at any width.
-export function Header({ name, detail, home, links, onSignOut, onSearch }: HeaderProps) {
+export function Header({ name, detail, home, links, onSignOut, onSearch, onCopilot }: HeaderProps) {
   return (
     <header className="header">
       <a className="brand" href={home} aria-label="UnderCover Claims, home">
@@ -41,6 +42,12 @@ export function Header({ name, detail, home, links, onSignOut, onSearch }: Heade
           <Search size={16} strokeWidth={2} aria-hidden="true" />
           Search
           <kbd>Ctrl K</kbd>
+        </button>
+      )}
+      {onCopilot && (
+        <button type="button" className="search-button" onClick={onCopilot}>
+          <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+          Copilot
         </button>
       )}
       <div className="who">

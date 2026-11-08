@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     screening_model: str = "claude-haiku-5-5"
     screening_effort: str = "low"
     screening_max_tokens: int = 2_000
+    specialist_model: str = "claude-haiku-5-5"
+    specialist_max_tokens: int = 3_000
     drafting_model: str = "claude-haiku-5-5"
     drafting_max_tokens: int = 2_000
     model_timeout_seconds: float = 60.0

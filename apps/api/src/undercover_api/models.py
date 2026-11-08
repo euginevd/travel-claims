@@ -188,6 +188,25 @@ class ClaimSummary(BaseModel):
     review_requested: bool
 
 
+# A name to look customers up by: a few letters, no more than a full name.
+CustomerName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=2, max_length=100)
+]
+
+
+class ClaimRef(BaseModel):
+    claim_id: str
+    status: Status
+
+
+class CustomerMatch(BaseModel):
+    """A customer found by name, with their claims, for a handler."""
+
+    customer_id: str
+    name: str
+    claims: list[ClaimRef]
+
+
 class Claim(BaseModel):
     claim_id: str
     policy_id: str
@@ -479,6 +498,22 @@ ItemCategory = Literal[
 ]
 # Every receipt id in a path: 32 hex characters, checked before anything reads the database.
 ReceiptId = Annotated[str, Path(pattern=r"^[0-9a-f]{32}$")]
+
+
+MatchKind = Literal["exact", "near"]
+
+
+class DuplicateMatch(BaseModel):
+    claim_id: str
+    match: MatchKind
+
+
+class ReceiptDuplicates(BaseModel):
+    """Other claims holding the same receipt as one of this claim's, numbered as the agent
+    reads them."""
+
+    receipt: int
+    matches: list[DuplicateMatch]
 
 
 class AgentReceipt(BaseModel):

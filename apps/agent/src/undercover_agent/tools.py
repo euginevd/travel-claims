@@ -6,6 +6,7 @@ customer, so it can't reach another customer's records.
 
 import asyncio
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -147,8 +148,28 @@ CONTEXT_TOOLS = [
     ),
 ]
 
-TOOLS = APP_TOOLS + CONTEXT_TOOLS
+SPECIALIST_TOOLS = [
+    tool(
+        "check_documents",
+        "Ask the document checker whether the receipts match the story, the items, the amounts "
+        "and the trip's dates. Its findings are evidence to weigh; cite them as "
+        '"Document checker".',
+    ),
+    tool(
+        "find_duplicate_receipts",
+        "Check whether any of this claim's receipts also appears on another claim. Cite the "
+        'result as "Duplicate check".',
+    ),
+    tool(
+        "review_medical",
+        "For a medical claim, ask the medical reviewer whether the treatment and costs look "
+        'necessary and reasonable and what is missing. Cite it as "Medical reviewer".',
+    ),
+]
+
+TOOLS = APP_TOOLS + SPECIALIST_TOOLS + CONTEXT_TOOLS
 CONTEXT_NAMES = {t["name"] for t in CONTEXT_TOOLS}
+SPECIALISTS = {"check_documents": "documents", "review_medical": "medical"}
 
 
 @dataclass
@@ -207,11 +228,37 @@ def claim_as_read(claim: Json) -> Json:
     return {key: claim[key] for key in keep if key in claim}
 
 
-def run_tool(  # noqa: PLR0911 - one return per tool
-    api: ApiClient, context: Context, claim_id: str, name: str, args: Json
+def duplicates_text(found: list[Json]) -> str:
+    """The duplicate check's answer in a line per receipt."""
+    if not found:
+        return "The claim has no receipts to check."
+    lines: list[str] = []
+    for entry in found:
+        matches = cast(list[Json], entry.get("matches") or [])
+        if not matches:
+            lines.append(f"Receipt {entry['receipt']}: not seen on any other claim.")
+            continue
+        seen = ", ".join(f"{m['claim_id']} ({m['match']} match)" for m in matches)
+        lines.append(f"Receipt {entry['receipt']}: also on {seen}.")
+    return "\n".join(lines)
+
+
+def run_tool(  # noqa: C901, PLR0911, PLR0913, PLR0917 - one return per tool
+    api: ApiClient,
+    context: Context,
+    claim_id: str,
+    name: str,
+    args: Json,
+    consult: Callable[[str], Result] | None = None,
 ) -> Result:
     """Run one tool call on the claim, turning a refusal into an error the model can read."""
     try:
+        if name in SPECIALISTS:
+            if consult is None:
+                return Result("The specialists aren't available", is_error=True)
+            return consult(SPECIALISTS[name])
+        if name == "find_duplicate_receipts":
+            return Result(duplicates_text(api.duplicates(claim_id)))
         if name in CONTEXT_NAMES:
             answer, failed = context.call(name, args)
             sources = cast(list[Json], answer.get("sources") or [])

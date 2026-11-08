@@ -56,6 +56,18 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
+  # The handlers' Copilot: it holds no api key and acts with each handler's own sign-in.
+  copilot:
+    build: { context: ., dockerfile: apps/copilot/Dockerfile }
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:?set it in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set it in .env}
+      ANTHROPIC_WORKSPACE_ID: ${ANTHROPIC_WORKSPACE_ID:?set it in .env}
+      UNDERCOVER_API: http://api:8000
+      CHECKPOINT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      api: { condition: service_healthy }
+
   # Customers and staff use separate web apps; each web server forwards only its own api prefix.
   portal:
     build:
@@ -76,6 +88,7 @@ services:
         VITE_LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
     depends_on:
       api: { condition: service_healthy }
+      copilot: { condition: service_healthy }
     ports:
       - "127.0.0.1:5174:8080"
 

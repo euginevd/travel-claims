@@ -85,6 +85,9 @@ receipts = Table(
     Column("media_type", String(50), nullable=False),
     Column("size", Integer, nullable=False),
     Column("uploaded_at", String(32), nullable=False),
+    # Fingerprints for the duplicate check: the bytes' SHA-256, and an image's perceptual hash.
+    Column("sha256", String(64), index=True),
+    Column("phash", String(16)),
 )
 
 # The current decision on a claim, one at most. A decision sent back moves to sent_back.

@@ -4,7 +4,7 @@ two requests racing for the same claim can't both win."""
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import Connection, RowMapping, delete, insert, select, update
+from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
 
 from undercover_api.db import (
     calculations,
@@ -23,7 +23,9 @@ from undercover_api.db import (
 from undercover_api.models import (
     Calculation,
     Claim,
+    ClaimRef,
     ClaimSummary,
+    CustomerMatch,
     Decision,
     NewStep,
     Payment,
@@ -136,6 +138,32 @@ def stages(
         decided=decision.decided_at if decision else None,
         paid=payment.paid_at if payment else None,
     )
+
+
+def find_customers(db: Connection, name: str, limit: int = 10) -> list[CustomerMatch]:
+    """Customers whose name holds the text, in any case, with their claims."""
+    pattern = f"%{name.strip().lower()}%"
+    found = db.execute(
+        select(customers.c.customer_id, customers.c.name)
+        .where(func.lower(customers.c.name).like(pattern))
+        .order_by(customers.c.name)
+        .limit(limit)
+    ).all()
+    matches: list[CustomerMatch] = []
+    for customer_id, customer_name in found:
+        rows = db.execute(
+            select(claims.c.claim_id, claims.c.status)
+            .where(claims.c.customer_id == customer_id)
+            .order_by(claims.c.claim_id)
+        ).all()
+        matches.append(
+            CustomerMatch(
+                customer_id=customer_id,
+                name=customer_name,
+                claims=[ClaimRef(claim_id=c, status=s) for c, s in rows],
+            )
+        )
+    return matches
 
 
 def list_claims(db: Connection) -> list[ClaimSummary]:
