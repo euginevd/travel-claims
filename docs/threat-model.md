@@ -34,6 +34,7 @@ flowchart LR
   agent -- "TB2: decision, schema-checked, agent key" --> api
   agent -- "lookups over MCP" --> context
   agent -- "TB3: claim as data, made-up only" --> anthropic
+  api -- "TB4: draft request, agent key" --> agent
   classDef boundary fill:none,stroke:#d33,stroke-width:2px,stroke-dasharray:6 4
   class browser,laptop,agentzone,third boundary
 ```
@@ -55,6 +56,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 - **TB1b** Staff to the dashboard: handlers sign in through a separate staff issuer, with its own signing key and audience (a separate Cognito user pool in stage 2, reachable only from allowed networks). The dashboard's web server forwards only `/api/staff/`.
 - **TB2** Agent and `api`: model output is untrusted; the `api` checks every decision against claims manual section 14 and the payout calculation before it can drive a payment.
 - **TB3** App to Claude: claim text leaves the laptop. Stage 1 sends only made-up data (spec 41); stage 2 keeps it in Australia.
+- **TB4** The drafting assistant: a customer's words and receipts go to Claude Haiku through the agent service, and its draft comes back to the customer's browser. The draft is untrusted model output: the `api` validates it, the customer confirms or fixes every field, it is never submitted for them, and the claim agent reads the customer's own words as the record (spec 30).
 
 ## Top risks
 
@@ -78,6 +80,9 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R14 | A customer reaches another customer's claim, policy or receipt, or a customer token reaches handler routes | I, E | A01, API1, API5 | High | Separate apps and issuers for staff and customers (decision 10): `/api/staff/*` verifies only the staff issuer's key and audience, so a customer token fails the signature before any role check; each web server forwards only its own prefix; the Cognito group is checked too; every customer query filters on the signed-in customer; abuse-case tests on every route both ways (spec 42) | Code, Test, Deploy |
 | R15 | A malicious receipt file attacks the app or a handler's browser | T, E | A03, A08 | Medium | Type from magic bytes (JPEG, PNG, PDF only), 5 MB and five-file limits, random stored names, downloads as attachments with `nosniff`, never on a public URL (spec 42) | Code, Test |
 | R16 | Instructions hidden in a receipt make the agent approve or pay | T, E | LLM01, ASI01 | High | The hidden-instruction check reads every receipt before the claim agent; receipts delimited as customer-supplied data; limits in code (spec 29, 34) | Code, Test |
+| R17 | The drafting assistant inflates amounts or slips instructions into the claim | T | LLM01, LLM05, LLM09 | Medium | The draft is validated against a schema with amount limits, tagged by source, highlighted where unsure and confirmed by the customer; the claim agent reads the customer's own words; the hidden-instruction check still screens the submitted claim and receipts; the payout is worked out in code from the policy | Code, Test |
+| R18 | A customer runs up model costs through the drafting assistant | D | LLM10, API4 | Low | Ten drafts an hour per customer, a token cap per draft, the workspace spend limit | Code, Operate |
+| R19 | A senior handler's override pays without a record of why | R | A09 | Medium | Override needs a reason code and note; the record keeps the agent's decision, who overrode it and when; nothing already paid can change | Code, Test |
 
 ## Compliance
 
