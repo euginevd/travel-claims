@@ -29,7 +29,7 @@ UnderCover's payout rules are built into `calculate_payout`. Which lines of the 
 
 ## When you are done
 
-- You have recorded one decision with `record_decision`. An approval's payout is the one `calculate_payout` worked out for the lines you judged covered. For a referral, the reason says what is needed and who should look at it.
+- You have recorded one decision with `record_decision`. An approval's payout is the one `calculate_payout` worked out for the lines you judged covered. For a referral, the reason says what is needed and who should look at it. When the customer can supply what's missing (a police report, a receipt, a proof of value), also list each item in `customer_requests`, addressed to the customer; they see these on their claim and upload each one.
 - The decision carries a checklist a handler reads at a glance: three to eight short lines of what you verified (policy active on the date, incident within the trip, the cover that applies, receipts matching the items, limits and deductible, earlier claims), each pass, warn or fail with the source it relied on. Put warnings and failures first.
 - Recording the decision is the last thing you do, so its reason carries your explanation in two or three plain sentences, naming the sections relied on. The system pays an approved claim, after a handler's sign-off when the payout is over the approval limit.
 - If a senior handler sends your decision back with a note, read the note as a senior handler's review, check it against the wording and the manual like everything else, and decide again. Refer the claim when the wording doesn't support the note.

@@ -101,7 +101,12 @@ test("a decided claim shows the calculation line by line and the payment", async
       claim({
         status: "decided",
         decision: APPROVAL,
-        payment: { amount: 1250, paid_at: "2026-11-08T06:00:00Z", signed_off_by: "Dana Whitfield" },
+        payment: {
+          amount: 1250,
+          paid_at: "2026-11-08T06:00:00Z",
+          signed_off_by: "Dana Whitfield",
+          paid_to: null,
+        },
       }),
     ),
   );
@@ -149,7 +154,12 @@ test("a senior handler signs off a held payout", async () => {
   const paid = claim({
     status: "decided",
     decision: APPROVAL,
-    payment: { amount: 1250, paid_at: "2026-11-08T06:00:00Z", signed_off_by: "Dana Whitfield" },
+    payment: {
+      amount: 1250,
+      paid_at: "2026-11-08T06:00:00Z",
+      signed_off_by: "Dana Whitfield",
+      paid_to: null,
+    },
   });
   const fetchFn = show({
     [`GET ${BASE}`]: () => [200, signedOff ? paid : held],

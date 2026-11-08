@@ -30,6 +30,8 @@ customers = Table(
     # The email a customer signs in with, lower-cased.
     Column("email", String(320), unique=True),
     Column("record", JSON, nullable=False),
+    # Where the customer's payouts go: a PayID (an email, a mobile number or an ABN).
+    Column("payid", String(320)),
 )
 
 policies = Table(
@@ -160,6 +162,8 @@ receipts = Table(
     # Fingerprints for the duplicate check: the bytes' SHA-256, and an image's perceptual hash.
     Column("sha256", String(64), index=True),
     Column("phash", String(16)),
+    # The request it answers, when the customer sent it for something we asked for.
+    Column("request_id", Integer),
 )
 
 # The current decision on a claim, one at most. A decision sent back moves to sent_back.
@@ -207,6 +211,47 @@ payments = Table(
     Column("paid_at", String(32), nullable=False),
     Column("signed_off_by", String(200)),
     Column("signed_off_by_id", String(20)),
+    # Where it was sent, masked: "PayID o***@example.com", or None before PayIDs.
+    Column("paid_to", String(200)),
+)
+
+# What we asked a customer for on a claim, in words for them, and when they sent it.
+customer_requests = Table(
+    "customer_requests",
+    metadata,
+    Column("request_id", Integer, primary_key=True, autoincrement=True),
+    Column("claim_id", String(20), ForeignKey("claims.claim_id"), nullable=False, index=True),
+    Column("text", String(300), nullable=False),
+    Column("asked_by", String(200), nullable=False),
+    Column("asked_at", String(32), nullable=False),
+    Column("fulfilled_at", String(32)),
+)
+
+# The messages we send a customer, by email or text. Locally this is the outbox itself; in the
+# cloud a sender delivers each one.
+notices = Table(
+    "notices",
+    metadata,
+    Column("notice_id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "customer_id", String(20), ForeignKey("customers.customer_id"), nullable=False, index=True
+    ),
+    Column("claim_id", String(20), ForeignKey("claims.claim_id")),
+    Column("channel", String(10), nullable=False),
+    Column("subject", String(200), nullable=False),
+    Column("body", Text, nullable=False),
+    # The customer-facing status it announced, so a status is announced once.
+    Column("status", String(30)),
+    Column("sent_at", String(32), nullable=False),
+)
+
+# A customer's claim in progress, saved so they can finish it later: one at a time.
+claim_drafts = Table(
+    "claim_drafts",
+    metadata,
+    Column("customer_id", String(20), ForeignKey("customers.customer_id"), primary_key=True),
+    Column("data", JSON, nullable=False),
+    Column("updated_at", String(32), nullable=False),
 )
 
 # A claim's latest payout calculation, on the thread of the attempt it was made in.

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from sqlalchemy import Connection, Engine, delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
+from undercover_api.account import account_router
 from undercover_api.agent_service import (
     AgentRefusedError,
     AgentService,
@@ -34,6 +35,7 @@ from undercover_api.auth import (
     require_agent,
 )
 from undercover_api.claims import (
+    add_requests,
     add_step,
     approval_limit,
     attempts_calculation,
@@ -77,6 +79,7 @@ from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
     SCREENING_MAKER,
+    AskRequest,
     Claim,
     ClaimId,
     ClaimSummary,
@@ -259,6 +262,13 @@ def record_decision(
             .where(decisions.c.claim_id == claim_id)
             .values(hold_reason=PAUSED_REASON)
         )
+    if (
+        request.decision == DecisionKind.REFER
+        and request.maker == "claim_agent"
+        and claim["source"] != EVALUATION
+    ):
+        # Only the claim agent asks the customer; the hidden-instruction check never does.
+        add_requests(db, claim_id, request.customer_requests, str(record["decided_by"]))
     return claim_in_full(db, claim_id)
 
 
@@ -567,6 +577,16 @@ def override_decision(
     return claim_in_full(db, claim_id)
 
 
+@staff_router.post("/claims/{claim_id}/requests", operation_id="ask_customer", status_code=201)
+def ask_customer(claim_id: ClaimId, request: AskRequest, handler: SignedIn, db: Database) -> Claim:
+    """Ask the claim's customer for a document or a detail, as the handler signed in."""
+    claim = find_claim(db, claim_id)
+    if claim["source"] == EVALUATION:
+        raise HTTPException(409, f"Claim {claim_id} is an evaluation's copy")
+    add_requests(db, claim_id, [request.text], handler.name)
+    return claim_in_full(db, claim_id)
+
+
 @staff_router.get("/payouts", operation_id="get_payout_switch")
 def get_payout_switch(_: SignedIn, db: Database) -> PayoutSwitch:
     """Whether payouts are paused, and who last changed it, when and why."""
@@ -749,6 +769,7 @@ def create_app(
         staff_router,
         receipt_router,
         customer_router,
+        account_router,
         *EVALUATION_ROUTERS,
         redteam_router,
     ):

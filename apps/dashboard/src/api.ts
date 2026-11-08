@@ -151,7 +151,12 @@ export const ClaimSchema = z.object({
   approval_limit: z.number(),
   decision: DecisionSchema.nullable(),
   payment: z
-    .object({ amount: z.number(), paid_at: z.string(), signed_off_by: z.string().nullable() })
+    .object({
+      amount: z.number(),
+      paid_at: z.string(),
+      signed_off_by: z.string().nullable(),
+      paid_to: z.string().nullable(),
+    })
     .nullable(),
   sent_back_decisions: z.array(
     z.object({
@@ -165,6 +170,16 @@ export const ClaimSchema = z.object({
   stages: StagesSchema,
   review_requested_at: z.string().nullable(),
   review_note: z.string().nullable(),
+  requests: z.array(
+    z.object({
+      request_id: z.number(),
+      text: z.string(),
+      asked_by: z.string(),
+      asked_at: z.string(),
+      fulfilled_at: z.string().nullable(),
+      files: z.number(),
+    }),
+  ),
 });
 
 export const StepSchema = z.object({
@@ -370,6 +385,7 @@ export interface Api {
   workClaim: (claimId: string) => Promise<Claim>;
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
+  askCustomer: (claimId: string, text: string) => Promise<Claim>;
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
   getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
@@ -475,6 +491,8 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
+    askCustomer: (claimId, text) =>
+      call(ClaimSchema, "POST", `${claimPath(claimId)}/requests`, { body: { text } }),
     receipt: async (claimId, receiptId) => {
       const path = `${claimPath(claimId)}/receipts/${encodeURIComponent(receiptId)}`;
       const response = await send("GET", path, {}, "*/*");

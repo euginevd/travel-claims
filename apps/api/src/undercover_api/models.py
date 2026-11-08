@@ -154,6 +154,22 @@ class Payment(BaseModel):
     amount: float
     paid_at: str
     signed_off_by: str | None
+    paid_to: str | None = None
+
+
+# Something we ask a customer for: a document or a detail, in words written for them.
+RequestText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
+
+
+class CustomerRequest(BaseModel):
+    """Something we asked the customer for on a claim, and whether they've sent it."""
+
+    request_id: int
+    text: str
+    asked_by: str
+    asked_at: str
+    fulfilled_at: str | None
+    files: int
 
 
 class SentBackDecision(BaseModel):
@@ -233,6 +249,7 @@ class Claim(BaseModel):
     stages: Stages
     review_requested_at: str | None
     review_note: str | None
+    requests: list[CustomerRequest] = Field(default_factory=list[CustomerRequest])
     evaluation: bool = Field(
         default=False, description="An evaluation's copy: never paid and never remembered"
     )
@@ -445,6 +462,11 @@ class DecisionRequest(Strict):
         description="Which part of the agent decided; the api names it on the record"
     )
     checklist: list[Check] = Field(default_factory=list[Check], max_length=20)
+    customer_requests: list[RequestText] = Field(
+        default_factory=list[RequestText],
+        max_length=20,
+        description="For a referral: what we need from the customer, in plain words for them",
+    )
 
 
 class PaymentRequest(Strict):
@@ -599,6 +621,7 @@ class CustomerClaimSummary(BaseModel):
     submitted_on: str
     status: str
     status_text: str
+    open_requests: int = 0
 
 
 class CustomerClaim(CustomerClaimSummary):
@@ -612,7 +635,9 @@ class CustomerClaim(CustomerClaimSummary):
     reason: str | None
     paid: float | None
     paid_at: str | None
+    paid_to: str | None
     receipts: list[Receipt]
+    requests: list[CustomerRequest]
     can_add_receipts: bool
     review_requested: bool
     can_request_review: bool
@@ -659,3 +684,77 @@ class Draft(BaseModel):
     low_confidence_fields: list[Annotated[str, StringConstraints(max_length=50)]] = Field(
         max_length=20
     )
+
+
+class AskRequest(Strict):
+    """A handler asking the customer for something on their claim."""
+
+    text: RequestText
+
+
+# A PayID: an email, an Australian mobile number or an 11-digit ABN.
+PAYID_PATTERN = r"^([^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}|(04\d{8}|\+614\d{8})|\d{11})$"
+
+
+class PayIdRequest(Strict):
+    payid: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, max_length=320, pattern=PAYID_PATTERN),
+    ] = Field(description="An email, an Australian mobile number (04...) or an 11-digit ABN")
+
+
+class PayId(BaseModel):
+    """Where the customer's payouts go, mostly hidden."""
+
+    payid: str | None
+
+
+class Notice(BaseModel):
+    """A message we sent the customer, by email or text."""
+
+    notice_id: int
+    claim_id: str | None
+    channel: str
+    subject: str
+    body: str
+    sent_at: str
+
+
+class DelayOffer(BaseModel):
+    """A flight on the customer's trip that the flight-status feed shows was delayed long enough
+    for the plan's delay cover, with no claim for it yet."""
+
+    flight_id: str
+    policy_id: str
+    flight: str
+    route: str
+    date: str
+    delay_minutes: int
+    waiting_hours: int
+    estimate: float
+
+
+class DraftLine(Strict):
+    description: Annotated[str, StringConstraints(max_length=200)]
+    category: Annotated[str, StringConstraints(max_length=30)]
+    amount: Annotated[str, StringConstraints(max_length=20)]
+
+
+class ClaimDraft(Strict):
+    """A claim the customer has started and not sent yet: what they've filled in so far."""
+
+    policy_id: Annotated[str, StringConstraints(max_length=20)] = ""
+    case: CaseChip = ""
+    text: Annotated[str, StringConstraints(max_length=1000)] = ""
+    claim_type: Annotated[str, StringConstraints(max_length=30)] = ""
+    summary: Annotated[str, StringConstraints(max_length=200)] = ""
+    story: Annotated[str, StringConstraints(max_length=4000)] = ""
+    incident_date: Annotated[str, StringConstraints(max_length=10)] = ""
+    incident_location: Annotated[str, StringConstraints(max_length=200)] = ""
+    items: list[DraftLine] = Field(default_factory=list[DraftLine], max_length=20)
+    step: Literal["what", "receipts", "check"] = "what"
+
+
+class SavedDraft(BaseModel):
+    draft: ClaimDraft
+    updated_at: str

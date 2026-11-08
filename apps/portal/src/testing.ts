@@ -31,6 +31,7 @@ export const MY_SUMMARY: CustomerClaimSummary = {
   submitted_on: "2026-06-24",
   status: "received",
   status_text: "Received. We'll start looking at it shortly.",
+  open_requests: 0,
 };
 
 export function myClaim(overrides: Partial<CustomerClaim> = {}): CustomerClaim {
@@ -44,7 +45,9 @@ export function myClaim(overrides: Partial<CustomerClaim> = {}): CustomerClaim {
     reason: null,
     paid: null,
     paid_at: null,
+    paid_to: null,
     receipts: [],
+    requests: [],
     can_add_receipts: true,
     review_requested: false,
     can_request_review: false,
@@ -71,6 +74,7 @@ export function fakeFetch(routes: Routes): FakeFetch {
     calls.push({ method, path: input, body, auth: headers.get("Authorization") });
     const route = routes[`${method} ${input}`];
     const [status, answer] = route ? route(body) : [404, { detail: "Not found" }];
+    if (status === 204) return Promise.resolve(new Response(null, { status }));
     return Promise.resolve(
       new Response(JSON.stringify(answer), {
         status,

@@ -1,6 +1,7 @@
 import { FilePlus2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, CustomerClaimSummary } from "../api";
+import { DelayOffers, PayoutCard, ResumeDraft } from "../components/AccountCards";
 import { ClaimTracker } from "../components/ClaimTracker";
 import { ClaimTypeIcon } from "../components/ClaimTypeIcon";
 import { CustomerStatusChip, STATUS_LINE } from "../components/StatusChip";
@@ -71,6 +72,8 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           </button>
         </p>
       )}
+      <ResumeDraft api={api} />
+      <DelayOffers api={api} />
       {!claims && !error && (
         <div aria-hidden="true">
           {[0, 1, 2].map((key) => (
@@ -116,10 +119,21 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
                         <span className="claim-amount-label">claimed</span>
                       </p>
                     </div>
-                    <p className="claim-card-line">
-                      <span className="status-dot" aria-hidden="true" />
-                      {STATUS_LINE[claim.status]}
-                    </p>
+                    {claim.open_requests > 0 ? (
+                      <p className="claim-card-line needs-line">
+                        <span className="status-dot" aria-hidden="true" />
+                        We need{" "}
+                        {claim.open_requests === 1
+                          ? "one thing"
+                          : `${String(claim.open_requests)} things`}{" "}
+                        from you to finish this claim.
+                      </p>
+                    ) : (
+                      <p className="claim-card-line">
+                        <span className="status-dot" aria-hidden="true" />
+                        {STATUS_LINE[claim.status]}
+                      </p>
+                    )}
                     <ClaimTracker status={claim.status} mini />
                   </li>
                 ))}
@@ -157,6 +171,7 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           )}
         </>
       )}
+      <PayoutCard api={api} />
     </section>
   );
 }

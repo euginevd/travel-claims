@@ -46,6 +46,15 @@ export const ReceiptSchema = z.object({
   uploaded_at: z.string(),
 });
 
+export const CustomerRequestSchema = z.object({
+  request_id: z.number(),
+  text: z.string(),
+  asked_by: z.string(),
+  asked_at: z.string(),
+  fulfilled_at: z.string().nullable(),
+  files: z.number(),
+});
+
 const ItemSchema = z.object({ description: z.string(), category: z.string(), amount: z.number() });
 
 export const CustomerClaimSummarySchema = z.object({
@@ -57,6 +66,7 @@ export const CustomerClaimSummarySchema = z.object({
   submitted_on: z.string(),
   status: CustomerStatusSchema,
   status_text: z.string(),
+  open_requests: z.number(),
 });
 
 export const CustomerClaimSchema = CustomerClaimSummarySchema.extend({
@@ -68,7 +78,9 @@ export const CustomerClaimSchema = CustomerClaimSummarySchema.extend({
   reason: z.string().nullable(),
   paid: z.number().nullable(),
   paid_at: z.string().nullable(),
+  paid_to: z.string().nullable(),
   receipts: z.array(ReceiptSchema),
+  requests: z.array(CustomerRequestSchema),
   can_add_receipts: z.boolean(),
   review_requested: z.boolean(),
   can_request_review: z.boolean(),
@@ -92,6 +104,43 @@ export const DraftSchema = z.object({
   low_confidence_fields: z.array(z.string()),
 });
 
+export const NoticeSchema = z.object({
+  notice_id: z.number(),
+  claim_id: z.string().nullable(),
+  channel: z.enum(["email", "sms"]),
+  subject: z.string(),
+  body: z.string(),
+  sent_at: z.string(),
+});
+
+export const PayIdSchema = z.object({ payid: z.string().nullable() });
+
+export const DelayOfferSchema = z.object({
+  flight_id: z.string(),
+  policy_id: z.string(),
+  flight: z.string(),
+  route: z.string(),
+  date: z.string(),
+  delay_minutes: z.number(),
+  waiting_hours: z.number(),
+  estimate: z.number(),
+});
+
+export const ClaimDraftSchema = z.object({
+  policy_id: z.string(),
+  case: z.string(),
+  text: z.string(),
+  claim_type: z.string(),
+  summary: z.string(),
+  story: z.string(),
+  incident_date: z.string(),
+  incident_location: z.string(),
+  items: z.array(z.object({ description: z.string(), category: z.string(), amount: z.string() })),
+  step: z.enum(["what", "receipts", "check"]),
+});
+
+export const SavedDraftSchema = z.object({ draft: ClaimDraftSchema, updated_at: z.string() });
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export type DecisionKind = z.infer<typeof DecisionKindSchema>;
@@ -103,6 +152,11 @@ export type Item = z.infer<typeof ItemSchema>;
 export type CustomerClaimSummary = z.infer<typeof CustomerClaimSummarySchema>;
 export type CustomerClaim = z.infer<typeof CustomerClaimSchema>;
 export type Draft = z.infer<typeof DraftSchema>;
+export type CustomerRequest = z.infer<typeof CustomerRequestSchema>;
+export type Notice = z.infer<typeof NoticeSchema>;
+export type DelayOffer = z.infer<typeof DelayOfferSchema>;
+export type ClaimDraft = z.infer<typeof ClaimDraftSchema>;
+export type SavedDraft = z.infer<typeof SavedDraftSchema>;
 
 export const caseChips = [
   "lost_bag",
@@ -146,6 +200,15 @@ export interface Api {
   addReceipts: (claimId: string, files: File[]) => Promise<CustomerClaim>;
   draft: (policyId: string, text: string, chip: CaseChip | "", files: File[]) => Promise<Draft>;
   requestReview: (claimId: string, note: string) => Promise<CustomerClaim>;
+  answerRequest: (claimId: string, requestId: number, files: File[]) => Promise<CustomerClaim>;
+  myNotices: () => Promise<Notice[]>;
+  myPayId: () => Promise<string | null>;
+  setPayId: (payid: string) => Promise<string | null>;
+  myDelays: () => Promise<DelayOffer[]>;
+  claimDelay: (flightId: string) => Promise<CustomerClaim>;
+  myDraft: () => Promise<SavedDraft | null>;
+  saveDraft: (draft: ClaimDraft) => Promise<SavedDraft>;
+  discardDraft: () => Promise<void>;
   testSignIn: () => Promise<string>;
 }
 
@@ -181,7 +244,7 @@ async function errorFrom(response: Response): Promise<ApiError> {
 export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
   async function call<T>(
     schema: z.ZodType<T>,
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT" | "DELETE",
     path: string,
     options: { body?: unknown; form?: FormData } = {},
   ): Promise<T> {
@@ -194,6 +257,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body));
     const response = await fetchFn(`/api/customer${path}`, { method, headers, body });
     if (!response.ok) throw await errorFrom(response);
+    if (response.status === 204) return schema.parse(undefined);
     const parsed = schema.safeParse(await response.json());
     if (!parsed.success) throw new ApiError(BAD_RESPONSE, SHAPE_ERROR);
     return parsed.data;
@@ -236,5 +300,25 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       call(CustomerClaimSchema, "POST", `${claimPath(claimId)}/review-request`, {
         body: { note },
       }),
+    answerRequest: (claimId, requestId, files) => {
+      const form = new FormData();
+      for (const file of files) form.append("files", file);
+      return call(
+        CustomerClaimSchema,
+        "POST",
+        `${claimPath(claimId)}/requests/${String(requestId)}/files`,
+        { form },
+      );
+    },
+    myNotices: () => call(z.array(NoticeSchema), "GET", "/notices"),
+    myPayId: async () => (await call(PayIdSchema, "GET", "/payid")).payid,
+    setPayId: async (payid) =>
+      (await call(PayIdSchema, "PUT", "/payid", { body: { payid } })).payid,
+    myDelays: () => call(z.array(DelayOfferSchema), "GET", "/delays"),
+    claimDelay: (flightId) =>
+      call(CustomerClaimSchema, "POST", `/delays/${encodeURIComponent(flightId)}/claim`),
+    myDraft: () => call(SavedDraftSchema.nullable(), "GET", "/draft"),
+    saveDraft: (draft) => call(SavedDraftSchema, "PUT", "/draft", { body: draft }),
+    discardDraft: () => call(z.undefined(), "DELETE", "/draft"),
   };
 }

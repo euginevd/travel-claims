@@ -1,4 +1,4 @@
-import { FilePlus2, Inbox } from "lucide-react";
+import { Bell, FilePlus2, Inbox } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Customer } from "./api";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -7,8 +7,15 @@ import { MyClaimPage } from "./pages/MyClaimPage";
 import { MyClaimsPage } from "./pages/MyClaimsPage";
 import { NewClaimPage } from "./pages/NewClaimPage";
 import { SignInPage } from "./pages/SignInPage";
+import { UpdatesPage } from "./pages/UpdatesPage";
 import { loadToken, saveToken } from "./session";
-import { MY_CLAIMS_HREF, NEW_CLAIM_HREF, useHashRoute, type Route } from "./useHashRoute";
+import {
+  MY_CLAIMS_HREF,
+  NEW_CLAIM_HREF,
+  UPDATES_HREF,
+  useHashRoute,
+  type Route,
+} from "./useHashRoute";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -121,6 +128,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         links={[
           { href: MY_CLAIMS_HREF, label: "My claims", Icon: Inbox },
           { href: NEW_CLAIM_HREF, label: "Make a claim", Icon: FilePlus2 },
+          { href: UPDATES_HREF, label: "Updates", Icon: Bell },
         ]}
         onSignOut={signOut}
       />
@@ -141,5 +149,6 @@ function page(route: Route, api: Api, name: string) {
     return <MyClaimPage key={route.claimId} api={api} claimId={route.claimId} />;
   }
   if (route.page === "new-claim") return <NewClaimPage api={api} />;
+  if (route.page === "updates") return <UpdatesPage api={api} />;
   return <MyClaimsPage api={api} name={name} />;
 }

@@ -33,6 +33,7 @@ def test_an_approval_under_the_limit_is_paid_once(client: TestClient) -> None:
         "amount": amount,
         "paid_at": paid["payment"]["paid_at"],
         "signed_off_by": None,
+        "paid_to": None,
     }
     assert pay(client, "CLM-1001", amount) == 200  # the same payment again changes nothing
     assert pay(client, "CLM-1001", amount - 1) == 409
