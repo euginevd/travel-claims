@@ -27,9 +27,7 @@ Built with a secure agentic SDLC: [guides/01-agentic-sdlc.md](guides/01-agentic-
 | `copilot` | The handlers' chat agent | Docker locally; EKS *(planned)* |
 | `context` | Policy wording and claims manual as an MCP server | Docker locally; EKS *(planned)* |
 
-Rebuilt from the UnderCover project in Ed Donner's AI FDE course. Stages and what done means: [spec.md](docs/spec.md).
-
-> **Credit.** UnderCover is the project from Ed Donner's course [*AI FDE: The Forward Deployed Engineer & Agentic AI Architect*](https://edwarddonner.com/curriculum), and the sample business data comes from his public [ed-donner/undercover](https://github.com/ed-donner/undercover) repo: the claims, policies and customers in `data/`, and the policy wording, claims manual and reference files in `apps/context/`. It's all fictional and is used here for learning. The application code in this repo is written from scratch. If you'd like the course material removed, open an issue and it will be.
+Based on the UnderCover project from Ed Donner's AI FDE course ([ed-donner/undercover](https://github.com/ed-donner/undercover)), including its fictional sample data. Stages and what done means: [spec.md](docs/spec.md).
 
 ## 📚 Docs
 
