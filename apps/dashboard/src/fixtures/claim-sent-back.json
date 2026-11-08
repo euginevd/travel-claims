@@ -30,7 +30,7 @@
     }
   ],
   "status": "in_progress",
-  "thread_id": "982ff836b39c4e6aa5cc1b9d46873bb7",
+  "thread_id": "e61e310ee0d7408fbb1fece5afec5a6a",
   "attempts": 1,
   "policy": {
     "policy_id": "POL-2003",
@@ -74,7 +74,7 @@
         "section": "Policy wording section 10",
         "reason": "The receipts support the claim under the plan's limits.",
         "decided_by": "UnderCover Agent v1",
-        "decided_at": "2026-11-08T06:35:25+00:00",
+        "decided_at": "2026-11-08T07:12:01+00:00",
         "manual_version": "2026.2",
         "approval_limit": 1000.0,
         "hold_reason": null,
@@ -84,7 +84,7 @@
       },
       "note": "Check",
       "sent_back_by": "Dana Whitfield",
-      "sent_back_at": "2026-11-08T06:35:25+00:00"
+      "sent_back_at": "2026-11-08T07:12:01+00:00"
     }
   ],
   "receipts": []

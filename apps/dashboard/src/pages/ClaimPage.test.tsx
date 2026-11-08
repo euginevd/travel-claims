@@ -4,7 +4,7 @@ import { createApi, type Claim, type Handler, type Step } from "../api";
 import { APPROVAL, claim, DANA, fakeFetch, MARCUS, REFERRAL, STEPS, type Routes } from "../testing";
 import { ClaimPage } from "./ClaimPage";
 
-const BASE = "/api/claims/CLM-1001";
+const BASE = "/api/staff/claims/CLM-1001";
 
 function show(routes: Routes, handler: Handler = DANA) {
   const fetchFn = fakeFetch(routes);

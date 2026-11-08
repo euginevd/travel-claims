@@ -1,0 +1,22 @@
+[
+  {
+    "claim_id": "CLM-1902",
+    "policy_id": "POL-2001",
+    "claim_type": "trip_delay",
+    "summary": "Flight delayed overnight",
+    "amount_claimed": 180.0,
+    "submitted_on": "2026-11-08",
+    "status": "received",
+    "status_text": "Received. We'll start looking at it shortly."
+  },
+  {
+    "claim_id": "CLM-1001",
+    "policy_id": "POL-2001",
+    "claim_type": "trip_delay",
+    "summary": "Flight home canceled by the airline, rebooked the next morning",
+    "amount_claimed": 420.0,
+    "submitted_on": "2026-06-24",
+    "status": "received",
+    "status_text": "Received. We'll start looking at it shortly."
+  }
+]

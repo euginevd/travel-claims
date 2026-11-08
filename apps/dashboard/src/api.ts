@@ -126,51 +126,6 @@ export const ClaimSchema = z.object({
   receipts: z.array(ReceiptSchema),
 });
 
-// --- The customers' portal ---
-
-export const customerStatuses = [
-  "received",
-  "assessing",
-  "reviewing",
-  "approved",
-  "paid",
-  "declined",
-  "with_a_handler",
-] as const;
-const CustomerStatusSchema = z.enum(customerStatuses);
-
-export const CustomerSchema = z.object({
-  customer_id: z.string(),
-  name: z.string(),
-  email: z.string(),
-});
-
-export const MyPolicySchema = PolicySchema;
-
-export const CustomerClaimSummarySchema = z.object({
-  claim_id: z.string(),
-  policy_id: z.string(),
-  claim_type: z.string(),
-  summary: z.string(),
-  amount_claimed: z.number(),
-  submitted_on: z.string(),
-  status: CustomerStatusSchema,
-  status_text: z.string(),
-});
-
-export const CustomerClaimSchema = CustomerClaimSummarySchema.extend({
-  incident_date: z.string(),
-  incident_location: z.string(),
-  story: z.string(),
-  items: z.array(ItemSchema),
-  outcome: DecisionKindSchema.nullable(),
-  reason: z.string().nullable(),
-  paid: z.number().nullable(),
-  paid_at: z.string().nullable(),
-  receipts: z.array(ReceiptSchema),
-  can_add_receipts: z.boolean(),
-});
-
 export const StepSchema = z.object({
   step_id: z.number(),
   kind: StepKindSchema,
@@ -196,21 +151,6 @@ export type Payment = NonNullable<Claim["payment"]>;
 export type Step = z.infer<typeof StepSchema>;
 export type Receipt = z.infer<typeof ReceiptSchema>;
 export type Item = z.infer<typeof ItemSchema>;
-export type Customer = z.infer<typeof CustomerSchema>;
-export type CustomerStatus = z.infer<typeof CustomerStatusSchema>;
-export type CustomerClaimSummary = z.infer<typeof CustomerClaimSummarySchema>;
-export type CustomerClaim = z.infer<typeof CustomerClaimSchema>;
-export type Role = "customer" | "handler";
-
-export interface NewClaim {
-  policy_id: string;
-  claim_type: string;
-  incident_date: string;
-  incident_location: string;
-  summary: string;
-  story: string;
-  items: Item[];
-}
 
 export const NOTE_LIMIT = 1000;
 
@@ -225,7 +165,7 @@ export class ApiError extends Error {
 }
 
 export interface Api {
-  signIn: (email: string, password: string, role?: Role) => Promise<string>;
+  signIn: (email: string, password: string) => Promise<string>;
   me: () => Promise<Handler>;
   listClaims: () => Promise<ClaimSummary[]>;
   getClaim: (claimId: string, signal?: AbortSignal) => Promise<Claim>;
@@ -234,12 +174,6 @@ export interface Api {
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
-  myProfile: () => Promise<Customer>;
-  myPolicies: () => Promise<Policy[]>;
-  myClaims: () => Promise<CustomerClaimSummary[]>;
-  myClaim: (claimId: string) => Promise<CustomerClaim>;
-  makeClaim: (claim: NewClaim) => Promise<CustomerClaim>;
-  addReceipts: (claimId: string, files: File[]) => Promise<CustomerClaim>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -285,7 +219,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     const body =
       options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body));
-    const response = await fetchFn(`/api${path}`, {
+    const response = await fetchFn(`/api/staff${path}`, {
       method,
       headers,
       body,
@@ -310,9 +244,9 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
   const claimPath = (claimId: string) => `/claims/${encodeURIComponent(claimId)}`;
 
   return {
-    signIn: async (email, password, role = "handler") => {
+    signIn: async (email, password) => {
       const answer = await call(SignInSchema, "POST", "/dev/sign-in", {
-        body: { email, password, role },
+        body: { email, password },
       });
       return answer.id_token;
     },
@@ -329,16 +263,6 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       const path = `${claimPath(claimId)}/receipts/${encodeURIComponent(receiptId)}`;
       const response = await send("GET", path, {}, "*/*");
       return response.blob();
-    },
-    myProfile: () => call(CustomerSchema, "GET", "/my/profile"),
-    myPolicies: () => call(z.array(MyPolicySchema), "GET", "/my/policies"),
-    myClaims: () => call(z.array(CustomerClaimSummarySchema), "GET", "/my/claims"),
-    myClaim: (claimId) => call(CustomerClaimSchema, "GET", `/my${claimPath(claimId)}`),
-    makeClaim: (claim) => call(CustomerClaimSchema, "POST", "/my/claims", { body: claim }),
-    addReceipts: (claimId, files) => {
-      const form = new FormData();
-      for (const file of files) form.append("files", file);
-      return call(CustomerClaimSchema, "POST", `/my${claimPath(claimId)}/receipts`, { form });
     },
   };
 }

@@ -1,61 +1,37 @@
-import { Briefcase, UserRound } from "lucide-react";
 import { useId, useState, type SubmitEvent } from "react";
-import { ApiError, type Api, type Role } from "../api";
+import { ApiError, type Api } from "../api";
 import { TravelIllustration } from "../components/Illustration";
 import { Logo } from "../components/Logo";
 
-// The seeded people, offered as one-click choices only where the local sign-in stand-in runs:
+// The seeded handlers, offered as one-click choices only where the local sign-in stand-in runs:
 // a development build, or a local image built with VITE_LOCAL_SIGN_IN=true. Anywhere else
 // people sign in through Cognito instead.
 export const LOCAL_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_LOCAL_SIGN_IN === "true";
-export const PEOPLE: Record<Role, { email: string; name: string; note: string }[]> = LOCAL_SIGN_IN
-  ? {
-      handler: [
-        {
-          email: "dana.whitfield@undercover.example",
-          name: "Dana Whitfield",
-          note: "Senior handler",
-        },
-        { email: "marcus.oyelaran@undercover.example", name: "Marcus Oyelaran", note: "Handler" },
-        { email: "priya.raman@undercover.example", name: "Priya Raman", note: "Handler" },
-      ],
-      customer: [
-        { email: "maya.patel@example.com", name: "Maya Patel", note: "Trip to Rome" },
-        { email: "oliver.grant@example.com", name: "Oliver Grant", note: "Kenya and Sri Lanka" },
-        { email: "dorothy.gale@example.com", name: "Dorothy Gale", note: "Trip to Seattle" },
-      ],
-    }
-  : { handler: [], customer: [] };
-
-const ROLES: { role: Role; title: string; hint: string; Icon: typeof UserRound }[] = [
-  {
-    role: "customer",
-    title: "I'm a customer",
-    hint: "Make a claim and see how it's going",
-    Icon: UserRound,
-  },
-  {
-    role: "handler",
-    title: "I'm a claims handler",
-    hint: "Work the queue and sign off payouts",
-    Icon: Briefcase,
-  },
-];
+export const PEOPLE: { email: string; name: string; note: string }[] = LOCAL_SIGN_IN
+  ? [
+      {
+        email: "dana.whitfield@undercover.example",
+        name: "Dana Whitfield",
+        note: "Senior handler",
+      },
+      { email: "marcus.oyelaran@undercover.example", name: "Marcus Oyelaran", note: "Handler" },
+      { email: "priya.raman@undercover.example", name: "Priya Raman", note: "Handler" },
+    ]
+  : [];
 
 interface SignInPageProps {
   api: Api;
-  onSignedIn: (token: string, role: Role) => void;
+  onSignedIn: (token: string) => void;
   checking: boolean;
 }
 
 export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
-  const [role, setRole] = useState<Role>("customer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ids = useId();
-  const people = PEOPLE[role];
+  const people = PEOPLE;
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,12 +42,11 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     setBusy(true);
     setError(null);
     try {
-      onSignedIn(await api.signIn(email.trim(), password, role), role);
+      onSignedIn(await api.signIn(email.trim(), password));
     } catch (caught) {
-      const who = role === "handler" ? "a claims handler" : "a customer";
       setError(
         caught instanceof ApiError && caught.status === 401
-          ? `That email and password don't match ${who}.`
+          ? "That email and password don't match a claims handler."
           : caught instanceof ApiError
             ? caught.message
             : "We couldn't reach the server. Is the app running?",
@@ -93,47 +68,24 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     <main className="landing" id="main">
       <section className="landing-hero">
         <Logo />
-        <h1>Travel insurance claims, handled with care</h1>
+        <h1>Claims handlers&apos; dashboard</h1>
         <p className="lead">
-          Customers make a claim in a few minutes. Our AI agent checks it against your policy, and a
-          person signs off anything large.
+          Work the queue with the UnderCover agent: it checks each claim against the policy, and you
+          sign off anything large. Staff only.
         </p>
         <TravelIllustration />
       </section>
       <section className="landing-form panel" aria-labelledby={`${ids}-title`}>
-        <h2 id={`${ids}-title`}>Sign in</h2>
+        <h2 id={`${ids}-title`}>Staff sign-in</h2>
         <form
           onSubmit={(event) => {
             void submit(event);
           }}
           noValidate
         >
-          <fieldset className="role-cards">
-            <legend>Who are you?</legend>
-            {ROLES.map(({ role: value, title, hint, Icon }) => (
-              <label key={value} className={`role-card${role === value ? " chosen" : ""}`}>
-                <input
-                  type="radio"
-                  name={`${ids}-role`}
-                  value={value}
-                  checked={role === value}
-                  onChange={() => {
-                    setRole(value);
-                    setEmail("");
-                    setError(null);
-                  }}
-                />
-                <Icon size={24} strokeWidth={2} aria-hidden="true" />
-                <span>
-                  <span className="role-title">{title}</span>
-                  <span className="role-hint">{hint}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
           {people.length > 0 && (
             <fieldset className="person-cards">
-              <legend>{role === "handler" ? "Choose a handler" : "Choose a customer"}</legend>
+              <legend>Choose a handler</legend>
               {people.map((person) => (
                 <label
                   key={person.email}

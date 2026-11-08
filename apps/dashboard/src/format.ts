@@ -44,3 +44,10 @@ export const STEP_LABELS: Record<StepKind, string> = {
   error: "Something went wrong",
   sent_back: "Handler's note",
 };
+
+/** A file size as people read it: kilobytes, or megabytes from 1 MB. */
+export function kilobytes(size: number): string {
+  return size < 1024 * 1024
+    ? `${String(Math.max(1, Math.round(size / 1024)))} KB`
+    : `${(size / 1024 / 1024).toFixed(1)} MB`;
+}

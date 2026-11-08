@@ -1,7 +1,7 @@
 import { Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Api, Receipt } from "../api";
-import { kilobytes } from "./ReceiptPicker";
+import { kilobytes } from "../format";
 
 interface ReceiptsPanelProps {
   api: Api;

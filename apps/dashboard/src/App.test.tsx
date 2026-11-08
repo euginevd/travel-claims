@@ -1,19 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
-import { saveRole, saveToken } from "./session";
-import {
-  claim,
-  DANA,
-  fakeFetch,
-  MAYA,
-  MY_POLICY,
-  MY_SUMMARY,
-  myClaim,
-  STEPS,
-  SUMMARY,
-  type Routes,
-} from "./testing";
+import { saveToken } from "./session";
+import { claim, DANA, fakeFetch, STEPS, SUMMARY, type Routes } from "./testing";
 
 beforeEach(() => {
   saveToken(null);
@@ -21,14 +10,14 @@ beforeEach(() => {
 });
 
 const signedInRoutes: Routes = {
-  "POST /api/dev/sign-in": () => [200, { id_token: "token-1", expires_in: 3600 }],
-  "GET /api/me": () => [200, DANA],
-  "GET /api/claims": () => [
+  "POST /api/staff/dev/sign-in": () => [200, { id_token: "token-1", expires_in: 3600 }],
+  "GET /api/staff/me": () => [200, DANA],
+  "GET /api/staff/claims": () => [
     200,
     [SUMMARY, { ...SUMMARY, claim_id: "CLM-1002", status: "waiting_for_sign_off" }],
   ],
-  "GET /api/claims/CLM-1001": () => [200, claim()],
-  "GET /api/claims/CLM-1001/steps": () => [200, STEPS],
+  "GET /api/staff/claims/CLM-1001": () => [200, claim()],
+  "GET /api/staff/claims/CLM-1001/steps": () => [200, STEPS],
 };
 
 test("a handler signs in and sees the queue", async () => {
@@ -36,7 +25,6 @@ test("a handler signs in and sees the queue", async () => {
   const fetchFn = fakeFetch(signedInRoutes);
   render(<App fetchFn={fetchFn} />);
 
-  await user.click(screen.getByRole("radio", { name: /I'm a claims handler/ }));
   await user.click(screen.getByRole("radio", { name: /Dana Whitfield/ }));
   expect(screen.getByLabelText("Email")).toHaveValue("dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "secret");
@@ -50,7 +38,25 @@ test("a handler signs in and sees the queue", async () => {
   expect(within(table).getByText("Waiting for sign-off")).toBeInTheDocument();
   expect(within(table).getAllByText("$420.00")).toHaveLength(2);
   expect(screen.getByText("Dana Whitfield")).toBeInTheDocument();
-  expect(fetchFn.calls.find((c) => c.path === "/api/me")?.auth).toBe("Bearer token-1");
+  expect(fetchFn.calls.find((c) => c.path === "/api/staff/me")?.auth).toBe("Bearer token-1");
+});
+
+test("the sign-in page offers only claims handlers", () => {
+  render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  expect(screen.getByRole("heading", { name: "Staff sign-in" })).toBeInTheDocument();
+  expect(screen.queryByText(/customer/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole("radio", { name: /Maya Patel/ })).not.toBeInTheDocument();
+});
+
+test("signs in on the staff route only", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch(signedInRoutes);
+  render(<App fetchFn={fetchFn} />);
+  await user.click(screen.getByRole("radio", { name: /Dana Whitfield/ }));
+  await user.type(screen.getByLabelText("Password"), "secret");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  await screen.findByRole("table");
+  expect(fetchFn.calls.every((c) => c.path.startsWith("/api/staff/"))).toBe(true);
 });
 
 test("asks for both email and password", async () => {
@@ -63,13 +69,13 @@ test("asks for both email and password", async () => {
 test("says when the password is wrong", async () => {
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
-    "POST /api/dev/sign-in": () => [401, { detail: "Wrong email or password" }],
+    "POST /api/staff/dev/sign-in": () => [401, { detail: "Wrong email or password" }],
   });
   render(<App fetchFn={fetchFn} />);
   await user.type(screen.getByLabelText("Email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "nope");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("don't match a customer");
+  expect(await screen.findByRole("alert")).toHaveTextContent("don't match a claims handler");
 });
 
 test("says when the server can't be reached", async () => {
@@ -84,7 +90,7 @@ test("says when the server can't be reached", async () => {
 
 test("a rejected token signs the handler out", async () => {
   saveToken("stale");
-  render(<App fetchFn={fakeFetch({ "GET /api/me": () => [401, { detail: "Expired" }] })} />);
+  render(<App fetchFn={fakeFetch({ "GET /api/staff/me": () => [401, { detail: "Expired" }] })} />);
   expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
 });
 
@@ -109,7 +115,9 @@ test("following a claim link opens the claim page with focus on its heading", as
 
 test("shows an empty queue plainly", async () => {
   saveToken("token-1");
-  render(<App fetchFn={fakeFetch({ ...signedInRoutes, "GET /api/claims": () => [200, []] })} />);
+  render(
+    <App fetchFn={fakeFetch({ ...signedInRoutes, "GET /api/staff/claims": () => [200, []] })} />,
+  );
   expect(await screen.findByRole("heading", { name: "The queue is empty" })).toBeInTheDocument();
 });
 
@@ -119,46 +127,11 @@ test("shows why the queue didn't load", async () => {
     <App
       fetchFn={fakeFetch({
         ...signedInRoutes,
-        "GET /api/claims": () => [500, { detail: "The database is down" }],
+        "GET /api/staff/claims": () => [500, { detail: "The database is down" }],
       })}
     />,
   );
   expect(await screen.findByRole("alert")).toHaveTextContent("The database is down");
-});
-
-const customerRoutes: Routes = {
-  "POST /api/dev/sign-in": () => [200, { id_token: "token-c", expires_in: 3600 }],
-  "GET /api/my/profile": () => [200, MAYA],
-  "GET /api/my/claims": () => [200, [MY_SUMMARY]],
-  "GET /api/my/policies": () => [200, [MY_POLICY]],
-  "GET /api/my/claims/CLM-1001": () => [200, myClaim()],
-};
-
-test("a customer signs in and sees their own claims", async () => {
-  const user = userEvent.setup();
-  const fetchFn = fakeFetch(customerRoutes);
-  render(<App fetchFn={fetchFn} />);
-  expect(screen.getByRole("radio", { name: /I'm a customer/ })).toBeChecked();
-  await user.click(screen.getByRole("radio", { name: /Maya Patel/ }));
-  await user.type(screen.getByLabelText("Password"), "secret");
-  await user.click(screen.getByRole("button", { name: "Sign in" }));
-
-  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
-  expect(screen.getByText("Flight home canceled by the airline")).toBeInTheDocument();
-  expect(screen.getByText("Received")).toBeInTheDocument();
-  const signIn = fetchFn.calls.find((c) => c.path === "/api/dev/sign-in");
-  expect(signIn?.body).toMatchObject({ email: "maya.patel@example.com", role: "customer" });
-  expect(fetchFn.calls.some((c) => c.path === "/api/me")).toBe(false);
-});
-
-test("a signed-in customer never sees the handlers' queue", async () => {
-  saveToken("token-c");
-  saveRole("customer");
-  window.location.hash = "#/claims/CLM-1001";
-  const fetchFn = fakeFetch(customerRoutes);
-  render(<App fetchFn={fetchFn} />);
-  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
-  expect(fetchFn.calls.some((c) => c.path === "/api/claims")).toBe(false);
 });
 
 test("the header shows the person signed in and wraps instead of clipping", async () => {

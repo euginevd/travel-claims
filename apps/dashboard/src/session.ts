@@ -1,13 +1,8 @@
-// The signed-in person's access token and role for this browser tab: kept in memory, and in
-// sessionStorage so a reload keeps the sign-in (it clears when the tab closes). Storage can be
-// unavailable (private windows, blocked site data), so every access is guarded and the app
-// still works.
-import type { Role } from "./api";
-
-const TOKEN_KEY = "undercover.token";
-const ROLE_KEY = "undercover.role";
+// The signed-in handler's ID token for this browser tab: kept in memory, and in sessionStorage
+// so a reload keeps the sign-in (it clears when the tab closes). Storage can be unavailable
+// (private windows, blocked site data), so every access is guarded and the app still works.
+const TOKEN_KEY = "undercover.staff.token";
 let token: string | null = null;
-let role: Role | null = null;
 
 function read(key: string): string | null {
   try {
@@ -34,16 +29,4 @@ export function loadToken(): string | null {
 export function saveToken(value: string | null): void {
   token = value;
   write(TOKEN_KEY, value);
-  if (!value) saveRole(null);
-}
-
-/** Who the token is for; a token kept from before roles existed is a handler's. */
-export function loadRole(): Role {
-  role ??= read(ROLE_KEY) === "customer" ? "customer" : "handler";
-  return role;
-}
-
-export function saveRole(value: Role | null): void {
-  role = value;
-  write(ROLE_KEY, value);
 }
