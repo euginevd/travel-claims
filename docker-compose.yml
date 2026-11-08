@@ -30,8 +30,6 @@ services:
 
   context:
     build: { context: ., dockerfile: apps/context/Dockerfile }
-    environment:
-      CONTEXT_ALLOWED_HOSTS: 127.0.0.1:*,localhost:*,context:*
     ports:
       - "127.0.0.1:8006:8006"
 

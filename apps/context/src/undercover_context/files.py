@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 
 import yaml
 
-FOLDER = Path(__file__).parent / "files"
+FOLDER = Path(__file__).parent / "data"
 
 DocumentName = Literal["policy_wording", "claims_manual"]
 RecordName = Literal["claim", "policy", "previous_claim"]
@@ -141,20 +141,21 @@ def get_claim_rules() -> Json:
 
 
 def search_reference_data(query: str) -> Json:
-    """Outside facts holding every word of the query, in any case, each with its topic."""
-    words = query.lower().split()
+    """Outside facts holding every word of the query as a whole word, in any case, each with
+    its topic."""
+    patterns = [re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE) for word in query.split()]
     facts = [
         {"topic": topic["topic"], "fact": fact}
         for topic in entries(REFERENCE_DATA, "topics")
         for fact in cast(list[str], topic["facts"])
-        if all(word in fact.lower() for word in words)
+        if all(pattern.search(fact) for pattern in patterns)
     ]
     return {"facts": facts, "sources": sources_of(REFERENCE_DATA) if facts else []}
 
 
 def search_documents(query: str) -> Json:
     """Sections of the wording and the manual whose title or text holds the query, in any
-    case, with the paragraphs that mention it."""
+    case, with the paragraphs that mention it (none when only the title matches)."""
     wanted = query.strip().lower()
     sections: list[Json] = []
     sources: list[Source] = []

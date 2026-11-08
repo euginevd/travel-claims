@@ -3,15 +3,20 @@ import pytest
 from undercover_context import files
 
 
-def test_every_file_names_its_source() -> None:
+def test_every_lookup_names_its_sources_in_full() -> None:
     for answer in (
         files.lookup_term("Carrier"),
         files.describe_fields("claim"),
+        files.describe_fields("previous_claim"),
         files.get_plan("economy"),
         files.get_claim_rules(),
+        files.search_reference_data("storm"),
+        files.search_documents("deductible"),
+        files.read_section("policy_wording", 1),
     ):
-        [source] = answer["sources"]
-        assert set(source) >= {"file", "system", "owner", "reviewed"}
+        assert answer["sources"]
+        for source in answer["sources"]:
+            assert set(source) >= {"file", "system", "owner", "reviewed"}
 
 
 def test_lookup_term_ignores_case() -> None:
@@ -48,6 +53,10 @@ def test_reference_search_needs_every_word() -> None:
     assert found["sources"][0]["file"] == "reference_data.yaml"
     nothing = files.search_reference_data("storm zzzz-not-a-word")
     assert nothing == {"facts": [], "sources": []}
+
+
+def test_reference_search_matches_whole_words_only() -> None:
+    assert files.search_reference_data("stor") == {"facts": [], "sources": []}
 
 
 def test_document_search_finds_sections_with_their_files() -> None:

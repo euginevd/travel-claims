@@ -5,6 +5,7 @@ import os
 from typing import Annotated, Any
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import StringConstraints
@@ -18,10 +19,11 @@ NAME = "undercover-context"
 PORT = 8006
 READ_ONLY = ToolAnnotations(read_only_hint=True)
 # Host headers the server answers, against DNS rebinding: the laptop and Compose's service name.
-DEFAULT_ALLOWED_HOSTS = "127.0.0.1:*,localhost:*,context:*"
+DEFAULT_ALLOWED_HOSTS = "127.0.0.1:*,localhost:*,[::1]:*,context:*"
 
-# A search needs a word or phrase to look for.
-Query = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+# What the model may send: a term or a search needs some text, and no more than this.
+Term = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+Query = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 Json = dict[str, Any]
 
 
@@ -30,7 +32,7 @@ def build_server() -> MCPServer:
     server = MCPServer(NAME)
 
     @server.tool(annotations=READ_ONLY)
-    def lookup_term(term: str) -> Json:  # pyright: ignore[reportUnusedFunction]
+    def lookup_term(term: Term) -> Json:  # pyright: ignore[reportUnusedFunction]
         """Look up a term the policy wording defines: its definition and sections."""
         return files.lookup_term(term)
 
@@ -62,7 +64,10 @@ def build_server() -> MCPServer:
     @server.tool(annotations=READ_ONLY)
     def read_section(document: files.DocumentName, number: int) -> Json:  # pyright: ignore[reportUnusedFunction]
         """Read one section of the policy wording or the claims manual in full."""
-        return files.read_section(document, number)
+        try:
+            return files.read_section(document, number)
+        except files.NotFoundError as error:
+            raise ToolError(str(error)) from error
 
     @server.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]

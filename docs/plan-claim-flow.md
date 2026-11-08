@@ -10,7 +10,7 @@ The first working slice of UnderCover on a laptop: a handler signs in, the agent
 - `apps/agent/`: the claim agent. `models.py` (the one place that reaches Claude), `screening.py`, `graph.py`, `tools.py`, `api_client.py`, `server.py` (a small FastAPI app the `api` calls to start or resume a claim), `__main__.py` (`uv run -m agent work CLM-1001`).
 - `apps/context/`: the MCP server over the seven context files (FastMCP, stateless HTTP), with the lookups `lookup_term`, `describe_fields`, `get_plan`, `get_claim_rules`, `search_reference_data`, `search_documents`, `read_section`. Each answer names its file and source.
 - `apps/web/`: React, Vite and TypeScript.
-- `data/` and `apps/context/files/`: the course's seed data and context files, copied from `week3day5-end`.
+- `data/` and `apps/context/src/undercover_context/data/`: the course's seed data and context files, copied from `week3day5-end`.
 - Root: a uv workspace `pyproject.toml`, `docker-compose.yml` (postgres, context, api, agent, web), `.env.example`, a `.github/workflows/apps.yml` running each app's checks.
 
 ### How a claim is worked
