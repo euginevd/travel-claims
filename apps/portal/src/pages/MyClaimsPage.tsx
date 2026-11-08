@@ -9,13 +9,14 @@ import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { myClaimHref, NEW_CLAIM_HREF } from "../useHashRoute";
 
-/** Claims still moving: not yet paid, declined or with a person. */
-// Paid and declined claims are finished; everything else is still moving.
+// Paid and declined claims are finished; everything else, a person's review included, is in progress.
 const COMPLETED = new Set(["paid", "declined"]);
 
-function onTheirWay(claims: CustomerClaimSummary[]): number {
-  return claims.filter((c) => ["received", "assessing", "reviewing", "approved"].includes(c.status))
-    .length;
+/** The headline under My claims, counting the same claims as the In progress section. */
+export function progressLine(claims: CustomerClaimSummary[]): string {
+  const moving = claims.filter((claim) => !COMPLETED.has(claim.status)).length;
+  if (moving === 0) return "Everything's settled. Safe travels.";
+  return `${String(moving)} ${moving === 1 ? "claim" : "claims"} in progress.`;
 }
 
 export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
@@ -55,13 +56,7 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           <h1 id="my-claims-heading" ref={heading} tabIndex={-1}>
             My claims
           </h1>
-          {claims && claims.length > 0 && (
-            <p className="lead">
-              {onTheirWay(claims) === 0
-                ? "Everything's settled. Safe travels."
-                : `${String(onTheirWay(claims))} ${onTheirWay(claims) === 1 ? "claim is" : "claims are"} on the way.`}
-            </p>
-          )}
+          {claims && claims.length > 0 && <p className="lead">{progressLine(claims)}</p>}
         </div>
         <a className="button" href={NEW_CLAIM_HREF}>
           <FilePlus2 size={18} strokeWidth={2} aria-hidden="true" />
@@ -133,7 +128,8 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           )}
           {done.length > 0 && (
             <section aria-labelledby="completed-heading" className="claims-group">
-              <details open={done.length <= 3 || open.length === 0}>
+              {/* Finished claims stay tucked away until the customer opens them. */}
+              <details>
                 <summary>
                   <h2 id="completed-heading" className="group-heading">
                     Completed <span className="group-count">{done.length}</span>

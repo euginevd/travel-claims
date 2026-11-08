@@ -2191,3 +2191,8 @@ a.claim-card,
     grid-column: 2;
   }
 }
+
+/* The line into the step happening now is complete too: everything before it is done. */
+.tracker-stage.active::before {
+  background: var(--navy, var(--ink));
+}
