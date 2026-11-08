@@ -10,22 +10,34 @@ The first working slice of UnderCover on a laptop: a handler signs in, the agent
 - `apps/agent/`: the claim agent. `models.py` (the one place that reaches Claude), `screening.py`, `graph.py`, `tools.py`, `api_client.py`, `server.py` (a small FastAPI app the `api` calls to start or resume a claim), `__main__.py` (`uv run -m agent work CLM-1001`).
 - `apps/context/`: the MCP server over the seven context files (FastMCP, stateless HTTP), with the lookups `lookup_term`, `describe_fields`, `get_plan`, `get_claim_rules`, `search_reference_data`, `search_documents`, `read_section`. Each answer names its file and source.
 - `apps/web/`: React, Vite and TypeScript.
-- `data/` and `apps/context/files/`: the course's seed data and context files, copied from `week3day5-end`.
+- `data/` and `apps/context/src/undercover_context/data/`: the course's seed data and context files, copied from `week3day5-end`.
 - Root: a uv workspace `pyproject.toml`, `docker-compose.yml` (postgres, context, api, agent, web), `.env.example`, a `.github/workflows/apps.yml` running each app's checks.
 
 ### How a claim is worked
 
-1. A handler presses **Work this claim** (or `uv run -m agent work <id>`). The `api` marks it in progress and calls the agent's `/work` with the agent's key.
+1. A handler presses **Work this claim** (or `uv run -m agent work <id>`). The `api` marks it in progress, commits, and calls the agent's `/work` with the agent's key (contract below).
 2. **Screen:** Claude Haiku reads the claim as the agent would and answers `{instructions_found, reason}` through structured output (`messages.parse`). A flagged claim is referred to a handler with the reason; the claim agent's model never sees it.
 3. **Decide:** a LangGraph `StateGraph` loop: Claude Sonnet with the tools `get_claim`, `get_policy`, `get_claim_history`, `calculate_payout`, `record_decision` and the context lookups. The tools take the claim, policy and customer from the graph's context, never from the model. Each step (tool call, lookup with sources, reply, refusal) is recorded on the claim.
 4. **Record:** the `api` checks the record against claims manual section 14 and refuses what falls short, with what's missing. An approval's payout must equal the calculation on file for that attempt.
 5. **Pay or hold:** code, not the model, calls `pay_claim`. The payments module refuses any amount over the approval limit before it reads the claim, and pays each claim at most once (unique payment per claim and attempt). Over the limit, the graph pauses with `interrupt()`.
-6. **Sign off or send back:** a handler who can sign off over the limit either signs off (which pays) or sends back with a note up to 1,000 characters. The `api` calls the agent's `/resume`, and the agent decides again with the note as a senior handler's review.
+6. **Sign off or send back:** a handler who can sign off over the limit either signs off (which pays) or sends back with a note up to 1,000 characters. The `api` calls the agent's `/resume`, and after a send-back the agent decides again with the note as a senior handler's review.
 7. Progress is saved after every step with LangGraph's `PostgresSaver`, so a restart carries on without deciding or paying twice.
+
+### The agent's service contract
+
+The `api` hands work to the agent over HTTP; `apps/api/src/undercover_api/agent_service.py` is the one definition, and the agent implements exactly this:
+
+- `POST {AGENT_URL}/work` with `{"claim_id": "CLM-1001", "thread_id": "<hex>"}`: start a new attempt on the claim, on that thread.
+- `POST {AGENT_URL}/resume` with `{"claim_id": "CLM-1001", "thread_id": "<hex>", "outcome": "signed_off" | "sent_back"}`: carry the paused graph on. `signed_off`: the payment is made; finish and record the last step. `sent_back`: read the handler's note (the latest `sent_back` step and `sent_back_decisions` on the claim) and decide again.
+- Both carry the agent's key in `X-API-Key`; the agent refuses anything without it. The `api` waits at most 10 seconds.
+- The agent answers at once and works in the background: `202 {"accepted": true}`, or `409 {"refused": "<why>"}` when it won't take the work (for example, already working that claim).
+- The `api` has already moved the claim (`waiting` → `in_progress` for `/work`; `sent_back` → `in_progress` for a sent-back `/resume`) and committed before it asks, so the agent never calls `/start` or `/take` for work the `api` handed it; those stay for `uv run -m agent work <id>`.
+- If the agent can't be reached or refuses, `/work` undoes the move and answers the handler 503 (unreachable) or 502 (refused); a send-back leaves the claim `sent_back` for **Work this claim** to retry; a sign-off stays paid, and the failure is logged.
+- The agent's decisions send `"maker": "claim_agent"` or `"hidden_instruction_check"`; the `api` names the maker on the record (`UnderCover Agent v<AGENT_VERSION>` or `Hidden-instruction check`) and the check may only refer.
 
 ### Claude
 
-- `models.py` builds the client once from settings: `anthropic.Anthropic()` in stage 1, `AnthropicBedrockMantle` in stage 2. Model IDs, `max_tokens`, effort, a 60-second timeout and 2 retries are settings with defaults (code-standards 19).
+- `models.py` builds the client once from settings: `anthropic.Anthropic()` in stage 1, sending `ANTHROPIC_WORKSPACE_ID` as the `anthropic-workspace-id` header (the key is organisation-scoped); `AnthropicBedrockMantle` in stage 2. Model IDs, `max_tokens`, effort, a 60-second timeout and 2 retries are settings with defaults (code-standards 19).
 - Claim agent: `claude-sonnet-5-5`, adaptive thinking at `medium` effort, `tool_choice` auto with `strict: true` tools (forced tool choice is rejected on this model), server-side refusal fallbacks on (`fallbacks: "default"`). Full response content, thinking blocks included, is kept in the graph's messages unchanged.
 - Hidden-instruction check and judge: `claude-haiku-5-5` at `low` effort, structured output validated with Pydantic.
 - Prompt caching: the instructions, tool list and policy wording are a stable prefix with `cache_control`; the claim goes after it.
@@ -55,23 +67,24 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 1. Scaffold
 
-- [ ] uv workspace with `apps/api`, `apps/agent`, `apps/context`; `apps/web` with Vite; pinned versions checked as real and maintained.
-- [ ] `docker-compose.yml` with PostgreSQL 17 and the four apps; `.env.example`; `docker compose up` starts everything.
-- [ ] `apps.yml` workflow runs ruff, pyright, pytest and the web checks on every PR.
-- [ ] `status.md` says how to run it.
+- [x] uv workspace with `apps/api` and `apps/agent`; `apps/web` with Vite; pinned versions checked as real and maintained. (`apps/context` joins in phase 2.)
+- [ ] `docker-compose.yml` with PostgreSQL 17 and the apps; `.env.example`; `docker compose up` starts everything. Written; not yet run, as Docker is being installed.
+- [x] `apps.yml` workflow runs ruff, pyright, pytest and the web checks on every PR.
+- [x] `status.md` says how to run it.
 
 ### 2. Context layer
 
-- [ ] The seven context files copied in; the seven lookups served over MCP, each naming its file, system, owner and review date.
-- [ ] Tests for each lookup, including an unknown term and a missing section.
+- [x] `apps/context` added to the workspace, with its Dockerfile and compose service.
+- [x] The seven context files copied in; the seven lookups served over MCP, each naming its file, system, owner and review date.
+- [x] Tests for each lookup, including an unknown term and a missing section.
 
 ### 3. The `api`
 
-- [ ] Schema and migrations: policies, customers, handlers, claims, steps, model calls, calculations, decisions, payments, settings.
-- [ ] Seeding from `data/` and the context files, with CLM-1901 added from `data/security/`; the handlers' decisions in `data/evals/` are never loaded where the agent can reach them.
-- [ ] Payout rules and section 14 checks, with the course's cases as tests.
-- [ ] Payments module: limit first, one payment per claim, sign-off pays.
-- [ ] Sign-in stand-in, JWT checks, agent key, and per-route authorisation tests.
+- [x] Schema and migrations: policies, customers, handlers, claims, steps, model calls, calculations, decisions, payments, settings.
+- [x] Seeding from `data/` and the context files, with CLM-1901 added from `data/security/`; the handlers' decisions in `data/evals/` are never loaded where the agent can reach them.
+- [x] Payout rules and section 14 checks, with the course's cases as tests.
+- [x] Payments module: limit first, one payment per claim, sign-off pays.
+- [x] Sign-in stand-in, JWT checks, agent key, and per-route authorisation tests.
 
 ### 4. The claim agent
 
@@ -80,7 +93,7 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 5. The dashboard
 
-- [ ] Sign-in, queue, claim page, sign-off and send-back, with component tests and an accessibility check.
+- [x] Sign-in, queue, claim page, sign-off and send-back, with component tests; responses checked with zod against the api's real responses (`src/fixtures/`). An automated accessibility check is still to add.
 - [ ] Playwright end to end against the stack with a stub model: sign in, work a claim, sign off.
 
 ### 6. Live check

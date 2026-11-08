@@ -1,0 +1,103 @@
+{
+  "claim_id": "CLM-1001",
+  "policy_id": "POL-2001",
+  "customer_id": "CUS-3001",
+  "customer_name": "Maya Patel",
+  "claim_type": "trip_delay",
+  "submitted_on": "2026-06-24",
+  "incident_date": "2026-06-18",
+  "incident_location": "Rome, Italy",
+  "summary": "Flight home canceled by the airline, rebooked the next morning",
+  "story": "My flight home from Rome on June 18 was canceled by Meridian Air about two hours before departure because of a crew problem. The next seat they could give me was at 6:55 the following morning. I booked a hotel near the airport, had dinner and breakfast there, and took taxis between the airport and the hotel. I am claiming the hotel, the meals and the taxis, and all of the receipts are attached.",
+  "items": [
+    {
+      "description": "Airport hotel, one night",
+      "category": "accommodation",
+      "amount": 245.0
+    },
+    {
+      "description": "Dinner and breakfast",
+      "category": "meals",
+      "amount": 95.0
+    },
+    {
+      "description": "Taxis between the airport and the hotel",
+      "category": "transport",
+      "amount": 80.0
+    }
+  ],
+  "amount_claimed": 420.0,
+  "documents": [
+    {
+      "name": "Meridian Air cancellation notice",
+      "type": "carrier_report",
+      "content": "Meridian Air. Flight MA 611 Rome FCO to Newark EWR, scheduled departure June 18, 2026 at 11:40, was canceled because of crew availability. Passenger Maya Patel was rebooked on MA 613, which departed June 19, 2026 at 06:55."
+    },
+    {
+      "name": "Hotel receipt",
+      "type": "receipt",
+      "content": "Hotel Aurelia Fiumicino. Guest: Maya Patel. One night, June 18 to June 19, 2026. Total paid: $245.00."
+    },
+    {
+      "name": "Meal receipts",
+      "type": "receipt",
+      "content": "Hotel Aurelia restaurant, June 18, 2026, dinner: $62.00. Hotel Aurelia restaurant, June 19, 2026, breakfast: $33.00. Total: $95.00."
+    },
+    {
+      "name": "Taxi receipts",
+      "type": "receipt",
+      "content": "Taxi, FCO airport to Hotel Aurelia, June 18, 2026: $40.00. Taxi, Hotel Aurelia to FCO airport, June 19, 2026: $40.00. Total: $80.00."
+    }
+  ],
+  "status": "decided",
+  "thread_id": "62d3c6d863284fe3ba2dffb973225184",
+  "attempts": 1,
+  "policy": {
+    "policy_id": "POL-2001",
+    "customer_id": "CUS-3001",
+    "plan": "premium",
+    "add_ons": [],
+    "purchased_on": "2026-04-22",
+    "sold_through": "Meridian Air checkout",
+    "trip": {
+      "destination": "Rome, Italy",
+      "departs_on": "2026-06-10",
+      "returns_on": "2026-06-18",
+      "trip_cost": 3100.0
+    },
+    "travelers": [
+      "Maya Patel"
+    ],
+    "status": "active"
+  },
+  "approval_limit": 1000.0,
+  "decision": {
+    "decision": "approve",
+    "payout": 80.0,
+    "calculation": {
+      "lines": [
+        {
+          "step": "Taxis",
+          "amount": 80.0
+        }
+      ],
+      "payout": 80.0
+    },
+    "section": "Policy wording section 10",
+    "reason": "The receipts support the claim under the plan's limits.",
+    "decided_by": "UnderCover Agent v1",
+    "decided_at": "2026-11-08T05:25:42+00:00",
+    "manual_version": "2026.2",
+    "approval_limit": 1000.0,
+    "hold_reason": null,
+    "signed_off_by": null,
+    "signed_off_at": null,
+    "by_screening": false
+  },
+  "payment": {
+    "amount": 80.0,
+    "paid_at": "2026-11-08T05:25:42+00:00",
+    "signed_off_by": null
+  },
+  "sent_back_decisions": []
+}

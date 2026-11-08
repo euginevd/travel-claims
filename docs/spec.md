@@ -59,7 +59,7 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 
 ## Not for now
 
-37. A claimant portal: claims come from the seeded data, as in the course.
+37. A claimant portal: claims come from the seeded data, as in the course. *Nice to have, later:* claimants sign in with Google (Cognito in stage 2), link a policy by number and surname, submit a claim with up to five receipts, and track their own claims; the hidden-instruction check reads every receipt before the claim agent does.
 38. Real payments, and messages to customers.
 39. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
 40. Anything on AWS until stage 2 is spec'd.
