@@ -36,7 +36,7 @@ export function ClaimTracker({ status, mini = false }: { status: CustomerStatus;
             aria-current={index === reached ? "step" : undefined}
           >
             <span className="tracker-dot" aria-hidden="true">
-              {done && <Check size={12} strokeWidth={3} />}
+              {done && <Check size={mini ? 13 : 16} strokeWidth={3} />}
             </span>
             <span className="tracker-label">{label}</span>
           </li>

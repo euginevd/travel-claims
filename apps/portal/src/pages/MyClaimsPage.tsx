@@ -9,7 +9,14 @@ import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { myClaimHref, NEW_CLAIM_HREF } from "../useHashRoute";
 
-export function MyClaimsPage({ api }: { api: Api }) {
+/** Claims still moving: not yet paid, declined or with a person. */
+function onTheirWay(claims: CustomerClaimSummary[]): number {
+  return claims.filter((c) => ["received", "assessing", "reviewing", "approved"].includes(c.status))
+    .length;
+}
+
+export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
+  const first = name.split(/\s+/)[0] ?? "";
   const [claims, setClaims] = useState<CustomerClaimSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -38,10 +45,17 @@ export function MyClaimsPage({ api }: { api: Api }) {
     <section aria-labelledby="my-claims-heading" className="narrow">
       <div className="page-head">
         <div>
-          <p className="eyebrow">Your claims</p>
+          <p className="greeting">{first ? `Hi ${first}` : "Welcome back"}</p>
           <h1 id="my-claims-heading" ref={heading} tabIndex={-1}>
             My claims
           </h1>
+          {claims && claims.length > 0 && (
+            <p className="lead">
+              {onTheirWay(claims) === 0
+                ? "Everything's settled. Safe travels."
+                : `${String(onTheirWay(claims))} ${onTheirWay(claims) === 1 ? "claim is" : "claims are"} on the way.`}
+            </p>
+          )}
         </div>
         <a className="button" href={NEW_CLAIM_HREF}>
           <FilePlus2 size={18} strokeWidth={2} aria-hidden="true" />

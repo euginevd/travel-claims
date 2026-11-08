@@ -1977,16 +1977,6 @@ a.claim-card,
   font-size: 0.8rem;
 }
 
-.tracker-mini .tracker-dot {
-  width: 14px;
-  height: 14px;
-}
-
-.tracker-mini .tracker-dot svg {
-  width: 9px;
-  height: 9px;
-}
-
 /* My claims cards: icon, title and amount on top, a status line, then the tracker. */
 .claim-card {
   position: relative;
@@ -2086,38 +2076,4 @@ a.claim-card,
     grid-column: 2;
     justify-items: start;
   }
-}
-
-/* The tracker: dots centred over their labels, with the line joining dot to dot. */
-.tracker-stage {
-  align-items: center;
-  text-align: center;
-}
-
-.tracker-dot {
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.tracker-stage::before {
-  left: -50%;
-  right: 50%;
-}
-
-.tracker-stage:first-child::before {
-  display: none;
-}
-
-.tracker-mini {
-  margin: 12px 0 0;
-}
-
-.tracker-mini .tracker-label {
-  font-size: 0.82rem;
-  color: var(--ink-2);
-}
-
-.tracker-mini .tracker-stage.done .tracker-label,
-.tracker-mini .tracker-stage[aria-current="step"] .tracker-label {
-  color: var(--ink);
 }
