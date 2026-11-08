@@ -71,9 +71,10 @@ test("the queue's figures count the claims and add up what's paid", () => {
   expect(figuresOf(claims).map((f) => f.value)).toEqual(["2", "1", "2", "$50.50"]);
 });
 
-test("a status chip is a word, and only a held payment is marked as held", () => {
-  expect(chipFor("decided", "approve").label).toBe("Paid");
-  expect(chipFor("decided", "refer").label).toBe("Referred");
-  expect(chipFor("waiting_for_sign_off").held).toBe(true);
-  expect(chipFor("waiting").held).toBeUndefined();
+test("a status chip is a word with a tone that matches its meaning", () => {
+  expect(chipFor("decided", "approve")).toMatchObject({ label: "Paid", tone: "good" });
+  expect(chipFor("decided", "decline")).toMatchObject({ label: "Declined", tone: "bad" });
+  expect(chipFor("decided", "refer")).toMatchObject({ label: "Referred", tone: "refer" });
+  expect(chipFor("waiting_for_sign_off").tone).toBe("warn");
+  expect(chipFor("waiting").tone).toBe("info");
 });

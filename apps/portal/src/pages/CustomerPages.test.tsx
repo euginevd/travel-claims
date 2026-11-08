@@ -35,7 +35,7 @@ function apiFor(routes: Routes) {
   return { api: createApi(fetchFn, () => "token-c"), fetchFn };
 }
 
-test("a customer snaps a receipt, taps what happened, checks the draft and sends it", async () => {
+test("a customer taps what happened, adds a receipt, checks the draft and sends it", async () => {
   const user = userEvent.setup();
   const { api, fetchFn } = apiFor({
     "GET /api/customer/policies": () => [200, [MY_POLICY]],
@@ -44,17 +44,18 @@ test("a customer snaps a receipt, taps what happened, checks the draft and sends
     "POST /api/customer/claims/CLM-1027/receipts": () => [201, myClaim({ claim_id: "CLM-1027" })],
   });
   render(<NewClaimPage api={api} />);
-  expect(await screen.findByText(/Your trip to Rome, Italy/)).toBeInTheDocument();
+  expect(await screen.findByText("Rome, Italy")).toBeInTheDocument();
 
-  await user.upload(screen.getByLabelText(/Choose files/), PNG);
+  await user.click(screen.getByRole("radio", { name: /Lost bag/ }));
   await user.click(screen.getByRole("button", { name: "Next" }));
-  await user.click(screen.getByRole("radio", { name: "Lost bag" }));
-  await user.type(screen.getByLabelText("A few words, if you like"), "bag lost in Rome");
+  await user.upload(screen.getByLabelText(/Choose files/), PNG);
+  await user.type(screen.getByLabelText("Anything to add? (optional)"), "bag lost in Rome");
   await user.click(screen.getByRole("button", { name: /Draft my claim/ }));
 
   expect(await screen.findByDisplayValue("Bag lost on the flight to Rome")).toBeInTheDocument();
   expect(screen.getByText("Receipt 1")).toBeInTheDocument();
-  expect(screen.getByLabelText("When")).toHaveClass("unsure");
+  expect(screen.getByRole("radio", { name: "Thursday 11 June 2026" })).toBeChecked();
+  expect(screen.getByRole("group", { name: "When did it happen?" })).toHaveClass("unsure");
   expect(screen.getByText("Did the airline pay you anything?")).toBeInTheDocument();
   await user.type(screen.getByLabelText("Your answer"), "No");
   await user.click(screen.getByRole("button", { name: "Answer" }));
@@ -65,36 +66,62 @@ test("a customer snaps a receipt, taps what happened, checks the draft and sends
     expect(window.location.hash).toBe("#/claims/CLM-1027");
   });
   const sent = fetchFn.calls.find((c) => c.path === "/api/customer/claims")?.body as {
+    claim_type: string;
     story: string;
     items: { amount: number }[];
   };
-  // The customer's own words are the record, with their answer added.
+  // The customer's own words are the record, with their answer added; their tap sets the type.
+  expect(sent.claim_type).toBe("baggage");
   expect(sent.story).toBe("bag lost in Rome\n\nDid the airline pay you anything? No");
   expect(sent.items[0]?.amount).toBe(120);
 });
 
-test("without the assistant the customer fills it in, and the form says what's missing", async () => {
+test("with nothing to read the assistant isn't called, and the form says what's missing", async () => {
   const user = userEvent.setup();
-  const { api, fetchFn } = apiFor({
+  const { api, fetchFn } = apiFor({ "GET /api/customer/policies": () => [200, [MY_POLICY]] });
+  render(<NewClaimPage api={api} />);
+  await user.click(await screen.findByRole("radio", { name: /Delayed flight/ }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getByRole("button", { name: "Continue without receipts" }));
+  expect(fetchFn.calls.some((c) => c.path === "/api/customer/drafts")).toBe(false);
+  expect(screen.queryByLabelText("Item 1")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Send my claim" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Choose the day it happened.");
+  expect(fetchFn.calls.some((c) => c.path === "/api/customer/claims")).toBe(false);
+});
+
+test("the assistant's internal notes never reach the customer", async () => {
+  const user = userEvent.setup();
+  const { api } = apiFor({
     "GET /api/customer/policies": () => [200, [MY_POLICY]],
-    "POST /api/customer/drafts": () => [503, { detail: "The assistant isn't available" }],
+    "POST /api/customer/drafts": () => [
+      200,
+      {
+        ...DRAFT,
+        summary: "Claim draft pending: customer has not yet described the incident",
+        story: "The customer has not provided details.",
+        missing_questions: ["What type of problem are you claiming for?"],
+      },
+    ],
   });
   render(<NewClaimPage api={api} />);
-  await user.click(await screen.findByRole("button", { name: "I don't have a receipt" }));
-  await user.click(screen.getByRole("radio", { name: "Delayed flight" }));
+  await user.click(await screen.findByRole("radio", { name: /Medical/ }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.upload(screen.getByLabelText(/Choose files/), PNG);
   await user.click(screen.getByRole("button", { name: /Draft my claim/ }));
-  expect(await screen.findByText("The assistant isn't available")).toBeInTheDocument();
-  expect(screen.getByLabelText("Type of claim")).toHaveValue("trip_delay");
-  await user.click(screen.getByRole("button", { name: "Send my claim" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("Say when it happened.");
-  expect(fetchFn.calls.some((c) => c.path === "/api/customer/claims")).toBe(false);
+  await screen.findByLabelText("In one line");
+  expect(screen.queryByText(/customer has not/i)).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue(/draft pending/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/What type of problem/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText("In one line")).toHaveValue("Medical");
 });
 
 test("a file that isn't a receipt is turned away before it's sent", async () => {
   const user = userEvent.setup({ applyAccept: false });
   const { api } = apiFor({ "GET /api/customer/policies": () => [200, [MY_POLICY]] });
   render(<NewClaimPage api={api} />);
-  await screen.findByText(/Your trip to Rome, Italy/);
+  await user.click(await screen.findByRole("radio", { name: /Lost bag/ }));
+  await user.click(screen.getByRole("button", { name: "Next" }));
   const page = new File(["<html>"], "page.html", { type: "text/html" });
   await user.upload(screen.getByLabelText(/Choose files/), page);
   expect(screen.getByRole("alert")).toHaveTextContent("page.html isn't a JPEG, PNG or PDF.");
@@ -105,8 +132,8 @@ test("the draft never replaces the customer's own words", () => {
   expect(fromDraft(DRAFT, "lost_bag", "").story).toBe(DRAFT.story);
   const blank = fromDraft(null, "medical", "");
   expect(blank.claimType).toBe("emergency_medical");
-  expect(blank.lines).toHaveLength(1);
-  expect(fromDraft({ ...DRAFT, incident_date: "soon" }, "", "").incidentDate).toBe("");
+  expect(blank.lines).toHaveLength(0);
+  expect(fromDraft({ ...DRAFT, incident_date: "soon" }, "lost_bag", "").incidentDate).toBe("");
 });
 
 test("a decided claim shows its outcome and lets the customer ask for a person", async () => {

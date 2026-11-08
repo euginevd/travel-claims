@@ -1,7 +1,8 @@
 import { FilePlus2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, CustomerClaimSummary } from "../api";
-import { CustomerStatusChip } from "../components/StatusChip";
+import { ClaimTracker } from "../components/ClaimTracker";
+import { CustomerStatusChip, STATUS_LINE } from "../components/StatusChip";
 import { CLAIM_TYPES } from "./NewClaimPage";
 import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -75,24 +76,24 @@ export function MyClaimsPage({ api }: { api: Api }) {
       {claims && claims.length > 0 && (
         <ul className="claim-cards">
           {claims.map((claim) => (
-            <li key={claim.claim_id} className="claim-card panel">
+            <li key={claim.claim_id} className={`claim-card panel tone-${claim.status}`}>
               <div className="claim-card-head">
                 <a href={myClaimHref(claim.claim_id)} className="claim-card-link">
                   {claim.summary}
                 </a>
                 <CustomerStatusChip status={claim.status} />
               </div>
-              <p className="muted">{claim.status_text}</p>
-              <dl className="facts inline">
-                <dt>Claim</dt>
-                <dd className="nowrap">{claim.claim_id}</dd>
-                <dt>Type</dt>
-                <dd>{CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}</dd>
-                <dt>Claimed</dt>
-                <dd className="number">{dollars(claim.amount_claimed)}</dd>
-                <dt>Made</dt>
-                <dd className="nowrap">{date(claim.submitted_on)}</dd>
-              </dl>
+              <p className="claim-card-line">{STATUS_LINE[claim.status]}</p>
+              <ClaimTracker status={claim.status} mini />
+              <p className="claim-meta">
+                <span className="nowrap">{claim.claim_id}</span>
+                <span aria-hidden="true">·</span>
+                <span>{CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}</span>
+                <span aria-hidden="true">·</span>
+                <span className="number nowrap">{dollars(claim.amount_claimed)} claimed</span>
+                <span aria-hidden="true">·</span>
+                <span className="nowrap">Made {date(claim.submitted_on)}</span>
+              </p>
             </li>
           ))}
         </ul>

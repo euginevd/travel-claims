@@ -38,7 +38,7 @@ test("shows the claim, its documents and policy", async () => {
   expect(screen.getByText("My flight home from Rome was cancelled.")).toBeInTheDocument();
   expect(screen.getByText("Hotel receipt")).toBeInTheDocument();
   expect(screen.getByText(/POL-2001/)).toBeInTheDocument();
-  expect(screen.getByText("Nothing yet.")).toBeInTheDocument();
+  expect(screen.getByText(/recommendation appears here/)).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Where this claim is" })).toBeInTheDocument();
 });
 
