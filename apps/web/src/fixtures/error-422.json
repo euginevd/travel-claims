@@ -1,0 +1,16 @@
+{
+  "detail": [
+    {
+      "type": "string_pattern_mismatch",
+      "loc": [
+        "body",
+        "email"
+      ],
+      "msg": "String should match pattern '^[^@\\s]+@[^@\\s]+$'",
+      "input": "not-an-email",
+      "ctx": {
+        "pattern": "^[^@\\s]+@[^@\\s]+$"
+      }
+    }
+  ]
+}

@@ -10,7 +10,7 @@ beforeEach(() => {
 });
 
 const signedInRoutes: Routes = {
-  "POST /api/dev/sign-in": () => [200, { access_token: "token-1" }],
+  "POST /api/dev/sign-in": () => [200, { id_token: "token-1", expires_in: 3600 }],
   "GET /api/me": () => [200, DANA],
   "GET /api/claims": () => [
     200,

@@ -16,8 +16,8 @@ export function StepList({ steps }: { steps: Step[] }) {
         >
           <div className="step-head">
             <strong>{STEP_LABELS[step.kind]}</strong>
-            <time dateTime={step.at} className="muted">
-              {when(step.at)}
+            <time dateTime={step.created_at} className="muted">
+              {when(step.created_at)}
             </time>
           </div>
           {FOLDED.has(step.kind) ? (

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { Api, Claim, Handler, Step } from "../api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
 import { DecisionCard } from "../components/DecisionCard";
 import { HeldPayout } from "../components/HeldPayout";
 import { SourcesPanel } from "../components/SourcesPanel";
@@ -17,51 +17,91 @@ interface ClaimPageProps {
 }
 
 const WORKABLE = new Set<Claim["status"]>(["waiting", "sent_back"]);
+// After failed polls, wait longer each time, up to this many times the usual wait.
+const MOST_BACK_OFF = 16;
 
 function messageOf(caught: unknown): string {
   return caught instanceof Error ? caught.message : String(caught);
 }
 
-export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
+/**
+ * The claim and its steps, loaded once and then, while the agent works, again pollMs after
+ * each load settles, so loads never overlap. Leaving the page aborts what's in flight; a
+ * failed load while the agent works is retried with a longer wait each time.
+ */
+function useClaim(api: Api, claimId: string, pollMs: number) {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const reload = useCallback(() => {
+    setGeneration((value) => value + 1);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer: number | undefined;
+    let failures = 0;
+    let working = false;
+
+    async function load() {
+      try {
+        const [found, foundSteps] = await Promise.all([
+          api.getClaim(claimId, controller.signal),
+          api.listSteps(claimId, controller.signal),
+        ]);
+        if (controller.signal.aborted) return;
+        setClaim(found);
+        setSteps(foundSteps);
+        setError(null);
+        failures = 0;
+        working = found.status === "in_progress";
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        setError(messageOf(caught));
+        failures += 1;
+      }
+      if (working) {
+        const wait = pollMs * Math.min(2 ** failures, MOST_BACK_OFF);
+        timer = window.setTimeout(() => void load(), wait);
+      }
+    }
+
+    void load();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [api, claimId, pollMs, generation]);
+
+  return { claim, steps, error, setClaim, setError, reload };
+}
+
+export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
+  const { claim, steps, error, setClaim, setError, reload } = useClaim(api, claimId, pollMs);
   const [starting, setStarting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
   const heading = useFocusHeading();
+
+  // Focus the outcome of an action, since the panel it was taken from has gone.
+  useEffect(() => {
+    if (notice) noticeRef.current?.focus();
+  }, [notice]);
 
   const working = claim?.status === "in_progress";
 
-  // Load the claim and its steps, then, while the agent works, again every pollMs.
-  useEffect(() => {
-    let live = true;
-    const refresh = () =>
-      Promise.all([api.getClaim(claimId), api.listSteps(claimId)]).then(
-        ([found, foundSteps]) => {
-          if (!live) return;
-          setClaim(found);
-          setSteps(foundSteps);
-          setError(null);
-        },
-        (caught: unknown) => {
-          if (live) setError(messageOf(caught));
-        },
-      );
-    void refresh();
-    const timer = working ? window.setInterval(() => void refresh(), pollMs) : undefined;
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, [api, claimId, working, pollMs]);
-
-  // The action's answer is what counts; if the steps then fail to load, the next poll or
-  // reload shows them, so that failure isn't reported as the action failing.
-  async function act(action: () => Promise<Claim>) {
-    setClaim(await action());
+  /** Take an action; on success show its result and load afresh. A 409 means the claim moved
+   * on (another handler, or the agent), so load afresh then too, and let the caller say why. */
+  async function act(action: () => Promise<Claim>, done: (claim: Claim) => string) {
     try {
-      setSteps(await api.listSteps(claimId));
-    } catch {
-      // Keep the steps already shown.
+      const updated = await action();
+      setClaim(updated);
+      setNotice(done(updated));
+      reload();
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 409) reload();
+      throw caught;
     }
   }
 
@@ -69,7 +109,10 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     setStarting(true);
     setError(null);
     try {
-      await act(() => api.workClaim(claimId));
+      await act(
+        () => api.workClaim(claimId),
+        () => "The agent has started on this claim.",
+      );
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
@@ -94,6 +137,14 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
           {error}
         </p>
       )}
+      <p
+        ref={noticeRef}
+        tabIndex={-1}
+        role="status"
+        className={notice ? "notice" : "visually-hidden"}
+      >
+        {notice}
+      </p>
       {claim ? details(claim) : !error && <p role="status">Loading the claim…</p>}
     </article>
   );
@@ -101,11 +152,13 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   // A plain render helper, not a component, so React keeps the form state inside it.
   function details(claim: Claim) {
     const held = claim.status === "waiting_for_sign_off";
+    const { policy } = claim;
+    const travellers = policy.travelers.length;
     return (
       <>
         <p className="muted">
-          {claim.customer_name} · <span className="capitalise">{claim.policy.plan}</span> plan ·
-          claimed {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
+          {claim.customer_name} · <span className="capitalise">{policy.plan}</span> plan · claimed{" "}
+          {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
         </p>
 
         <div className="claim-grid">
@@ -115,13 +168,17 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               <p className="muted small">
                 {date(claim.incident_date)}, {claim.incident_location}
               </p>
-              <p className="story">{claim.story}</p>
+              <p className="story" dir="auto">
+                {claim.story}
+              </p>
               <table className="items">
                 <caption>Items claimed</caption>
                 <tbody>
                   {claim.items.map((item, index) => (
                     <tr key={index}>
-                      <th scope="row">{item.description}</th>
+                      <th scope="row" dir="auto">
+                        {item.description}
+                      </th>
                       <td className="number">{dollars(item.amount)}</td>
                     </tr>
                   ))}
@@ -131,21 +188,19 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               {claim.documents.length === 0 ? (
                 <p className="muted">No documents.</p>
               ) : (
-                claim.documents.map((document) => (
-                  <details key={document.name} className="document">
-                    <summary>{document.name}</summary>
-                    <p>{document.content}</p>
+                claim.documents.map((document, index) => (
+                  <details key={index} className="document">
+                    <summary dir="auto">{document.name}</summary>
+                    <p dir="auto">{document.content}</p>
                   </details>
                 ))
               )}
               <h3>Policy</h3>
               <p className="small">
-                {claim.policy.policy_id} · {claim.policy.destination},{" "}
-                {date(claim.policy.trip_start)} to {date(claim.policy.trip_end)} ·{" "}
-                {claim.policy.travelers} {claim.policy.travelers === 1 ? "traveller" : "travellers"}
-                {claim.policy.add_ons.length > 0 && (
-                  <> · add-ons: {claim.policy.add_ons.join(", ")}</>
-                )}
+                {policy.policy_id} · {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}
+                {date(policy.trip.returns_on)} · {travellers}{" "}
+                {travellers === 1 ? "traveller" : "travellers"}
+                {policy.add_ons.length > 0 && <> · add-ons: {policy.add_ons.join(", ")}</>}
               </p>
             </section>
 
@@ -171,8 +226,18 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               <HeldPayout
                 claim={claim}
                 handler={handler}
-                onSignOff={() => act(() => api.signOff(claimId))}
-                onSendBack={(note) => act(() => api.sendBack(claimId, note))}
+                onSignOff={() =>
+                  act(
+                    () => api.signOff(claimId),
+                    (paid) => `Signed off and paid ${dollars(paid.payment?.amount ?? 0)}.`,
+                  )
+                }
+                onSendBack={(note) =>
+                  act(
+                    () => api.sendBack(claimId, note),
+                    () => "Sent back to the agent with your note.",
+                  )
+                }
               />
             )}
 
@@ -188,13 +253,13 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               <section className="panel" aria-labelledby="sent-back-heading">
                 <h2 id="sent-back-heading">Sent back</h2>
                 <ol className="sent-back-list">
-                  {claim.sent_back_decisions.map((sent) => (
-                    <li key={sent.sent_back_at}>
+                  {claim.sent_back_decisions.map((sent, index) => (
+                    <li key={index}>
                       <p>
                         <strong>{sent.sent_back_by}</strong>{" "}
                         <span className="muted">{when(sent.sent_back_at)}</span>
                       </p>
-                      <blockquote>{sent.note}</blockquote>
+                      <blockquote dir="auto">{sent.note}</blockquote>
                       <p className="muted small">
                         The decision sent back: {sent.decision.decision},{" "}
                         {dollars(sent.decision.payout)}. {sent.decision.reason}
@@ -209,7 +274,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
           <div className="claim-side">
             <section className="panel" aria-labelledby="steps-heading">
               <h2 id="steps-heading">What the agent did</h2>
-              <p role="status" className="muted small">
+              <p className="muted small">
                 {working
                   ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
                   : `${String(steps.length)} steps.`}

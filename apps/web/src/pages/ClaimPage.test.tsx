@@ -49,7 +49,7 @@ test("working a claim shows its steps live until the agent decides", async () =>
         200,
         polls < 4
           ? claim({ status: "in_progress" })
-          : claim({ status: "decided", decision: { ...APPROVAL, payout: 245, calculation: [] } }),
+          : claim({ status: "decided", decision: { ...APPROVAL, payout: 245, calculation: null } }),
       ];
     },
     [`GET ${BASE}/steps`]: () => [200, polls < 3 ? STEPS.slice(0, 1) : STEPS],
@@ -71,7 +71,7 @@ test("refusals and failures stand out, and sources are listed once per file", as
     kind: "error",
     content: "The model timed out.",
     sources: [],
-    at: "2026-11-08T05:00:00Z",
+    created_at: "2026-11-08T05:00:00Z",
   };
   show(fixed(claim({ status: "in_progress" }), [...STEPS, failure]));
   expect((await screen.findByText("Refused")).closest("li")).toHaveClass("step-alert");
@@ -133,29 +133,24 @@ test("a sent-back claim shows the note and can be worked again", async () => {
 test("a senior handler signs off a held payout", async () => {
   const user = userEvent.setup();
   let signedOff = false;
+  const paid = claim({
+    status: "decided",
+    decision: APPROVAL,
+    payment: { amount: 1250, paid_at: "2026-11-08T06:00:00Z", signed_off_by: "Dana Whitfield" },
+  });
   const fetchFn = show({
-    [`GET ${BASE}`]: () => [200, held],
+    [`GET ${BASE}`]: () => [200, signedOff ? paid : held],
     [`GET ${BASE}/steps`]: () => [200, STEPS],
     [`POST ${BASE}/sign-off`]: () => {
       signedOff = true;
-      return [
-        200,
-        claim({
-          status: "decided",
-          decision: APPROVAL,
-          payment: {
-            amount: 1250,
-            paid_at: "2026-11-08T06:00:00Z",
-            signed_off_by: "Dana Whitfield",
-          },
-        }),
-      ];
+      return [200, paid];
     },
   });
   expect(await screen.findByText(/over the \$1,000.00 approval limit/)).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "The agent's decision" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Sign off and pay $1,250.00" }));
   expect(await screen.findByText(/signed off by Dana Whitfield/)).toBeInTheDocument();
+  expect(screen.getByText("Signed off and paid $1,250.00.")).toHaveFocus();
   expect(signedOff).toBe(true);
   expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(1);
 });
@@ -232,11 +227,14 @@ test("says when working the claim fails", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("A dispatch is going.");
 });
 
-test("a sign-off that worked isn't reported as failed when the steps don't reload", async () => {
+test("a sign-off that worked says so even when the steps don't reload", async () => {
   const user = userEvent.setup();
   let signedOff = false;
   show({
-    [`GET ${BASE}`]: () => [200, held],
+    [`GET ${BASE}`]: () => [
+      200,
+      signedOff ? claim({ status: "decided", decision: APPROVAL }) : held,
+    ],
     [`GET ${BASE}/steps`]: () =>
       signedOff ? [500, { detail: "Steps unavailable" }] : [200, STEPS],
     [`POST ${BASE}/sign-off`]: () => {
@@ -246,6 +244,8 @@ test("a sign-off that worked isn't reported as failed when the steps don't reloa
   });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
   expect(await screen.findByRole("region", { name: "Decision" })).toBeInTheDocument();
-  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText(/Signed off and paid/)).toBeInTheDocument();
+  // The steps already shown stay while the reload's failure is reported.
   expect(screen.getByText("Refused")).toBeInTheDocument();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Steps unavailable");
 });

@@ -21,11 +21,11 @@ export function DecisionCard({ decision, payment, heading = "Decision" }: Decisi
         {decision.decision === "approve" && <> · {dollars(decision.payout)}</>}
       </p>
       <p>{decision.reason}</p>
-      {decision.calculation.length > 0 && (
+      {decision.calculation && decision.calculation.lines.length > 0 && (
         <table className="calculation">
           <caption>How the payout was worked out</caption>
           <tbody>
-            {decision.calculation.map((line, index) => (
+            {decision.calculation.lines.map((line, index) => (
               <tr key={index}>
                 <th scope="row">{line.step}</th>
                 <td className="number">{dollars(line.amount)}</td>

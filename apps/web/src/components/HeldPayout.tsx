@@ -1,4 +1,4 @@
-import { useId, useState, type SubmitEvent } from "react";
+import { useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, NOTE_LIMIT, type Claim, type Handler } from "../api";
 import { dollars } from "../format";
 
@@ -24,11 +24,15 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
     handler.can_approve_over_limit ? null : CANNOT,
   );
   const [busy, setBusy] = useState(false);
+  // Set at once on the first click, before React re-renders, so a double click acts once.
+  const inFlight = useRef(false);
   const ids = useId();
   const payout = claim.decision?.payout ?? 0;
   const blocked = refusal !== null;
 
   async function run(action: () => Promise<void>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -37,6 +41,7 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
       if (caught instanceof ApiError && caught.status === 403) setRefusal(caught.message);
       else setError(messageOf(caught));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -84,20 +89,21 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
       >
         Sign off and pay {dollars(payout)}
       </button>
-      <form
-        className="send-back"
-        noValidate
-        onSubmit={sendBack}
-        aria-describedby={refusal ? `${ids}-refusal` : undefined}
-      >
+      <form className="send-back" noValidate onSubmit={sendBack}>
         <label htmlFor={`${ids}-note`}>Or send it back to the agent with a note</label>
         <textarea
           id={`${ids}-note`}
           rows={4}
           value={note}
-          disabled={blocked}
+          disabled={blocked || busy}
           aria-invalid={noteError !== null}
-          aria-describedby={`${ids}-count${noteError ? ` ${ids}-note-error` : ""}`}
+          aria-describedby={[
+            `${ids}-count`,
+            noteError ? `${ids}-note-error` : "",
+            refusal ? `${ids}-refusal` : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           onChange={(event) => {
             setNote(event.target.value);
           }}
@@ -110,7 +116,12 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
             {noteError}
           </p>
         )}
-        <button type="submit" className="button secondary" disabled={blocked || busy}>
+        <button
+          type="submit"
+          className="button secondary"
+          disabled={blocked || busy}
+          aria-describedby={refusal ? `${ids}-refusal` : undefined}
+        >
           Send back
         </button>
       </form>

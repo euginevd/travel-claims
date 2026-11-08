@@ -4,6 +4,9 @@ WORKDIR /web
 COPY apps/web/package.json apps/web/package-lock.json apps/web/.npmrc ./
 RUN npm ci
 COPY apps/web ./
+# Only a local image offers the seeded handlers on its sign-in page.
+ARG VITE_LOCAL_SIGN_IN=false
+ENV VITE_LOCAL_SIGN_IN=$VITE_LOCAL_SIGN_IN
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03

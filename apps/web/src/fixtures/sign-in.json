@@ -1,0 +1,4 @@
+{
+  "id_token": "header.claims.signature",
+  "expires_in": 3600
+}

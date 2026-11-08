@@ -1,11 +1,17 @@
 import { useId, useState, type SubmitEvent } from "react";
 import { ApiError, type Api } from "../api";
 
-export const HANDLERS = [
-  { email: "dana.whitfield@undercover.example", label: "Dana Whitfield, senior handler" },
-  { email: "marcus.oyelaran@undercover.example", label: "Marcus Oyelaran, handler" },
-  { email: "priya.raman@undercover.example", label: "Priya Raman, handler" },
-];
+// The seeded handlers, offered as one-click choices only where the local sign-in stand-in
+// runs: a development build, or a local image built with VITE_LOCAL_SIGN_IN=true. Anywhere
+// else handlers sign in through Cognito instead.
+export const LOCAL_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_LOCAL_SIGN_IN === "true";
+export const HANDLERS = LOCAL_SIGN_IN
+  ? [
+      { email: "dana.whitfield@undercover.example", label: "Dana Whitfield, senior handler" },
+      { email: "marcus.oyelaran@undercover.example", label: "Marcus Oyelaran, handler" },
+      { email: "priya.raman@undercover.example", label: "Priya Raman, handler" },
+    ]
+  : [];
 
 interface SignInPageProps {
   api: Api;
@@ -60,29 +66,31 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
           void submit(event);
         }}
         noValidate
-        aria-describedby={error ? `${ids}-error` : undefined}
       >
-        <fieldset>
-          <legend>Choose a handler</legend>
-          {HANDLERS.map((handler) => (
-            <button
-              key={handler.email}
-              type="button"
-              className={`choice${email === handler.email ? " chosen" : ""}`}
-              aria-pressed={email === handler.email}
-              onClick={() => {
-                setEmail(handler.email);
-              }}
-            >
-              {handler.label}
-            </button>
-          ))}
-        </fieldset>
+        {HANDLERS.length > 0 && (
+          <fieldset>
+            <legend>Choose a handler</legend>
+            {HANDLERS.map((handler) => (
+              <button
+                key={handler.email}
+                type="button"
+                className={`choice${email === handler.email ? " chosen" : ""}`}
+                aria-pressed={email === handler.email}
+                onClick={() => {
+                  setEmail(handler.email);
+                }}
+              >
+                {handler.label}
+              </button>
+            ))}
+          </fieldset>
+        )}
         <label htmlFor={`${ids}-email`}>Email</label>
         <input
           id={`${ids}-email`}
           type="email"
           autoComplete="username"
+          aria-describedby={error ? `${ids}-error` : undefined}
           value={email}
           onChange={(event) => {
             setEmail(event.target.value);
@@ -93,6 +101,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
           id={`${ids}-password`}
           type="password"
           autoComplete="current-password"
+          aria-describedby={error ? `${ids}-error` : undefined}
           value={password}
           onChange={(event) => {
             setPassword(event.target.value);

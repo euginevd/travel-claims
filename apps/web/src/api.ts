@@ -1,24 +1,10 @@
 /*
- * The one module that talks to the api, and the types of everything it returns.
- *
- * Assumed contract (written before the api's routes exist; reconcile here only):
- * - Every route is under /api and takes `Authorization: Bearer <token>`, except sign-in.
- * - Field names follow the course's records: claim_id, submitted_on, amount_claimed, ...
- * - Errors are FastAPI's `{"detail": "..."}`; a 403's detail says what the handler can't do.
- * - GET /api/me returns the signed-in handler, with can_approve_over_limit.
- * - GET /api/claims/{id} includes the claim's policy, its decision (or null), its payment
- *   (or null), the decisions sent back, and the approval limit in force.
- * - A decision the hidden-instruction check made has by_screening: true.
- * - GET /api/claims/{id}/steps returns the steps oldest first; the check's step comes first.
- * - POST /api/claims/{id}/work, /sign-off and /send-back return the claim as it now stands.
+ * The one module that talks to the api. Every response is checked against a schema here, at
+ * the boundary, so nothing the rest of the app renders can have the wrong shape; the types
+ * come from the schemas. The api's own models are in apps/api/src/undercover_api/models.py,
+ * and src/fixtures/ holds real responses from it that the tests parse.
  */
-
-export interface Source {
-  file: string;
-  system: string;
-  owner: string;
-  reviewed: string;
-}
+import { z } from "zod";
 
 export const statuses = [
   "waiting",
@@ -28,109 +14,131 @@ export const statuses = [
   "decided",
   "left_for_handler",
 ] as const;
-export type Status = (typeof statuses)[number];
-export type DecisionKind = "approve" | "decline" | "refer";
-export type StepKind =
-  | "screening"
-  | "message"
-  | "tool_call"
-  | "tool_result"
-  | "lookup"
-  | "refusal"
-  | "error"
-  | "sent_back";
+const StatusSchema = z.enum(statuses);
+const DecisionKindSchema = z.enum(["approve", "decline", "refer"]);
+const StepKindSchema = z.enum([
+  "screening",
+  "message",
+  "tool_call",
+  "tool_result",
+  "lookup",
+  "refusal",
+  "error",
+  "sent_back",
+]);
 
-export interface Handler {
-  handler_id: string;
-  name: string;
-  email: string;
-  role: string;
-  can_approve_over_limit: boolean;
-}
+const SourceSchema = z.object({
+  file: z.string(),
+  system: z.string(),
+  owner: z.string(),
+  reviewed: z.string(),
+});
 
-export interface ClaimSummary {
-  claim_id: string;
-  customer_name: string;
-  plan: string;
-  claim_type: string;
-  summary: string;
-  amount_claimed: number;
-  submitted_on: string;
-  status: Status;
-}
+export const HandlerSchema = z.object({
+  handler_id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.string(),
+  can_approve_over_limit: z.boolean(),
+});
 
-export interface Item {
-  description: string;
-  category: string;
-  amount: number;
-}
+export const ClaimSummarySchema = z.object({
+  claim_id: z.string(),
+  customer_name: z.string(),
+  plan: z.string(),
+  claim_type: z.string(),
+  summary: z.string(),
+  amount_claimed: z.number(),
+  submitted_on: z.string(),
+  status: StatusSchema,
+  decision: DecisionKindSchema.nullable(),
+  payout: z.number().nullable(),
+});
 
-export interface ClaimDocument {
-  name: string;
-  type: string;
-  content: string;
-}
+const PolicySchema = z.object({
+  policy_id: z.string(),
+  plan: z.string(),
+  add_ons: z.array(z.string()),
+  purchased_on: z.string(),
+  trip: z.object({
+    destination: z.string(),
+    departs_on: z.string(),
+    returns_on: z.string(),
+    trip_cost: z.number(),
+  }),
+  travelers: z.array(z.string()),
+});
 
-export interface PolicySummary {
-  policy_id: string;
-  plan: string;
-  add_ons: string[];
-  destination: string;
-  trip_start: string;
-  trip_end: string;
-  travelers: number;
-}
+const CalculationStepSchema = z.object({ step: z.string(), amount: z.number() });
 
-export interface CalculationStep {
-  step: string;
-  amount: number;
-}
+const DecisionSchema = z.object({
+  decision: DecisionKindSchema,
+  payout: z.number(),
+  calculation: z.object({ lines: z.array(CalculationStepSchema), payout: z.number() }).nullable(),
+  section: z.string(),
+  reason: z.string(),
+  decided_by: z.string(),
+  decided_at: z.string(),
+  manual_version: z.string(),
+  approval_limit: z.number(),
+  hold_reason: z.string().nullable(),
+  signed_off_by: z.string().nullable(),
+  signed_off_at: z.string().nullable(),
+  by_screening: z.boolean(),
+});
 
-export interface Decision {
-  decision: DecisionKind;
-  payout: number;
-  calculation: CalculationStep[];
-  section: string;
-  reason: string;
-  decided_by: string;
-  decided_at: string;
-  manual_version: string;
-  by_screening: boolean;
-}
+export const ClaimSchema = z.object({
+  claim_id: z.string(),
+  customer_name: z.string(),
+  claim_type: z.string(),
+  summary: z.string(),
+  amount_claimed: z.number(),
+  submitted_on: z.string(),
+  status: StatusSchema,
+  incident_date: z.string(),
+  incident_location: z.string(),
+  story: z.string(),
+  items: z.array(z.object({ description: z.string(), category: z.string(), amount: z.number() })),
+  documents: z.array(z.object({ name: z.string(), type: z.string(), content: z.string() })),
+  policy: PolicySchema,
+  approval_limit: z.number(),
+  decision: DecisionSchema.nullable(),
+  payment: z
+    .object({ amount: z.number(), paid_at: z.string(), signed_off_by: z.string().nullable() })
+    .nullable(),
+  sent_back_decisions: z.array(
+    z.object({
+      decision: DecisionSchema,
+      note: z.string(),
+      sent_back_by: z.string(),
+      sent_back_at: z.string(),
+    }),
+  ),
+});
 
-export interface SentBackDecision {
-  decision: Decision;
-  note: string;
-  sent_back_by: string;
-  sent_back_at: string;
-}
+export const StepSchema = z.object({
+  step_id: z.number(),
+  kind: StepKindSchema,
+  content: z.string(),
+  sources: z.array(SourceSchema),
+  created_at: z.string(),
+});
 
-export interface Payment {
-  amount: number;
-  paid_at: string;
-  signed_off_by: string | null;
-}
+export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
-export interface Claim extends ClaimSummary {
-  incident_date: string;
-  incident_location: string;
-  story: string;
-  items: Item[];
-  documents: ClaimDocument[];
-  policy: PolicySummary;
-  decision: Decision | null;
-  payment: Payment | null;
-  sent_back_decisions: SentBackDecision[];
-  approval_limit: number;
-}
-
-export interface Step {
-  step_id: number;
-  kind: StepKind;
-  content: string;
-  sources: Source[];
-  at: string;
-}
+export type Status = z.infer<typeof StatusSchema>;
+export type DecisionKind = z.infer<typeof DecisionKindSchema>;
+export type StepKind = z.infer<typeof StepKindSchema>;
+export type Source = z.infer<typeof SourceSchema>;
+export type Handler = z.infer<typeof HandlerSchema>;
+export type ClaimSummary = z.infer<typeof ClaimSummarySchema>;
+export type Policy = z.infer<typeof PolicySchema>;
+export type CalculationStep = z.infer<typeof CalculationStepSchema>;
+export type Decision = z.infer<typeof DecisionSchema>;
+export type Claim = z.infer<typeof ClaimSchema>;
+export type SentBackDecision = Claim["sent_back_decisions"][number];
+export type Payment = NonNullable<Claim["payment"]>;
+export type Step = z.infer<typeof StepSchema>;
 
 export const NOTE_LIMIT = 1000;
 
@@ -148,8 +156,8 @@ export interface Api {
   signIn: (email: string, password: string) => Promise<string>;
   me: () => Promise<Handler>;
   listClaims: () => Promise<ClaimSummary[]>;
-  getClaim: (claimId: string) => Promise<Claim>;
-  listSteps: (claimId: string) => Promise<Step[]>;
+  getClaim: (claimId: string, signal?: AbortSignal) => Promise<Claim>;
+  listSteps: (claimId: string, signal?: AbortSignal) => Promise<Step[]>;
   workClaim: (claimId: string) => Promise<Claim>;
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
@@ -158,11 +166,26 @@ export interface Api {
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 const FALLBACK_ERROR = "Something went wrong talking to the server. Please try again.";
+const SHAPE_ERROR = "The server sent something the dashboard didn't expect. Please try again.";
+// The status given to a response that arrived but had the wrong shape.
+export const BAD_RESPONSE = 0;
 
+const ValidationDetail = z.array(z.object({ msg: z.string() }));
+
+/** The api's error as a plain message: its detail, or FastAPI's validation messages joined. */
 async function errorFrom(response: Response): Promise<ApiError> {
   try {
-    const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === "string") return new ApiError(response.status, body.detail);
+    const body: unknown = await response.json();
+    const detail = z.object({ detail: z.unknown() }).safeParse(body);
+    if (detail.success) {
+      if (typeof detail.data.detail === "string") {
+        return new ApiError(response.status, detail.data.detail);
+      }
+      const problems = ValidationDetail.safeParse(detail.data.detail);
+      if (problems.success && problems.data.length > 0) {
+        return new ApiError(response.status, problems.data.map((p) => p.msg).join(". "));
+      }
+    }
   } catch {
     // Not JSON: fall back to the plain message below.
   }
@@ -170,36 +193,45 @@ async function errorFrom(response: Response): Promise<ApiError> {
 }
 
 export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
-  async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  async function call<T>(
+    schema: z.ZodType<T>,
+    method: "GET" | "POST",
+    path: string,
+    options: { body?: unknown; signal?: AbortSignal } = {},
+  ): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json" };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (options.body !== undefined) headers["Content-Type"] = "application/json";
     const response = await fetchFn(`/api${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: options.signal,
     });
     if (!response.ok) throw await errorFrom(response);
-    return (await response.json()) as T;
+    const parsed = schema.safeParse(await response.json());
+    if (!parsed.success) throw new ApiError(BAD_RESPONSE, SHAPE_ERROR);
+    return parsed.data;
   }
 
   const claimPath = (claimId: string) => `/claims/${encodeURIComponent(claimId)}`;
 
   return {
     signIn: async (email, password) => {
-      const answer = await call<{ access_token: string }>("POST", "/dev/sign-in", {
-        email,
-        password,
+      const answer = await call(SignInSchema, "POST", "/dev/sign-in", {
+        body: { email, password },
       });
-      return answer.access_token;
+      return answer.id_token;
     },
-    me: () => call("GET", "/me"),
-    listClaims: () => call("GET", "/claims"),
-    getClaim: (claimId) => call("GET", claimPath(claimId)),
-    listSteps: (claimId) => call("GET", `${claimPath(claimId)}/steps`),
-    workClaim: (claimId) => call("POST", `${claimPath(claimId)}/work`),
-    signOff: (claimId) => call("POST", `${claimPath(claimId)}/sign-off`),
-    sendBack: (claimId, note) => call("POST", `${claimPath(claimId)}/send-back`, { note }),
+    me: () => call(HandlerSchema, "GET", "/me"),
+    listClaims: () => call(z.array(ClaimSummarySchema), "GET", "/claims"),
+    getClaim: (claimId, signal) => call(ClaimSchema, "GET", claimPath(claimId), { signal }),
+    listSteps: (claimId, signal) =>
+      call(z.array(StepSchema), "GET", `${claimPath(claimId)}/steps`, { signal }),
+    workClaim: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/work`),
+    signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
+    sendBack: (claimId, note) =>
+      call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
   };
 }

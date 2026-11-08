@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Handler } from "./api";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { ClaimPage } from "./pages/ClaimPage";
 import { QueuePage } from "./pages/QueuePage";
@@ -19,6 +20,9 @@ const defaultFetch: Fetch = (input, init) => fetch(input, init);
 export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [handler, setHandler] = useState<Handler | null>(null);
+  // Why the signed-in handler couldn't be loaded, when it wasn't the token's fault.
+  const [meError, setMeError] = useState<string | null>(null);
+  const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
 
   const signOut = useCallback(() => {
@@ -59,20 +63,46 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
       (me) => {
         if (live) setHandler(me);
       },
-      () => {
-        // A 401 has already signed out; any other failure leaves the sign-in page showing.
-        if (live) signOut();
+      (caught: unknown) => {
+        if (!live) return;
+        // Only a token the api refuses ends the sign-in; anything else may pass, so it waits.
+        if (caught instanceof ApiError && (caught.status === 401 || caught.status === 403)) {
+          signOut();
+        } else {
+          setMeError(caught instanceof Error ? caught.message : String(caught));
+        }
       },
     );
     return () => {
       live = false;
     };
-  }, [api, token, signOut]);
+  }, [api, token, signOut, meAttempt]);
 
   const signedIn = useCallback((newToken: string) => {
     saveToken(newToken);
     setToken(newToken);
   }, []);
+
+  if (token && !handler && meError) {
+    return (
+      <main className="sign-in" id="main">
+        <h1>UnderCover claims</h1>
+        <p className="error" role="alert">
+          We couldn&apos;t check your sign-in: {meError}
+        </p>
+        <button
+          type="button"
+          className="button"
+          onClick={() => {
+            setMeError(null);
+            setMeAttempt((value) => value + 1);
+          }}
+        >
+          Try again
+        </button>
+      </main>
+    );
+  }
 
   if (!token || !handler) {
     return <SignInPage api={api} onSignedIn={signedIn} checking={Boolean(token)} />;
@@ -85,17 +115,19 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
       </a>
       <Header handler={handler} onSignOut={signOut} />
       <main id="main" tabIndex={-1}>
-        {route.page === "claim" ? (
-          <ClaimPage
-            key={route.claimId}
-            api={api}
-            claimId={route.claimId}
-            handler={handler}
-            pollMs={pollMs}
-          />
-        ) : (
-          <QueuePage api={api} />
-        )}
+        <ErrorBoundary key={route.page === "claim" ? route.claimId : "queue"}>
+          {route.page === "claim" ? (
+            <ClaimPage
+              key={route.claimId}
+              api={api}
+              claimId={route.claimId}
+              handler={handler}
+              pollMs={pollMs}
+            />
+          ) : (
+            <QueuePage api={api} />
+          )}
+        </ErrorBoundary>
       </main>
     </>
   );
