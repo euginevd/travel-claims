@@ -47,6 +47,8 @@ class ClaimState(TypedDict):
     model_calls: Annotated[int, operator.add]
     outcome: Outcome
     payout: float
+    # The attempt's configuration: instructions, model and effort, read once at the start.
+    configuration: Json
 
 
 def ids(config: RunnableConfig) -> tuple[str, str]:
@@ -124,7 +126,19 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             return {"outcome": "referred"}
         start = f"Your claim is {claim_id}. Work it and record your decision."
         first = {"role": "user", "content": with_receipts(start, receipts)}
-        return {"messages": [first], "outcome": ""}
+        return {
+            "messages": [first],
+            "outcome": "",
+            "configuration": attempts_configuration(claim_id),
+        }
+
+    def attempts_configuration(claim_id: str) -> Json:
+        """The attempt's configuration, or the built-in one when the api has none yet."""
+        try:
+            found = api.configuration(claim_id)
+        except ApiError:
+            return {}
+        return {k: found[k] for k in ("version", "instructions", "model", "effort")}
 
     def agent(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
@@ -133,7 +147,14 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             api.record_step(claim_id, thread_id, "error", reason)
             refer(claim_id, reason, "claim_agent", "Claims manual: referral")
             return {"outcome": "referred"}
-        reply, call = claude.turn(INSTRUCTIONS, TOOLS, state["messages"])
+        chosen = state.get("configuration") or {}
+        reply, call = claude.turn(
+            str(chosen.get("instructions") or INSTRUCTIONS),
+            TOOLS,
+            state["messages"],
+            chosen.get("model"),
+            chosen.get("effort"),
+        )
         record_call(claim_id, thread_id, call)
         for text in texts(reply):
             api.record_step(claim_id, thread_id, "message", text)

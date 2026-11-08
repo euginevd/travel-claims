@@ -10,6 +10,14 @@ and works in the background: 202 {"accepted": true}, or 409 {"refused": "<why>"}
 won't take the work. The api has already moved the claim (waiting -> in_progress for /work,
 sent_back -> in_progress for a sent_back /resume) and committed before it asks, so the agent
 never calls /start or /take for work the api handed it.
+
+    POST {AGENT_URL}/dispatch {"run_id": 1, "claim_ids": [...], "concurrency": 5}
+    POST {AGENT_URL}/improve  {"round_id": 1}
+
+/dispatch works an evaluation's copies, up to `concurrency` at once, starting each waiting
+copy itself (/start) or carrying on one already in progress, then tells the api the run is
+done (/api/agent/runs/{run_id}/finish). /improve asks the improver for a proposal, which it
+posts to /api/agent/rounds/{round_id}/proposal. Both answer 202 at once, like /work.
 """
 
 import json
@@ -47,6 +55,10 @@ class AgentService(Protocol):
 
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None: ...
 
+    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None: ...
+
+    def improve(self, round_id: int) -> None: ...
+
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         """Ask the drafting assistant for a draft claim; the api validates what comes back."""
         ...
@@ -67,6 +79,17 @@ class HttpAgentService:
             "/resume", {"claim_id": claim_id, "thread_id": thread_id, "outcome": str(outcome)}
         )
 
+    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
+        body: dict[str, object] = {
+            "run_id": run_id,
+            "claim_ids": claim_ids,
+            "concurrency": concurrency,
+        }
+        self._accepted(self._post("/dispatch", body, TIMEOUT_SECONDS))
+
+    def improve(self, round_id: int) -> None:
+        self._accepted(self._post("/improve", {"round_id": round_id}, TIMEOUT_SECONDS))
+
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         answer = self._post("/draft", request, DRAFT_TIMEOUT_SECONDS)
         if not isinstance(answer, dict):
@@ -74,7 +97,10 @@ class HttpAgentService:
         return cast(dict[str, object], answer)
 
     def _send(self, path: str, body: dict[str, str]) -> None:
-        answer = self._post(path, dict(body), TIMEOUT_SECONDS)
+        self._accepted(self._post(path, dict(body), TIMEOUT_SECONDS))
+
+    @staticmethod
+    def _accepted(answer: object) -> None:
         if field(answer, "accepted") is not True:
             raise AgentRefusedError("The agent didn't take the work")
 

@@ -65,6 +65,8 @@ from undercover_api.db import (
     redteam_reports,
     sent_back,
 )
+from undercover_api.evaluations import EVALUATION, version_for_attempt
+from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
     PAUSED_REASON,
     payout_switch,
@@ -235,7 +237,7 @@ def record_decision(
         calculation=calculation and calculation.model_dump(),
         section=request.section,
         reason=request.reason,
-        decided_by=maker_name(request, settings),
+        decided_by=maker_name(request, claim["config_version"] or settings.agent_version),
         decided_at=now(),
         manual_version=manual_version(db),
         approval_limit=limit,
@@ -246,7 +248,8 @@ def record_decision(
             db.execute(insert(decisions).values(claim_id=claim_id, **record))
     except IntegrityError as error:
         raise HTTPException(409, f"Claim {claim_id} has already been decided") from error
-    if request.decision != DecisionKind.APPROVE:
+    if request.decision != DecisionKind.APPROVE or claim["source"] == EVALUATION:
+        # An evaluation's copy is never paid or signed off: its approval is finished here.
         set_status(db, claim_id, Status.DECIDED)
     elif needs_sign_off(request.payout, limit):
         set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
@@ -261,11 +264,11 @@ def record_decision(
     return claim_in_full(db, claim_id)
 
 
-def maker_name(request: DecisionRequest, settings: Settings) -> str:
+def maker_name(request: DecisionRequest, version: int) -> str:
     """Who made a decision, as the record names it: never the caller's own words."""
     if request.maker == "hidden_instruction_check":
         return SCREENING_MAKER
-    return f"UnderCover Agent v{settings.agent_version}"
+    return f"UnderCover Agent v{version}"
 
 
 @agent_router.post("/payment", operation_id="pay_claim")
@@ -323,6 +326,7 @@ def start_attempt(db: Connection, claim_id: str, thread_id: str) -> bool:
         Status.IN_PROGRESS,
         thread_id=thread_id,
         attempts=claims.c.attempts + 1,
+        config_version=version_for_attempt(db, claim_id),
     )
 
 
@@ -757,6 +761,7 @@ def create_app(
         staff_router,
         receipt_router,
         customer_router,
+        *EVALUATION_ROUTERS,
     ):
         app.include_router(router)
     return app

@@ -67,6 +67,31 @@ class ApiClient:
         path = f"/api/agent/claims/{claim_id}/hold"
         return cast(Json, self._call("POST", path, {"reason": reason}))
 
+    def start(self, claim_id: str, thread_id: str) -> Json:
+        path = f"/api/agent/claims/{claim_id}/start"
+        return cast(Json, self._call("POST", path, {"thread_id": thread_id}))
+
+    def configuration(self, claim_id: str) -> Json:
+        """The configuration the claim's attempt works with: instructions, model and effort."""
+        path = f"/api/agent/claims/{claim_id}/configuration"
+        return cast(Json, self._call("GET", path))
+
+    def register_configuration(self, body: Json) -> Json:
+        return cast(Json, self._call("POST", "/api/agent/configuration/initial", body))
+
+    def finish_run(self, run_id: int) -> Json:
+        return cast(Json, self._call("POST", f"/api/agent/runs/{run_id}/finish"))
+
+    def brief(self, round_id: int) -> Json:
+        return cast(Json, self._call("GET", f"/api/agent/rounds/{round_id}/brief"))
+
+    def propose(self, round_id: int, body: Json) -> Json:
+        return cast(Json, self._call("POST", f"/api/agent/rounds/{round_id}/proposal", body))
+
+    def improver_failed(self, round_id: int, reason: str) -> Json:
+        body = {"approve": False, "reason": reason[:1000]}
+        return cast(Json, self._call("POST", f"/api/agent/rounds/{round_id}/failed", body))
+
     def record_step(
         self,
         claim_id: str,

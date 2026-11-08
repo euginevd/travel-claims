@@ -112,6 +112,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
             "stages": stages(db, row, decision, payment),
+            "evaluation": row["source"] == "evaluation",
         }
     )
 
@@ -185,6 +186,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
         .join(customers, customers.c.customer_id == claims.c.customer_id)
         .join(policies, policies.c.policy_id == claims.c.policy_id)
         .outerjoin(decisions, decisions.c.claim_id == claims.c.claim_id)
+        .where(claims.c.source != "evaluation")
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
     return [

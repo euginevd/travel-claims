@@ -1,0 +1,403 @@
+"""Improvement rounds: the improver proposes a new configuration from the evaluation set's
+misses, a senior handler approves or rejects it, and an approved version is kept only if it
+does better on the held-out set without doing worse on any measure.
+
+A round goes: baselining (an evaluation run and a held-out run of the current version) ->
+improving (the improver is asked) -> awaiting_review -> evaluating (the candidate's held-out
+run) -> kept or rolled_back; or rejected, or stopped. Its spending - the improver's calls and
+its runs - stays within its limit. The improver reads only the evaluation set's misses; the
+held-out labels never leave the api.
+"""
+
+import difflib
+import logging
+from typing import Annotated, Any
+
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, StringConstraints
+from sqlalchemy import Connection, RowMapping, func, insert, select, update
+
+from undercover_api.agent_service import AgentService, AgentUnavailableError
+from undercover_api.auth import Database, SeniorHandler, SignedIn
+from undercover_api.claims import find_claim
+from undercover_api.db import configurations, now, rounds, settings
+from undercover_api.evaluations import (
+    EFFORTS,
+    MODELS,
+    AgentCalls,
+    Configuration,
+    Effort,
+    Instructions,
+    LabelSet,
+    Model,
+    Scores,
+    StartRunRequest,
+    agent_eval_router,
+    configuration,
+    create_run,
+    dispatch,
+    need_current,
+    new_id,
+    run_claims,
+    run_cost,
+    run_row,
+    set_current_version,
+    staff_eval_router,
+)
+from undercover_api.models import Strict
+
+log = logging.getLogger(__name__)
+
+SPEND_LIMIT = "round_spend_limit"
+DEFAULT_SPEND_LIMIT = 2.0
+# The measures a candidate must not do worse on, and must beat the baseline on at least one.
+MEASURES = ("accuracy", "payout_accuracy", "straight_through")
+# How far cost per claim must move to count as better or worse; time per claim is too noisy
+# on a few claims to judge by.
+COST_NOISE = 0.10
+OPEN = ("baselining", "improving", "awaiting_review", "evaluating")
+TINY = "tiny"
+BASELINES: tuple[tuple[LabelSet, str], ...] = (
+    ("evaluation", "baseline_eval_run"),
+    ("held_out", "baseline_held_run"),
+)
+CONCURRENCY = 5
+
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+
+
+class Proposal(Strict):
+    instructions: Instructions
+    model: Model
+    effort: Effort
+    reason: Reason
+    cost: float = Field(ge=0, le=100, allow_inf_nan=False, description="The improver's spend")
+
+
+class ReviewRequest(Strict):
+    approve: bool
+    reason: Reason
+
+
+class Round(BaseModel):
+    round_id: int
+    status: str
+    baseline_version: int
+    candidate_version: int | None
+    baseline_eval_run: int | None
+    baseline_held_run: int | None
+    candidate_held_run: int | None
+    proposal: dict[str, Any] | None
+    review: dict[str, Any] | None
+    verdict: dict[str, Any] | None
+    improver_cost: float
+    spend_limit: float
+    spent: float
+    diff: str | None
+    started_by: str
+    started_at: str
+
+
+class Miss(BaseModel):
+    """One evaluation-set claim the agent got wrong, for the improver."""
+
+    claim: dict[str, Any]
+    agent_decision: str | None
+    agent_payout: float | None
+    agent_reason: str | None
+    handler_decision: str | None
+    handler_payout: float | None
+    handler_reason: str | None
+
+
+class Brief(BaseModel):
+    """What the improver reads: the current configuration, the evaluation set's scores and its
+    misses. Never anything from the held-out set."""
+
+    configuration: Configuration
+    scores: Scores
+    misses: list[Miss]
+    models: list[str]
+    efforts: list[str]
+
+
+def spend_limit(db: Connection) -> float:
+    value = db.execute(
+        select(settings.c.value).where(settings.c.key == SPEND_LIMIT)
+    ).scalar_one_or_none()
+    return float(value) if value is not None else DEFAULT_SPEND_LIMIT
+
+
+def round_row(db: Connection, round_id: int) -> RowMapping:
+    row = db.execute(select(rounds).where(rounds.c.round_id == round_id)).mappings().first()
+    if row is None:
+        raise HTTPException(404, f"Round {round_id} not found")
+    return row
+
+
+def spent(db: Connection, row: RowMapping) -> float:
+    runs_of = (row["baseline_eval_run"], row["baseline_held_run"], row["candidate_held_run"])
+    return round(float(row["improver_cost"] or 0) + sum(run_cost(db, r) for r in runs_of), 6)
+
+
+def round_of(db: Connection, row: RowMapping) -> Round:
+    diff = None
+    if row["candidate_version"] is not None:
+        diff = configuration(db, row["candidate_version"]).diff
+    return Round.model_validate(dict(row) | {"spent": spent(db, row), "diff": diff})
+
+
+def update_round(db: Connection, round_id: int, **values: Any) -> None:
+    db.execute(update(rounds).where(rounds.c.round_id == round_id).values(**values))
+
+
+def finished(db: Connection, run_id: int | None) -> bool:
+    return run_id is not None and run_row(db, run_id)["status"] == "finished"
+
+
+def scores_of(db: Connection, run_id: int) -> Scores:
+    return Scores.model_validate(run_row(db, run_id)["scores"])
+
+
+# --- Staff ---
+
+
+@staff_eval_router.get("/rounds", operation_id="list_rounds")
+def list_rounds(_: SignedIn, db: Database) -> list[Round]:
+    """Every improvement round, newest first."""
+    rows = db.execute(select(rounds).order_by(rounds.c.round_id.desc())).mappings()
+    return [round_of(db, r) for r in rows]
+
+
+@staff_eval_router.get("/rounds/{round_id}", operation_id="get_round")
+def get_round(round_id: int, _: SignedIn, db: Database) -> Round:
+    return round_of(db, round_row(db, round_id))
+
+
+@staff_eval_router.post("/rounds", operation_id="start_round", status_code=201)
+def start_round(handler: SeniorHandler, db: Database, service: AgentCalls) -> Round:
+    """Start a round: evaluate the current version on the evaluation and held-out sets (their
+    tiny claims, in this pilot), then ask the improver."""
+    if db.execute(select(func.count()).where(rounds.c.status.in_(OPEN))).scalar_one():
+        raise HTTPException(409, "A round is already open; finish or stop it first")
+    version = need_current(db)
+    round_id = new_id(
+        db.execute(
+            insert(rounds).values(
+                status="baselining",
+                baseline_version=version,
+                improver_cost=0,
+                spend_limit=spend_limit(db),
+                started_by=handler.name,
+                started_at=now(),
+            )
+        )
+    )
+    for label_set, column in BASELINES:
+        body = StartRunRequest(label_set=label_set, size=TINY, concurrency=CONCURRENCY)
+        run_id, ids = create_run(db, body, version, handler.name, round_id)
+        update_round(db, round_id, **{column: run_id})
+        dispatch(db, service, run_id, ids, CONCURRENCY)
+    return round_of(db, round_row(db, round_id))
+
+
+@staff_eval_router.post("/rounds/{round_id}/review", operation_id="review_proposal")
+def review_proposal(
+    round_id: int, body: ReviewRequest, handler: SeniorHandler, db: Database, service: AgentCalls
+) -> Round:
+    """Approve the improver's proposal, which is then tried on the held-out set, or reject it
+    with the reason."""
+    row = round_row(db, round_id)
+    if row["status"] != "awaiting_review":
+        raise HTTPException(409, f"Round {round_id} has no proposal waiting for review")
+    review = {"approved": body.approve, "reason": body.reason, "by": handler.name, "at": now()}
+    candidate = row["candidate_version"]
+    if not body.approve:
+        db.execute(
+            update(configurations)
+            .where(configurations.c.version == candidate)
+            .values(status="rejected", reviewed_by=handler.name)
+        )
+        update_round(db, round_id, status="rejected", review=review)
+        return round_of(db, round_row(db, round_id))
+    estimate = run_cost(db, row["baseline_held_run"])
+    if spent(db, row) + estimate > float(row["spend_limit"]):
+        raise HTTPException(
+            409,
+            "Trying it would likely go over the round's spending limit of "
+            f"${row['spend_limit']:.2f}",
+        )
+    db.execute(
+        update(configurations)
+        .where(configurations.c.version == candidate)
+        .values(status="candidate", reviewed_by=handler.name)
+    )
+    body_run = StartRunRequest(label_set="held_out", size=TINY, concurrency=CONCURRENCY)
+    run_id, ids = create_run(db, body_run, candidate, handler.name, round_id)
+    update_round(db, round_id, status="evaluating", review=review, candidate_held_run=run_id)
+    dispatch(db, service, run_id, ids, CONCURRENCY)
+    return round_of(db, round_row(db, round_id))
+
+
+@staff_eval_router.post("/rounds/{round_id}/stop", operation_id="stop_round")
+def stop_round(round_id: int, _: SeniorHandler, db: Database) -> Round:
+    """Stop an open round; the current version stays as it was."""
+    row = round_row(db, round_id)
+    if row["status"] not in OPEN:
+        raise HTTPException(409, f"Round {round_id} isn't open")
+    update_round(db, round_id, status="stopped")
+    return round_of(db, round_row(db, round_id))
+
+
+# --- The agent's ---
+
+
+@agent_eval_router.get("/rounds/{round_id}/brief", operation_id="get_improver_brief")
+def get_improver_brief(round_id: int, db: Database) -> Brief:
+    """The current configuration and the evaluation set's misses, for the improver."""
+    row = round_row(db, round_id)
+    if row["status"] != "improving" or row["baseline_eval_run"] is None:
+        raise HTTPException(409, f"Round {round_id} isn't waiting for the improver")
+    eval_run = row["baseline_eval_run"]
+    if run_row(db, eval_run)["label_set"] != "evaluation":
+        raise HTTPException(409, "The improver reads only the evaluation set")
+    found, _ = run_claims(db, eval_run)
+    misses = [
+        Miss(
+            claim={
+                k: find_claim(db, c.claim_id)[k]
+                for k in ("claim_type", "summary", "story", "items", "amount_claimed", "documents")
+            },
+            agent_decision=c.decision,
+            agent_payout=c.payout,
+            agent_reason=c.reason,
+            handler_decision=c.handler_decision,
+            handler_payout=c.handler_payout,
+            handler_reason=c.handler_reason,
+        )
+        for c in found
+        if not c.payout_matched
+    ]
+    return Brief(
+        configuration=configuration(db, row["baseline_version"]),
+        scores=scores_of(db, eval_run),
+        misses=misses,
+        models=list(MODELS),
+        efforts=list(EFFORTS),
+    )
+
+
+@agent_eval_router.post("/rounds/{round_id}/proposal", operation_id="propose_configuration")
+def propose_configuration(round_id: int, body: Proposal, db: Database) -> Round:
+    """The improver's proposal: a new version with its diff, waiting for a senior handler."""
+    row = round_row(db, round_id)
+    if row["status"] != "improving":
+        raise HTTPException(409, f"Round {round_id} isn't waiting for a proposal")
+    base = configuration(db, row["baseline_version"])
+    version = int(db.execute(select(func.max(configurations.c.version))).scalar_one() or 0) + 1
+    diff = "".join(
+        difflib.unified_diff(
+            [
+                f"model: {base.model}\n",
+                f"effort: {base.effort}\n",
+                *base.instructions.splitlines(True),
+            ],
+            [
+                f"model: {body.model}\n",
+                f"effort: {body.effort}\n",
+                *body.instructions.splitlines(True),
+            ],
+            f"version {base.version}",
+            f"version {version}",
+        )
+    )
+    db.execute(
+        insert(configurations).values(
+            version=version,
+            instructions=body.instructions,
+            model=body.model,
+            effort=body.effort,
+            reason=body.reason,
+            diff=diff,
+            status="proposed",
+            parent_version=base.version,
+            proposed_by="Improver",
+            created_at=now(),
+        )
+    )
+    update_round(
+        db,
+        round_id,
+        status="awaiting_review",
+        candidate_version=version,
+        proposal={"reason": body.reason, "model": body.model, "effort": body.effort},
+        improver_cost=float(row["improver_cost"] or 0) + body.cost,
+    )
+    return round_of(db, round_row(db, round_id))
+
+
+@agent_eval_router.post("/rounds/{round_id}/failed", operation_id="improver_failed")
+def improver_failed(round_id: int, body: ReviewRequest, db: Database) -> Round:
+    """The improver couldn't propose anything; the round stops with its reason."""
+    if round_row(db, round_id)["status"] == "improving":
+        update_round(db, round_id, status="stopped", verdict={"kept": False, "why": body.reason})
+    return round_of(db, round_row(db, round_id))
+
+
+# --- Moving a round on when its runs finish ---
+
+
+def verdict(baseline: Scores, candidate: Scores) -> dict[str, Any]:
+    """Keep the candidate only if it's no worse on every measure and better on at least one.
+    Cost per claim counts too, lower being better, outside its noise."""
+    worse = [m for m in MEASURES if getattr(candidate, m) < getattr(baseline, m)]
+    better = [m for m in MEASURES if getattr(candidate, m) > getattr(baseline, m)]
+    if candidate.cost_per_claim < baseline.cost_per_claim * (1 - COST_NOISE):
+        better.append("cost per claim")
+    elif candidate.cost_per_claim > baseline.cost_per_claim * (1 + COST_NOISE):
+        worse.append("cost per claim")
+    kept = not worse and bool(better)
+    if worse:
+        why = f"Rolled back: worse on {', '.join(worse)}"
+    elif not better:
+        why = "Rolled back: no measure improved on the held-out set"
+    else:
+        why = f"Kept: better on {', '.join(better)} and worse on none"
+    return {
+        "kept": kept,
+        "why": why,
+        "baseline": baseline.model_dump(),
+        "candidate": candidate.model_dump(),
+    }
+
+
+def after_run(db: Connection, round_id: int, service: AgentService) -> None:
+    """Move a round on now one of its runs has finished."""
+    row = round_row(db, round_id)
+    if row["status"] == "baselining" and all(
+        finished(db, row[c]) for c in ("baseline_eval_run", "baseline_held_run")
+    ):
+        update_round(db, round_id, status="improving")
+        db.commit()
+        try:
+            service.improve(round_id)
+        except AgentUnavailableError as error:
+            update_round(db, round_id, status="stopped", verdict={"kept": False, "why": str(error)})
+            log.warning("round %s: the improver couldn't be asked: %s", round_id, error)
+    elif row["status"] == "evaluating" and finished(db, row["candidate_held_run"]):
+        result = verdict(
+            scores_of(db, row["baseline_held_run"]), scores_of(db, row["candidate_held_run"])
+        )
+        status = "kept" if result["kept"] else "rolled_back"
+        db.execute(
+            update(configurations)
+            .where(configurations.c.version == row["candidate_version"])
+            .values(status=status)
+        )
+        if result["kept"]:
+            set_current_version(db, row["candidate_version"], "Improvement round")
+        update_round(db, round_id, status=status, verdict=result)
+
+
+# The routers the evaluation and round routes live on, for the app to include.
+ROUTERS = (staff_eval_router, agent_eval_router)
