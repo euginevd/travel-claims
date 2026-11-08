@@ -74,11 +74,14 @@ function useClaim(api: Api, claimId: string, pollMs: number) {
     };
   }, [api, claimId, pollMs, generation]);
 
-  return { claim, steps, error, setClaim, setError, reload };
+  return { claim, steps, error, setClaim, reload };
 }
 
 export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
-  const { claim, steps, error, setClaim, setError, reload } = useClaim(api, claimId, pollMs);
+  const { claim, steps, error: loadError, setClaim, reload } = useClaim(api, claimId, pollMs);
+  // An action's error stays until the next action, even when the claim then loads afresh.
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? loadError;
   const [starting, setStarting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
@@ -107,14 +110,14 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
 
   async function workClaim() {
     setStarting(true);
-    setError(null);
+    setActionError(null);
     try {
       await act(
         () => api.workClaim(claimId),
         () => "The agent has started on this claim.",
       );
     } catch (caught) {
-      setError(messageOf(caught));
+      setActionError(messageOf(caught));
     } finally {
       setStarting(false);
     }
@@ -123,18 +126,28 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   // One heading for every state, so the focus it takes on opening stays put once loaded.
   return (
     <article className="claim">
-      <p>
+      <p className="eyebrow">
         <a href={QUEUE_HREF}>Back to the queue</a>
       </p>
       <div className="claim-title">
         <h1 ref={heading} tabIndex={-1}>
           Claim {claimId}
         </h1>
-        {claim && <StatusChip status={claim.status} />}
+        {claim && <StatusChip status={claim.status} decision={claim.decision?.decision ?? null} />}
       </div>
       {error && (
         <p className="error" role="alert">
           {error}
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => {
+              setActionError(null);
+              reload();
+            }}
+          >
+            Try again
+          </button>
         </p>
       )}
       <p
@@ -145,7 +158,24 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
       >
         {notice}
       </p>
-      {claim ? details(claim) : !error && <p role="status">Loading the claim…</p>}
+      {claim
+        ? details(claim)
+        : !error && (
+            <>
+              <p role="status" className="visually-hidden">
+                Loading the claim…
+              </p>
+              <div className="claim-grid" aria-hidden="true">
+                <div className="claim-main">
+                  <span className="skeleton skeleton-card" />
+                  <span className="skeleton skeleton-card" />
+                </div>
+                <div className="claim-side">
+                  <span className="skeleton skeleton-card" />
+                </div>
+              </div>
+            </>
+          )}
     </article>
   );
 
@@ -222,32 +252,15 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               </div>
             )}
 
-            {held && (
-              <HeldPayout
-                claim={claim}
-                handler={handler}
-                onSignOff={() =>
-                  act(
-                    () => api.signOff(claimId),
-                    (paid) => `Signed off and paid ${dollars(paid.payment?.amount ?? 0)}.`,
-                  )
-                }
-                onSendBack={(note) =>
-                  act(
-                    () => api.sendBack(claimId, note),
-                    () => "Sent back to the agent with your note.",
-                  )
-                }
-              />
-            )}
-
-            {claim.decision && (
-              <DecisionCard
-                decision={claim.decision}
-                payment={claim.payment}
-                heading={held ? "The agent's decision" : "Decision"}
-              />
-            )}
+            <section className="panel" aria-labelledby="steps-heading">
+              <h2 id="steps-heading">What the agent did</h2>
+              <p className="muted small">
+                {working
+                  ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
+                  : `${String(steps.length)} steps.`}
+              </p>
+              <StepList steps={steps} />
+            </section>
 
             {claim.sent_back_decisions.length > 0 && (
               <section className="panel" aria-labelledby="sent-back-heading">
@@ -271,18 +284,35 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
             )}
           </div>
 
-          <div className="claim-side">
-            <section className="panel" aria-labelledby="steps-heading">
-              <h2 id="steps-heading">What the agent did</h2>
-              <p className="muted small">
-                {working
-                  ? `The agent is working on this claim: ${String(steps.length)} steps so far.`
-                  : `${String(steps.length)} steps.`}
-              </p>
-              <StepList steps={steps} />
-            </section>
+          <aside className="claim-side" aria-label="Decision and sources">
+            {held && (
+              <HeldPayout
+                claim={claim}
+                handler={handler}
+                onSignOff={() =>
+                  act(
+                    () => api.signOff(claimId),
+                    (paid) => `Signed off and paid ${dollars(paid.payment?.amount ?? 0)}.`,
+                  )
+                }
+                onSendBack={(note) =>
+                  act(
+                    () => api.sendBack(claimId, note),
+                    () => "Sent back to the agent with your note.",
+                  )
+                }
+              />
+            )}
+            {claim.decision && (
+              <DecisionCard
+                decision={claim.decision}
+                payment={claim.payment}
+                claimed={claim.amount_claimed}
+                heading={held ? "The agent's decision" : "Decision"}
+              />
+            )}
             <SourcesPanel steps={steps} />
-          </div>
+          </aside>
         </div>
       </>
     );

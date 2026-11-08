@@ -56,10 +56,11 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 34. Every decision is logged with its reasons, with personal data redacted.
 35. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
 36. Amounts are in US dollars, as in the source data.
+37. Security requirements baseline: OWASP ASVS 5.0 Level 2.
 
 ## Not for now
 
-37. A claimant portal: claims come from the seeded data, as in the course. *Nice to have, later:* claimants sign in with Google (Cognito in stage 2), link a policy by number and surname, submit a claim with up to five receipts, and track their own claims; the hidden-instruction check reads every receipt before the claim agent does.
-38. Real payments, and messages to customers.
-39. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
-40. Anything on AWS until stage 2 is spec'd.
+38. A claimant portal: claims come from the seeded data, as in the course. *Nice to have, later:* claimants sign in with Google (Cognito in stage 2), link a policy by number and surname, submit a claim with up to five receipts, and track their own claims; the hidden-instruction check reads every receipt before the claim agent does.
+39. Real payments, and messages to customers.
+40. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
+41. Anything on AWS until stage 2 is spec'd.

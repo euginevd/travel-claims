@@ -98,7 +98,7 @@ test("following a claim link opens the claim page with focus on its heading", as
 test("shows an empty queue plainly", async () => {
   saveToken("token-1");
   render(<App fetchFn={fakeFetch({ ...signedInRoutes, "GET /api/claims": () => [200, []] })} />);
-  expect(await screen.findByText("The queue is empty.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "The queue is empty" })).toBeInTheDocument();
 });
 
 test("shows why the queue didn't load", async () => {

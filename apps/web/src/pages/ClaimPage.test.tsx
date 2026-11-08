@@ -105,7 +105,8 @@ test("a decided claim shows the calculation line by line and the payment", async
 
 test("a claim the check referred says the claim agent never saw it", async () => {
   show(fixed(claim({ status: "left_for_handler", decision: REFERRAL }), STEPS.slice(0, 1)));
-  expect(await screen.findByText("Referred to a handler")).toBeInTheDocument();
+  const card = await screen.findByRole("region", { name: "Decision" });
+  expect(within(card).getByText("Referred")).toBeInTheDocument();
   expect(screen.getByRole("note")).toHaveTextContent("The claim agent never saw it.");
   expect(screen.queryByRole("table", { name: /payout/ })).not.toBeInTheDocument();
 });
