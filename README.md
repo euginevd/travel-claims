@@ -33,55 +33,47 @@
 
 ```mermaid
 flowchart TB
-  customer(["Customer"])
-  handler(["Handler"])
+  customer([Customers])
+  handler([Handlers])
 
-  subgraph web ["Web apps, each behind its own nginx"]
-    portal["portal<br/>make and track claims"]
-    dashboard["dashboard<br/>queue, case brief, sign-off"]
-  end
-
-  subgraph services ["Services"]
-    api["api<br/>claims, payments, limits in code"]
-    agent["agent<br/>claim agent, specialists,<br/>dispatcher, improver"]
-    copilot["copilot<br/>handlers' chat agent"]
-    context["context<br/>MCP: policy wording, claims manual"]
-  end
-
-  subgraph data ["Data"]
-    db[("PostgreSQL<br/>claims, agent progress, memory")]
-    receipts[("Receipts<br/>private volume")]
-  end
-
-  claude{{"Claude<br/>Anthropic API; Bedrock in stage 2"}}
+  portal["<b>portal</b><br/>make and track claims"]
+  dashboard["<b>dashboard</b><br/>queue and sign-off"]
+  api["<b>api</b><br/>claims, payments, limits"]
+  agent["<b>agent</b><br/>claim agent and specialists"]
+  copilot["<b>copilot</b><br/>handlers' chat agent"]
+  context["<b>context</b><br/>MCP: policy wording"]
+  db[("PostgreSQL<br/>claims and memory")]
+  receipts[("Receipts<br/>private volume")]
+  claude{{"Claude<br/>Anthropic API"}}
 
   customer --> portal
   handler --> dashboard
-  portal -- "/api/customer" --> api
-  dashboard -- "/api/staff" --> api
-  dashboard -- "/api/copilot" --> copilot
-  api -- "work, resume, draft" --> agent
-  agent -- "tools, agent key" --> api
-  copilot -- "as the handler" --> api
-  agent -- "lookups" --> context
-  agent & copilot --> claude
-  api & agent & copilot --> db
+  portal -->|/api/customer| api
+  dashboard -->|/api/staff| api
+  dashboard -->|/api/copilot| copilot
+  api -->|work, resume, draft| agent
+  agent -->|tools| api
+  copilot -->|as the handler| api
+  agent -->|lookups| context
+  agent --> claude
+  copilot --> claude
   api --> receipts
+  api -.-> db
+  agent -.-> db
+  copilot -.-> db
 
-  classDef person fill:none,stroke:#8b949e,stroke-width:1.5px
-  classDef app fill:none,stroke:#2f81f7,stroke-width:1.5px
-  classDef ai fill:none,stroke:#d97757,stroke-width:1.5px
-  classDef store fill:none,stroke:#3fb950,stroke-width:1.5px
+  classDef person fill:#fef3c7,stroke:#d97706,color:#1f2937
+  classDef app fill:#dbeafe,stroke:#2563eb,color:#1f2937
+  classDef ai fill:#fde8df,stroke:#d97757,color:#1f2937
+  classDef store fill:#dcfce7,stroke:#16a34a,color:#1f2937
+  classDef external fill:#f3f4f6,stroke:#6b7280,color:#1f2937,stroke-dasharray:4 3
+
   class customer,handler person
   class portal,dashboard,api,context app
-  class agent,copilot,claude ai
+  class agent,copilot ai
   class db,receipts store
-  style web fill:none,stroke:#8b949e,stroke-dasharray:4 4
-  style services fill:none,stroke:#8b949e,stroke-dasharray:4 4
-  style data fill:none,stroke:#8b949e,stroke-dasharray:4 4
+  class claude external
 ```
-
-<sub>Blue: apps · orange: AI agents and Claude · green: data. Trust boundaries and attacks: [threat-model.md](docs/threat-model.md).</sub>
 
 | App | What | Runs on |
 |-----|------|---------|
