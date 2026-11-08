@@ -2241,3 +2241,41 @@ a.claim-card,
 .place-option.active {
   background: var(--accent-tint, var(--bg-3));
 }
+
+/* Phones: one row for brand and sign-out, then the navigation; the name is on the page. */
+@media (max-width: 640px) {
+  .header {
+    gap: 0.25rem 0.75rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .header .brand {
+    order: 0;
+  }
+
+  .header .who {
+    order: 1;
+  }
+
+  .header nav {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .header .who-name {
+    display: none;
+  }
+
+  .header .button.secondary {
+    padding-inline: 0.75rem;
+  }
+
+  .sign-out-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

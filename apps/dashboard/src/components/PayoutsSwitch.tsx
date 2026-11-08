@@ -63,7 +63,7 @@ export function PayoutsStatus({ state, senior, onOpen }: StatusProps) {
     <>
       <span className="payouts-status-dot" aria-hidden="true" />
       <Icon size={16} strokeWidth={2.4} aria-hidden="true" />
-      {label}
+      <span className="payouts-status-label">{label}</span>
     </>
   );
   const className = `payouts-status${paused ? " is-paused" : " is-live"}`;
@@ -150,78 +150,78 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
   }
 
   const form = editing && (
-    <form
-      className="payouts-popover"
-      role="dialog"
-      aria-labelledby={`${ids}-title`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void change(!state.paused);
-      }}
-    >
-      <div className="payouts-popover-head">
-        <h2 id={`${ids}-title`} className="payouts-panel-title">
-          {state.paused ? "Resume payouts?" : "Pause all payouts?"}
-        </h2>
-        <button type="button" className="popover-close" aria-label="Close" onClick={close}>
-          <X size={18} strokeWidth={2} aria-hidden="true" />
-        </button>
-      </div>
-      <p className="muted small">
-        {state.paused
-          ? "Held approvals can then be signed off and paid."
-          : "The agent keeps deciding, but nothing is paid until payouts are back on."}
-      </p>
-      <fieldset className="reason-options" disabled={busy}>
-        <legend>Why?</legend>
-        {reasons.map((option) => (
-          <label key={option} className={`reason-option${choice === option ? " chosen" : ""}`}>
-            <input
-              type="radio"
-              className="visually-hidden"
-              name={`${ids}-reason`}
-              value={option}
-              checked={choice === option}
-              onChange={() => {
-                setChoice(option);
-              }}
-            />
-            {choice === option && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}
-            {option}
-          </label>
-        ))}
-      </fieldset>
-      <label htmlFor={`${ids}-note`}>
-        {choice === "Other" ? "Tell us why" : "Add a note (optional)"}
-      </label>
-      <input
-        id={`${ids}-note`}
-        value={note}
-        maxLength={300}
-        required={choice === "Other"}
-        disabled={busy}
-        onChange={(event) => {
-          setNote(event.target.value);
+    <div role="dialog" aria-labelledby={`${ids}-title`}>
+      <form
+        className="payouts-popover"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void change(!state.paused);
         }}
-      />
-      <div className="actions popover-actions">
-        <button className="button secondary small-button" type="button" onClick={close}>
-          Cancel
-        </button>
-        <button
-          className={`button small-button${state.paused ? "" : " danger"}`}
-          type="submit"
-          disabled={busy || !ready}
-        >
-          {state.paused ? "Resume payouts" : "Pause all payouts"}
-        </button>
-      </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
+      >
+        <div className="payouts-popover-head">
+          <h2 id={`${ids}-title`} className="payouts-panel-title">
+            {state.paused ? "Resume payouts?" : "Pause all payouts?"}
+          </h2>
+          <button type="button" className="popover-close" aria-label="Close" onClick={close}>
+            <X size={18} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+        <p className="muted small">
+          {state.paused
+            ? "Held approvals can then be signed off and paid."
+            : "The agent keeps deciding, but nothing is paid until payouts are back on."}
         </p>
-      )}
-    </form>
+        <fieldset className="reason-options" disabled={busy}>
+          <legend>Why?</legend>
+          {reasons.map((option) => (
+            <label key={option} className={`reason-option${choice === option ? " chosen" : ""}`}>
+              <input
+                type="radio"
+                className="visually-hidden"
+                name={`${ids}-reason`}
+                value={option}
+                checked={choice === option}
+                onChange={() => {
+                  setChoice(option);
+                }}
+              />
+              {choice === option && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}
+              {option}
+            </label>
+          ))}
+        </fieldset>
+        <label htmlFor={`${ids}-note`}>
+          {choice === "Other" ? "Tell us why" : "Add a note (optional)"}
+        </label>
+        <input
+          id={`${ids}-note`}
+          value={note}
+          maxLength={300}
+          required={choice === "Other"}
+          disabled={busy}
+          onChange={(event) => {
+            setNote(event.target.value);
+          }}
+        />
+        <div className="actions popover-actions">
+          <button className="button secondary small-button" type="button" onClick={close}>
+            Cancel
+          </button>
+          <button
+            className={`button small-button${state.paused ? "" : " danger"}`}
+            type="submit"
+            disabled={busy || !ready}
+          >
+            {state.paused ? "Resume payouts" : "Pause all payouts"}
+          </button>
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </form>
+    </div>
   );
 
   if (!state.paused) return form || null;

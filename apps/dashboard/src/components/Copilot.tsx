@@ -28,6 +28,16 @@ export function Copilot({ copilot, onClose }: CopilotProps) {
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
     copilot.list().then(setPast, () => {
       setPast([]);
     });
