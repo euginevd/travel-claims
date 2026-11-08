@@ -21,6 +21,10 @@ updates:
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
     groups: { images: { patterns: ["*"] } }
+    # The runtime image must match the build stage's Python (decision 9); a minor bump breaks the venv.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
