@@ -2191,3 +2191,48 @@ a.claim-card,
     grid-column: 2;
   }
 }
+
+/* "Where?" suggestions: a list under the field, one airport per row. */
+.place-input {
+  position: relative;
+}
+
+.place-input input {
+  width: 100%;
+}
+
+.place-options {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.place-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.place-option svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.place-option:hover,
+.place-option.active {
+  background: var(--accent-tint, var(--bg-3));
+}

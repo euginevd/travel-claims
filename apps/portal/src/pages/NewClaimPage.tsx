@@ -19,6 +19,7 @@ import { ReceiptPicker } from "../components/ReceiptPicker";
 import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { myClaimHref } from "../useHashRoute";
+import { PlaceInput } from "../components/PlaceInput";
 
 export const CLAIM_TYPES: Record<string, string> = {
   trip_cancellation: "Trip cancelled",
@@ -587,15 +588,12 @@ export function NewClaimPage({ api }: { api: Api }) {
             />
           )}
           <label htmlFor={`${ids}-where`}>Where?</label>
-          <input
+          <PlaceInput
             id={`${ids}-where`}
             className={flag("incident_location")}
-            maxLength={200}
-            placeholder="City or airport"
             value={location}
-            onChange={(event) => {
-              setLocation(event.target.value);
-            }}
+            destination={policy?.trip.destination ?? ""}
+            onChange={setLocation}
           />
           {unsure.size > 0 && (
             <p className="small muted">
