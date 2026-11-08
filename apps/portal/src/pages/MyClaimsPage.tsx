@@ -2,7 +2,8 @@ import { FilePlus2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, CustomerClaimSummary } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
-import { CustomerStatusChip, STATUS_LINE } from "../components/StatusChip";
+import { ClaimTypeIcon } from "../components/ClaimTypeIcon";
+import { STATUS_LINE } from "../components/StatusChip";
 import { CLAIM_TYPES } from "./NewClaimPage";
 import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -77,23 +78,28 @@ export function MyClaimsPage({ api }: { api: Api }) {
         <ul className="claim-cards">
           {claims.map((claim) => (
             <li key={claim.claim_id} className={`claim-card panel tone-${claim.status}`}>
-              <div className="claim-card-head">
-                <a href={myClaimHref(claim.claim_id)} className="claim-card-link">
-                  {claim.summary}
-                </a>
-                <CustomerStatusChip status={claim.status} />
+              <div className="claim-card-top">
+                <ClaimTypeIcon claimType={claim.claim_type} />
+                <div className="claim-card-main">
+                  {/* The link stretches over the whole card, so anywhere on it opens the claim. */}
+                  <a href={myClaimHref(claim.claim_id)} className="claim-card-link">
+                    {claim.summary}
+                  </a>
+                  <p className="claim-meta">
+                    {CLAIM_TYPES[claim.claim_type] ?? claim.claim_type} · {claim.claim_id} · Made{" "}
+                    {date(claim.submitted_on)}
+                  </p>
+                </div>
+                <p className="claim-amount">
+                  <span className="number">{dollars(claim.amount_claimed)}</span>
+                  <span className="claim-amount-label">claimed</span>
+                </p>
               </div>
-              <p className="claim-card-line">{STATUS_LINE[claim.status]}</p>
-              <ClaimTracker status={claim.status} mini />
-              <p className="claim-meta">
-                <span className="nowrap">{claim.claim_id}</span>
-                <span aria-hidden="true">·</span>
-                <span>{CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}</span>
-                <span aria-hidden="true">·</span>
-                <span className="number nowrap">{dollars(claim.amount_claimed)} claimed</span>
-                <span aria-hidden="true">·</span>
-                <span className="nowrap">Made {date(claim.submitted_on)}</span>
+              <p className="claim-card-line">
+                <span className="status-dot" aria-hidden="true" />
+                {STATUS_LINE[claim.status]}
               </p>
+              <ClaimTracker status={claim.status} mini />
             </li>
           ))}
         </ul>
