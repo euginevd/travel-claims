@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from api_helpers import AGENT, decide, line, payout, start
+from api_helpers import AGENT, FakeAgent, decide, line, payout, start
 from fastapi.testclient import TestClient
 
 
@@ -39,7 +39,7 @@ def test_an_approval_under_the_limit_is_paid_once(client: TestClient) -> None:
 
 
 def test_a_payment_over_the_limit_is_refused_before_the_claim_is_read(client: TestClient) -> None:
-    assert pay(client, "CLM-NOT-REAL", 1000.01) == 403
+    assert pay(client, "CLM-9999999", 1000.01) == 403
 
 
 def test_the_payment_must_be_the_approved_payout(client: TestClient) -> None:
@@ -77,19 +77,19 @@ def test_only_a_senior_handler_signs_off(client: TestClient, marcus: dict[str, s
 
 
 def test_a_send_back_keeps_the_decision_with_the_note(
-    client: TestClient, dana: dict[str, str]
+    client: TestClient, dana: dict[str, str], agent: FakeAgent
 ) -> None:
     approve(client, "CLM-1003", "emergency_medical", 3800, "expense")
     note = "Check the hospital invoice against the plan maximum."
     sent = client.post("/api/claims/CLM-1003/send-back", json={"note": note}, headers=dana)
     assert sent.status_code == 200, sent.text
     body = sent.json()
-    assert (body["status"], body["decision"], body["payment"]) == ("sent_back", None, None)
+    # The agent took it straight back to decide again.
+    assert (body["status"], body["decision"], body["payment"]) == ("in_progress", None, None)
+    assert agent.calls == [("resume", "CLM-1003", "sent_back")]
     [returned] = body["sent_back_decisions"]
     assert (returned["note"], returned["sent_back_by"]) == (note, "Dana Whitfield")
     assert returned["decision"]["decision"] == "approve"
-    took = client.post("/api/agent/claims/CLM-1003/take", headers=AGENT)
-    assert took.json()["status"] == "in_progress"
     # The old calculation went with the decision: a new approval needs its own.
     assert decide(client, "CLM-1003", "approve", 3750).status_code == 422
 
@@ -111,7 +111,13 @@ def test_section_14_refusals(client: TestClient) -> None:
     assert decide(client, "CLM-1001", "decline", 10).status_code == 422
     blank = client.post(
         "/api/agent/claims/CLM-1001/decision",
-        json={"decision": "refer", "payout": 0, "section": " ", "reason": "r", "decided_by": "a"},
+        json={
+            "decision": "refer",
+            "payout": 0,
+            "section": " ",
+            "reason": "r",
+            "maker": "claim_agent",
+        },
         headers=AGENT,
     )
     assert "the section relied on" in blank.json()["detail"]

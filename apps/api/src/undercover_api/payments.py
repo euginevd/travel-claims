@@ -18,14 +18,23 @@ def over_the_limit(limit: float) -> HTTPException:
 
 
 def record_payment(
-    db: Connection, claim_id: str, amount: float, signed_off_by: str | None = None
+    db: Connection,
+    claim_id: str,
+    amount: float,
+    signed_off_by: str | None = None,
+    signed_off_by_id: str | None = None,
 ) -> None:
-    """Record a claim's one payment. A second, however it races in, is refused."""
+    """Record a claim's one payment, with the handler who signed it off, if one did. A second,
+    however it races in, is refused."""
     try:
         with db.begin_nested():
             db.execute(
                 insert(payments).values(
-                    claim_id=claim_id, amount=amount, paid_at=now(), signed_off_by=signed_off_by
+                    claim_id=claim_id,
+                    amount=amount,
+                    paid_at=now(),
+                    signed_off_by=signed_off_by,
+                    signed_off_by_id=signed_off_by_id,
                 )
             )
     except IntegrityError as error:

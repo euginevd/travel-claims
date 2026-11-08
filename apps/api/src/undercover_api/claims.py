@@ -32,6 +32,7 @@ from undercover_api.models import (
     PreviousClaim,
     SentBackDecision,
     Status,
+    Step,
 )
 from undercover_api.payout import PolicyTerms
 
@@ -95,6 +96,8 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
         dict(row)
         | {
             "customer_name": customer_name(db, row["customer_id"]),
+            "policy": claims_policy(db, claim_id),
+            "approval_limit": approval_limit(db),
             "decision": find_decision(db, claim_id),
             "payment": find_payment(db, claim_id),
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
@@ -115,12 +118,17 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             claims.c.status,
             decisions.c.decision,
             decisions.c.payout,
+            policies.c.record.label("policy"),
         )
         .join(customers, customers.c.customer_id == claims.c.customer_id)
+        .join(policies, policies.c.policy_id == claims.c.policy_id)
         .outerjoin(decisions, decisions.c.claim_id == claims.c.claim_id)
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
-    return [ClaimSummary.model_validate(dict(r)) for r in db.execute(query).mappings()]
+    return [
+        ClaimSummary.model_validate(dict(r) | {"plan": r["policy"]["plan"]})
+        for r in db.execute(query).mappings()
+    ]
 
 
 def claims_policy(db: Connection, claim_id: str) -> Policy:
@@ -191,6 +199,15 @@ def attempts_calculation(db: Connection, claim: RowMapping) -> Calculation | Non
         .first()
     )
     return Calculation(lines=row["lines"], payout=row["payout"]) if row else None
+
+
+def list_steps(db: Connection, claim_id: str) -> list[Step]:
+    """A claim's steps, oldest first."""
+    find_claim(db, claim_id)
+    rows = db.execute(
+        select(steps).where(steps.c.claim_id == claim_id).order_by(steps.c.step_id)
+    ).mappings()
+    return [Step.model_validate(dict(r)) for r in rows]
 
 
 def add_step(db: Connection, claim_id: str, step: NewStep) -> None:

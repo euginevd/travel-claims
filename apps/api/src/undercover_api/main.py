@@ -3,15 +3,25 @@
 Start it with uvicorn's factory mode: uvicorn undercover_api.main:create_app --factory
 """
 
+import logging
 import secrets
-from collections.abc import AsyncGenerator
+import uuid
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
-from sqlalchemy import Engine, delete, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, Engine, delete, insert, select, update
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
+from undercover_api.agent_service import (
+    AgentRefusedError,
+    AgentService,
+    AgentUnavailableError,
+    HttpAgentService,
+    Outcome,
+)
 from undercover_api.auth import (
     Database,
     LocalKeys,
@@ -33,6 +43,7 @@ from undercover_api.claims import (
     find_decision,
     keep_calculation,
     list_claims,
+    list_steps,
     manual_version,
     move_claim,
     plans,
@@ -42,6 +53,7 @@ from undercover_api.claims import (
 from undercover_api.db import (
     calculations,
     claims,
+    customers,
     decisions,
     handlers,
     make_engine,
@@ -50,9 +62,11 @@ from undercover_api.db import (
     sent_back,
 )
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
-from undercover_api.logs import configure_logging, log_requests
+from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
+    SCREENING_MAKER,
     Claim,
+    ClaimId,
     ClaimSummary,
     Decision,
     DecisionKind,
@@ -71,12 +85,15 @@ from undercover_api.models import (
     SignInRequest,
     StartRequest,
     Status,
+    Step,
     StepRequest,
 )
 from undercover_api.payments import pay, record_payment
-from undercover_api.payout import needs_sign_off, work_out_payout
+from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
 from undercover_api.records import check_calculation, check_request
 from undercover_api.settings import Settings, get_settings
+
+log = logging.getLogger(__name__)
 
 AGENT = [Depends(require_agent)]
 EITHER = [Depends(agent_or_handler)]
@@ -98,32 +115,31 @@ def health() -> dict[str, str]:
 
 
 @shared_router.get("/claims/{claim_id}", operation_id="get_claim")
-def get_claim(claim_id: str, db: Database) -> Claim:
-    """A claim in full, with its decision, payment and any decisions sent back."""
+def get_claim(claim_id: ClaimId, db: Database) -> Claim:
+    """A claim in full, with its policy, decision, payment and any decisions sent back."""
     return claim_in_full(db, claim_id)
+
+
+@shared_router.get("/claims/{claim_id}/steps", operation_id="list_steps")
+def get_steps(claim_id: ClaimId, db: Database) -> list[Step]:
+    """The steps of the agent's work on a claim, oldest first."""
+    return list_steps(db, claim_id)
 
 
 # --- The agent's, each scoped to the one claim it works on ---
 
 
 @agent_router.post("/start", operation_id="start_claim")
-def start_claim(claim_id: str, request: StartRequest, db: Database) -> Claim:
+def start_claim(claim_id: ClaimId, request: StartRequest, db: Database) -> Claim:
     """Start a new attempt on a waiting claim, once."""
-    if not move_claim(
-        db,
-        claim_id,
-        Status.WAITING,
-        Status.IN_PROGRESS,
-        thread_id=request.thread_id,
-        attempts=claims.c.attempts + 1,
-    ):
+    if not start_attempt(db, claim_id, request.thread_id):
         find_claim(db, claim_id)
         raise HTTPException(409, f"Claim {claim_id} isn't waiting")
     return claim_in_full(db, claim_id)
 
 
 @agent_router.post("/take", operation_id="take_claim")
-def take_claim(claim_id: str, db: Database) -> Claim:
+def take_claim(claim_id: ClaimId, db: Database) -> Claim:
     """Take a sent-back claim back into work, once."""
     if not move_claim(db, claim_id, Status.SENT_BACK, Status.IN_PROGRESS):
         find_claim(db, claim_id)
@@ -132,32 +148,38 @@ def take_claim(claim_id: str, db: Database) -> Claim:
 
 
 @agent_router.get("/policy", operation_id="get_policy")
-def get_policy(claim_id: str, db: Database) -> Policy:
+def get_policy(claim_id: ClaimId, db: Database) -> Policy:
     """The policy the claim was made on."""
     return claims_policy(db, claim_id)
 
 
 @agent_router.get("/history", operation_id="get_claim_history")
-def get_claim_history(claim_id: str, db: Database) -> list[PreviousClaim]:
+def get_claim_history(claim_id: ClaimId, db: Database) -> list[PreviousClaim]:
     """The claim's customer's earlier claims, with their outcome and amount paid."""
     return claim_history(db, claim_id)
 
 
 @agent_router.post("/payout", operation_id="calculate_payout")
-def calculate_payout(claim_id: str, request: PayoutRequest, db: Database) -> Payout:
+def calculate_payout(claim_id: ClaimId, request: PayoutRequest, db: Database) -> Payout:
     """Work out an approval's payout with UnderCover's payout rules, and keep it."""
     claim = find_claim(db, claim_id)
     if claim["status"] != Status.IN_PROGRESS or claim["thread_id"] is None:
         raise HTTPException(409, f"Claim {claim_id} isn't in progress")
     terms = policy_terms(claims_policy(db, claim_id))
-    payout = work_out_payout(terms, plans(db), request, approval_limit(db))
+    try:
+        payout = work_out_payout(terms, plans(db), request, approval_limit(db))
+    except UnknownPlanError as error:
+        raise HTTPException(409, f"The payout rules have no plan {error}") from error
     keep_calculation(db, claim_id, claim["thread_id"], payout)
     return payout
 
 
 @agent_router.post("/decision", operation_id="record_decision")
-def record_decision(claim_id: str, request: DecisionRequest, db: Database) -> Claim:
-    """Record the claim's decision once, as claims manual section 14 asks."""
+def record_decision(
+    claim_id: ClaimId, request: DecisionRequest, db: Database, http: Request
+) -> Claim:
+    """Record the claim's decision once, as claims manual section 14 asks. The api names who
+    made it."""
     check_request(request)
     claim = find_claim(db, claim_id)
     current = find_decision(db, claim_id)
@@ -171,13 +193,14 @@ def record_decision(claim_id: str, request: DecisionRequest, db: Database) -> Cl
     if request.decision == DecisionKind.APPROVE:
         calculation = check_calculation(request.payout, attempts_calculation(db, claim))
     limit = approval_limit(db)
+    settings: Settings = http.app.state.settings
     record = dict(
         decision=request.decision,
         payout=request.payout,
         calculation=calculation and calculation.model_dump(),
         section=request.section,
         reason=request.reason,
-        decided_by=request.decided_by,
+        decided_by=maker_name(request, settings),
         decided_at=now(),
         manual_version=manual_version(db),
         approval_limit=limit,
@@ -194,8 +217,15 @@ def record_decision(claim_id: str, request: DecisionRequest, db: Database) -> Cl
     return claim_in_full(db, claim_id)
 
 
+def maker_name(request: DecisionRequest, settings: Settings) -> str:
+    """Who made a decision, as the record names it: never the caller's own words."""
+    if request.maker == "hidden_instruction_check":
+        return SCREENING_MAKER
+    return f"UnderCover Agent v{settings.agent_version}"
+
+
 @agent_router.post("/payment", operation_id="pay_claim")
-def pay_claim(claim_id: str, request: PaymentRequest, db: Database) -> Claim:
+def pay_claim(claim_id: ClaimId, request: PaymentRequest, db: Database) -> Claim:
     """Pay an approved claim its payout once; never over the approval limit."""
     if pay(db, claim_id, request.amount):
         set_status(db, claim_id, Status.DECIDED)
@@ -203,7 +233,7 @@ def pay_claim(claim_id: str, request: PaymentRequest, db: Database) -> Claim:
 
 
 @agent_router.post("/hold", operation_id="hold_payment")
-def hold_payment(claim_id: str, request: HoldRequest, db: Database) -> Claim:
+def hold_payment(claim_id: ClaimId, request: HoldRequest, db: Database) -> Claim:
     """Hold an approval's payment for a handler's sign-off, with the reason."""
     decision = find_decision(db, claim_id)
     if decision is None or decision.decision != DecisionKind.APPROVE:
@@ -220,7 +250,7 @@ def hold_payment(claim_id: str, request: HoldRequest, db: Database) -> Claim:
 
 
 @agent_router.post("/steps", operation_id="record_step", status_code=201)
-def record_step(claim_id: str, request: StepRequest, db: Database) -> dict[str, str]:
+def record_step(claim_id: ClaimId, request: StepRequest, db: Database) -> dict[str, str]:
     """Record one step of the agent's work on the claim."""
     find_claim(db, claim_id)
     add_step(db, claim_id, NewStep.model_validate(request.model_dump()))
@@ -228,13 +258,105 @@ def record_step(claim_id: str, request: StepRequest, db: Database) -> dict[str, 
 
 
 @agent_router.post("/model-calls", operation_id="record_model_call", status_code=201)
-def record_model_call(claim_id: str, request: ModelCallRequest, db: Database) -> dict[str, str]:
+def record_model_call(claim_id: ClaimId, request: ModelCallRequest, db: Database) -> dict[str, str]:
     """Record one model call's tokens and cost on the claim."""
     find_claim(db, claim_id)
     db.execute(
         insert(model_calls).values(claim_id=claim_id, created_at=now(), **request.model_dump())
     )
     return {"recorded": "model call"}
+
+
+# --- Handing work to the agent ---
+
+
+def start_attempt(db: Connection, claim_id: str, thread_id: str) -> bool:
+    """Move a waiting claim into a new attempt on the thread given. Says whether it moved."""
+    return move_claim(
+        db,
+        claim_id,
+        Status.WAITING,
+        Status.IN_PROGRESS,
+        thread_id=thread_id,
+        attempts=claims.c.attempts + 1,
+    )
+
+
+def undo_move(
+    db: Connection, claim_id: str, on_thread: str, back_to: Status, **values: Any
+) -> None:
+    """Put a claim the agent didn't take back where it was, if nothing has moved it since."""
+    db.execute(
+        update(claims)
+        .where(
+            claims.c.claim_id == claim_id,
+            claims.c.status == Status.IN_PROGRESS,
+            claims.c.thread_id == on_thread,
+        )
+        .values(status=back_to, **values)
+    )
+    db.commit()
+
+
+def agent(request: Request) -> AgentService:
+    service: AgentService = request.app.state.agent
+    return service
+
+
+AgentCalls = Annotated[AgentService, Depends(agent)]
+
+
+def ask_agent(db: Connection, ask: Callable[[], None]) -> None:
+    """Save what the api did for the work, then ask the agent, which reads it straight away."""
+    db.commit()
+    ask()
+
+
+@dataclass(frozen=True)
+class Handover:
+    """Work moved to the agent: its thread, how to ask the agent, and how to undo the move."""
+
+    thread_id: str
+    ask: Callable[[], None]
+    back_to: Status
+    undo: dict[str, Any]
+
+
+def hand_over(db: Connection, claim_id: str, service: AgentService) -> Handover:
+    """Move a waiting or sent-back claim into work for the agent, or refuse with a 409."""
+    claim = find_claim(db, claim_id)
+    if claim["status"] == Status.WAITING:
+        thread_id = uuid.uuid4().hex
+        if start_attempt(db, claim_id, thread_id):
+            return Handover(
+                thread_id,
+                lambda: service.work(claim_id, thread_id),
+                Status.WAITING,
+                {"thread_id": None, "attempts": claims.c.attempts - 1},
+            )
+    if claim["status"] == Status.SENT_BACK:
+        thread_id = claim["thread_id"]
+        if move_claim(db, claim_id, Status.SENT_BACK, Status.IN_PROGRESS):
+            return Handover(
+                thread_id,
+                lambda: service.resume(claim_id, thread_id, Outcome.SENT_BACK),
+                Status.SENT_BACK,
+                {},
+            )
+    raise HTTPException(409, f"Claim {claim_id} isn't waiting or sent back")
+
+
+@handler_router.post("/claims/{claim_id}/work", operation_id="work_claim")
+def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls) -> Claim:
+    """Ask the agent to work a waiting claim, or to take a sent-back one up again."""
+    handover = hand_over(db, claim_id, service)
+    try:
+        ask_agent(db, handover.ask)
+    except AgentUnavailableError as error:
+        undo_move(db, claim_id, handover.thread_id, handover.back_to, **handover.undo)
+        code = 502 if isinstance(error, AgentRefusedError) else 503
+        raise HTTPException(code, str(error)) from error
+    return claim_in_full(db, claim_id)
 
 
 # --- Handlers' ---
@@ -252,35 +374,51 @@ def get_claims(_: SignedIn, db: Database) -> list[ClaimSummary]:
     return list_claims(db)
 
 
-def held(db: Database, claim_id: str, end: Status) -> Decision:
-    """The held decision on a claim being moved on from waiting for sign-off."""
+def held(db: Connection, claim_id: str, end: Status) -> Decision:
+    """The held approval on a claim being moved on from waiting for sign-off."""
     if not move_claim(db, claim_id, Status.WAITING_FOR_SIGN_OFF, end):
         find_claim(db, claim_id)
         raise HTTPException(409, f"Claim {claim_id} isn't waiting for sign-off")
     decision = find_decision(db, claim_id)
-    if decision is None:
-        raise HTTPException(409, f"Claim {claim_id} has no decision")
+    if decision is None or decision.decision != DecisionKind.APPROVE:
+        raise HTTPException(409, f"Claim {claim_id} has no approval waiting for sign-off")
     return decision
 
 
 @handler_router.post("/claims/{claim_id}/sign-off", operation_id="sign_off_claim")
-def sign_off_claim(claim_id: str, handler: SeniorHandler, db: Database) -> Claim:
+def sign_off_claim(
+    claim_id: ClaimId, handler: SeniorHandler, db: Database, service: AgentCalls
+) -> Claim:
     """Sign off a held payout as the handler signed in, which pays it."""
     decision = held(db, claim_id, Status.DECIDED)
+    if decision.calculation is None or decision.payout != decision.calculation.payout:
+        raise HTTPException(409, f"Claim {claim_id}'s payout isn't its calculation's")
     db.execute(
         update(decisions)
         .where(decisions.c.claim_id == claim_id)
-        .values(signed_off_by=handler.name, signed_off_at=now())
+        .values(
+            signed_off_by=handler.name, signed_off_by_id=handler.handler_id, signed_off_at=now()
+        )
     )
-    record_payment(db, claim_id, decision.payout, signed_off_by=handler.name)
+    record_payment(db, claim_id, decision.payout, handler.name, handler.handler_id)
+    thread_id = find_claim(db, claim_id)["thread_id"]
+    try:
+        ask_agent(db, lambda: service.resume(claim_id, thread_id, Outcome.SIGNED_OFF))
+    except AgentUnavailableError as error:
+        log.warning("claim %s paid; the agent wasn't told: %s", claim_id, error)
     return claim_in_full(db, claim_id)
 
 
 @handler_router.post("/claims/{claim_id}/send-back", operation_id="send_back_claim")
 def send_back_claim(
-    claim_id: str, request: SendBackRequest, handler: SeniorHandler, db: Database
+    claim_id: ClaimId,
+    request: SendBackRequest,
+    handler: SeniorHandler,
+    db: Database,
+    service: AgentCalls,
 ) -> Claim:
-    """Send a held decision back to the agent with a note, as the handler signed in."""
+    """Send a held decision back to the agent with a note, as the handler signed in; the
+    agent decides again."""
     decision = held(db, claim_id, Status.SENT_BACK)
     db.execute(
         insert(sent_back).values(
@@ -288,6 +426,7 @@ def send_back_claim(
             decision=decision.model_dump(mode="json"),
             note=request.note,
             sent_back_by=handler.name,
+            sent_back_by_id=handler.handler_id,
             sent_back_at=now(),
         )
     )
@@ -304,6 +443,12 @@ def send_back_claim(
             sources=[],
         ),
     )
+    move_claim(db, claim_id, Status.SENT_BACK, Status.IN_PROGRESS)
+    try:
+        ask_agent(db, lambda: service.resume(claim_id, thread_id, Outcome.SENT_BACK))
+    except AgentUnavailableError as error:
+        undo_move(db, claim_id, thread_id, Status.SENT_BACK)
+        log.warning("claim %s sent back; the agent wasn't told: %s", claim_id, error)
     return claim_in_full(db, claim_id)
 
 
@@ -332,14 +477,25 @@ def jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
     return issuer.jwks()
 
 
+def load_names_to_redact(engine: Engine) -> None:
+    """Redact every customer's name from the logs. A database not yet migrated has none."""
+    try:
+        with engine.connect() as db:
+            redact_names(db.execute(select(customers.c.name)).scalars())
+    except OperationalError, ProgrammingError:
+        log.warning("no customers table yet; names will be redacted once it exists")
+
+
 def create_app(
     settings: Annotated[Settings | None, "Read from the environment when not given"] = None,
     engine: Engine | None = None,
+    agent_service: AgentService | None = None,
 ) -> FastAPI:
-    """Build the api for the settings and database given, or those in the environment."""
+    """Build the api for the settings, database and agent given, or those in the environment."""
     configure_logging()
     settings = settings or get_settings()
     database = engine or make_engine(settings.database_url)
+    load_names_to_redact(database)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -349,6 +505,9 @@ def create_app(
     app = FastAPI(title="UnderCover api", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = database
+    app.state.agent = agent_service or HttpAgentService(
+        settings.agent_url, settings.undercover_api_key.get_secret_value()
+    )
     if settings.local_sign_in:
         app.state.issuer = LocalIssuer(settings.token_issuer, settings.token_audience)
         app.state.verifier = TokenVerifier(

@@ -22,10 +22,11 @@ services:
     build: { context: ., dockerfile: apps/api/Dockerfile }
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      ENVIRONMENT: ${ENVIRONMENT:-local}
+      ENVIRONMENT: ${ENVIRONMENT:?set it in .env}
       UNDERCOVER_API_KEY: ${UNDERCOVER_API_KEY:?set it in .env}
       LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
       HANDLER_PASSWORD: ${HANDLER_PASSWORD:-}
+      AGENT_URL: http://agent:8080
     depends_on:
       postgres: { condition: service_healthy }
     ports:
@@ -39,7 +40,7 @@ services:
   agent:
     build: { context: ., dockerfile: apps/agent/Dockerfile }
     environment:
-      ENVIRONMENT: ${ENVIRONMENT:-local}
+      ENVIRONMENT: ${ENVIRONMENT:?set it in .env}
       UNDERCOVER_CONTEXT: http://context:8006/mcp
     depends_on:
       api: { condition: service_healthy }

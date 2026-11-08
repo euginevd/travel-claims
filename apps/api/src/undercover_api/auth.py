@@ -9,7 +9,7 @@ from typing import Annotated, Any, Protocol
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import Connection, Engine, select
+from sqlalchemy import Connection, Engine, func, select
 
 from undercover_api.db import handlers
 from undercover_api.local_sign_in import LocalIssuer
@@ -22,7 +22,6 @@ BEARER = HTTPBearer(auto_error=False)
 
 NOT_SIGNED_IN = HTTPException(401, "Sign in first", headers={"WWW-Authenticate": "Bearer"})
 KEY_IS_NOT_A_HANDLER = HTTPException(403, "The agent's key can't act as a handler")
-NOT_THE_AGENT = HTTPException(403, "Only the agent may do this")
 OVER_THE_LIMIT_ONLY = HTTPException(
     403, "Only a handler who can sign off over the approval limit may do this"
 )
@@ -73,19 +72,29 @@ class TokenVerifier:
         except jwt.PyJWTError as error:
             log.info("token refused: %s", type(error).__name__)
             raise NOT_SIGNED_IN from error
-        if claims.get("token_use") != "id" or not isinstance(claims.get("email"), str):
+        if (
+            claims.get("token_use") != "id"
+            or not isinstance(claims.get("email"), str)
+            or claims.get("email_verified") is not True
+        ):
             raise NOT_SIGNED_IN
         return claims["email"]
 
 
 def get_db(request: Request) -> Iterator[Connection]:
-    """A connection in a transaction for one request, committed when it ends without error."""
+    """A connection in a transaction for one request, committed when the route ends without
+    error and before its response is sent, so a caller never acts on work not yet saved."""
     engine: Engine = request.app.state.engine
-    with engine.begin() as connection:
-        yield connection
+    with engine.connect() as connection:
+        try:
+            yield connection
+        except BaseException:
+            connection.rollback()
+            raise
+        connection.commit()
 
 
-Database = Annotated[Connection, Depends(get_db)]
+Database = Annotated[Connection, Depends(get_db, scope="function")]
 
 
 def is_the_agent(request: Request, key: str | None) -> bool:
@@ -101,7 +110,7 @@ def is_the_agent(request: Request, key: str | None) -> bool:
 def require_agent(request: Request, key: Annotated[str | None, Depends(AGENT_KEY_HEADER)]) -> None:
     """Only the agent, with its key."""
     if not is_the_agent(request, key):
-        raise NOT_THE_AGENT
+        raise HTTPException(401, "The agent's API key is missing")
 
 
 def signed_in_handler(
@@ -117,7 +126,11 @@ def signed_in_handler(
         raise NOT_SIGNED_IN
     verifier: TokenVerifier = request.app.state.verifier
     email = verifier.email(bearer.credentials)
-    row = db.execute(select(handlers).where(handlers.c.email == email)).mappings().first()
+    row = (
+        db.execute(select(handlers).where(func.lower(handlers.c.email) == email.lower()))
+        .mappings()
+        .first()
+    )
     if row is None:
         raise HTTPException(403, "You aren't a claims handler")
     return Handler.model_validate(dict(row))

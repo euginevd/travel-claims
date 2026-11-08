@@ -78,11 +78,17 @@ def eligible(line: Line, limits: Limits) -> CalculationStep:
     return step(line.description, line.amount)
 
 
+class UnknownPlanError(Exception):
+    """A policy on a plan the payout rules don't hold."""
+
+
 def work_out_payout(
     policy: PolicyTerms, plans: Plans, request: PayoutRequest, approval_limit: float
 ) -> Payout:
     """Work out an approved claim's payout step by step, and whether it needs a sign-off."""
-    plan = next(p for p in plans.plans if p.plan == policy.plan)
+    plan = next((p for p in plans.plans if p.plan == policy.plan), None)
+    if plan is None:
+        raise UnknownPlanError(policy.plan)
     electronics = plan.per_item_limit
     if ELECTRONICS_PLUS in policy.add_ons:
         add_on = next(a for a in plans.add_ons if a.add_on == ELECTRONICS_PLUS)

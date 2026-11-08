@@ -86,6 +86,7 @@ decisions = Table(
     Column("hold_reason", Text),
     Column("signed_off_by", String(200)),
     Column("signed_off_at", String(32)),
+    Column("signed_off_by_id", String(20)),
 )
 
 sent_back = Table(
@@ -97,6 +98,7 @@ sent_back = Table(
     Column("note", Text, nullable=False),
     Column("sent_back_by", String(200), nullable=False),
     Column("sent_back_at", String(32), nullable=False),
+    Column("sent_back_by_id", String(20)),
 )
 
 # One payment per claim, ever: the unique key is what stops a claim being paid twice.
@@ -107,6 +109,7 @@ payments = Table(
     Column("amount", Money, nullable=False),
     Column("paid_at", String(32), nullable=False),
     Column("signed_off_by", String(200)),
+    Column("signed_off_by_id", String(20)),
 )
 
 # A claim's latest payout calculation, on the thread of the attempt it was made in.
@@ -170,5 +173,6 @@ def now() -> str:
 
 
 def make_engine(url: str) -> Engine:
-    """An engine for the database at the url."""
-    return create_engine(url, pool_pre_ping=True)
+    """An engine for the database at the url. Errors never carry the statement's values,
+    which can hold customers' personal data."""
+    return create_engine(url, pool_pre_ping=True, hide_parameters=True)

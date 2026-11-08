@@ -6,6 +6,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from undercover_api.agent_service import AgentRefusedError, AgentUnavailableError, Outcome
 from undercover_api.settings import Settings
 
 DATA = Path(__file__).resolve().parents[3] / "data"
@@ -86,7 +87,33 @@ def decide(client: TestClient, claim_id: str, decision: str, amount: float = 0) 
             "payout": amount,
             "section": "Policy wording section 10",
             "reason": "The receipts support the claim under the plan's limits.",
-            "decided_by": "UnderCover Agent v1",
+            "maker": "claim_agent",
         },
         headers=AGENT,
     )
+
+
+class FakeAgent:
+    """The agent's service as the api sees it: records what it was asked, and can be made to
+    be unreachable or to refuse."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, str | None]] = []
+        self.failure: AgentUnavailableError | None = None
+
+    def work(self, claim_id: str, thread_id: str) -> None:
+        self._take(("work", claim_id, None))
+
+    def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None:
+        self._take(("resume", claim_id, str(outcome)))
+
+    def _take(self, call: tuple[str, str, str | None]) -> None:
+        if self.failure is not None:
+            raise self.failure
+        self.calls.append(call)
+
+    def unreachable(self) -> None:
+        self.failure = AgentUnavailableError("The agent's service isn't answering")
+
+    def refusing(self) -> None:
+        self.failure = AgentRefusedError("The agent didn't take the work: busy")

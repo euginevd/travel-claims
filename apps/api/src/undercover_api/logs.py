@@ -1,12 +1,13 @@
 """Structured JSON logs with a request ID, and personal data redacted before anything is
-written: email addresses, policy numbers and customer IDs never reach a log line."""
+written: email addresses, policy numbers, customer IDs and customers' names never reach a
+log line. Uvicorn's own loggers go through the same formatter."""
 
 import json
 import logging
 import re
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from contextvars import ContextVar
 
 from fastapi import Request, Response
@@ -18,11 +19,29 @@ REDACTIONS = [
     (re.compile(r"\bPOL-\d+\b"), "[policy]"),
     (re.compile(r"\bCUS-\d+\b"), "[customer]"),
 ]
+# Customers' names, loaded from the database when the app starts.
+_names: list[re.Pattern[str]] = []
+UVICORN_LOGGERS = ("uvicorn", "uvicorn.error")
+# Name parts this short (initials, "Li") would redact ordinary words too.
+SHORTEST_NAME_PART = 3
+
+
+def redact_names(names: Iterable[str]) -> None:
+    """Redact these customers' names, and each of their parts, from every log line."""
+    parts = {
+        part for name in names for part in [name, *name.split()] if len(part) >= SHORTEST_NAME_PART
+    }
+    _names[:] = [
+        re.compile(rf"\b{re.escape(part)}\b", re.IGNORECASE)
+        for part in sorted(parts, key=len, reverse=True)
+    ]
 
 
 def redact(text: str) -> str:
     for pattern, replacement in REDACTIONS:
         text = pattern.sub(replacement, text)
+    for pattern in _names:
+        text = pattern.sub("[name]", text)
     return text
 
 
@@ -43,11 +62,16 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging() -> None:
+    """Send every log line, uvicorn's included, through the redacting JSON formatter."""
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(logging.INFO)
+    for name in UVICORN_LOGGERS:
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True
     logging.getLogger("uvicorn.access").disabled = True
 
 

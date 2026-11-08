@@ -3,9 +3,15 @@
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from fastapi import Path
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, computed_field
 
 NOTE_LENGTH = 1000
+# Who made a decision: the server names the maker, never the caller.
+SCREENING_MAKER = "Hidden-instruction check"
+# The largest value the model-call cost column, Numeric(12, 6), holds.
+MAX_COST = 999_999.999999
+MAX_INT = 2**31 - 1
 
 
 def to_the_cent(amount: float) -> float:
@@ -16,6 +22,9 @@ def to_the_cent(amount: float) -> float:
 Dollars = Annotated[float, AfterValidator(to_the_cent)]
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+ThreadId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+# Every claim id in a path, checked before anything reads the database.
+ClaimId = Annotated[str, Path(pattern=r"^CLM-\d{1,10}$")]
 
 
 class Strict(BaseModel):
@@ -97,6 +106,12 @@ class Decision(BaseModel):
     signed_off_by: str | None
     signed_off_at: str | None
 
+    @computed_field
+    @property
+    def by_screening(self) -> bool:
+        """Whether the hidden-instruction check made this decision, not the claim agent."""
+        return self.decided_by == SCREENING_MAKER
+
 
 class Payment(BaseModel):
     amount: float
@@ -116,6 +131,7 @@ class SentBackDecision(BaseModel):
 class ClaimSummary(BaseModel):
     claim_id: str
     customer_name: str
+    plan: str
     claim_type: str
     summary: str
     amount_claimed: float
@@ -142,6 +158,8 @@ class Claim(BaseModel):
     status: Status
     thread_id: str | None
     attempts: int
+    policy: Policy
+    approval_limit: float
     decision: Decision | None
     payment: Payment | None
     sent_back_decisions: list[SentBackDecision]
@@ -267,7 +285,7 @@ class Payout(BaseModel):
 
 
 class StartRequest(Strict):
-    thread_id: ShortText
+    thread_id: ThreadId
 
 
 class DecisionRequest(Strict):
@@ -277,7 +295,9 @@ class DecisionRequest(Strict):
     payout: Dollars = Field(ge=0, description="In US dollars, 0 for a decline or referral")
     section: str = Field(max_length=500, description="The sections relied on")
     reason: str = Field(max_length=4000, description="Two or three sentences for a colleague")
-    decided_by: str = Field(max_length=200, description="Who or what made the decision")
+    maker: Literal["claim_agent", "hidden_instruction_check"] = Field(
+        description="Which part of the agent decided; the api names it on the record"
+    )
 
 
 class PaymentRequest(Strict):
@@ -295,18 +315,18 @@ class SendBackRequest(Strict):
 
 
 class StepRequest(Strict):
-    thread_id: ShortText | None
+    thread_id: ThreadId | None
     kind: Literal["screening", "tool_call", "tool_result", "message", "lookup", "refusal", "error"]
     content: Annotated[str, StringConstraints(min_length=1, max_length=20_000)]
     sources: list[Source] = Field(max_length=20)
 
 
 class ModelCallRequest(Strict):
-    thread_id: ShortText | None
-    model: ShortText
-    input_tokens: int = Field(ge=0)
-    output_tokens: int = Field(ge=0)
-    cost: float = Field(ge=0, description="In US dollars")
+    thread_id: ThreadId | None
+    model: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    input_tokens: int = Field(ge=0, le=MAX_INT)
+    output_tokens: int = Field(ge=0, le=MAX_INT)
+    cost: float = Field(ge=0, le=MAX_COST, allow_inf_nan=False, description="In US dollars")
 
 
 class SignInRequest(Strict):

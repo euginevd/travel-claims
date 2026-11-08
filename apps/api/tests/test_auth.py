@@ -26,7 +26,7 @@ AGENT_ROUTES: list[Route] = [
     (
         "post",
         "/api/agent/claims/CLM-1001/decision",
-        {"decision": "refer", "payout": 0, "section": "s", "reason": "r", "decided_by": "a"},
+        {"decision": "refer", "payout": 0, "section": "s", "reason": "r", "maker": "claim_agent"},
     ),
     ("post", "/api/agent/claims/CLM-1001/payment", {"amount": 10}),
     ("post", "/api/agent/claims/CLM-1001/hold", {"reason": "r"}),
@@ -46,6 +46,7 @@ HANDLER_ROUTES: list[Route] = [
     ("get", "/api/claims", None),
     ("post", "/api/claims/CLM-1001/sign-off", None),
     ("post", "/api/claims/CLM-1001/send-back", {"note": "n"}),
+    ("post", "/api/claims/CLM-1001/work", None),
 ]
 
 
@@ -57,8 +58,9 @@ def call(client: TestClient, method: str, path: str, body: object, headers: dict
 def test_agent_routes_refuse_a_handler_and_no_one(
     client: TestClient, dana: dict[str, str], method: str, path: str, body: object
 ) -> None:
-    assert call(client, method, path, body, {}) == 403
-    assert call(client, method, path, body, dana) == 403
+    assert call(client, method, path, body, {}) == 401
+    # A handler's token is no key: the agent's routes don't read it.
+    assert call(client, method, path, body, dana) == 401
     assert call(client, method, path, body, {"X-API-Key": "wrong" * 10}) == 401
 
 

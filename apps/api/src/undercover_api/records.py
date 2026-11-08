@@ -8,7 +8,7 @@ from undercover_api.payout import dollars
 
 NO_REASON = "a decision record needs a reason in plain language"
 NO_SECTION = "a decision record needs the section relied on"
-NO_MAKER = "a decision record needs who or what made the decision"
+SCREENING_ONLY_REFERS = "the hidden-instruction check may only refer a claim"
 NOTHING_APPROVED = "an approval needs a payout above zero"
 SOMETHING_PAID = "a decline or a referral has a payout of zero"
 NO_CALCULATION = (
@@ -25,13 +25,11 @@ def falls_short(missing: str) -> HTTPException:
 def check_request(request: DecisionRequest) -> None:
     """Refuse a decision that leaves out what section 14 asks for. Needs nothing from the
     claim, so it runs before the claim is read."""
-    for text, missing in (
-        (request.reason, NO_REASON),
-        (request.section, NO_SECTION),
-        (request.decided_by, NO_MAKER),
-    ):
+    for text, missing in ((request.reason, NO_REASON), (request.section, NO_SECTION)):
         if not text.strip():
             raise falls_short(missing)
+    if request.maker == "hidden_instruction_check" and request.decision != DecisionKind.REFER:
+        raise falls_short(SCREENING_ONLY_REFERS)
     approval = request.decision == DecisionKind.APPROVE
     if approval and request.payout <= 0:
         raise falls_short(NOTHING_APPROVED)

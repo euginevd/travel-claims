@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     database_url: str = Field(min_length=1)
-    environment: Literal["local", "dev", "prod"] = "local"
+    # No default: a deployment must say where it runs, so nothing local is on by accident.
+    environment: Literal["local", "dev", "prod"]
     undercover_api_key: SecretStr = Field(min_length=32)
     # The local sign-in stand-in issues tokens shaped like Cognito's; never on outside a laptop.
     local_sign_in: bool = False
@@ -24,14 +25,20 @@ class Settings(BaseSettings):
     token_audience: str = "undercover-web"  # noqa: S105
     # Where seeding reads UnderCover's records: the repo's data/ folder.
     seed_data_dir: Path = Path("data")
+    # The agent's service, which the api asks to work or resume a claim.
+    agent_url: str = "http://127.0.0.1:8080"
+    # The claim agent's configuration version, named on every decision it makes.
+    agent_version: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
-    def local_sign_in_stays_local(self) -> Self:
-        """Refuse the sign-in stand-in anywhere but a laptop, and without its password."""
+    def local_things_stay_local(self) -> Self:
+        """Refuse the sign-in stand-in anywhere but a laptop, and a plain-HTTP issuer there."""
         if self.local_sign_in and self.environment != "local":
             raise ValueError("LOCAL_SIGN_IN may be true only when ENVIRONMENT is local")
         if self.local_sign_in and not self.handler_password:
             raise ValueError("LOCAL_SIGN_IN needs HANDLER_PASSWORD")
+        if self.environment != "local" and not self.token_issuer.startswith("https://"):
+            raise ValueError("TOKEN_ISSUER must be https outside ENVIRONMENT=local")
         return self
 
 
