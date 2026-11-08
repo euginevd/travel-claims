@@ -2077,3 +2077,117 @@ a.claim-card,
     justify-items: start;
   }
 }
+
+/* My claims, grouped: what's moving first, then a compact list of what's finished. */
+.claims-group {
+  margin-top: 28px;
+}
+
+.group-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+.group-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-tint, var(--bg-3));
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.claims-group details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.claims-group details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.claims-group details > summary .group-heading::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(45deg);
+  margin-left: 2px;
+}
+
+.claims-group details[open] > summary .group-heading::after {
+  transform: rotate(225deg);
+}
+
+.done-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.done-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.done-row:first-child {
+  border-top: 0;
+}
+
+.done-row .claim-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.done-row .claim-card-link {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.done-row .claim-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.done-row:hover {
+  background: var(--accent-tint, var(--bg-3));
+}
+
+.done-row .claim-meta {
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.done-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .done-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .done-amount {
+    grid-column: 2;
+  }
+}
