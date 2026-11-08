@@ -3,6 +3,9 @@ from typing import Any
 from api_helpers import AGENT, FakeAgent, decide, line, payout, start
 from fastapi.testclient import TestClient
 
+from undercover_api.evaluations import Scores
+from undercover_api.improvement import verdict
+
 INSTRUCTIONS = "You decide one travel insurance claim for UnderCover. " * 3
 TINY_EVALUATION = {"CLM-1007", "CLM-1015", "CLM-1017", "CLM-1020", "CLM-1021"}
 TINY_HELD_OUT = {"CLM-1104", "CLM-1106", "CLM-1110", "CLM-1112", "CLM-1114"}
@@ -150,3 +153,20 @@ def test_a_rejected_proposal_ends_the_round(client: TestClient, dana: dict[str, 
         headers=dana,
     ).json()
     assert rejected["status"] == "rejected"
+
+
+def test_the_verdict_keeps_a_cheaper_version_that_is_as_accurate() -> None:
+    base = Scores(
+        claims=5,
+        decided=5,
+        accuracy=1.0,
+        payout_accuracy=1.0,
+        straight_through=0.8,
+        cost_per_claim=0.04,
+        seconds_per_claim=15,
+        total_cost=0.2,
+    )
+    cheaper = base.model_copy(update={"cost_per_claim": 0.003, "seconds_per_claim": 18})
+    assert verdict(base, cheaper)["kept"] is True
+    assert verdict(base, cheaper.model_copy(update={"accuracy": 0.8}))["kept"] is False
+    assert verdict(base, base)["kept"] is False

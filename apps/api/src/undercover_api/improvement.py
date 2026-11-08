@@ -52,6 +52,9 @@ SPEND_LIMIT = "round_spend_limit"
 DEFAULT_SPEND_LIMIT = 2.0
 # The measures a candidate must not do worse on, and must beat the baseline on at least one.
 MEASURES = ("accuracy", "payout_accuracy", "straight_through")
+# How far cost per claim must move to count as better or worse; time per claim is too noisy
+# on a few claims to judge by.
+COST_NOISE = 0.10
 OPEN = ("baselining", "improving", "awaiting_review", "evaluating")
 TINY = "tiny"
 BASELINES: tuple[tuple[LabelSet, str], ...] = (
@@ -345,9 +348,14 @@ def improver_failed(round_id: int, body: ReviewRequest, db: Database) -> Round:
 
 
 def verdict(baseline: Scores, candidate: Scores) -> dict[str, Any]:
-    """Keep the candidate only if it's no worse on every measure and better on at least one."""
+    """Keep the candidate only if it's no worse on every measure and better on at least one.
+    Cost per claim counts too, lower being better, outside its noise."""
     worse = [m for m in MEASURES if getattr(candidate, m) < getattr(baseline, m)]
     better = [m for m in MEASURES if getattr(candidate, m) > getattr(baseline, m)]
+    if candidate.cost_per_claim < baseline.cost_per_claim * (1 - COST_NOISE):
+        better.append("cost per claim")
+    elif candidate.cost_per_claim > baseline.cost_per_claim * (1 + COST_NOISE):
+        worse.append("cost per claim")
     kept = not worse and bool(better)
     if worse:
         why = f"Rolled back: worse on {', '.join(worse)}"

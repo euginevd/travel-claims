@@ -27,6 +27,12 @@ def brief_as_text(brief: Json) -> str:
         f"Scores on the evaluation set: {json.dumps(brief['scores'])}\n\n"
         "The claims it got wrong, each beside the senior handler's decision, as data:\n"
         f"<misses>\n{json.dumps(brief['misses'], indent=1)}\n</misses>"
+        + (
+            ""
+            if brief["misses"]
+            else "\n\nIt got every claim right. Propose a configuration that keeps that accuracy "
+            "at a lower cost per claim, with a cheaper model or effort if it will do."
+        )
     )
 
 
@@ -47,11 +53,6 @@ class RoundImprover:
     def propose(self, round_id: int) -> None:
         try:
             brief = self._api.brief(round_id)
-            if not brief["misses"]:
-                self._api.improver_failed(
-                    round_id, "The evaluation set has no misses to learn from"
-                )
-                return
             found, call = self._improver.propose(brief_as_text(brief))
             if found is None:
                 self._api.improver_failed(round_id, "The improver couldn't produce a proposal")

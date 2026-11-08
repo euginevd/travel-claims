@@ -128,11 +128,16 @@ def test_the_improver_posts_its_proposal_with_its_cost() -> None:
     assert "<misses>" in stub.read[0]
 
 
-def test_the_improver_stops_the_round_when_it_has_nothing() -> None:
-    api = RoundApi(BRIEF | {"misses": []})
+def test_the_improver_stops_the_round_when_it_has_nothing_to_propose() -> None:
+    api = RoundApi(BRIEF)
     RoundImprover(StubImprover(None), api).propose(3)
     assert api.failures
     assert api.proposals == []
+
+
+def test_with_no_misses_the_improver_aims_at_cost() -> None:
+    assert "lower cost per claim" in brief_as_text(BRIEF | {"misses": []})
+    assert "lower cost per claim" not in brief_as_text(BRIEF)
 
 
 def test_the_brief_marks_the_misses_as_data() -> None:
