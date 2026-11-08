@@ -2594,3 +2594,175 @@ button.payouts-status.is-live:hover {
     transform: rotate(360deg);
   }
 }
+
+/* Pause or resume payouts: a compact card under the header's payouts pill. */
+.payouts-popover {
+  position: fixed;
+  top: 76px;
+  right: 24px;
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgb(11 37 69 / 22%);
+}
+
+.payouts-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.payouts-popover .payouts-panel-title {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.payouts-popover p {
+  margin: 0;
+}
+
+.popover-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.popover-close:hover {
+  background: var(--bg-3);
+}
+
+.payouts-popover .reason-options {
+  gap: 6px;
+}
+
+.payouts-popover .reason-options legend {
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.payouts-popover .reason-option {
+  min-height: 32px;
+  padding: 4px 12px;
+  gap: 6px;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.payouts-popover .reason-option.chosen {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.payouts-popover label[for] {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.payouts-popover input:not([type="radio"]) {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 700px) {
+  .payouts-popover {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* Header: a long, quiet search field, and Copilot as the one filled button. */
+.search-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: clamp(200px, 22vw, 300px);
+  min-height: 2.5rem;
+  padding: 0 10px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--on-ink) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--on-ink) 6%, transparent);
+  color: color-mix(in srgb, var(--on-ink) 70%, transparent);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: text;
+  text-align: left;
+}
+
+.search-field:hover {
+  background: color-mix(in srgb, var(--on-ink) 12%, transparent);
+  color: var(--on-ink);
+}
+
+.search-placeholder {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-field kbd {
+  font-family: inherit;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--on-ink) 25%, transparent);
+  border-radius: 6px;
+  opacity: 0.7;
+}
+
+.copilot-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 2.5rem;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.copilot-button:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 1440px) {
+  .search-field {
+    width: clamp(160px, 16vw, 220px);
+  }
+}
+
+@media (max-width: 1100px) {
+  .search-placeholder,
+  .search-field kbd {
+    display: none;
+  }
+
+  .search-field {
+    width: auto;
+    padding: 0 12px;
+  }
+}

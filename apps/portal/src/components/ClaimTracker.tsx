@@ -1,47 +1,59 @@
 import { Check } from "lucide-react";
 import type { CustomerStatus } from "../api";
 
-const STAGES = ["Received", "Assessing", "Decision", "Paid"] as const;
+export type StepState = "done" | "current" | "upcoming";
 
-/** How far a claim has got, as the customer sees it: the stage it's reached, ticked. */
-export function stageOf(status: CustomerStatus): number {
+export interface Step {
+  label: string;
+  state: StepState;
+}
+
+function steps(labels: string[], current: number): Step[] {
+  return labels.map((label, index) => ({
+    label,
+    state: index < current ? "done" : index === current ? "current" : "upcoming",
+  }));
+}
+
+/** Where a claim is, as the customer sees it: what's done, what's happening now and what's next. */
+export function stepsFor(status: CustomerStatus): Step[] {
   switch (status) {
     case "received":
-      return 0;
     case "assessing":
+      return steps(["Received", "Assessing", "Decision", "Paid"], 1);
     case "reviewing":
-      return 1;
-    case "approved":
-    case "declined":
+      return steps(["Received", "Assessing", "Final check", "Decision", "Paid"], 2);
     case "with_a_handler":
-      return 2;
+      // A person has it, so there's no payment to promise yet.
+      return steps(["Received", "Assessing", "With a person", "Decision"], 2);
+    case "approved":
+      return steps(["Received", "Assessing", "Decision", "Paid"], 3);
     case "paid":
-      return 3;
+      return steps(["Received", "Assessing", "Decision", "Paid"], 4);
+    case "declined":
+      // Declined claims stop at the decision; there's nothing to pay.
+      return steps(["Received", "Assessing", "Decision"], 3);
   }
 }
 
 export function ClaimTracker({ status, mini = false }: { status: CustomerStatus; mini?: boolean }) {
-  const reached = stageOf(status);
-  // A declined claim or one with a person stops at the decision; there's nothing to pay.
-  const stages = status === "declined" || status === "with_a_handler" ? STAGES.slice(0, 3) : STAGES;
   return (
     <ol className={`tracker${mini ? " tracker-mini" : ""}`} aria-label="Where your claim is">
-      {stages.map((label, index) => {
-        const done = index <= reached;
-        const active = index === reached + 1 && (status === "received" || status === "assessing");
-        return (
-          <li
-            key={label}
-            className={`tracker-stage${done ? " done" : ""}${active ? " active" : ""}`}
-            aria-current={index === reached ? "step" : undefined}
-          >
-            <span className="tracker-dot" aria-hidden="true">
-              {done && <Check size={mini ? 13 : 16} strokeWidth={3} />}
-            </span>
-            <span className="tracker-label">{label}</span>
-          </li>
-        );
-      })}
+      {stepsFor(status).map(({ label, state }) => (
+        <li
+          key={label}
+          className={`tracker-stage${state === "done" ? " done" : ""}${state === "current" ? " active" : ""}`}
+          aria-current={state === "current" ? "step" : undefined}
+        >
+          <span className="tracker-dot" aria-hidden="true">
+            {state === "done" && <Check size={mini ? 13 : 16} strokeWidth={3} />}
+          </span>
+          <span className="tracker-label">
+            {label}
+            {state === "current" && <span className="visually-hidden"> (now)</span>}
+          </span>
+        </li>
+      ))}
     </ol>
   );
 }

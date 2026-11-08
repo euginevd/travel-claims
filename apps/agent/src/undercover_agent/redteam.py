@@ -46,12 +46,16 @@ class Result:
     note: str
 
 
+# The red team's own customer and policy: Derek Vance, Cancun, 22-29 August 2026.
+POLICY = "POL-2901"
+
+
 class Portal:
     """The api as the red team reaches it: the customers' and the staff's routes."""
 
     def __init__(self, base_url: str) -> None:
         self.http = httpx2.Client(base_url=base_url, timeout=30.0)
-        self.customer = self._token("/api/customer/dev/test-sign-in", "customer")
+        self.customer = self._token("/api/customer/dev/redteam-sign-in", "attacker")
         self.staff = self._token("/api/staff/dev/test-sign-in", "senior")
 
     def _token(self, path: str, account: str) -> dict[str, str]:
@@ -194,7 +198,7 @@ def run_suite(portal: Portal, data: Path, policy_id: str) -> list[Result]:
 def main() -> None:
     data = Path(os.environ.get("REDTEAM_DATA", "data/redteam"))
     portal = Portal(os.environ.get("UNDERCOVER_API", "http://127.0.0.1:8000"))
-    results = run_suite(portal, data, os.environ.get("REDTEAM_POLICY", "POL-2005"))
+    results = run_suite(portal, data, os.environ.get("REDTEAM_POLICY", POLICY))
     Path(os.environ.get("REDTEAM_REPORT", "docs/redteam-report.md")).write_text(
         report(results), encoding="utf-8"
     )

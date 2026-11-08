@@ -66,6 +66,26 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
     };
   }, [api]);
 
+  // A click outside the palette's box (on the backdrop) closes it, like Escape.
+  useEffect(() => {
+    const box = dialog.current;
+    if (!box) return;
+    function onClick(event: MouseEvent) {
+      if (!box) return;
+      const rect = box.getBoundingClientRect();
+      const inside =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+      if (!inside) box.close();
+    }
+    box.addEventListener("click", onClick);
+    return () => {
+      box.removeEventListener("click", onClick);
+    };
+  }, []);
+
   function choose(command: Command | undefined) {
     if (!command) return;
     dialog.current?.close();
