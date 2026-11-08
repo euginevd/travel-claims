@@ -61,19 +61,19 @@ export function Header({
       {onSearch && (
         <button
           type="button"
-          className="search-button"
+          className="search-field"
           onClick={onSearch}
-          aria-label="Search (Ctrl K)"
-          title="Search (Ctrl K)"
+          aria-label="Search claims and customers (Ctrl K)"
         >
           <Search size={16} strokeWidth={2} aria-hidden="true" />
+          <span className="search-placeholder">Search claims, customers…</span>
           <kbd aria-hidden="true">Ctrl K</kbd>
         </button>
       )}
       {onCopilot && (
-        <button type="button" className="search-button" onClick={onCopilot}>
-          <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
-          Copilot
+        <button type="button" className="copilot-button" onClick={onCopilot}>
+          <Sparkle size={16} strokeWidth={2.4} aria-hidden="true" />
+          Ask Copilot
         </button>
       )}
       <div className="who">
