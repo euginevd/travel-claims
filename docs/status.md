@@ -7,7 +7,7 @@
 ## Running it
 
 2. Set up a machine once: `bash scripts/setup.sh`, then `uv sync` and `npm ci` in `apps/web`.
-3. Secrets: copy `.env.example` to `.env` and fill it in. Python 3.14 (3.15 isn't supported by LangGraph's dependencies yet).
+3. Secrets: copy `.env.example` to `.env` and fill it in. Python 3.14 (decision 9).
 4. Run everything: `docker compose up --build`, then open http://127.0.0.1:5173.
 5. Run without Docker: `uv run uvicorn undercover_api.main:app --reload` and `npm run dev` in `apps/web`.
 6. Check: `uv run ruff format --check && uv run ruff check && uv run pyright && uv run pytest`, and in `apps/web` `npm run lint && npm run typecheck && npm test`.

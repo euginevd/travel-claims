@@ -55,13 +55,14 @@ Sign-in page; the queue with each claim's status; a claim page with the story, d
 
 ### 1. Scaffold
 
-- [ ] uv workspace with `apps/api`, `apps/agent`, `apps/context`; `apps/web` with Vite; pinned versions checked as real and maintained.
-- [ ] `docker-compose.yml` with PostgreSQL 17 and the four apps; `.env.example`; `docker compose up` starts everything.
-- [ ] `apps.yml` workflow runs ruff, pyright, pytest and the web checks on every PR.
-- [ ] `status.md` says how to run it.
+- [x] uv workspace with `apps/api` and `apps/agent`; `apps/web` with Vite; pinned versions checked as real and maintained. (`apps/context` joins in phase 2.)
+- [ ] `docker-compose.yml` with PostgreSQL 17 and the apps; `.env.example`; `docker compose up` starts everything. Written; not yet run, as Docker is being installed.
+- [x] `apps.yml` workflow runs ruff, pyright, pytest and the web checks on every PR.
+- [x] `status.md` says how to run it.
 
 ### 2. Context layer
 
+- [ ] `apps/context` added to the workspace, with its Dockerfile and compose service.
 - [ ] The seven context files copied in; the seven lookups served over MCP, each naming its file, system, owner and review date.
 - [ ] Tests for each lookup, including an unknown term and a missing section.
 

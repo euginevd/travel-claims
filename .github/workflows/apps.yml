@@ -13,11 +13,14 @@ permissions:
 jobs:
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     container: ghcr.io/astral-sh/uv:0.13.7-python3.14-bookworm
     env:
       UV_PYTHON_DOWNLOADS: never
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: uv sync --frozen
       - run: uv run ruff format --check
       - run: uv run ruff check
@@ -26,12 +29,15 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
-    container: node:24-bookworm-slim
+    timeout-minutes: 15
+    container: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
     defaults:
       run:
         working-directory: apps/web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck

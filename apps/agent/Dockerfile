@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-dev --package undercover-agent --no-install-workspace
 COPY apps/agent apps/agent
 RUN uv sync --frozen --no-dev --package undercover-agent --no-editable
 
-FROM python:3.14-slim-bookworm
+FROM python:3.14.9-slim-bookworm@sha256:945c2676dc2b18e0c1f16879244122c57c0ffede60006bf3df159c507a31bcae
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
