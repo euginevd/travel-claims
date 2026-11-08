@@ -70,3 +70,15 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 45. Real payments, and messages to customers.
 46. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
 47. Anything on AWS until stage 2 is spec'd.
+
+## Advanced agentic features (stage 1)
+
+48. **Evaluations:** a dispatcher works many claims at once (1 to 25 claim agents) and survives a restart without deciding or paying twice; an evaluation runs copies of a labelled set through it and a scoreboard shows accuracy, payout accuracy, the share handled straight through, cost and time per claim, with each miss beside the handler's decision.
+49. **Kill switch:** a senior handler can stop all payouts while the app keeps running; the agent still decides and every approval holds until payouts are back on.
+50. **Red-team suite:** a set of attack claims (instructions hidden in receipt images and PDFs, fake approval notes, goal hijacking, payout inflation) runs on demand with a pass or fail report; every attack must end referred or held, never paid.
+51. **Specialist sub-agents:** a document checker (receipts against the story, dates and trip), a duplicate-receipt detector across claims, and a medical reviewer for medical claims; the claim agent calls them and cites them in its checklist.
+52. **Improver:** a second agent reads an evaluation's misses and proposes a change to the claim agent's instructions, model or effort as a diff; a senior handler approves or rejects it; an approved version is kept only if it improves the held-out scores without making any worse, and the improver never sees the held-out answers.
+53. **Copilot:** a chat in the staff dashboard that answers from the records and acts as the signed-in handler, never with the agent's key; it signs off only after the handler confirms on a card.
+54. **Customer memory:** the agent remembers each customer's earlier claims and decisions, used only for that customer's claims and never in evaluations.
+55. **Polish:** Work this claim carries on a claim the agent stopped on; optionally the agent starts as soon as a customer submits.
+56. Claude spend for building and testing these stays under $10 in all; evaluations and improvement rounds have their own spending limits.
