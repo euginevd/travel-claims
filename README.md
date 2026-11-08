@@ -37,6 +37,7 @@ Rebuilt from the UnderCover project in Ed Donner's AI FDE course. Stages and wha
 | [spec.md](docs/spec.md) | The project and what done means |
 | [status.md](docs/status.md) | What's built and what's next |
 | [decisions.md](docs/decisions.md) | Key decisions and why |
+| [design-system.md](docs/design-system.md) | Look and feel, from the ArcVault design system |
 | [threat-model.md](docs/threat-model.md), [costs.md](docs/costs.md) | Threats and controls; what it costs |
 
 ## 🚀 Bootstrap

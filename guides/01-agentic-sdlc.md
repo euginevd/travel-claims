@@ -18,17 +18,17 @@ The end-to-end flow, through the stages in section 3, for both a new project and
 
 | # | Stage | Who | Step |
 |:-:|-------|-----|------|
-| 1 | Plan | You | **Create the repo (new project only):** `gh repo create travel-claims --template euginevd/sdlc-template --private --clone`, then `bash scripts/setup.sh` |
-| 2 | Plan | You, then agent | **Update the spec:** *"Update docs/spec.md for <the change>"* (or *"Draft docs/spec.md from <your notes>"* for a new project). ↺ Review and correct it until it says what you want |
-| 3 | Plan | You, then agent | **Prompt:** *"Plan <the work> in docs/plan-<name>.md"*. The agent writes the design, risks, phases and PR groups; no code |
-| 4 | Plan | You | **Review the plan:** ↺ ask for changes until it's right, then approve |
-| 5 | Code | You | **Prompt:** *"Implement the plan for <the work>"* |
-| 6 | Code | Agent | **Build each phase:** code, local checks, fresh-subagent review, docs, local commit |
-| 7 | Code | Agent | **Push:** the pre-push scan runs (Gitleaks, Trivy). ↺ The agent fixes any finding and pushes again, then opens a PR |
-| 8 | Build and test | Pipeline, then agent | **PR checks:** the security scans and the Terraform plan run on every PR (app checks *(planned)*). ↺ The agent fixes any finding on the same PR |
-| 9 | Release | You, then agent | **Review and merge:** you review the diff and the plan and approve; the agent squash-merges and deletes the branch |
-| 10 | Deploy | You, then pipeline | **Apply:** you read the Terraform plan and approve; Terraform applies exactly that plan through OIDC. A merge deploys to `dev`; a manual run with target `prod` promotes it |
-| 11 | Operate and monitor | Agent and you | **Close the loop:** the agent updates `status.md` and `decisions.md` and deletes the plan; findings and alerts become the next spec (back to 2) |
+| 1 | Plan | Developer, agent | **Create the repo:** `gh repo create travel-claims --template euginevd/sdlc-template --private --clone` |
+| 2 | Plan | Developer, agent | **Update the spec:** *"Update spec"*. ↺ Correct it until it says what you want |
+| 3 | Plan | Agent | **Plan:** *"Plan <the work>"*. The agent writes the plan and threat model; no code |
+| 4 | Plan | Developer | **Review the plan:** ↺ ask for changes to the plan and threat model, then approve |
+| 5 | Code | Developer | **Implement:** *"Implement the plan"*. The agent works through the phases |
+| 6 | Code | Agent | **Build each phase:** code, checks, subagent review, docs, then a local commit |
+| 7 | Code | Agent | **Push:** the pre-push scan runs. ↺ The agent fixes findings, then opens a PR |
+| 8 | Build and test | Pipeline, agent | **PR checks:** security scans and the Terraform plan. ↺ The agent fixes findings |
+| 9 | Release | Developer, agent | **Merge:** you review and approve; the agent squash-merges and deletes the branch |
+| 10 | Deploy | Developer, pipeline | **Apply:** you approve the Terraform plan; merges deploy `dev`, a manual run `prod` |
+| 11 | Operate and monitor | Agent, developer | **Close the loop:** the agent updates status and decisions; findings feed step 2 |
 
 ## 3. The stages
 
@@ -36,7 +36,7 @@ The eight DevSecOps stages, the core security activities in each, and the open-s
 
 | # | Stage | Core components | Open-source tools |
 |:-:|-------|-----------------|-------------------|
-| 1 | Plan | Data classification · threat modelling · security requirements and architecture | OWASP Threat Dragon |
+| 1 | Plan | Data classification · threat modelling · security requirements and architecture | Mermaid (data flow diagram) · OWASP Threat Dragon · OWASP ASVS |
 | 2 | Code | Secrets detection · static analysis (SAST, SCA, IaC) · repo hardening and code review | Gitleaks · Semgrep |
 | 3 | Build | Image scanning and build gates · SBOM and signing · CI pipeline hardening | Trivy · Cosign |
 | 4 | Test | DAST, API and pen testing · security regression tests · AI security testing | OWASP ZAP · promptfoo |
@@ -57,9 +57,10 @@ travel-claims/
 │   ├── business-context.md   the business: industry, regulators, systems, people
 │   ├── spec.md               the project, its stack, what we're building, what done means
 │   ├── code-standards.md     how to write the code
+│   ├── design-system.md      look and feel, from the design system
 │   ├── status.md             what's built and what's next
 │   ├── decisions.md          what's settled and why
-│   ├── threat-model.md       data classification, threats and controls
+│   ├── threat-model.md       data flow, top risks (STRIDE, OWASP)
 │   ├── costs.md              what costs money, budget and alerts
 │   └── plan-<name>.md        the plan being built (per plan; deleted when done)
 ├── apps/                  04 the product: one folder per app
@@ -93,5 +94,42 @@ travel-claims/
 | `docs/code-standards.md` | Numbered coding rules the pipeline can't check: general, errors and logs, safe by design, tests, Terraform, languages, AI, docs | Rarely |
 | `docs/status.md` | What's built, how to run it, known gaps, what's next | Always |
 | `docs/decisions.md` | Key decisions with why and the alternative; superseded, never deleted | Sometimes |
-| `docs/threat-model.md` | Data classification, trust boundaries, threats and controls, compliance. Optional | Sometimes |
+| `docs/design-system.md` | The design system's tokens and rules an app uses, plus the project's UI choices. Optional | Rarely |
+| `docs/threat-model.md` | Data flow, data classes, top risks mapped to STRIDE and OWASP, compliance. Optional | Sometimes |
 | `docs/costs.md` | One row per resource that costs money, budget and alerts. Optional | Sometimes |
+
+## 6. A sample plan
+
+What the agent writes at step 3, here for a `travel-claims` change. It lives in `docs/plan-<name>.md` while it's built and is deleted when done.
+
+```markdown
+# Plan: receipt upload
+
+Covers spec 9 and 17.
+
+## Design
+
+- `api`: `POST /claims/{id}/receipts` checks the claimant owns the claim and returns a presigned S3 upload URL: PDF, JPEG or PNG, up to 10 MB, valid for 5 minutes.
+- Receipt bucket: private, KMS-encrypted, in `ap-southeast-2`, in a new Terraform unit `aws/receipts/`.
+- `web`: an upload form on the claim page that sends the file straight to S3.
+
+## Security risks
+
+- A claimant uploads to someone else's claim: ownership check on every request (threat model R3); abuse-case test.
+- Hidden text in a receipt: type and size checks; its text reaches the agent as data only (R1, spec 17).
+- New flow across TB1: add it to the threat model's diagram.
+
+## Phases
+
+### 1. Bucket and upload URL
+- [ ] Terraform passes fmt, validate and Checkov
+- [ ] Only the claim's owner gets an upload URL; tests cover another claimant's request
+
+### 2. Upload form
+- [ ] A claimant uploads a receipt and sees it on the claim
+- [ ] The form passes lint, typecheck and tests, and works by keyboard (WCAG 2.2 AA)
+
+## PR groups
+
+1. Phases 1–2 in one PR (about 300 lines).
+```
