@@ -1,16 +1,13 @@
 # Costs
 
-A worked example: `travel-claims` in `dev`. Optional: delete it if the project has little that costs money. Costs are approximate monthly figures.
+Approximate monthly figures, by stage.
 
-## Resources
+## Stage 1, local
 
-1. Claude on Bedrock: about $120, driven by tokens per claim. Cut it with token limits (code-standards 19), prompt caching and a smaller model for simple claims.
-2. Lambda (`api`, `agent`): about $15, driven by claim volume. Cut it by right-sizing memory.
-3. CloudWatch logs: about $15, driven by log volume. Cut it with 30-day retention and no debug logs in `prod`.
-4. S3 and CloudFront (`web`, receipts): about $10, driven by receipt uploads. Cut it by expiring old receipt versions.
-5. HTTP API: about $5, driven by requests. Throttling keeps floods from running up the bill.
+1. Claude through the Anthropic API: the only cost, driven by tokens per claim and how often dispatches and evaluations run. A full evaluation and an improvement round cost the most. Cut it with token limits (code-standards 19), prompt caching, Claude Haiku for the hidden-instruction check and the judge, and the five tiny claims for quick runs.
+2. Each improvement round has its own spending limit, and the Anthropic Console's spend limit caps the key.
 
-## Budget and alerts
+## Stage 2, AWS *(planned)*
 
-6. `dev` budget: $200 a month (spec 19). AWS Budgets emails the team at 80% and 100%.
-7. `prod` budget: set after the first full month of real claims.
+3. Estimated before stage 2 starts. EKS, its nodes, NAT and the load balancer cost money even when idle, so `dev` is torn down when not in use.
+4. `dev` budget: $200 a month. AWS Budgets emails at 80% and 100%.
