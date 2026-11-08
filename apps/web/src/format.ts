@@ -1,4 +1,4 @@
-import type { DecisionKind, Status, StepKind } from "./api";
+import type { StepKind } from "./api";
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 // A date-only value like "2026-06-24" is a calendar day, not a moment: read it in UTC so it
@@ -33,21 +33,6 @@ export function date(value: string): string {
 export function when(value: string): string {
   return formatted(moment, value);
 }
-
-export const STATUS_LABELS: Record<Status, string> = {
-  waiting: "Waiting",
-  in_progress: "Agent working",
-  waiting_for_sign_off: "Waiting for sign-off",
-  sent_back: "Sent back",
-  decided: "Decided",
-  left_for_handler: "Left for a handler",
-};
-
-export const DECISION_LABELS: Record<DecisionKind, string> = {
-  approve: "Approved",
-  decline: "Declined",
-  refer: "Referred to a handler",
-};
 
 export const STEP_LABELS: Record<StepKind, string> = {
   screening: "Hidden-instruction check",
