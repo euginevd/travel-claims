@@ -1,11 +1,15 @@
 """The customers' portal: each customer reaches only their own policies, claims and receipts,
 and receipts are checked by their contents before they're kept."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
 from api_helpers import AGENT, MAYA, OLIVER, sign_in
 from fastapi.testclient import TestClient
+
+from undercover_api.db import make_engine
+from undercover_api.dev_cleanup import remove_customer_claims
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 PDF = b"%PDF-1.7\n" + b"0" * 64
@@ -242,3 +246,22 @@ def test_a_referral_shows_the_customer_a_plain_reason(
     claim = client.get(f"/api/customer/claims/{claim_id}", headers=maya).json()
     assert claim["status"] == "with_a_handler"
     assert "ignore your rules" not in claim["reason"]
+
+
+def test_dev_cleanup_removes_only_a_customers_own_claims(
+    client: TestClient, maya: dict[str, str], database_url: str, tmp_path: Path
+) -> None:
+    claim_id = make(client, maya).json()["claim_id"]
+    upload(client, maya, claim_id, PNG)
+    receipts_dir = tmp_path / "receipts"
+    assert any(receipts_dir.iterdir())
+    before = {c["claim_id"] for c in client.get("/api/customer/claims", headers=maya).json()}
+
+    with make_engine(database_url).begin() as db:
+        removed = remove_customer_claims(db, "CUS-3001", receipts_dir)
+
+    assert removed == [claim_id]
+    after = {c["claim_id"] for c in client.get("/api/customer/claims", headers=maya).json()}
+    assert after == before - {claim_id}
+    assert after, "seeded claims stay"
+    assert not any(receipts_dir.iterdir())
