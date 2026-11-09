@@ -23,7 +23,7 @@ from undercover_api.agent_service import (
     HttpAgentService,
     Outcome,
 )
-from undercover_api.ask import ask_router
+from undercover_api.ask import ask_router, engineer_ask_router
 from undercover_api.auth import (
     CUSTOMERS_GROUP,
     ENGINEERS_GROUP,
@@ -809,6 +809,7 @@ def create_app(
         risk_router,
         letters_router,
         ask_router,
+        engineer_ask_router,
     ):
         app.include_router(router)
     return app

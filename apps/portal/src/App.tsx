@@ -51,6 +51,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   // Why the signed-in customer couldn't be loaded, when it wasn't the token's fault.
   const [meError, setMeError] = useState<string | null>(null);
   const [meAttempt, setMeAttempt] = useState(0);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const route = useHashRoute();
 
   const signOut = useCallback(() => {
@@ -132,12 +133,23 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
           { href: UPDATES_HREF, label: "Updates", Icon: Bell },
         ]}
         onSignOut={signOut}
+        onAssistant={() => {
+          setAssistantOpen((now) => !now);
+        }}
       />
       <div className="sky-band" aria-hidden="true" />
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api, customer.name)}</ErrorBoundary>
       </main>
-      <AskUnderCover api={api} />
+      {assistantOpen && (
+        <AskUnderCover
+          api={api}
+          route={route}
+          onClose={() => {
+            setAssistantOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

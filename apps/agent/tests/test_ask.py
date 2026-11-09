@@ -4,6 +4,7 @@ answers through reply, and a question that tries to instruct it is stopped first
 from stubs import FakeClaude, tool_use
 
 from undercover_agent.ask import SCREENED, Asker, AskRequest
+from undercover_agent.explain import Explainer, ExplainRequest
 from undercover_agent.models import Json
 
 REQUEST = AskRequest(
@@ -77,3 +78,30 @@ def test_a_question_that_instructs_the_assistant_is_stopped_before_it_answers() 
     assert answer.screened is True
     assert answer.answer == SCREENED
     assert claude.turns_taken == 0
+
+
+# --- Wattle AI for the AI engineers ---
+
+
+def test_the_engineers_assistant_reads_the_snapshot_and_traces_only_named_claims() -> None:
+    request = ExplainRequest(
+        first_name="Sam",
+        question="Why did CLM-1001 take so long?",
+        runs=[{"run_id": 3}],
+        rounds=[],
+        redteam={"results": []},
+        threats={"rows": []},
+        traces={"CLM-1001": {"steps": [{"title": "Read the claim"}]}},
+    )
+    claude = FakeClaude(
+        [
+            tool_use("claim_trace", {"claim_id": "clm-1001"}, 1),
+            tool_use("reply", {"answer": "Two model calls.", "sources": ["Trace CLM-1001"]}, 2),
+        ]
+    )
+    explainer = Explainer(claude, "claude-haiku-5-5")
+    answer = explainer.explain(request)
+    assert answer.answer == "Two model calls."
+    assert answer.sources == ["Trace CLM-1001"]
+    assert "error" in explainer.run("claim_trace", {"claim_id": "CLM-9999"}, request)
+    assert "run_id" in explainer.run("evaluation_runs", {}, request)

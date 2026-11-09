@@ -2772,3 +2772,256 @@ button.payouts-status.is-live:hover {
     padding: 0 12px;
   }
 }
+
+/* --- Wattle AI: the same assistant look in every UnderCover app --- */
+.wattle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.95rem 0.3rem 0.4rem;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(100deg, #ffc93c, #2f7d4a) border-box;
+  color: #0b2545;
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -6px rgb(242 183 5 / 70%);
+}
+
+.wattle-pill:hover {
+  box-shadow: 0 6px 18px -6px rgb(47 125 74 / 70%);
+}
+
+.wattle-pill:focus-visible,
+.project-link:focus-visible {
+  outline: 3px solid #ffc93c;
+  outline-offset: 2px;
+}
+
+.project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.project-link:hover {
+  background: rgb(255 255 255 / 12%);
+}
+
+.wattle-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  background: #fff;
+  color: #0b2545;
+  border-left: 1px solid #dce5f0;
+  box-shadow: -18px 0 40px -20px rgb(11 37 69 / 35%);
+}
+
+.wattle-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e8eef6;
+}
+
+.wattle-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 auto 0 0;
+  font-size: 1.05rem;
+}
+
+.wattle-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #4a5b73;
+  cursor: pointer;
+}
+
+.wattle-icon:hover {
+  background: #eef3f9;
+}
+
+.wattle-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.wattle-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 1.5rem;
+}
+
+.wattle-hero h3 {
+  margin: 0.9rem 0 0.35rem;
+  font-size: 1.2rem;
+}
+
+.wattle-hero > p {
+  max-width: 34ch;
+  margin: 0 0 1.4rem;
+  color: #4a5b73;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.wattle-chips {
+  list-style: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wattle-chips button {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #dce5f0;
+  border-radius: 10px;
+  background: #f7f9fc;
+  color: #0b2545;
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wattle-chips button:hover {
+  border-color: #f2b705;
+  background: #fffaeb;
+}
+
+.wattle-msg {
+  max-width: 92%;
+}
+
+.wattle-msg p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.wattle-msg.user {
+  align-self: flex-end;
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px 14px 4px 14px;
+  background: #e8f3fb;
+}
+
+.wattle-msg.assistant {
+  align-self: flex-start;
+}
+
+.wattle-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #4a5b73;
+}
+
+.wattle-sources {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.wattle-sources li {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: #fff4cf;
+  color: #6b4e00;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.wattle-form {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 1rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.9rem;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(100deg, #ffc93c, #2f7d4a) border-box;
+}
+
+.wattle-form input,
+.wattle-form textarea {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  resize: none;
+}
+
+.wattle-send {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 9px;
+  background: #2f7d4a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.wattle-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.wattle-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.6rem 1rem 0.8rem;
+  color: #5d6d83;
+  font-size: 0.74rem;
+  text-align: center;
+}

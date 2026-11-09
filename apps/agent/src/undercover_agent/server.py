@@ -17,6 +17,7 @@ from undercover_agent import redteam
 from undercover_agent.ask import Answer, Asker, AskRequest
 from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
+from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
 from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
@@ -140,6 +141,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     *,
     start_redteam: Callable[[], None] | None = None,
     make_asker: Callable[[], Asker] | None = None,
+    make_explainer: Callable[[], Explainer] | None = None,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -148,6 +150,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     dispatcher: dict[str, Dispatcher] = {}
     improver: dict[str, RoundImprover] = {}
     asker: dict[str, Asker] = {}
+    explainer: dict[str, Explainer] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -160,6 +163,8 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
             improver["rounds"] = make_improver()
         if make_asker is not None:
             asker["customers"] = make_asker()
+        if make_explainer is not None:
+            explainer["engineers"] = make_explainer()
         yield
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
@@ -228,6 +233,13 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         if "customers" not in asker:
             raise HTTPException(503, "The assistant isn't set up")
         return asker["customers"].ask(request)
+
+    @app.post("/explain", operation_id="explain", dependencies=[Depends(agents_key)])
+    def explain(request: ExplainRequest) -> Explanation:  # pyright: ignore[reportUnusedFunction]
+        """Answer an AI engineer's question from the api's read-only snapshot."""
+        if "engineers" not in explainer:
+            raise HTTPException(503, "The assistant isn't set up")
+        return explainer["engineers"].explain(request)
 
     @app.post("/letter", operation_id="letter", dependencies=[Depends(agents_key)])
     def letter(request: LetterRequest) -> Letter:  # pyright: ignore[reportUnusedFunction]
@@ -311,6 +323,7 @@ def build_app() -> FastAPI:
             McpContext(settings.undercover_context),
             settings.drafting_model,
         ),
+        make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),

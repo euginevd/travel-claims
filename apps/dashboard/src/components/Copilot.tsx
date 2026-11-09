@@ -1,24 +1,25 @@
-import { AlertCircle, CheckCircle2, MessageSquarePlus, Search, Send, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Plus, Search, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Conversation, ConversationSummary, CopilotApi, Entry, Pending } from "../copilot";
 import { dollars } from "../format";
-import { AiMark } from "./AiMark";
+import { WATTLE_FOOTER, WattleMark } from "./Wattle";
 
 interface CopilotProps {
   copilot: CopilotApi;
   onClose: () => void;
+  starters?: string[];
 }
 
 const SUGGESTIONS = [
   "What needs me today?",
   "Which claims are waiting for sign-off?",
-  "Why was CLM-1015 declined?",
+  "Which claims are most urgent?",
 ];
 const MESSAGE_LIMIT = 2000;
 
-// The handlers' Copilot: a chat in a sidebar that acts as the signed-in handler. Each step it
+// Wattle AI for claims experts: a chat in a sidebar that acts as the signed-in handler. Each step it
 // takes shows as a card, and a sign-off waits on a card until the handler confirms it.
-export function Copilot({ copilot, onClose }: CopilotProps) {
+export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotProps) {
   const [past, setPast] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<Conversation | null>(null);
   const [text, setText] = useState("");
@@ -75,39 +76,44 @@ export function Copilot({ copilot, onClose }: CopilotProps) {
   }
 
   return (
-    <aside className="copilot" aria-label="Copilot">
-      <div className="copilot-head">
+    <aside className="wattle-panel" aria-label="Wattle AI">
+      <div className="wattle-head">
         <h2>
-          Copilot <AiMark />
+          <WattleMark size={22} /> Ask Wattle AI
         </h2>
         <button
           type="button"
-          className="icon-button"
+          className="wattle-icon"
           onClick={() => {
             setCurrent(null);
           }}
           aria-label="New conversation"
         >
-          <MessageSquarePlus size={18} strokeWidth={2} aria-hidden="true" />
+          <Plus size={18} strokeWidth={2} aria-hidden="true" />
         </button>
-        <button type="button" className="icon-button" onClick={onClose} aria-label="Close Copilot">
+        <button
+          type="button"
+          className="wattle-icon"
+          onClick={onClose}
+          aria-label="Close Wattle AI"
+        >
           <X size={18} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="copilot-body" aria-live="polite">
+      <div className="wattle-body" aria-live="polite">
         {!current && (
-          <div className="copilot-start">
-            <p>Ask about the queue, a claim or a customer. I act as you, with your access.</p>
-            <ul className="suggestions">
-              {SUGGESTIONS.map((suggestion) => (
+          <div className="wattle-hero">
+            <WattleMark size={64} />
+            <h3>Ask Wattle AI anything</h3>
+            <p>
+              Ask about the queue, a claim or a customer. It works with your access, and nothing is
+              paid until you confirm.
+            </p>
+            <ul className="wattle-chips">
+              {starters.map((suggestion) => (
                 <li key={suggestion}>
-                  <button
-                    type="button"
-                    className="suggestion"
-                    disabled={busy}
-                    onClick={() => void ask(suggestion)}
-                  >
+                  <button type="button" disabled={busy} onClick={() => void ask(suggestion)}>
                     {suggestion}
                   </button>
                 </li>
@@ -160,14 +166,14 @@ export function Copilot({ copilot, onClose }: CopilotProps) {
       </div>
 
       <form
-        className="copilot-ask"
+        className="wattle-form"
         onSubmit={(event) => {
           event.preventDefault();
           void ask(text);
         }}
       >
         <label htmlFor="copilot-text" className="visually-hidden">
-          Ask the Copilot
+          Your question
         </label>
         <textarea
           id="copilot-text"
@@ -188,13 +194,16 @@ export function Copilot({ copilot, onClose }: CopilotProps) {
         />
         <button
           type="submit"
-          className="button"
+          className="wattle-send"
           disabled={busy || !text.trim() || Boolean(current?.pending)}
         >
           <Send size={16} strokeWidth={2} aria-hidden="true" />
-          Ask
+          <span className="visually-hidden">Ask</span>
         </button>
       </form>
+      <p className="wattle-foot">
+        <WattleMark size={14} /> {WATTLE_FOOTER}
+      </p>
     </aside>
   );
 }

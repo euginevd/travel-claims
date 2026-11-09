@@ -2,6 +2,7 @@
 policies and claims, with customer-facing reasons only, and checks what comes back."""
 
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -11,7 +12,8 @@ from sqlalchemy import select
 
 from undercover_api.account import my_cover
 from undercover_api.agent_service import AgentService, AgentUnavailableError
-from undercover_api.auth import Database, SignedInCustomer
+from undercover_api.auth import Database, SignedInCustomer, SignedInEngineer
+from undercover_api.claims import claim_trace
 from undercover_api.db import claims
 from undercover_api.models import QuestionAnswer, QuestionRequest
 from undercover_api.notices import first_name
@@ -20,6 +22,7 @@ from undercover_api.portal import DraftLimiter, claim_for_customer
 log = logging.getLogger(__name__)
 
 ask_router = APIRouter(prefix="/api/customer")
+engineer_ask_router = APIRouter(prefix="/api/engineering")
 QUESTIONS_PER_HOUR = 20
 
 
@@ -85,3 +88,54 @@ def ask_undercover(
         found.screened,
     )
     return found
+
+
+MAX_TRACES = 3
+CLAIM_ID = re.compile(r"\bCLM-\d{4,6}\b", re.IGNORECASE)
+
+
+@engineer_ask_router.post("/ask", operation_id="ask_wattle_engineering")
+def ask_engineering(
+    body: QuestionRequest, engineer: SignedInEngineer, db: Database, tools: Asking
+) -> QuestionAnswer:
+    """Wattle AI for the AI engineers: read-only answers from the runs, rounds, red team, threat
+    coverage and the traces of any claims named in the question."""
+    # Imported here: these modules import the routers this module sits beside.
+    from undercover_api.evaluations import list_runs  # noqa: PLC0415
+    from undercover_api.improvement import list_rounds  # noqa: PLC0415
+    from undercover_api.redteam import status_of  # noqa: PLC0415
+    from undercover_api.threats import threat_coverage  # noqa: PLC0415
+
+    service, limiter = tools
+    if not limiter.allow(f"eng:{engineer.engineer_id}", datetime.now(UTC).timestamp()):
+        raise HTTPException(429, "That's a lot of questions in an hour. Please try again later.")
+    said = " ".join([body.question, *(turn.text for turn in body.history)])
+    traces: dict[str, object] = {}
+    for found in dict.fromkeys(m.upper() for m in CLAIM_ID.findall(said)):
+        if len(traces) == MAX_TRACES:
+            break
+        try:
+            traces[found] = claim_trace(db, found).model_dump(mode="json")
+        except HTTPException:
+            continue
+    request: dict[str, object] = {
+        "first_name": engineer.name.split()[0],
+        "question": body.question,
+        "history": [turn.model_dump() for turn in body.history],
+        "runs": [r.model_dump(mode="json") for r in list_runs(engineer, db)[:10]],
+        "rounds": [r.model_dump(mode="json") for r in list_rounds(engineer, db)[:8]],
+        "redteam": status_of(db).model_dump(mode="json"),
+        "threats": threat_coverage(engineer, db).model_dump(mode="json"),
+        "traces": traces,
+    }
+    try:
+        answer = service.explain(request)
+    except AgentUnavailableError as error:
+        log.warning("an engineer's question couldn't be answered: %s", error)
+        raise HTTPException(503, "The assistant isn't available right now") from error
+    try:
+        found_answer = QuestionAnswer.model_validate(answer)
+    except ValidationError as error:
+        raise HTTPException(502, "The assistant's answer didn't make sense") from error
+    log.info("engineer question answered (%d characters)", len(body.question))
+    return found_answer

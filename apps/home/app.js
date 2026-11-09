@@ -76,7 +76,7 @@ const SPEC = {
   },
   portal: {
     zone: "EKS · customer namespace", title: "portal: customer portal",
-    what: "React, Vite and TypeScript SPA served by nginx: claim from a photo, flight-delay claims, cover, PayID, Updates and Ask UnderCover.",
+    what: "React, Vite and TypeScript SPA served by nginx: claim from a photo, flight-delay claims, cover, PayID, Updates and Wattle AI.",
     facts: {
       Endpoints: "/api/customer: claims, receipts, drafts, delays, cover, payid, notices, draft, ask",
       Security: "nginx proxies only /api/customer; strict CSP (self only), no inline script; receipts checked by their bytes",
@@ -112,7 +112,7 @@ const SPEC = {
   },
   agent: {
     zone: "EKS · ai namespace", title: "agent: Claude agents",
-    what: "LangGraph agents: hidden-instruction check, claim agent with specialists, dispatcher, improver, drafting assistant, letters, Ask UnderCover and the red team.",
+    what: "LangGraph agents: hidden-instruction check, claim agent with specialists, dispatcher, improver, drafting assistant, letters, Wattle AI for customers and engineers, and the red team.",
     facts: {
       Calls: "Bedrock (Claude Sonnet for decisions, Haiku for checks and drafts); the context MCP server; the api with its own key",
       Security: "Claim text is data, never instructions; tools take the claim from the session, not the model; egress only to Bedrock and in-cluster services",

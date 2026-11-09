@@ -114,6 +114,7 @@ class FakeAgent:
         self.drafts: list[dict[str, object]] = []
         self.letters: list[dict[str, object]] = []
         self.questions: list[dict[str, object]] = []
+        self.explained: list[dict[str, object]] = []
         self.draft_answer: dict[str, object] = {
             "claim_type": "baggage",
             "summary": "Bag lost on the flight to Rome",
@@ -146,6 +147,17 @@ class FakeAgent:
 
     def redteam(self) -> None:
         self._take(("redteam", "", None))
+
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.explained.append(request)
+        return {
+            "answer": "Run 1 matched 5 of 5.",
+            "sources": ["Run 1"],
+            "suggest": "",
+            "screened": False,
+        }
 
     def ask(self, request: dict[str, object]) -> dict[str, object]:
         if self.failure is not None:

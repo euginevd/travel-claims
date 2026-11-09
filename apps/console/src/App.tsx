@@ -1,6 +1,7 @@
 import { FlaskConical, Radar, ScrollText, ShieldCheck, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
+import { AskWattle } from "./components/AskWattle";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { ImprovementPage } from "./pages/ImprovementPage";
@@ -55,6 +56,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   const [meError, setMeError] = useState<string | null>(null);
   const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const signOut = useCallback(() => {
     saveToken(null);
@@ -136,10 +138,22 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
           { href: THREATS_HREF, label: "Security: Threat coverage", Icon: Radar },
         ]}
         onSignOut={signOut}
+        onAssistant={() => {
+          setAssistantOpen((now) => !now);
+        }}
       />
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api)}</ErrorBoundary>
       </main>
+      {assistantOpen && (
+        <AskWattle
+          api={api}
+          route={route}
+          onClose={() => {
+            setAssistantOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

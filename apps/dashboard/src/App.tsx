@@ -162,6 +162,15 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
       {copilotOpen && (
         <Copilot
           copilot={copilot}
+          starters={
+            route.page === "claim"
+              ? [
+                  `Summarise ${route.claimId}`,
+                  `Any risk signals on ${route.claimId}?`,
+                  `What's still missing on ${route.claimId}?`,
+                ]
+              : undefined
+          }
           onClose={() => {
             setCopilotOpen(false);
           }}

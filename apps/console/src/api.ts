@@ -206,6 +206,18 @@ export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
 export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
 export type RedTeamStatus = z.infer<typeof RedTeamStatusSchema>;
 
+export const AnswerSchema = z.object({
+  answer: z.string(),
+  sources: z.array(z.string()),
+  suggest: z.string(),
+  screened: z.boolean(),
+});
+export type Answer = z.infer<typeof AnswerSchema>;
+export interface AskTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface Api {
   signIn: (email: string, password: string) => Promise<string>;
   testSignIn: () => Promise<string>;
@@ -223,6 +235,7 @@ export interface Api {
   stopRound: (roundId: number) => Promise<Round>;
   getTrace: (claimId: string) => Promise<Trace>;
   getThreats: () => Promise<ThreatCoverage>;
+  ask: (question: string, history: AskTurn[]) => Promise<Answer>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -315,6 +328,8 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
     getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
+    ask: (question, history) =>
+      call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
     getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),
   };
 }

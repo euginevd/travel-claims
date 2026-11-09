@@ -73,6 +73,10 @@ class AgentService(Protocol):
         """Ask the customers' assistant a question; the api validates what comes back."""
         ...
 
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        """Ask the engineers' assistant a question; the api validates what comes back."""
+        ...
+
 
 class HttpAgentService:
     """The agent's service over HTTP, at its url, with the agent's key."""
@@ -119,6 +123,12 @@ class HttpAgentService:
 
     def ask(self, request: dict[str, object]) -> dict[str, object]:
         answer = self._post("/ask", request, DRAFT_TIMEOUT_SECONDS)
+        if not isinstance(answer, dict):
+            raise AgentRefusedError("The assistant gave no answer")
+        return cast(dict[str, object], answer)
+
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        answer = self._post("/explain", request, DRAFT_TIMEOUT_SECONDS)
         if not isinstance(answer, dict):
             raise AgentRefusedError("The assistant gave no answer")
         return cast(dict[str, object], answer)

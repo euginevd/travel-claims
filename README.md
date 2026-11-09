@@ -25,14 +25,14 @@ A local page at http://127.0.0.1:5172 that explains the project in two minutes: 
 1. **Make a claim in three steps:** tap what happened, add photos or PDFs of your receipts, then check what an AI assistant drafted. Your words stay the record, and a half-finished claim is saved to finish later.
 2. **Claim a delayed flight in one tap:** when the flight-status feed shows a flight on your trip was late enough for your plan, **My claims** offers it with nothing to fill in.
 3. **Follow it:** a tracker (**Received**, **Assessing**, **Decision**, **Paid**), a list of anything we need from you with an upload for each, and every email and text under **Updates**.
-4. **Get paid and get answers:** approved claims go to your PayID, and **Ask UnderCover** answers questions about your policy and claims, citing your policy wording. Every decision says why in plain English and when the AI helped, and you can ask a person to review it.
+4. **Get paid and get answers:** approved claims go to your PayID, and **Wattle AI** answers questions about your policy and claims, citing your policy wording. Every decision says why in plain English and when the AI helped, and you can ask a person to review it.
 
 ## 🗂️ Handlers
 
 1. **Needs me first:** the queue opens on payouts waiting for sign-off, then referrals and customers' review requests.
 2. **The case brief:** the agent's recommendation, a checklist of what it verified with sources, and the payout worked out line by line. Claims the hidden-instruction check stopped are flagged as screened.
 3. **Decide:** approvals under $1,000 are paid automatically; sign off anything larger, send it back to the agent with a note, or override with a reason code. **Ask the customer** puts a request on their claim and emails and texts them. Once decided, AI drafts the customer's letter for the handler to edit and send.
-4. **Help at hand:** search with Ctrl+K, and the **Copilot** answers questions and acts with the handler's own access. A senior handler can pause all payouts at once.
+4. **Help at hand:** search with Ctrl+K, and **Wattle AI** answers questions and acts with the handler's own access. A senior handler can pause all payouts at once.
 
 ## 🧪 AI engineers
 

@@ -275,3 +275,20 @@ def test_ask_undercover_sends_only_the_customers_own_records(
     too_long = client.post("/api/customer/ask", json={"question": "x" * 600}, headers=maya)
     assert too_long.status_code == 422
     assert client.post("/api/customer/ask", json={"question": "hi"}).status_code == 401
+
+
+def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
+    client: TestClient, sam: dict[str, str], maya: dict[str, str], agent: Any
+) -> None:
+    asked = client.post(
+        "/api/engineering/ask", json={"question": "Explain clm-1001 and CLM-9999"}, headers=sam
+    )
+    assert asked.status_code == 200, asked.text
+    sent = agent.explained[0]
+    assert sent["first_name"] == "Sam"
+    assert set(sent["traces"]) == {"CLM-1001"}
+    assert {"runs", "rounds", "redteam", "threats"} <= set(sent)
+    assert (
+        client.post("/api/engineering/ask", json={"question": "hi"}, headers=maya).status_code
+        == 401
+    )
