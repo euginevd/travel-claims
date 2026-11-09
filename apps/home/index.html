@@ -4,9 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UnderCover demo</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%231e6fd9'/%3E%3Cpath d='M6 17a10 10 0 0 1 20 0z' fill='%23ff6b4a'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="styles.css" />
-    <script src="app.js" defer></script>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" integrity="sha384-fubV9hHyqzI+zZPxSCJXTO3AiheEqj/0wDtXgPItcg7173ixlXpG02tFFyCp/30F" />
+    <script src="app.js" integrity="sha384-HXl2T9Mpnm21uen08FQoqbRJxr3wDxLD4exp6qaP65UjaLR3DFaBbV5U/+Po6wgT" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
@@ -35,21 +35,21 @@
             hard limits around them.
           </p>
           <div class="apps">
-            <a class="app-card" href="http://localhost:5173" data-health="http://localhost:5173">
+            <a class="app-card" href="#" data-port="5173" data-path="" data-health>
               <span class="dot" aria-hidden="true"></span>
               <span class="app-port">:5173</span>
               <h2>Customer portal</h2>
               <p>Make a claim from a photo, claim a delayed flight in one tap, send what we ask for, get paid to a PayID.</p>
               <span class="tip">Use test account: Oliver Grant</span>
             </a>
-            <a class="app-card" href="http://localhost:5174" data-health="http://localhost:5174">
+            <a class="app-card" href="#" data-port="5174" data-path="" data-health>
               <span class="dot" aria-hidden="true"></span>
               <span class="app-port">:5174</span>
               <h2>Claims handler</h2>
               <p>Work the queue, read the agent's case brief, ask the customer for documents, sign off or override.</p>
               <span class="tip">Use test account: Dana Whitfield, senior handler</span>
             </a>
-            <a class="app-card" href="http://localhost:5175" data-health="http://localhost:5175">
+            <a class="app-card" href="#" data-port="5175" data-path="" data-health>
               <span class="dot" aria-hidden="true"></span>
               <span class="app-port">:5175</span>
               <h2>AI engineer console</h2>
@@ -78,17 +78,17 @@
             <li>
               <strong>Claim a delayed flight.</strong> In the portal, sign in as Oliver. The flight-status
               feed found UL 503 was 4h 40m late: tap <em>Claim $35.00</em>. Add a PayID on the same page.
-              <a href="http://localhost:5173">Open the portal</a>
+              <a href="#" data-port="5173" data-path="">Open the portal</a>
             </li>
             <li>
               <strong>Let the agent decide.</strong> In the handler workspace, sign in as Dana, open the new
               claim and press <em>Work</em>. Watch the case brief fill in: checks, sources and the payout.
-              <a href="http://localhost:5174">Open the workspace</a>
+              <a href="#" data-port="5174" data-path="">Open the workspace</a>
             </li>
             <li>
               <strong>See it land.</strong> Back in the portal: the claim is paid to the PayID, and
               <em>Updates</em> shows the email and text we sent.
-              <a href="http://localhost:5173/#/updates">Open Updates</a>
+              <a href="#" data-port="5173" data-path="/#/updates">Open Updates</a>
             </li>
             <li>
               <strong>Try to fool it.</strong> Make a claim with
@@ -98,7 +98,7 @@
             <li>
               <strong>Hold it to account.</strong> In the console, sign in as Priya and run the five-claim
               evaluation (about $0.15): the agent's decisions against the handlers'.
-              <a href="http://localhost:5175">Open the console</a>
+              <a href="#" data-port="5175" data-path="">Open the console</a>
             </li>
           </ol>
         </div>
@@ -165,11 +165,11 @@
         <div class="wrap">
           <h2 class="section-title">Core concepts</h2>
           <div class="cards">
-            <article class="card"><h3>Human in the loop</h3><p>The agent pays approvals under $1,000 on its own. Anything larger waits for a senior handler's sign-off, and every decision can be overridden with a reason code.</p><a href="http://localhost:5174">See the queue</a></article>
+            <article class="card"><h3>Human in the loop</h3><p>The agent pays approvals under $1,000 on its own. Anything larger waits for a senior handler's sign-off, and every decision can be overridden with a reason code.</p><a href="#" data-port="5174" data-path="">See the queue</a></article>
             <article class="card"><h3>The agent decides; code pays</h3><p>Limits, payouts and the one-payment-per-claim rule live in the api, where no prompt can reach. The agent can only ask.</p></article>
             <article class="card"><h3>Prompt-injection defence</h3><p>A hidden-instruction check reads every claim and receipt before the agent does, and refers anything that tries to give the AI orders.</p></article>
-            <article class="card"><h3>Evaluations with a held-out set</h3><p>The agent is scored against handlers' decisions on an evaluation set, and on a held-out set it never sees.</p><a href="http://localhost:5175">See the scoreboard</a></article>
-            <article class="card"><h3>Self-improvement, human-gated</h3><p>An improver proposes a new configuration from the misses. An AI engineer approves it, and it's kept only if it scores better on the held-out set.</p><a href="http://localhost:5175/#/improvement">See improvement</a></article>
+            <article class="card"><h3>Evaluations with a held-out set</h3><p>The agent is scored against handlers' decisions on an evaluation set, and on a held-out set it never sees.</p><a href="#" data-port="5175" data-path="">See the scoreboard</a></article>
+            <article class="card"><h3>Self-improvement, human-gated</h3><p>An improver proposes a new configuration from the misses. An AI engineer approves it, and it's kept only if it scores better on the held-out set.</p><a href="#" data-port="5175" data-path="/#/improvement">See improvement</a></article>
             <article class="card"><h3>Kill switch</h3><p>A senior handler can pause every payout at once. Approvals then wait for sign-off until payouts are back on.</p></article>
             <article class="card"><h3>Three trust boundaries</h3><p>Customers, handlers and AI engineers each use their own app, sign-in issuer and token audience, so one app's token opens nothing in another.</p></article>
             <article class="card"><h3>Context over MCP</h3><p>Policy wording, the claims manual and reference data sit in an MCP server the agent queries, with each answer's source recorded.</p></article>

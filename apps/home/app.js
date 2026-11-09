@@ -136,7 +136,7 @@ function setUpDiagram() {
 function checkHealth() {
   document.querySelectorAll("[data-health]").forEach((card) => {
     const dot = card.querySelector(".dot");
-    fetch(card.dataset.health, { mode: "no-cors", cache: "no-store" }).then(
+    fetch(card.href, { mode: "no-cors", cache: "no-store" }).then(
       () => {
         dot.className = "dot up";
         dot.title = "Running";
@@ -174,6 +174,19 @@ function loadStats() {
     });
 }
 
+// Links to the other apps use this page's own host, so the page works on localhost or 127.0.0.1.
+function setUpLinks() {
+  document.querySelectorAll("[data-port]").forEach((link) => {
+    const url = new URL(window.location.href);
+    url.port = link.dataset.port;
+    url.pathname = "/";
+    url.hash = (link.dataset.path || "").replace(/^\//, "");
+    url.search = "";
+    link.href = url.toString();
+  });
+}
+
+setUpLinks();
 setUpDiagram();
 setUpJourney();
 checkHealth();
