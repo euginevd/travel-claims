@@ -80,7 +80,7 @@ Done: redesigned to two screens, big and visual: the real logo, a bold headline 
 
 Three additions that show claims operations, AI and fraud expertise together. Done: the handler's navigation now holds only claims work (the AI pages moved to the AI assurance console), and tokens and cost moved from the handler's trace to the console's Claim trace page.
 
-30. Queue signals: days open and a due date on each claim, amber or red when close, sorted by urgency; a claim whose customer has sent everything asked for returns to Needs me with a "Documents in" chip.
+30. Done: queue signals. Each claim has a due date (10 business days from submission) with Overdue or Due soon chips; a referred claim whose customer has sent everything asked for returns to Needs me with a Documents in chip, and Needs me puts those first, then the most overdue.
 31. Risk panel: receipts seen on other claims, repeat claims and the amount against typical for the claim type, as signals for the handler, never automatic declines.
 32. AI-drafted customer letters: the agent drafts the approval or decline explanation; the handler edits and sends it to the customer's claim and Updates.
 

@@ -43,6 +43,8 @@ export const HandlerSchema = z.object({
 });
 
 export const ClaimSummarySchema = z.object({
+  due_on: z.string(),
+  documents_in: z.boolean(),
   claim_id: z.string(),
   customer_name: z.string(),
   plan: z.string(),

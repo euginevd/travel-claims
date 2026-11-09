@@ -1,6 +1,7 @@
 """Reading claims and moving them between statuses. Every move is a conditional update, so
 two requests racing for the same claim can't both win."""
 
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import HTTPException
@@ -30,6 +31,7 @@ from undercover_api.models import (
     CustomerMatch,
     CustomerRequest,
     Decision,
+    DecisionKind,
     ModelCall,
     NewStep,
     Payment,
@@ -199,16 +201,46 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
         .where(claims.c.source != "evaluation")
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
+    asked = {
+        claim_id: (total, done)
+        for claim_id, total, done in db.execute(
+            select(
+                customer_requests.c.claim_id,
+                func.count(),
+                func.count(customer_requests.c.fulfilled_at),
+            ).group_by(customer_requests.c.claim_id)
+        ).all()
+    }
     return [
         ClaimSummary.model_validate(
             dict(r)
             | {
                 "plan": r["policy"]["plan"],
                 "review_requested": r["review_requested_at"] is not None,
+                "due_on": business_days_after(r["submitted_on"], SERVICE_DAYS),
+                "documents_in": r["claim_id"] in asked
+                and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]
+                and r["decision"] == DecisionKind.REFER,
             }
         )
         for r in db.execute(query).mappings()
     ]
+
+
+# How long a claim may take before it's overdue, in business days.
+SERVICE_DAYS = 10
+SATURDAY = 5
+
+
+def business_days_after(day: str, days: int) -> str:
+    """The date a number of business days (Monday to Friday) after another."""
+    current = date.fromisoformat(day)
+    left = days
+    while left:
+        current += timedelta(days=1)
+        if current.weekday() < SATURDAY:
+            left -= 1
+    return current.isoformat()
 
 
 def claims_policy(db: Connection, claim_id: str) -> Policy:

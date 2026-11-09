@@ -202,6 +202,8 @@ class ClaimSummary(BaseModel):
     decision: DecisionKind | None
     payout: float | None
     review_requested: bool
+    due_on: str = Field(description="Ten business days after it was submitted")
+    documents_in: bool = Field(description="The customer has sent everything asked for")
 
 
 # A name to look customers up by: a few letters, no more than a full name.

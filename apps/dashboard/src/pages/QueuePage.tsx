@@ -54,8 +54,25 @@ export function needsMe(claim: ClaimSummary): boolean {
     claim.status === "waiting_for_sign_off" ||
     claim.status === "left_for_handler" ||
     claim.review_requested ||
+    claim.documents_in ||
     (claim.status === "decided" && claim.decision === "refer")
   );
+}
+
+/** How close a still-open claim is to its due date: overdue, due within two days, or fine. */
+export function urgency(claim: ClaimSummary, today = new Date()): "overdue" | "soon" | null {
+  const open = needsMe(claim) || claim.status !== "decided";
+  if (!open) return null;
+  const due = new Date(`${claim.due_on}T23:59:59`);
+  const days = (due.getTime() - today.getTime()) / 86_400_000;
+  if (days < 0) return "overdue";
+  return days <= 2 ? "soon" : null;
+}
+
+/** Needs me puts documents that came in first, then the most overdue. */
+function byUrgency(a: ClaimSummary, b: ClaimSummary): number {
+  if (a.documents_in !== b.documents_in) return a.documents_in ? -1 : 1;
+  return a.due_on.localeCompare(b.due_on);
 }
 
 export function inView(view: View, claim: ClaimSummary): boolean {
@@ -184,6 +201,7 @@ interface QueueBodyProps {
 
 function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
   const shown = claims.filter((claim) => inView(view, claim));
+  if (view === "needs_me") shown.sort(byUrgency);
   return (
     <>
       <ul className="figures" aria-label="The queue at a glance">
@@ -240,7 +258,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
                 <th scope="col" className="number">
                   Claimed
                 </th>
-                <th scope="col">Submitted</th>
+                <th scope="col">Due</th>
                 <th scope="col">Status</th>
               </tr>
             </thead>
@@ -254,10 +272,15 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
                   <td className="capitalise">{claim.plan}</td>
                   <td dir="auto">{claim.summary}</td>
                   <td className="number nowrap">{dollars(claim.amount_claimed)}</td>
-                  <td className="nowrap">{date(claim.submitted_on)}</td>
+                  <td className="nowrap">
+                    {date(claim.due_on)}
+                    {urgency(claim) === "overdue" && <span className="chip chip-bad">Overdue</span>}
+                    {urgency(claim) === "soon" && <span className="chip chip-warn">Due soon</span>}
+                  </td>
                   <td className="nowrap">
                     <StatusChip status={claim.status} decision={claim.decision} />
                     {claim.review_requested && <span className="chip chip-warn">Review asked</span>}
+                    {claim.documents_in && <span className="chip chip-good">Documents in</span>}
                   </td>
                 </tr>
               ))}

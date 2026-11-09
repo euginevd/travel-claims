@@ -30,6 +30,8 @@ export const SUMMARY: ClaimSummary = {
   decision: null,
   payout: null,
   review_requested: false,
+  due_on: "2026-07-07",
+  documents_in: false,
 };
 
 export const APPROVAL: Decision = {
