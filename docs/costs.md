@@ -9,6 +9,6 @@ Approximate monthly figures, by stage.
 
 ## Stage 2, AWS *(planned)*
 
-3. Estimated before stage 2 starts. EKS, its nodes, NAT and the load balancer cost money even when idle, so `dev` is torn down when not in use.
-4. `dev` budget: $200 a month. AWS Budgets emails at 80% and 100%.
+3. Serverless (decision 13): Lambda, AgentCore and Bedrock are paid per use and Supabase's free tier holds the database, so `dev` costs close to $0 idle and can stay up. Bedrock tokens are the main cost.
+4. `dev` budget: under $20 a month, watched by the account's AWS Budgets.
 5. Each PR that changes `aws/` gets a cost comment: the monthly estimate, the change and the top drivers, each with a saving where one applies. It warns above the `MONTHLY_COST_LIMIT` variable and excludes usage, such as model tokens and data transfer.

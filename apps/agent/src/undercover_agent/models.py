@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 import anthropic
+from anthropic.lib.bedrock import AnthropicBedrock
 from anthropic.types import Message, Usage
 from pydantic import BaseModel, Field
 
@@ -233,17 +234,29 @@ def call_of(model: str, usage: Usage, started: float = 0.0) -> Call:
     return Call(model, usage.input_tokens + read + written, usage.output_tokens, cost, latency)
 
 
-class AnthropicClaude:
-    """Claude through the Anthropic API, in the user's workspace."""
-
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
-            default_headers={"anthropic-workspace-id": settings.anthropic_workspace_id},
+def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
+    """Claude through the Anthropic API in the user's workspace, or through Bedrock (stage 2)."""
+    if settings.model_provider == "bedrock":
+        return AnthropicBedrock(
+            aws_region=settings.aws_region,
             timeout=settings.model_timeout_seconds,
             max_retries=settings.model_retries,
         )
+    key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else None
+    return anthropic.Anthropic(
+        api_key=key,
+        default_headers={"anthropic-workspace-id": settings.anthropic_workspace_id or ""},
+        timeout=settings.model_timeout_seconds,
+        max_retries=settings.model_retries,
+    )
+
+
+class AnthropicClaude:
+    """Claude through the Anthropic API or Bedrock, as the settings say."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._client = claude_client(settings)
 
     def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
         """Ask the check model whether the claim or its receipts try to instruct whoever

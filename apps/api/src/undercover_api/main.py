@@ -22,6 +22,8 @@ from undercover_api.agent_service import (
     AgentUnavailableError,
     HttpAgentService,
     Outcome,
+    RuntimeAgentService,
+    runtime_client,
 )
 from undercover_api.ask import ask_router, engineer_ask_router
 from undercover_api.auth import (
@@ -123,6 +125,7 @@ from undercover_api.records import check_calculation, check_request
 from undercover_api.redteam import redteam_router
 from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
+from undercover_api.storage import Receipts, S3ReceiptStore
 from undercover_api.threats import threats_router
 
 log = logging.getLogger(__name__)
@@ -752,6 +755,23 @@ def load_names_to_redact(engine: Engine) -> None:
         log.warning("no customers table yet; names will be redacted once it exists")
 
 
+def make_agent_service(settings: Settings) -> AgentService:
+    """The agent on AgentCore Runtime when its ARN is set (stage 2), else over HTTP."""
+    key = settings.undercover_api_key.get_secret_value()
+    if settings.agent_runtime_arn:
+        return RuntimeAgentService(settings.agent_runtime_arn, runtime_client())
+    return HttpAgentService(settings.agent_url, key)
+
+
+def make_receipts(settings: Settings) -> Receipts | None:
+    """The receipts bucket when one is set (stage 2); the folder is used otherwise."""
+    if not settings.receipts_bucket:
+        return None
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only stage 2 needs it
+
+    return S3ReceiptStore(settings.receipts_bucket, aws_client("s3"))
+
+
 def create_app(
     settings: Annotated[Settings | None, "Read from the environment when not given"] = None,
     engine: Engine | None = None,
@@ -771,9 +791,8 @@ def create_app(
     app = FastAPI(title="UnderCover api", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = database
-    app.state.agent = agent_service or HttpAgentService(
-        settings.agent_url, settings.undercover_api_key.get_secret_value()
-    )
+    app.state.agent = agent_service or make_agent_service(settings)
+    app.state.receipts = make_receipts(settings)
     staff = (settings.staff_token_issuer, settings.staff_token_audience)
     customer = (settings.customer_token_issuer, settings.customer_token_audience)
     engineering = (settings.engineering_token_issuer, settings.engineering_token_audience)

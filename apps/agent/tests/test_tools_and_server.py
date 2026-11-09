@@ -1,4 +1,6 @@
 import threading
+from collections.abc import Mapping
+from typing import Any
 
 from fastapi.testclient import TestClient
 from stubs import FakeApi, FakeContext
@@ -168,3 +170,48 @@ def test_a_letter_is_drafted_from_the_decision_with_its_reason_as_data() -> None
     assert response.json() == {"subject": "Your claim", "body": "Dear Maya, ..."}
     assert "<reason>" in drafter.letters[0]
     assert "$420.00 to their PayID" in drafter.letters[0]
+
+
+def invoke(http: TestClient, path: str, body: Mapping[str, object], key: str = KEY) -> Any:
+    return http.post("/invocations", json={"path": path, "body": dict(body), "key": key})
+
+
+def test_invocations_reach_the_same_route_with_the_same_key_check() -> None:
+    with client() as http:
+        body = {"claim_id": "CLM-1001", "thread_id": "t"}
+        first = invoke(http, "/work", body)
+        again = invoke(http, "/work", body)
+        wrong = invoke(http, "/work", body, key="wrong")
+    assert (first.status_code, first.json()) == (200, {"status": 202, "body": {"accepted": True}})
+    assert again.json() == {"status": 409, "body": {"refused": "busy"}}
+    assert wrong.json()["status"] == 401
+
+
+def test_invocations_take_only_the_agents_routes() -> None:
+    with client() as http:
+        assert invoke(http, "/health", {}).status_code == 422
+        assert invoke(http, "/invocations", {}).status_code == 422
+        bad = invoke(http, "/work", {"claim_id": "nope", "thread_id": "t"})
+    assert bad.json()["status"] == 422
+
+
+def test_ping_says_busy_while_a_claim_is_working() -> None:
+    release = threading.Event()
+    worker = threading.Thread(target=release.wait, name="CLM-1001", daemon=True)
+    with client() as http:
+        assert http.get("/ping").json()["status"] == "Healthy"
+        worker.start()
+        assert http.get("/ping").json()["status"] == "HealthyBusy"
+        release.set()
+        worker.join(timeout=5)
+        assert http.get("/ping").json()["status"] == "Healthy"
+
+
+def test_on_runtime_invocations_need_no_key_since_aws_checked_the_caller() -> None:
+    body = {"claim_id": "CLM-1001", "thread_id": "t"}
+    with TestClient(create_app(StubRunner, lambda: KEY, on_runtime=True)) as http:
+        on_runtime = http.post("/invocations", json={"path": "/work", "body": body})
+    with client() as http:
+        off_runtime = http.post("/invocations", json={"path": "/work", "body": body})
+    assert on_runtime.json() == {"status": 202, "body": {"accepted": True}}
+    assert off_runtime.json()["status"] == 401

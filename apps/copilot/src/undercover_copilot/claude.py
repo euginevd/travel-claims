@@ -3,6 +3,7 @@
 from typing import Any, Protocol
 
 import anthropic
+from anthropic.lib.bedrock import AnthropicBedrock
 from anthropic.types import Message
 
 from undercover_copilot.settings import Settings
@@ -16,17 +17,29 @@ class Claude(Protocol):
     def turn(self, system: str, tools: list[Json], messages: list[Json]) -> Message: ...
 
 
-class AnthropicClaude:
-    """Claude through the Anthropic API, in the user's workspace."""
-
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._client = anthropic.Anthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
-            default_headers={"anthropic-workspace-id": settings.anthropic_workspace_id},
+def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
+    """Claude through the Anthropic API in the user's workspace, or through Bedrock (stage 2)."""
+    if settings.model_provider == "bedrock":
+        return AnthropicBedrock(
+            aws_region=settings.aws_region,
             timeout=settings.model_timeout_seconds,
             max_retries=settings.model_retries,
         )
+    key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else None
+    return anthropic.Anthropic(
+        api_key=key,
+        default_headers={"anthropic-workspace-id": settings.anthropic_workspace_id or ""},
+        timeout=settings.model_timeout_seconds,
+        max_retries=settings.model_retries,
+    )
+
+
+class AnthropicClaude:
+    """Claude through the Anthropic API or Bedrock, as the settings say."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._client = claude_client(settings)
 
     def turn(self, system: str, tools: list[Json], messages: list[Json]) -> Message:
         """One turn: the stable instructions and tools are cached."""

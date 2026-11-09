@@ -1,9 +1,14 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
-undercover_api.agent_service. It answers at once and works in the background."""
+undercover_api.agent_service. It answers at once and works in the background. On AgentCore
+Runtime (stage 2) the same routes are reached through /invocations, and /ping tells Runtime to
+keep the session while work is going."""
 
+import json
 import logging
 import os
 import secrets
+import threading
+import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -28,6 +33,75 @@ log = logging.getLogger(__name__)
 
 ClaimId = Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")]
 ThreadId = Annotated[str, StringConstraints(min_length=1, max_length=100)]
+
+
+# Routes /invocations may reach, and the thread names that mean work is going.
+INVOCABLE = Literal[
+    "/work", "/resume", "/dispatch", "/improve", "/redteam", "/draft", "/ask", "/explain", "/letter"
+]
+WORK_THREADS = ("CLM-", "run-", "round-", "redteam")
+
+
+class Invocation(BaseModel):
+    """What the api sends through AgentCore Runtime: the route and its body. Off Runtime the
+    caller adds the agent's key; on Runtime AWS has already checked the caller's IAM role."""
+
+    model_config = ConfigDict(extra="forbid")
+    path: INVOCABLE
+    body: dict[str, object]
+    key: Annotated[str, StringConstraints(max_length=200)] = ""
+
+
+def busy() -> bool:
+    """Whether a claim, run, round or the red team is still working on a thread of its own."""
+    return any(t.is_alive() and t.name.startswith(WORK_THREADS) for t in threading.enumerate())
+
+
+async def call_route(
+    app: FastAPI, path: str, body: dict[str, object], key: str
+) -> tuple[int, object]:
+    """POST to one of the app's own routes in this process, so its key check and validation run
+    exactly as they do over HTTP."""
+    payload = json.dumps(body).encode()
+    scope: dict[str, object] = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(payload)).encode()),
+            (b"x-api-key", key.encode()),
+        ],
+        "client": ("127.0.0.1", 0),
+        "server": ("127.0.0.1", 8080),
+    }
+    delivered = False
+    status = 500
+    chunks: list[bytes] = []
+
+    async def receive() -> dict[str, object]:
+        nonlocal delivered
+        if delivered:
+            return {"type": "http.disconnect"}
+        delivered = True
+        return {"type": "http.request", "body": payload, "more_body": False}
+
+    async def send(message: dict[str, object]) -> None:
+        nonlocal status
+        if message["type"] == "http.response.start":
+            status = int(str(message["status"]))
+        elif message["type"] == "http.response.body":
+            chunks.append(bytes(message.get("body", b"")))  # pyright: ignore[reportArgumentType]
+
+    await app(scope, receive, send)  # pyright: ignore[reportArgumentType]
+    raw = b"".join(chunks)
+    return status, json.loads(raw) if raw else None
 
 
 class WorkRequest(BaseModel):
@@ -142,6 +216,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     start_redteam: Callable[[], None] | None = None,
     make_asker: Callable[[], Asker] | None = None,
     make_explainer: Callable[[], Explainer] | None = None,
+    on_runtime: bool = False,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -177,6 +252,21 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     def health() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
         """Say the agent is up."""
         return {"status": "ok"}
+
+    @app.post("/invocations", operation_id="invocations")
+    async def invocations(invocation: Invocation) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+        """AgentCore Runtime's entry point: the route's own answer, wrapped with its status."""
+        caller = key() if on_runtime else invocation.key
+        status, body = await call_route(app, invocation.path, invocation.body, caller)
+        return {"status": status, "body": body}
+
+    @app.get("/ping", operation_id="ping")
+    def ping() -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
+        """AgentCore Runtime's health check: busy keeps the session while work is going."""
+        return {
+            "status": "HealthyBusy" if busy() else "Healthy",
+            "time_of_last_update": int(time.time()),
+        }
 
     @app.post("/work", operation_id="work", dependencies=[Depends(agents_key)])
     def work(request: WorkRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
@@ -279,6 +369,12 @@ def build_app() -> FastAPI:
 
     settings = get_settings()
 
+    signer = None
+    if settings.context_aws_auth:
+        from undercover_agent.aws_auth import LambdaUrlSigner  # noqa: PLC0415
+
+        signer = LambdaUrlSigner(settings.aws_region or os.environ["AWS_REGION"])
+
     def make_runner() -> Runner:
         pool = ConnectionPool(
             settings.checkpoint_database_url.get_secret_value(),
@@ -302,7 +398,7 @@ def build_app() -> FastAPI:
         graph = build_graph(
             api,
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context),
+            McpContext(settings.undercover_context, signer),
             saver,
             max_model_calls=settings.max_model_calls,
             memory=StoreMemory(store),
@@ -320,10 +416,11 @@ def build_app() -> FastAPI:
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
         make_asker=lambda: Asker(
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context),
+            McpContext(settings.undercover_context, signer),
             settings.drafting_model,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
+        on_runtime=settings.agentcore_runtime,
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),

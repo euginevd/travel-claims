@@ -1,8 +1,12 @@
 """The agent's settings, read from the environment once and validated at start-up."""
 
+import json
+import os
+from collections.abc import Callable
 from functools import lru_cache
+from typing import Any, Literal, Self, cast
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,8 +15,14 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    anthropic_api_key: SecretStr
-    anthropic_workspace_id: str = Field(min_length=1)
+    # Anthropic API locally, Bedrock on AWS (stage 2), where the model settings are Bedrock ids.
+    model_provider: Literal["anthropic", "bedrock"] = "anthropic"
+    anthropic_api_key: SecretStr | None = None
+    anthropic_workspace_id: str | None = Field(default=None, min_length=1)
+    aws_region: str | None = None
+    # Stage 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
+    context_aws_auth: bool = False
+    agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
     undercover_api: str = "http://127.0.0.1:8000"
     undercover_context: str = "http://127.0.0.1:8006/mcp"
@@ -36,8 +46,39 @@ class Settings(BaseSettings):
     # The most model calls one attempt at a claim may make before it is referred.
     max_model_calls: int = 25
 
+    @model_validator(mode="after")
+    def provider_has_what_it_needs(self) -> Self:
+        """The Anthropic API needs its key and workspace; Bedrock uses the role's credentials."""
+        if self.model_provider == "anthropic" and not (
+            self.anthropic_api_key and self.anthropic_workspace_id
+        ):
+            raise ValueError(
+                "MODEL_PROVIDER=anthropic needs ANTHROPIC_API_KEY and ANTHROPIC_WORKSPACE_ID"
+            )
+        return self
+
+
+def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
+    """On AWS (stage 2), fill in settings from the JSON secret named by APP_SECRET; anything already
+    in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
+    name = os.environ.get("APP_SECRET")
+    if not name:
+        return
+    values = json.loads((fetch or fetch_secret)(name))
+    for key, value in values.items():
+        os.environ.setdefault(str(key), str(value))
+
+
+def fetch_secret(name: str) -> str:
+    """A secret's value from Secrets Manager, with the role's credentials."""
+    import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    client = cast(Any, boto3).client("secretsmanager")
+    return str(client.get_secret_value(SecretId=name)["SecretString"])
+
 
 @lru_cache
 def get_settings() -> Settings:
     """The settings, read once."""
+    load_app_secret()
     return Settings()  # pyright: ignore[reportCallIssue] - pydantic-settings fills them in

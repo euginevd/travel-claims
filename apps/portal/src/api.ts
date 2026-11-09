@@ -5,6 +5,7 @@
  * /api/customer; src/fixtures/ holds real responses from them that the tests parse.
  */
 import { z } from "zod";
+import { type CognitoConfig, cognitoConfig, cognitoSignIn } from "./cognito";
 
 const DecisionKindSchema = z.enum(["approve", "decline", "refer"]);
 
@@ -289,7 +290,11 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, FALLBACK_ERROR);
 }
 
-export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
+export function createApi(
+  fetchFn: Fetch,
+  getToken: () => string | null,
+  cognito: CognitoConfig | null = cognitoConfig(),
+): Api {
   async function call<T>(
     schema: z.ZodType<T>,
     method: "GET" | "POST" | "PUT" | "DELETE",
@@ -315,6 +320,11 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
 
   return {
     signIn: async (email, password) => {
+      if (cognito) {
+        const result = await cognitoSignIn(fetchFn, cognito, email, password);
+        if ("token" in result) return result.token;
+        throw new ApiError(result.status, result.message);
+      }
       const answer = await call(SignInSchema, "POST", "/dev/sign-in", {
         body: { email, password },
       });

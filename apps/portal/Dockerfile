@@ -7,6 +7,10 @@ COPY apps/portal ./
 # Only a local image offers the seeded customers on its sign-in page.
 ARG VITE_LOCAL_SIGN_IN=false
 ENV VITE_LOCAL_SIGN_IN=$VITE_LOCAL_SIGN_IN
+# Stage 2: the audience's Cognito client and region; empty means local sign-in.
+ARG VITE_COGNITO_CLIENT_ID=
+ARG VITE_COGNITO_REGION=
+ENV VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID VITE_COGNITO_REGION=$VITE_COGNITO_REGION
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e

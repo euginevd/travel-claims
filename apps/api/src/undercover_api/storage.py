@@ -1,8 +1,10 @@
-"""Where receipts are kept: one place, so stage 2 swaps the folder for a private S3 bucket.
-Files are stored under random names, never the customer's own, and read back by those names."""
+"""Where receipts are kept: a folder locally, or a private S3 bucket when RECEIPTS_BUCKET is set
+(stage 2). Files are stored under random names, never the customer's own, and read back by
+those names."""
 
 import secrets
 from pathlib import Path
+from typing import Any, Protocol
 
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
 MAX_RECEIPTS = 5
@@ -22,6 +24,14 @@ def sniff(content: bytes) -> str | None:
     return None
 
 
+class Receipts(Protocol):
+    """Somewhere receipts are kept: a folder or a bucket."""
+
+    def save(self, content: bytes) -> str: ...
+
+    def read(self, name: str) -> bytes: ...
+
+
 class ReceiptStore:
     """Receipts in a folder, each under a random 32-character hex name."""
 
@@ -37,3 +47,19 @@ class ReceiptStore:
 
     def read(self, name: str) -> bytes:
         return (self._folder / name).read_bytes()
+
+
+class S3ReceiptStore:
+    """Receipts in a private S3 bucket, under the same random names as the folder."""
+
+    def __init__(self, bucket: str, client: Any) -> None:
+        self._bucket = bucket
+        self._client = client
+
+    def save(self, content: bytes) -> str:
+        name = secrets.token_hex(16)
+        self._client.put_object(Bucket=self._bucket, Key=name, Body=content)
+        return name
+
+    def read(self, name: str) -> bytes:
+        return self._client.get_object(Bucket=self._bucket, Key=name)["Body"].read()

@@ -85,14 +85,14 @@ flowchart LR
 
 | App | What | Runs on |
 |-----|------|---------|
-| `portal` | Customers make and track claims | Docker locally; EKS *(planned)* |
-| `dashboard` | Handlers work the queue, ask customers for documents and sign off payouts | Docker locally; EKS *(planned)* |
-| `console` | AI assurance: evaluations and improvements (quality), the red team (security) | Docker locally; EKS *(planned)* |
+| `portal` | Customers make and track claims | Docker locally; S3 and CloudFront *(planned)* |
+| `dashboard` | Handlers work the queue, ask customers for documents and sign off payouts | Docker locally; S3 and CloudFront *(planned)* |
+| `console` | AI assurance: evaluations and improvements (quality), the red team (security) | Docker locally; S3 and CloudFront *(planned)* |
 | `home` | The local project page | Docker locally only |
-| `api` | Claims, decisions, payments, settings and sign-in | Docker locally; EKS *(planned)* |
-| `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | Docker locally; EKS *(planned)* |
-| `copilot` | The handlers' chat agent | Docker locally; EKS *(planned)* |
-| `context` | Policy wording, claims manual and reference data as an MCP server | Docker locally; EKS *(planned)* |
+| `api` | Claims, decisions, payments, settings and sign-in | Docker locally; Lambda *(planned)* |
+| `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | Docker locally; AgentCore Runtime *(planned)* |
+| `copilot` | The handlers' chat agent | Docker locally; Lambda *(planned)* |
+| `context` | Policy wording, claims manual and reference data as an MCP server | Docker locally; Lambda *(planned)* |
 
 ## 🚀 Run it
 

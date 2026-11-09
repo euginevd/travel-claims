@@ -1,5 +1,7 @@
 # Status
 
+Stage 1 (local) is complete. Stage 2 (serverless on AWS, decision 13) is in progress. Stage 3 (enterprise, on EKS) comes later, at work.
+
 ## Built
 
 1. Scaffold: a uv workspace with `apps/api` and `apps/agent` (health endpoints only), a web app (React, Vite and TypeScript, a placeholder page; now `apps/portal` and `apps/dashboard`), a Dockerfile per app, `docker-compose.yml` with PostgreSQL 17, and the `apps` workflow running each app's checks.
@@ -70,7 +72,7 @@
 
 ## Next
 
-29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
+29. Done: stage 1 complete (2026-11-09); stage 2's to-do is at the end.
 
 ## Project page (2026-11-09)
 
@@ -97,3 +99,12 @@ Two additions that show security and AI engineering together. The payouts switch
 36. Done: Ask UnderCover. A chat in the portal answers questions about the customer's own policy and claims: the agent picks a tool per question (search and read the policy wording only, never the claims manual; the customer's own policies and claims from the api), cites what it used, offers to start a claim or ask a person, and never promises cover. Every question goes through the hidden-instruction check first; Claude Haiku, 20 questions an hour. Checked live: a cover question answered with citations, an injection attempt stopped.
 
 37. Done: Wattle AI, one named assistant in all three apps. The same mark, header button ("Wattle AI") and right-hand panel (intro, ask box, questions that fit the page, sources as chips, "AI powered · cites its sources · a claims expert makes the final call"). Three separate agents behind it: customers get Ask UnderCover's policy-wording search over their own records; claims experts get the Copilot with its sign-off cards; AI engineers get a new read-only explainer (`POST /api/engineering/ask` to the agent's `/explain`) over runs, rounds, the red team, threat coverage and the traces of claims named in the question. Every question goes through the hidden-instruction check first. Each app's header also links back to the project page (`VITE_PROJECT_URL`, port 5172 when unset), and the portal home shows the cover cards and PayID in a sticky right column from 1024px wide. Checked live: a customer's excess question and an engineer's accuracy question, both answered with sources.
+
+## Stage 2 to-do (2026-11-09)
+
+Serverless with Supabase (decision 13). The bootstrap stack is deployed and the GitHub environments are set.
+
+38. Done: the stage 2 plan (spec 30–40): every piece switched on by a setting, so stage 1 still runs locally.
+39. Done in the template: the bootstrap grants Lambda, AgentCore, ECR, S3, CloudFront, Cognito, Secrets Manager and Bedrock instead of EKS. You update the stack with the new file.
+40. Built, not yet deployed: the app switches, each off by default (receipts in S3, the agent on AgentCore Runtime through `/invocations` and `/ping`, Claude on Bedrock, `APP_SECRET`, the Lambda Web Adapter in the images, any host for the context layer); the web apps' Cognito sign-in; the `images` workflow, which also builds the web apps into their buckets; and the units `registry`, `storage`, `secrets`, `identity`, `functions`, `agent` and `web` (S3 and CloudFront per app). Left: Cognito test accounts, a Bedrock guardrail, and the cost step on Infracost's CLI 2.x.
+41. First deploy, in order: update the bootstrap stack with the new file; push, so `registry`, `storage`, `secrets` and `identity` apply; fill the secret `travel-claims/dev/app` with JSON holding `DATABASE_URL` (`postgresql+psycopg://` to Supabase's session pooler), `CHECKPOINT_DATABASE_URL` (the same as `postgresql://`), `UNDERCOVER_API_KEY` (64 random characters) and the Bedrock model ids (`CLAIM_MODEL`, `SCREENING_MODEL`, `SPECIALIST_MODEL`, `DRAFTING_MODEL`, `IMPROVER_MODEL`, `COPILOT_MODEL`); run the `images` workflow, which pushes and applies `functions`; run `aws` again for `agent` and `web`; add the agent's `AGENT_RUNTIME_ARN` output to the secret; then run `images` once more so the web apps upload.

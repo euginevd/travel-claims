@@ -79,7 +79,7 @@ travel-claims/
 │   └── context/              policy wording and claims manual over MCP
 ├── aws/                   05 the infrastructure, as Terraform
 │   ├── bootstrap/            CloudFormation, run once: OIDC, state bucket, CI roles
-│   └── api/                  Terraform for stage 2 on AWS (planned)
+│   └── <unit>/               Terraform for stage 2 on AWS, one folder per unit (planned)
 ├── .github/workflows/     06 the pipeline, one workflow per concern
 │   ├── aws.yml               plan on the PR with a cost comment (Infracost), apply after your approval
 │   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL, for the apps a PR changes
@@ -91,7 +91,7 @@ travel-claims/
 ├── lefthook.yml           07 runs the security scan on every push
 ├── .lefthook/             08 the pre-push hook script
 ├── scripts/               09 setup.sh installs the tools; scan.sh runs Gitleaks and Trivy;
-│                             security-report.py and cost-report.py build the PR comments; protect-main.sh hardens the repo and sets the main ruleset, safe to rerun
+│                             security-report.py and cost-report.py build the PR comments; pr-findings.sh lists a PR's findings to fix or answer; protect-main.sh hardens the repo and sets the main ruleset, safe to rerun
 ├── .vscode/               10 the Trivy and Semgrep extensions, for your review
 ├── pyproject.toml         11 the Python workspace and tool settings, with uv.lock and .python-version
 ├── guides/                12 reference for people, numbered 01, 02, …

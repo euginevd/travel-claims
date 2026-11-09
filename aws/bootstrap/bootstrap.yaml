@@ -16,6 +16,16 @@ Parameters:
   GitHubRepo:
     Type: String
     Description: Repository name
+  GitHubOwnerId:
+    Type: String
+    Default: ''
+    AllowedPattern: '[0-9]*'
+    Description: The owner's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
+  GitHubRepoId:
+    Type: String
+    Default: ''
+    AllowedPattern: '[0-9]*'
+    Description: The repo's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
   Target:
     Type: String
     Default: dev
@@ -28,6 +38,7 @@ Parameters:
 
 Conditions:
   CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
+  ImmutableSubject: !Not [!Equals [!Ref GitHubRepoId, '']]
 
 Resources:
 
@@ -92,7 +103,7 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
-  # Apply role; everything Terraform creates is named ${ProjectName}-*.
+  # Apply role for stage 2 (spec 30-38); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
@@ -113,10 +124,14 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
+                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                token.actions.githubusercontent.com:sub: !If
+                  - ImmutableSubject
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-apply'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
       ManagedPolicyArns:
-        - !Ref DeployPlatformPolicy
-        - !Ref DeployDataPolicy
+        - !Ref DeployComputePolicy
+        - !Ref DeployAppPolicy
       Policies:
         - PolicyName: terraform-state
           PolicyDocument:
@@ -164,7 +179,7 @@ Resources:
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
                 Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
-              # Project roles to EKS, EC2 and Pod Identity only.
+              # Function roles to Lambda and the agent's role to AgentCore Runtime; nothing else.
               - Sid: IamPassProjectRoles
                 Effect: Allow
                 Action: iam:PassRole
@@ -172,30 +187,8 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:PassedToService:
-                      - eks.amazonaws.com
-                      - ec2.amazonaws.com
-                      - pods.eks.amazonaws.com
-              # Reads the AWS managed EKS policies it attaches.
-              - Sid: IamReadAwsManagedPolicies
-                Effect: Allow
-                Action:
-                  - iam:GetPolicy
-                  - iam:GetPolicyVersion
-                  - iam:ListPolicyVersions
-                Resource: !Sub 'arn:${AWS::Partition}:iam::aws:policy/*'
-              # Created once per account on first use.
-              - Sid: IamServiceLinkedRoles
-                Effect: Allow
-                Action: iam:CreateServiceLinkedRole
-                Resource: '*'
-                Condition:
-                  StringEquals:
-                    iam:AWSServiceName:
-                      - eks.amazonaws.com
-                      - eks-nodegroup.amazonaws.com
-                      - autoscaling.amazonaws.com
-                      - elasticloadbalancing.amazonaws.com
-                      - rds.amazonaws.com
+                      - lambda.amazonaws.com
+                      - bedrock-agentcore.amazonaws.com
               # Pipeline roles are off limits.
               - Sid: DenyPipelineRoles
                 Effect: Deny
@@ -212,37 +205,31 @@ Resources:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
 
-  # EC2 has no name-based ARNs, so it's limited to this region.
-  DeployPlatformPolicy:
+  # Functions, the agent's runtime, images, CDN and logs.
+  DeployComputePolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-platform'
-      Description: !Sub 'Network, EKS and ECR for the ${ProjectName} deploy role'
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-compute'
+      Description: !Sub 'Lambda, AgentCore Runtime, ECR, CloudFront and logs for the ${ProjectName} deploy role'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          # VPC, subnets, NAT, security groups, launch templates.
-          - Sid: Ec2Region
+          # Functions, their URLs and the permissions that let CloudFront call them.
+          - Sid: LambdaProjectFunctions
             Effect: Allow
-            Action: ec2:*
+            Action: lambda:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*:*'
+          # Runtime and workload identity ARNs use generated IDs, so AgentCore is limited to this region.
+          - Sid: AgentCoreRegion
+            Effect: Allow
+            Action: bedrock-agentcore:*
             Resource: '*'
             Condition:
               StringEquals:
                 aws:RequestedRegion: !Ref AWS::Region
-          # Clusters, node groups, add-ons, access entries, pod identity.
-          - Sid: EksProjectClusters
-            Effect: Allow
-            Action: eks:*
-            Resource: !Sub 'arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:*/${ProjectName}-*'
-          - Sid: EksRead
-            Effect: Allow
-            Action:
-              - eks:DescribeAddonConfiguration
-              - eks:DescribeAddonVersions
-              - eks:ListAccessPolicies
-              - eks:ListClusters
-            Resource: '*'
-          # App images pushed by the pipeline.
+          # App images pushed by the pipeline; Lambda and Runtime pull them.
           - Sid: EcrProjectRepositories
             Effect: Allow
             Action: ecr:*
@@ -251,56 +238,40 @@ Resources:
             Effect: Allow
             Action: ecr:GetAuthorizationToken
             Resource: '*'
-          # The in-cluster controller creates load balancers.
-          - Sid: LoadBalancersRead
+          # CloudFront is global and its IDs are generated, so it's limited to this account.
+          - Sid: CloudFrontAccount
             Effect: Allow
-            Action: elasticloadbalancing:Describe*
-            Resource: '*'
-          # EKS AMI and version lookups.
-          - Sid: SsmPublicParameters
+            Action: cloudfront:*
+            Resource: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:*'
+          - Sid: CloudFrontList
             Effect: Allow
             Action:
-              - ssm:GetParameter
-              - ssm:GetParameters
-            Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}::parameter/aws/service/*'
+              - cloudfront:ListCachePolicies
+              - cloudfront:ListDistributions
+              - cloudfront:ListFunctions
+              - cloudfront:ListOriginAccessControls
+              - cloudfront:ListResponseHeadersPolicies
+            Resource: '*'
+          - Sid: LogsProjectGroups
+            Effect: Allow
+            Action: logs:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*'
+          - Sid: LogsRead
+            Effect: Allow
+            Action: logs:DescribeLogGroups
+            Resource: '*'
 
-  DeployDataPolicy:
+  DeployAppPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-data'
-      Description: !Sub 'Aurora, secrets, receipts, Cognito, Bedrock Guardrails and logs for the ${ProjectName} deploy role'
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-app'
+      Description: !Sub 'Buckets, secrets, Cognito and Bedrock Guardrails for the ${ProjectName} deploy role'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          # Clusters, instances, subnet and parameter groups, snapshots.
-          - Sid: RdsProjectResources
-            Effect: Allow
-            Action: rds:*
-            Resource: !Sub 'arn:${AWS::Partition}:rds:${AWS::Region}:${AWS::AccountId}:*:${ProjectName}-*'
-          - Sid: RdsRead
-            Effect: Allow
-            Action: rds:Describe*
-            Resource: '*'
-          # Aurora's own master password secret (rds!...).
-          - Sid: SecretsProject
-            Effect: Allow
-            Action: secretsmanager:*
-            Resource:
-              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
-              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rds!*'
-          - Sid: SecretsRead
-            Effect: Allow
-            Action:
-              - secretsmanager:GetRandomPassword
-              - secretsmanager:ListSecrets
-            Resource: '*'
-          # AWS managed keys only.
-          - Sid: KmsRead
-            Effect: Allow
-            Action:
-              - kms:DescribeKey
-              - kms:ListAliases
-            Resource: '*'
+          # Receipts and the web apps' buckets.
           - Sid: S3ProjectBuckets
             Effect: Allow
             Action: s3:*
@@ -318,6 +289,24 @@ Resources:
             Resource:
               - !GetAtt StateBucket.Arn
               - !Sub '${StateBucket.Arn}/*'
+          # Terraform creates the secrets empty; their values are set by hand.
+          - Sid: SecretsProject
+            Effect: Allow
+            Action: secretsmanager:*
+            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
+          - Sid: SecretsRead
+            Effect: Allow
+            Action:
+              - secretsmanager:GetRandomPassword
+              - secretsmanager:ListSecrets
+            Resource: '*'
+          # AWS managed keys only.
+          - Sid: KmsRead
+            Effect: Allow
+            Action:
+              - kms:DescribeKey
+              - kms:ListAliases
+            Resource: '*'
           # User pools have IDs, not names, so it's limited to this region.
           - Sid: CognitoRegion
             Effect: Allow
@@ -342,19 +331,6 @@ Resources:
             Effect: Allow
             Action: bedrock:ListGuardrails
             Resource: '*'
-          # EKS control plane, Aurora and app log groups.
-          - Sid: LogsProjectGroups
-            Effect: Allow
-            Action: logs:*
-            Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/eks/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/rds/cluster/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/containerinsights/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${ProjectName}/*'
-          - Sid: LogsRead
-            Effect: Allow
-            Action: logs:DescribeLogGroups
-            Resource: '*'
 
   # Read-only plan role; can't read secrets, so keep secret values out of Terraform state.
   PlanRole:
@@ -377,7 +353,11 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
+                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                token.actions.githubusercontent.com:sub: !If
+                  - ImmutableSubject
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-plan'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
       Policies:
         - PolicyName: terraform-plan
           PolicyDocument:
@@ -402,12 +382,9 @@ Resources:
                 Action:
                   - iam:Get*
                   - iam:List*
-                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
-              - Effect: Allow
-                Action:
-                  - iam:GetPolicy
-                  - iam:GetPolicyVersion
-                Resource: !Sub 'arn:${AWS::Partition}:iam::aws:policy/*'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                  - !Sub 'arn:${AWS::Partition}:iam::aws:policy/*'
               # Bucket settings only; bucket-level Get* can't read objects.
               - Effect: Allow
                 Action:
@@ -416,32 +393,27 @@ Resources:
                 Resource: !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-*'
               - Effect: Allow
                 Action:
-                  - ssm:GetParameter
-                  - ssm:GetParameters
-                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}::parameter/aws/service/*'
-              - Effect: Allow
-                Action:
+                  - bedrock-agentcore:Get*
+                  - bedrock-agentcore:List*
                   - bedrock:GetGuardrail
                   - bedrock:ListGuardrails
                   - bedrock:ListTagsForResource
+                  - cloudfront:Get*
+                  - cloudfront:List*
                   - cognito-idp:Describe*
                   - cognito-idp:GetUserPoolMfaConfig
                   - cognito-idp:List*
-                  - ec2:Describe*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy
                   - ecr:GetRepositoryPolicy
                   - ecr:List*
-                  - eks:Describe*
-                  - eks:List*
-                  - elasticloadbalancing:Describe*
                   - kms:DescribeKey
                   - kms:ListAliases
+                  - lambda:Get*
+                  - lambda:List*
                   - logs:Describe*
                   - logs:ListTagsForResource
                   - logs:ListTagsLogGroup
-                  - rds:Describe*
-                  - rds:ListTagsForResource
                   - secretsmanager:DescribeSecret
                   - secretsmanager:GetResourcePolicy
                   - secretsmanager:ListSecrets
@@ -453,14 +425,14 @@ Resources:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
 
-  # Caps every role Terraform creates; renaming it fails on the fixed name.
+  # Caps every role Terraform creates (the functions' roles and the agent's runtime role); renaming it fails on the fixed name.
   ProjectBoundary:
     Type: AWS::IAM::ManagedPolicy
     Metadata:
       checkov:
         skip:
           - id: CKV_AWS_111
-            comment: A boundary grants nothing on its own; it caps roles whose own policies are scoped. The load balancer controller's WAF actions have no resource-level scoping
+            comment: A boundary grants nothing on its own; it caps roles whose own policies are scoped. ECR login and the runtime's metrics have no resource-level scoping
     Properties:
       ManagedPolicyName: !Sub '${ProjectName}-boundary'
       Description: !Sub 'Permissions boundary for roles created by ${ProjectName} Terraform'
@@ -475,55 +447,36 @@ Resources:
               - logs:DescribeLogStreams
               - logs:PutLogEvents
             Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/eks/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/containerinsights/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/${ProjectName}/*'
-          # Cluster, VPC CNI and load balancer controller manage network and load balancers.
-          - Sid: NetworkRegion
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*'
+          # The runtime pulls the agent's image and reports its metrics.
+          - Sid: RuntimeImageAndMetrics
             Effect: Allow
             Action:
-              - autoscaling:Describe*
-              - ec2:*
-              - elasticloadbalancing:*
-            Resource: '*'
-            Condition:
-              StringEquals:
-                aws:RequestedRegion: !Ref AWS::Region
-          - Sid: ServiceLinkedRoles
-            Effect: Allow
-            Action: iam:CreateServiceLinkedRole
-            Resource: '*'
-            Condition:
-              StringEquals:
-                iam:AWSServiceName:
-                  - eks.amazonaws.com
-                  - elasticloadbalancing.amazonaws.com
-          # Nodes pull from AWS's registries and the project's.
-          - Sid: NodesAndPods
-            Effect: Allow
-            Action:
-              - ecr:BatchCheckLayerAvailability
+              - cloudwatch:PutMetricData
               - ecr:BatchGetImage
               - ecr:GetAuthorizationToken
               - ecr:GetDownloadUrlForLayer
-              - eks-auth:AssumeRoleForPodIdentity
-              - eks:DescribeCluster
-              - kms:DescribeKey
+              - xray:PutTelemetryRecords
+              - xray:PutTraceSegments
             Resource: '*'
-          # Load balancer controller: certificates, Cognito sign-in, WAF.
-          - Sid: LoadBalancerController
+          # The api starts the agent's work; the agent gets its workload identity.
+          - Sid: AgentCore
             Effect: Allow
             Action:
-              - acm:DescribeCertificate
-              - acm:ListCertificates
-              - cognito-idp:DescribeUserPoolClient
-              - shield:GetSubscriptionState
-              - wafv2:AssociateWebACL
-              - wafv2:DisassociateWebACL
-              - wafv2:GetWebACL
-              - wafv2:GetWebACLForResource
-            Resource: '*'
-          # Agent, copilot and drafting assistant call Claude through a guardrail.
+              - bedrock-agentcore:GetWorkloadAccessToken
+              - bedrock-agentcore:GetWorkloadAccessTokenForJWT
+              - bedrock-agentcore:GetWorkloadAccessTokenForUserId
+              - bedrock-agentcore:InvokeAgentRuntime
+            Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
+          # The agent calls the context's IAM-only function URL.
+          - Sid: LambdaUrls
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:InvokeFunctionUrl
+            Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
+          # Agent, copilot and assistants call Claude through a guardrail.
           - Sid: Bedrock
             Effect: Allow
             Action:
@@ -539,9 +492,7 @@ Resources:
             Action:
               - secretsmanager:DescribeSecret
               - secretsmanager:GetSecretValue
-            Resource:
-              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
-              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:rds!*'
+            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
           - Sid: Receipts
             Effect: Allow
             Action:

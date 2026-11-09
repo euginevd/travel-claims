@@ -3,6 +3,7 @@
  * response is checked against a schema here, at the boundary; the types come from the schemas.
  */
 import { z } from "zod";
+import { type CognitoConfig, cognitoConfig, cognitoSignIn } from "./cognito";
 
 export const statuses = [
   "waiting",
@@ -266,7 +267,11 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, FALLBACK_ERROR);
 }
 
-export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
+export function createApi(
+  fetchFn: Fetch,
+  getToken: () => string | null,
+  cognito: CognitoConfig | null = cognitoConfig(),
+): Api {
   async function send(
     method: "GET" | "POST" | "PUT",
     path: string,
@@ -301,6 +306,11 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
 
   return {
     signIn: async (email, password) => {
+      if (cognito) {
+        const result = await cognitoSignIn(fetchFn, cognito, email, password);
+        if ("token" in result) return result.token;
+        throw new ApiError(result.status, result.message);
+      }
       const answer = await call(SignInSchema, "POST", "/dev/sign-in", {
         body: { email, password },
       });

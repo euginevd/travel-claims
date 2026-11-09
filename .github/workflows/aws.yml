@@ -205,7 +205,8 @@ jobs:
 
   apply:
     needs: [detect, plan]
-    if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && vars.PROJECT_NAME != ''
+    # Runs even when some plans failed: a unit without a saved plan skips, so ready units still apply.
+    if: always() && !cancelled() && needs.detect.result == 'success' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && vars.PROJECT_NAME != ''
     runs-on: ubuntu-latest
     environment: aws-${{ inputs.target || 'dev' }}-apply
     permissions:
