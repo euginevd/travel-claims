@@ -89,6 +89,6 @@ Two additions that show security and AI engineering together. The payouts switch
 
 ## Customer portal to-do (2026-11-09)
 
-36. Policy at a glance: a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
-37. Ask about my claim: a chat on the claim page that answers from the claim and policy with the customer's own access, behind the hidden-instruction check.
+35. Policy at a glance: a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
+36. Ask about my claim: a chat on the claim page that answers from the claim and policy with the customer's own access, behind the hidden-instruction check.
 
