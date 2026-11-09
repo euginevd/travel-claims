@@ -4,3 +4,5 @@
 *.pdf binary
 *.png binary
 *.jpg binary
+# The demo home's files are pinned by integrity hashes; a line-ending change would break them.
+apps/home/** text eol=lf
