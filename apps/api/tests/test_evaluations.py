@@ -41,13 +41,13 @@ def finish(client: TestClient, run_id: int) -> dict[str, Any]:
 
 
 def test_a_run_copies_the_tiny_set_and_hands_it_to_the_dispatcher(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str], agent: FakeAgent
+    client: TestClient, sam: dict[str, str], dana: dict[str, str], agent: FakeAgent
 ) -> None:
     register(client)
-    response = start_run(client, priya)
+    response = start_run(client, sam)
     assert response.status_code == 201, response.text
     run = response.json()
-    found = copies(client, run["run_id"], priya)
+    found = copies(client, run["run_id"], sam)
     assert {c["original_claim_id"] for c in found} == TINY_EVALUATION
     assert agent.calls[-1][0] == "dispatch"
     queue = {c["claim_id"] for c in client.get("/api/staff/claims", headers=dana).json()}
@@ -64,11 +64,11 @@ def test_only_an_ai_engineer_starts_a_run(
 
 
 def test_a_copy_is_never_paid_and_an_approval_over_the_limit_isnt_held(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str]
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     register(client)
-    run_id = start_run(client, priya).json()["run_id"]
-    claim_id = copies(client, run_id, priya)[0]["claim_id"]
+    run_id = start_run(client, sam).json()["run_id"]
+    claim_id = copies(client, run_id, sam)[0]["claim_id"]
     start(client, claim_id, "t-1")
     amount = payout(client, claim_id, "baggage", [line("Suitcase and clothes", 3000)])["payout"]
     decided = decide(client, claim_id, "approve", amount).json()
@@ -80,11 +80,11 @@ def test_a_copy_is_never_paid_and_an_approval_over_the_limit_isnt_held(
 
 
 def test_a_copy_says_it_is_an_evaluation_and_no_payment_path_reaches_it(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str]
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     register(client)
-    run_id = start_run(client, priya).json()["run_id"]
-    claim_id = copies(client, run_id, priya)[0]["claim_id"]
+    run_id = start_run(client, sam).json()["run_id"]
+    claim_id = copies(client, run_id, sam)[0]["claim_id"]
     start(client, claim_id, "t-1")
     claim = client.get(f"/api/agent/claims/{claim_id}", headers=AGENT).json()
     assert claim["evaluation"] is True
@@ -105,11 +105,11 @@ def test_a_copy_says_it_is_an_evaluation_and_no_payment_path_reaches_it(
 
 
 def test_a_finished_run_is_scored_against_the_handlers(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str]
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     register(client)
-    run_id = start_run(client, priya).json()["run_id"]
-    work_all(client, run_id, priya, "decline")
+    run_id = start_run(client, sam).json()["run_id"]
+    work_all(client, run_id, sam, "decline")
     scores = finish(client, run_id)["scores"]
     # One of the five tiny claims was declined by its handler.
     assert scores["claims"] == 5
@@ -118,20 +118,20 @@ def test_a_finished_run_is_scored_against_the_handlers(
 
 
 def test_a_round_proposes_reviews_and_rolls_back_a_version_that_doesnt_help(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str], agent: FakeAgent
+    client: TestClient, sam: dict[str, str], dana: dict[str, str], agent: FakeAgent
 ) -> None:
     register(client)
-    started = client.post("/api/engineering/rounds", headers=priya)
+    started = client.post("/api/engineering/rounds", headers=sam)
     assert started.status_code == 201, started.text
     round_ = started.json()
     for run_id in (round_["baseline_eval_run"], round_["baseline_held_run"]):
-        work_all(client, run_id, priya, "decline")
+        work_all(client, run_id, sam, "decline")
         finish(client, run_id)
     assert agent.calls[-1] == ("improve", str(round_["round_id"]), None)
 
     brief = client.get(f"/api/agent/rounds/{round_['round_id']}/brief", headers=AGENT).json()
     assert len(brief["misses"]) == 4
-    held_out = {c["summary"] for c in copies(client, round_["baseline_held_run"], priya)}
+    held_out = {c["summary"] for c in copies(client, round_["baseline_held_run"], sam)}
     assert not held_out & {m["claim"]["summary"] for m in brief["misses"]}
 
     proposal = {
@@ -150,25 +150,25 @@ def test_a_round_proposes_reviews_and_rolls_back_a_version_that_doesnt_help(
     reviewed = client.post(
         f"/api/engineering/rounds/{round_['round_id']}/review",
         json={"approve": True, "reason": "Worth a try"},
-        headers=priya,
+        headers=sam,
     ).json()
     assert reviewed["status"] == "evaluating"
-    work_all(client, reviewed["candidate_held_run"], priya, "decline")
+    work_all(client, reviewed["candidate_held_run"], sam, "decline")
     finish(client, reviewed["candidate_held_run"])
 
-    done = client.get(f"/api/engineering/rounds/{round_['round_id']}", headers=priya).json()
+    done = client.get(f"/api/engineering/rounds/{round_['round_id']}", headers=sam).json()
     assert done["status"] == "rolled_back"
-    configurations = client.get("/api/engineering/configuration", headers=priya).json()
+    configurations = client.get("/api/engineering/configuration", headers=sam).json()
     assert next(c for c in configurations if c["current"])["version"] == 1
 
 
 def test_a_rejected_proposal_ends_the_round(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str]
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     register(client)
-    round_ = client.post("/api/engineering/rounds", headers=priya).json()
+    round_ = client.post("/api/engineering/rounds", headers=sam).json()
     for run_id in (round_["baseline_eval_run"], round_["baseline_held_run"]):
-        work_all(client, run_id, priya, "refer")
+        work_all(client, run_id, sam, "refer")
         finish(client, run_id)
     proposal = {
         "instructions": INSTRUCTIONS + " Be bolder.",
@@ -181,7 +181,7 @@ def test_a_rejected_proposal_ends_the_round(
     rejected = client.post(
         f"/api/engineering/rounds/{round_['round_id']}/review",
         json={"approve": False, "reason": "Too risky"},
-        headers=priya,
+        headers=sam,
     ).json()
     assert rejected["status"] == "rejected"
 

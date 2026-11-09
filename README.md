@@ -104,7 +104,7 @@ flowchart LR
    |-----|---------|--------------|
    | Customer portal | http://127.0.0.1:5173 | Oliver Grant |
    | Handlers' workspace | http://127.0.0.1:5174 | Dana Whitfield, senior handler |
-   | AI assurance console | http://127.0.0.1:5175 | Priya Raman, AI engineer |
+   | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer |
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
 
 Developers: [AGENTS.md](AGENTS.md), then [docs/](docs/). Stages and what done means: [spec.md](docs/spec.md).

@@ -683,7 +683,7 @@ def redteam_sign_in_customer(request: Request, body: TestSignInRequest, db: Data
     return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
-ENGINEERING_TEST_ACCOUNTS = {"engineer": "priya.raman@undercover.example"}
+ENGINEERING_TEST_ACCOUNTS = {"engineer": "sam.carter@undercover.example"}
 
 
 @engineering_sign_in_router.post("/sign-in", operation_id="sign_in_engineer")

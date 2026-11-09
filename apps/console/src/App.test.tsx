@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import { saveToken } from "./session";
-import { fakeFetch, PRIYA } from "./testing";
+import { fakeFetch, SAM } from "./testing";
 
 beforeEach(() => {
   saveToken(null);
@@ -13,14 +13,14 @@ test("an AI engineer signs in with the test account and sees the scoreboard", as
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
     "POST /api/engineering/dev/test-sign-in": () => [200, { id_token: "t", expires_in: 3600 }],
-    "GET /api/engineering/me": () => [200, PRIYA],
+    "GET /api/engineering/me": () => [200, SAM],
     "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
   expect(screen.getByRole("heading", { name: "AI assurance console" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Use test account/ }));
   expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
-  expect(screen.getByText("Priya Raman")).toBeInTheDocument();
+  expect(screen.getByText("Sam Carter")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Security: Red team" })).toHaveAttribute(
     "href",
     "#/redteam",
@@ -40,7 +40,7 @@ test("a sign-in check that can't reach the server can be tried again", async () 
   saveToken("t");
   let fail = true;
   const fetchFn = fakeFetch({
-    "GET /api/engineering/me": () => (fail ? [500, { detail: "Down" }] : [200, PRIYA]),
+    "GET /api/engineering/me": () => (fail ? [500, { detail: "Down" }] : [200, SAM]),
     "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
@@ -58,7 +58,7 @@ test("the email sign-in says when the password is wrong, and signing out returns
   render(<App fetchFn={fetchFn} />);
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Enter your email and password.");
-  await user.type(screen.getByLabelText("Work email"), "priya.raman@undercover.example");
+  await user.type(screen.getByLabelText("Work email"), "sam.carter@undercover.example");
   await user.type(screen.getByLabelText("Password"), "nope");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("AI engineer");
@@ -68,7 +68,7 @@ test("each page opens from its route", async () => {
   saveToken("t");
   window.location.hash = "#/redteam";
   const fetchFn = fakeFetch({
-    "GET /api/engineering/me": () => [200, PRIYA],
+    "GET /api/engineering/me": () => [200, SAM],
     "GET /api/engineering/redteam": () => [
       200,
       { running: false, started_at: null, started_by: null, report: null },

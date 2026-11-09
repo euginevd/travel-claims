@@ -1,11 +1,11 @@
 // Test helpers: data shaped like the api's responses, and a fake fetch that answers by route.
 import type { Engineer } from "./api";
 
-export const PRIYA: Engineer = {
+export const SAM: Engineer = {
   engineer_id: "ENG-01",
-  name: "Priya Raman",
+  name: "Sam Carter",
   role: "AI Engineer",
-  email: "priya.raman@undercover.example",
+  email: "sam.carter@undercover.example",
 };
 
 type Answer = [status: number, body: unknown];

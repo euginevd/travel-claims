@@ -38,7 +38,7 @@ SIGN_IN = {
     "customer": "/api/customer/dev/sign-in",
     "engineer": "/api/engineering/dev/sign-in",
 }
-PRIYA = "priya.raman@undercover.example"
+SAM = "sam.carter@undercover.example"
 
 
 def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:

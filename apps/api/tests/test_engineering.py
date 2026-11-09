@@ -6,15 +6,15 @@ from fastapi.testclient import TestClient
 
 
 def test_only_an_engineers_token_opens_the_engineers_routes(
-    client: TestClient, priya: dict[str, str], dana: dict[str, str]
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     oliver = sign_in(client, OLIVER, role="customer")
-    me = client.get("/api/engineering/me", headers=priya)
+    me = client.get("/api/engineering/me", headers=sam)
     assert me.json() == {
         "engineer_id": "ENG-01",
-        "name": "Priya Raman",
+        "name": "Sam Carter",
         "role": "AI Engineer",
-        "email": "priya.raman@undercover.example",
+        "email": "sam.carter@undercover.example",
     }
     for headers in (dana, oliver, {}):
         assert client.get("/api/engineering/me", headers=headers).status_code == 401
@@ -22,10 +22,10 @@ def test_only_an_engineers_token_opens_the_engineers_routes(
 
 
 def test_an_engineers_token_opens_no_handler_or_customer_route(
-    client: TestClient, priya: dict[str, str]
+    client: TestClient, sam: dict[str, str]
 ) -> None:
-    assert client.get("/api/staff/claims", headers=priya).status_code == 401
-    assert client.get("/api/customer/claims", headers=priya).status_code == 401
+    assert client.get("/api/staff/claims", headers=sam).status_code == 401
+    assert client.get("/api/customer/claims", headers=sam).status_code == 401
 
 
 def test_the_test_engineer_signs_in_without_a_password(client: TestClient) -> None:
