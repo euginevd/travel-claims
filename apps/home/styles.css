@@ -1221,3 +1221,333 @@ html {
     padding: 11px 18px;
   }
 }
+
+/* Screen 2, rethought: the target-state architecture on AWS, for architects */
+.how {
+  min-height: 100vh;
+  padding: 40px 0 32px;
+  background: radial-gradient(1000px 500px at 10% 0%, #0f2f57 0%, transparent 60%), #071a33;
+  color: #e6eefb;
+}
+
+.how-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 18px;
+}
+
+.how-head .kicker {
+  margin: 0 0 6px;
+}
+
+.how h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.flows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.flow {
+  padding: 9px 16px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.flow[aria-pressed="true"] {
+  border-color: var(--coral);
+  background: var(--coral);
+  color: #0b2545;
+}
+
+.arch2 {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.net-wrap {
+  overflow-x: auto;
+  border-radius: 18px;
+  background: #0a2140;
+  border: 1px solid rgb(255 255 255 / 8%);
+}
+
+.net {
+  display: block;
+  width: 100%;
+  min-width: 900px;
+  height: auto;
+}
+
+.z {
+  fill: none;
+  stroke-width: 1.2;
+}
+
+.zl {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  fill: #7f95b6;
+}
+
+.z-aws { stroke: #ff9900; stroke-dasharray: 2 0; fill: rgb(255 153 0 / 3%); }
+.z-vpc { stroke: #5aa2ff; stroke-dasharray: 6 5; fill: rgb(90 162 255 / 3%); }
+.z-pub { stroke: rgb(90 162 255 / 35%); stroke-dasharray: 3 4; }
+.z-app { stroke: rgb(90 162 255 / 35%); stroke-dasharray: 3 4; }
+.z-data { stroke: rgb(34 197 94 / 45%); stroke-dasharray: 3 4; }
+.z-eks { stroke: #8b9cff; fill: rgb(139 156 255 / 5%); }
+.z-ai { stroke: rgb(255 107 74 / 55%); stroke-dasharray: 6 5; fill: rgb(255 107 74 / 4%); }
+.z-obs { stroke: rgb(255 255 255 / 18%); stroke-dasharray: 3 4; }
+.z-pipe { stroke: rgb(255 255 255 / 22%); fill: rgb(255 255 255 / 2%); }
+.z-people { stroke: rgb(255 255 255 / 14%); stroke-dasharray: 3 4; }
+
+.e {
+  fill: none;
+  stroke: #3d5a80;
+  stroke-width: 1.8;
+  stroke-dasharray: 5 6;
+  animation: flow 1.8s linear infinite;
+}
+
+.e.faint {
+  opacity: 0.5;
+}
+
+.ahd {
+  fill: #3d5a80;
+}
+
+.net.flowing .e:not(.lit) {
+  opacity: 0.15;
+}
+
+.net.flowing .n:not(.lit) {
+  opacity: 0.35;
+}
+
+.e.lit {
+  stroke: var(--coral);
+  stroke-width: 3;
+  stroke-dasharray: 9 6;
+  animation-duration: 0.7s;
+  opacity: 1;
+}
+
+.n {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.n rect {
+  fill: #0f2a4d;
+  stroke: #3f6ea8;
+  stroke-width: 1.4;
+}
+
+.n use {
+  color: #8fbaff;
+}
+
+.n .t {
+  font-size: 13px;
+  font-weight: 800;
+  fill: #f2f6fd;
+}
+
+.n .s {
+  font-size: 10px;
+  fill: #9fb3cf;
+}
+
+.n.person rect { fill: #13284a; stroke: #6b7fa6; }
+.n.edgesvc rect { stroke: #ff9900; }
+.n.edgesvc use { color: #ffb84d; }
+.n.app rect { stroke: #5aa2ff; }
+.n.core rect { fill: #1e6fd9; stroke: #5aa2ff; }
+.n.core use, .n.core .s { color: #fff; fill: #dbe8ff; }
+.n.ai rect { stroke: #ff6b4a; }
+.n.ai use { color: #ff9b85; }
+.n.data rect { stroke: #22c55e; }
+.n.data use { color: #6ee7a0; }
+.n.pipe rect { stroke: #a78bfa; }
+.n.pipe use { color: #c4b5fd; }
+.n.sec rect { stroke-width: 2.2; }
+.n.wide .t { font-size: 12.5px; }
+
+.n:hover rect,
+.n.selected rect {
+  stroke: #fff;
+  stroke-width: 2.4;
+}
+
+.n.lit rect {
+  stroke: var(--coral);
+  stroke-width: 2.6;
+}
+
+.n:focus-visible {
+  outline: none;
+}
+
+.n:focus-visible rect {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.spec {
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  border-radius: 18px;
+  background: #0f2a4d;
+  border: 1px solid rgb(255 255 255 / 10%);
+  overflow-y: auto;
+}
+
+.spec-zone {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ff9b85;
+}
+
+.spec h3 {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  color: #fff;
+}
+
+.spec p {
+  margin: 0;
+  line-height: 1.5;
+  color: #c6d4ea;
+}
+
+.spec dl {
+  margin: 14px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.spec dt {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7f95b6;
+}
+
+.spec dd {
+  margin: 2px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #e6eefb;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.controls li {
+  padding: 6px 12px;
+  border: 1px solid rgb(34 197 94 / 35%);
+  border-radius: 999px;
+  background: rgb(34 197 94 / 8%);
+  color: #b8f0cf;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.controls li::before {
+  content: "✓ ";
+}
+
+@media (max-width: 1100px) {
+  .arch2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .e {
+    animation: none;
+  }
+}
+
+/* Screen 2 uses the whole viewport */
+.how {
+  justify-content: flex-start;
+  padding: 28px 0 24px;
+}
+
+.how > .wrap {
+  width: min(1820px, 100% - 48px);
+}
+
+.net-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.net {
+  max-height: calc(100vh - 210px);
+}
+
+.arch2 {
+  align-items: start;
+}
+
+.spec {
+  max-height: calc(100vh - 190px);
+}
+
+@media (max-height: 1000px) {
+  .how {
+    padding: 18px 0 14px;
+  }
+
+  .how h2 {
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+  }
+
+  .how-head {
+    margin-bottom: 12px;
+  }
+
+  .controls {
+    margin-top: 10px;
+  }
+
+  .controls li {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+  }
+}
+
+.how {
+  justify-content: center;
+}

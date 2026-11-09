@@ -74,7 +74,7 @@
 
 ## Project page (2026-11-09)
 
-Done: redesigned to two screens, big and visual: the real logo, a bold headline with live numbers, the three apps as screenshot cards, then the architecture diagram, one claim's journey a step at a time, six ideas as icons and the stack in one line.
+Done: redesigned to two screens, big and visual: the real logo, a bold headline with live numbers, the three apps as screenshot cards, then, for architects, the target-state architecture on AWS: a network-style diagram (edge, Cognito, VPC subnets, EKS pods, data, Bedrock with Guardrails, security and observability, and the DevSecOps pipeline), each part's endpoints, tech and security controls on click, and three flows to light up.
 
 ## Claims handler to-do (2026-11-09)
 
