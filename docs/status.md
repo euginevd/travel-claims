@@ -105,5 +105,5 @@ Two additions that show security and AI engineering together. The payouts switch
 Serverless with Supabase (decision 13). The bootstrap stack is deployed and the GitHub environments are set.
 
 38. Done: the stage 2 plan (spec 30–40): every piece switched on by a setting, so stage 1 still runs locally.
-39. Re-scope the bootstrap's permissions from EKS to Lambda, AgentCore, S3, CloudFront, Cognito, Secrets Manager and Bedrock, then update the stack.
+39. Done in the template: the bootstrap grants Lambda, AgentCore, ECR, S3, CloudFront, Cognito, Secrets Manager and Bedrock instead of EKS. You update the stack with the new file.
 40. The Terraform units and the app changes (FastAPI on Lambda, the agent as an AgentCore app), deployed through the pipeline one unit at a time.
