@@ -306,20 +306,12 @@ function setUpDiagram() {
   });
 }
 
-// Links to the other apps use this page's own host, so it works on localhost or 127.0.0.1.
-function setUpLinks() {
-  document.querySelectorAll("a[data-port]").forEach((link) => {
-    const url = new URL(window.location.href);
-    url.port = link.dataset.port;
-    url.pathname = "/";
-    url.hash = "";
-    url.search = "";
-    link.href = url.toString();
-  });
-}
+// Each app's address: on AWS from links.json, which the deploy writes; locally this host and its port.
+const PORT_APP = { 5173: "portal", 5174: "dashboard", 5175: "console" };
+let links = null;
 
-// Each app's dot: green if it answers, red if not. A no-cors request only tells us it's up.
 function appUrl(port) {
+  if (links && links[PORT_APP[port]]) return links[PORT_APP[port]];
   const url = new URL(window.location.href);
   url.port = port;
   url.pathname = "/";
@@ -328,6 +320,13 @@ function appUrl(port) {
   return url.toString();
 }
 
+function setUpLinks() {
+  document.querySelectorAll("a[data-port]").forEach((link) => {
+    link.href = appUrl(link.dataset.port);
+  });
+}
+
+// Each app's dot: green if it answers, red if not. A no-cors request only tells us it's up.
 function checkHealth() {
   document.querySelectorAll("[data-health-port]").forEach((dot) => {
     fetch(appUrl(dot.dataset.healthPort), { mode: "no-cors", cache: "no-store" }).then(
@@ -365,7 +364,8 @@ function setUpPlayer() {
       pick.setAttribute("aria-selected", String(on));
       pick.querySelector(".bar i").style.width = "0";
     });
-    document.getElementById("player-url").textContent = clip.host;
+    const port = picks.find((p) => p.dataset.clip === name).dataset.port;
+    document.getElementById("player-url").textContent = links ? new URL(appUrl(port)).host : clip.host;
     document.querySelectorAll(".go-app").forEach((link) => {
       link.classList.toggle("current", link.dataset.port === picks.find((p) => p.dataset.clip === name).dataset.port);
     });
@@ -430,9 +430,22 @@ function loadStats() {
     });
 }
 
-setUpLinks();
-setUpPlayer();
+function loadLinks() {
+  return fetch("links.json", { headers: { Accept: "application/json" }, cache: "no-store" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((found) => {
+      links = found && typeof found.portal === "string" ? found : null;
+    })
+    .catch(() => {
+      // Locally there's no links.json, so the apps are on this host's ports.
+    });
+}
+
 setUpDiagram();
-checkHealth();
 loadStats();
-setInterval(checkHealth, 15000);
+loadLinks().then(() => {
+  setUpLinks();
+  setUpPlayer();
+  checkHealth();
+  setInterval(checkHealth, 15000);
+});

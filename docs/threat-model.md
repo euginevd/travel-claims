@@ -52,7 +52,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 
 ## Trust boundaries
 
-- **TB1a** Customers to the portal: customers sign in through the customer issuer (a Cognito-shaped local stand-in; a Cognito user pool with Google in stage 2). The portal's web server forwards only `/api/customer/`; everything the browser sends is untrusted, receipts included.
+- **TB1a** Customers to the portal: customers sign in through the customer issuer (a Cognito-shaped local stand-in; a Cognito user pool, email and password only, in stage 2, whose public test-account button signs anyone in as Oliver Grant, made-up data only). The portal's web server forwards only `/api/customer/`; everything the browser sends is untrusted, receipts included.
 - **TB1b** Staff to the dashboard: handlers sign in through a separate staff issuer, with its own signing key and audience (a separate Cognito user pool in stage 2, reachable only from allowed networks). The dashboard's web server forwards only `/api/staff/`.
 - **TB2** Agent and `api`: model output is untrusted; the `api` checks every decision against claims manual section 14 and the payout calculation before it can drive a payment.
 - **TB3** App to Claude: claim text leaves the laptop. Stage 1 sends only made-up data (spec 26); stage 2 keeps it in Australia.

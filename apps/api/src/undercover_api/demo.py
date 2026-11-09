@@ -1,5 +1,5 @@
-"""Live numbers for the local demo home page: counts only, never a customer's details. Served
-only where the local sign-in stand-in runs, so it never reaches a deployment."""
+"""Live numbers for the demo home page: counts only, never a customer's details. Served where the
+local sign-in stand-in runs, and in stage 2's demo when TEST_ACCOUNTS_SECRET is set."""
 
 from datetime import datetime
 from statistics import median

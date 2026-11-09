@@ -135,3 +135,97 @@ def test_without_app_secret_nothing_is_fetched(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.delenv("APP_SECRET", raising=False)
     load_app_secret(lambda name: pytest.fail(f"fetched {name}"))
+
+
+class FakeCognito:
+    """initiate_auth's stand-in: answers with a token for the one right password."""
+
+    def __init__(self, password: str) -> None:
+        self.password = password
+        self.calls: list[dict[str, Any]] = []
+
+    def initiate_auth(self, **call: Any) -> dict[str, Any]:
+        self.calls.append(call)
+        if call["AuthParameters"]["PASSWORD"] != self.password:
+            raise RuntimeError("NotAuthorizedException: password for oliver.grant@example.com")
+        return {"AuthenticationResult": {"IdToken": "cognito-token", "ExpiresIn": 3600}}
+
+
+def demo_settings(database_url: str) -> Any:
+    issuer = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_"
+    return make_settings(
+        database_url,
+        environment="dev",
+        local_sign_in=False,
+        handler_password=None,
+        test_accounts_secret="travel-claims/dev/test-accounts",
+        staff_token_issuer=f"{issuer}staff",
+        customer_token_issuer=f"{issuer}customers",
+        customer_token_audience="customer-client",
+        engineering_token_issuer=f"{issuer}engineering",
+    )
+
+
+def test_a_test_account_signs_in_through_its_cognito_client(database_url: str) -> None:
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from undercover_api.demo_sign_in import CognitoTestSignIn  # noqa: PLC0415
+    from undercover_api.main import create_app  # noqa: PLC0415
+
+    cognito = FakeCognito("right")
+    app = create_app(demo_settings(database_url))
+    app.state.test_sign_in = CognitoTestSignIn(
+        "travel-claims/dev/test-accounts",
+        lambda _: json.dumps({"oliver.grant@example.com": "right"}),
+        cognito,
+    )
+    client = TestClient(app)
+    answer = client.post("/api/customer/dev/test-sign-in", json={"account": "customer"})
+    assert answer.json() == {"id_token": "cognito-token", "expires_in": 3600}
+    assert cognito.calls[0]["ClientId"] == "customer-client"
+    assert client.post("/api/customer/dev/test-sign-in", json={"account": "x"}).status_code == 404
+    # The red team's account and the password sign-in stay local.
+    assert (
+        client.post("/api/customer/dev/redteam-sign-in", json={"account": "attacker"}).status_code
+        == 404
+    )  # noqa: E501
+    assert (
+        client.post(
+            "/api/customer/dev/sign-in", json={"email": "a@b.c", "password": "p"}
+        ).status_code
+        == 404
+    )  # noqa: E501
+
+
+def test_a_failed_cognito_sign_in_never_echoes_the_password() -> None:
+    from fastapi import HTTPException  # noqa: PLC0415
+
+    from undercover_api.demo_sign_in import CognitoTestSignIn  # noqa: PLC0415
+
+    signer = CognitoTestSignIn(
+        "s", lambda _: json.dumps({"oliver.grant@example.com": "stale"}), FakeCognito("right")
+    )
+    with pytest.raises(HTTPException) as raised:
+        signer.sign_in("oliver.grant@example.com", "client")
+    assert raised.value.status_code == 503  # noqa: PLR2004
+    assert "stale" not in str(raised.value.detail)
+    assert raised.value.__cause__ is None
+
+
+def test_without_test_accounts_there_are_no_demo_routes(database_url: str) -> None:
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from undercover_api.main import create_app  # noqa: PLC0415
+
+    settings = demo_settings(database_url).model_copy(update={"test_accounts_secret": None})
+    client = TestClient(create_app(settings))
+    assert (
+        client.post("/api/customer/dev/test-sign-in", json={"account": "customer"}).status_code
+        == 404
+    )  # noqa: E501
+    assert client.get("/api/demo/stats").status_code == 404  # noqa: PLR2004
+
+
+def test_test_accounts_are_refused_alongside_the_local_stand_in(database_url: str) -> None:
+    with pytest.raises(ValueError, match="TEST_ACCOUNTS_SECRET"):
+        make_settings(database_url, test_accounts_secret="travel-claims/dev/test-accounts")

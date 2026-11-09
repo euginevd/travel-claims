@@ -70,7 +70,7 @@ jobs:
           docker push "$image"
           echo "Pushed \`$image\`" >> "$GITHUB_STEP_SUMMARY"
 
-  # Each web app, built by its own Dockerfile with its audience's Cognito client, into its bucket.
+  # Each web app (its Cognito client, test buttons on) and the project page, into its bucket.
   web:
     if: vars.PROJECT_NAME != ''
     strategy:
@@ -80,6 +80,7 @@ jobs:
           - { app: portal, audience: customers }
           - { app: dashboard, audience: staff }
           - { app: console, audience: engineering }
+          - { app: home, audience: none }
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: aws-dev-apply
@@ -108,13 +109,21 @@ jobs:
             echo "::notice::No bucket $bucket yet: apply the web unit first."
             exit 0
           fi
-          pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
-          client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
-          docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" -f "apps/$APP/Dockerfile" -t "web-$APP" .
-          id="$(docker create "web-$APP")"
-          docker cp "$id:/web/dist" ./dist
+          site() { aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$1'].$2 | [0]" --output text; }
+          if [ "$APP" = home ]; then
+            # The project page is static files, with the three apps' addresses in links.json.
+            mkdir dist && cp -r apps/home/index.html apps/home/styles.css apps/home/app.js apps/home/icon.svg apps/home/img apps/home/media dist/
+            printf '{"portal":"https://%s/","dashboard":"https://%s/","console":"https://%s/"}
+' "$(site portal DomainName)" "$(site dashboard DomainName)" "$(site console DomainName)" > dist/links.json
+          else
+            pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
+            client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
+            docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" --build-arg VITE_TEST_SIGN_IN=true -f "apps/$APP/Dockerfile" -t "web-$APP" .
+            id="$(docker create "web-$APP")"
+            docker cp "$id:/web/dist" ./dist
+          fi
           aws s3 sync ./dist "s3://$bucket" --delete
-          distribution="$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$APP'].Id | [0]" --output text)"
+          distribution="$(site "$APP" Id)"
           aws cloudfront create-invalidation --distribution-id "$distribution" --paths '/*' > /dev/null
           echo "Deployed $APP to \`$bucket\`" >> "$GITHUB_STEP_SUMMARY"
 

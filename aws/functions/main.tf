@@ -48,6 +48,11 @@ data "aws_secretsmanager_secret" "app" {
   name = "${var.project}/${var.environment}/app"
 }
 
+# The identity unit's test passwords: the api signs the demo's test-account buttons in with them.
+data "aws_secretsmanager_secret" "test_accounts" {
+  name = "${var.project}/${var.environment}/test-accounts"
+}
+
 data "aws_cognito_user_pools" "audience" {
   for_each = local.audiences
 
@@ -91,7 +96,7 @@ locals {
   grants = {
     api = [
       { actions = ["s3:GetObject", "s3:PutObject"], resources = ["arn:${local.partition}:s3:::${local.receipts}/*"] },
-      { actions = ["secretsmanager:GetSecretValue"], resources = [data.aws_secretsmanager_secret.app.arn] },
+      { actions = ["secretsmanager:GetSecretValue"], resources = [data.aws_secretsmanager_secret.app.arn, data.aws_secretsmanager_secret.test_accounts.arn] },
       { actions = ["bedrock-agentcore:InvokeAgentRuntime"], resources = ["arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:runtime/*"] },
     ]
     context = []
@@ -141,6 +146,8 @@ locals {
       ENVIRONMENT     = var.environment
       APP_SECRET      = data.aws_secretsmanager_secret.app.name
       RECEIPTS_BUCKET = local.receipts
+      # The demo's test-account buttons and the project page's counts; drop it to turn both off.
+      TEST_ACCOUNTS_SECRET = data.aws_secretsmanager_secret.test_accounts.name
     })
     context = { CONTEXT_ALLOWED_HOSTS = "*" }
   }
