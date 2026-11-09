@@ -9,3 +9,5 @@ apps/home/** text eol=lf
 apps/home/img/** binary
 *.webp binary
 *.svg text eol=lf
+apps/home/media/** binary
+*.mp4 binary

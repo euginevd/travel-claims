@@ -81,7 +81,7 @@ function setUpDiagram() {
 
 // Links to the other apps use this page's own host, so it works on localhost or 127.0.0.1.
 function setUpLinks() {
-  document.querySelectorAll("[data-port]").forEach((link) => {
+  document.querySelectorAll("a[data-port]").forEach((link) => {
     const url = new URL(window.location.href);
     url.port = link.dataset.port;
     url.pathname = "/";
@@ -92,10 +92,18 @@ function setUpLinks() {
 }
 
 // Each app's dot: green if it answers, red if not. A no-cors request only tells us it's up.
+function appUrl(port) {
+  const url = new URL(window.location.href);
+  url.port = port;
+  url.pathname = "/";
+  url.hash = "";
+  url.search = "";
+  return url.toString();
+}
+
 function checkHealth() {
-  document.querySelectorAll("[data-health]").forEach((card) => {
-    const dot = card.querySelector(".dot");
-    fetch(card.href, { mode: "no-cors", cache: "no-store" }).then(
+  document.querySelectorAll("[data-health-port]").forEach((dot) => {
+    fetch(appUrl(dot.dataset.healthPort), { mode: "no-cors", cache: "no-store" }).then(
       () => {
         dot.className = "dot up";
         dot.title = "Running";
@@ -106,6 +114,57 @@ function checkHealth() {
       },
     );
   });
+}
+
+// The big player: one app's clip at a time, moving to the next when it ends.
+const CLIPS = {
+  portal: { host: "localhost:5173", label: "Open the customer portal", who: "Oliver Grant" },
+  handler: { host: "localhost:5174", label: "Open the handler workspace", who: "Dana Whitfield" },
+  console: { host: "localhost:5175", label: "Open AI assurance", who: "Sam Carter" },
+};
+const ORDER = ["portal", "handler", "console"];
+
+function setUpPlayer() {
+  const video = document.getElementById("player");
+  const picks = [...document.querySelectorAll(".pick")];
+  const open = document.getElementById("open-app");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let current = "portal";
+
+  function select(name, play) {
+    current = name;
+    const clip = CLIPS[name];
+    picks.forEach((pick) => {
+      const on = pick.dataset.clip === name;
+      pick.setAttribute("aria-selected", String(on));
+      pick.querySelector(".bar i").style.width = "0";
+    });
+    document.getElementById("player-url").textContent = clip.host;
+    document.getElementById("open-label").textContent = clip.label;
+    document.getElementById("open-who").textContent = `Use test account: ${clip.who}`;
+    open.href = appUrl(picks.find((p) => p.dataset.clip === name).dataset.port);
+    video.poster = `img/${name}.webp`;
+    if (still) {
+      video.removeAttribute("src");
+      video.load();
+      return;
+    }
+    video.src = `media/${name}.mp4`;
+    if (play) video.play().catch(() => undefined);
+  }
+
+  picks.forEach((pick) => {
+    pick.addEventListener("click", () => select(pick.dataset.clip, true));
+  });
+  video.addEventListener("timeupdate", () => {
+    if (!video.duration) return;
+    const bar = picks.find((p) => p.dataset.clip === current).querySelector(".bar i");
+    bar.style.width = `${String((video.currentTime / video.duration) * 100)}%`;
+  });
+  video.addEventListener("ended", () => {
+    select(ORDER[(ORDER.indexOf(current) + 1) % ORDER.length], true);
+  });
+  select("portal", true);
 }
 
 function setStat(name, value) {
@@ -139,6 +198,7 @@ function loadStats() {
 }
 
 setUpLinks();
+setUpPlayer();
 setUpDiagram();
 setUpJourney();
 checkHealth();
