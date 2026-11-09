@@ -45,7 +45,7 @@ from undercover_api.models import (
     Status,
 )
 from undercover_api.notices import announce
-from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, ReceiptStore, sniff
+from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, Receipts, ReceiptStore, sniff
 
 log = logging.getLogger(__name__)
 
@@ -71,11 +71,13 @@ CLAIM_ID_ATTEMPTS = 3
 EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
 
 
-def store(request: Request) -> ReceiptStore:
-    return ReceiptStore(request.app.state.settings.receipts_dir)
+def store(request: Request) -> Receipts:
+    """The bucket when the api has one (stage 2), else the folder."""
+    bucket: Receipts | None = request.app.state.receipts
+    return bucket or ReceiptStore(request.app.state.settings.receipts_dir)
 
 
-Store = Annotated[ReceiptStore, Depends(store)]
+Store = Annotated[Receipts, Depends(store)]
 
 
 def own_claim(db: Connection, customer: Customer, claim_id: str) -> RowMapping:
@@ -312,7 +314,7 @@ async def add_receipts(
 
 async def save_files(
     db: Connection,
-    receipt_store: ReceiptStore,
+    receipt_store: Receipts,
     claim_id: str,
     files: list[UploadFile],
     request_id: int | None = None,

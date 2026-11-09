@@ -33,10 +33,13 @@ class Settings(BaseSettings):
     engineering_token_audience: str = "undercover-engineering"  # noqa: S105
     # Where seeding reads UnderCover's records: the repo's data/ folder.
     seed_data_dir: Path = Path("data")
-    # Where receipts are kept: a Docker volume locally, a private S3 bucket in stage 2.
+    # Where receipts are kept: a Docker volume locally, a private S3 bucket when the bucket is set.
     receipts_dir: Path = Path("receipts")
-    # The agent's service, which the api asks to work or resume a claim.
+    receipts_bucket: str | None = None
+    # The agent's service, which the api asks to work or resume a claim: over HTTP locally, or
+    # on AgentCore Runtime when its ARN is set (stage 2).
     agent_url: str = "http://127.0.0.1:8080"
+    agent_runtime_arn: str | None = None
     # The claim agent's configuration version, named on every decision it makes.
     agent_version: int = Field(default=1, ge=1)
 
