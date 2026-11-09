@@ -66,6 +66,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/29/eb3558ab6bf252a07ac41c76ac5b0ea24a0aa0c23f87a40aaf31a5f8dba4/anthropic-2.3.0-py3-none-any.whl", hash = "sha256:aa6a3984f9276f307933d42dc6f58b6efc821a5ecafbc8d1bb5993a066767622", size = 2216980, upload-time = "2026-10-23T23:18:45.779Z" },
 ]
 
+[package.optional-dependencies]
+bedrock = [
+    { name = "boto3" },
+    { name = "botocore" },
+]
+
 [[package]]
 name = "anyio"
 version = "4.15.1"
@@ -1459,7 +1465,7 @@ name = "undercover-agent"
 version = "0.1.0"
 source = { editable = "apps/agent" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "langgraph" },
@@ -1473,7 +1479,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = "==2.3.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = "==2.3.0" },
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx2", specifier = "==2.16.0" },
     { name = "langgraph", specifier = "==1.2.19" },
@@ -1540,7 +1546,7 @@ name = "undercover-copilot"
 version = "0.1.0"
 source = { editable = "apps/copilot" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "langgraph" },
@@ -1553,7 +1559,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = "==2.3.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = "==2.3.0" },
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx2", specifier = "==2.16.0" },
     { name = "langgraph", specifier = "==1.2.19" },
