@@ -7,7 +7,7 @@
 1. Name: `travel-claims`. The business is UnderCover, a fictional insurer (`business-context.md`).
 2. Problem: claims handlers work through a queue of travel insurance claims by hand, so simple claims wait days to be paid.
 3. Goal: an AI agent decides routine claims as accurately as a handler, and handlers spend their time only on claims that need judgement.
-4. Users: customers (policyholders) sign in, submit a claim with receipts and track their own claims; handlers work the queue and sign off large payouts; senior handlers also run evaluations and improvement rounds and change settings.
+4. Users: customers (policyholders) sign in, submit a claim with receipts and track their own claims; handlers work the queue and sign off large payouts; senior handlers also pause payouts; AI engineers run evaluations, improvement rounds and the red team in their own console.
 5. Source: the course repo's `week3day5-end` branch is the reference for behaviour and data. The code here is written fresh, with credit to the course.
 
 ## Stages
@@ -22,13 +22,13 @@ Stage 1 is built in four plans, each working end to end before the next: the cla
 
 Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks and Trivy pre-push scan. Each app has its own Dockerfile from stage 1, so stage 2 ships the same images.
 
-9. `portal` and `dashboard`: the customers' portal and the handlers' dashboard, as two React, Vite and TypeScript apps on separate addresses, each with its own sign-in, token issuer and audience (decision 10). React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
+9. `portal`, `dashboard` and `console`: the customers' portal, the handlers' dashboard and the AI engineers' AI assurance console, as three React, Vite and TypeScript apps on separate addresses, each with its own sign-in, token issuer and audience (decisions 10 and 12). A static `home` page (the local demo home) links them. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
 10. `api`: claims, policies, decisions, payments, settings and records. Python, FastAPI and SQLAlchemy on PostgreSQL. Payments are a module of their own that checks every limit in code. Checks: `uv run ruff check`, `uv run pyright`, `uv run pytest`.
 11. `agent`: the claim agent, the hidden-instruction check, the dispatcher and the improver. Python and LangGraph, with progress saved to PostgreSQL. Same checks as `api`.
 12. `copilot`: the handlers' chat agent. Python and LangGraph. Same checks as `api`.
 13. `context`: the context layer, an MCP server over the policy wording, claims manual, plans, rules and reference data. Same checks as `api`.
 14. Models: one module per app reaches Claude, through the Anthropic API in stage 1 and Bedrock in stage 2, chosen by settings. The claim agent runs on Claude Sonnet, and the hidden-instruction check and the judge on Claude Haiku, with explicit model IDs (code-standards 19).
-15. Local services: PostgreSQL in Docker; a local sign-in stand-in for handlers and customers that issues tokens shaped like Cognito's, so the `api` checks them the same way in both stages (customers get Google through Cognito in stage 2); receipts on a local Docker volume behind one storage module (a private, encrypted S3 bucket in stage 2). The agent's memory of customers is kept in PostgreSQL.
+15. Local services: PostgreSQL in Docker; a local sign-in stand-in for handlers, customers and AI engineers that issues tokens shaped like Cognito's, so the `api` checks them the same way in both stages (customers get Google through Cognito in stage 2); receipts on a local Docker volume behind one storage module (a private, encrypted S3 bucket in stage 2). The agent's memory of customers is kept in PostgreSQL.
 16. End-to-end: Playwright against the running stack, with the models stubbed.
 17. Machine: Docker Desktop, uv, Node and an Anthropic API key in `.env`, which is never committed.
 
@@ -55,7 +55,7 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 
 34. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
 35. Claim text and documents are untrusted input: text hidden in them must not change a decision.
-36. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
+36. Handlers, customers and AI engineers sign in, each with their own issuer, and the `api` checks the person on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
 37. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
 38. The agent and the improver never see the handlers' decisions on the held-out set.
 39. Every decision is logged with its reasons, with personal data redacted.
