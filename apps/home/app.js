@@ -171,22 +171,29 @@ function setStat(name, value) {
   if (el) el.textContent = value;
 }
 
+function tenths(part, whole) {
+  return `${String(Math.round((part / whole) * 10))} in 10`;
+}
+
+function within(seconds) {
+  if (seconds <= 30) return "in under 30 seconds";
+  if (seconds <= 60) return "in under a minute";
+  return `in under ${String(Math.ceil(seconds / 60))} minutes`;
+}
+
 function loadStats() {
   fetch("/api/demo/stats", { headers: { Accept: "application/json" } })
     .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
     .then((stats) => {
       if (stats.decided) {
-        const tenths = Math.round((stats.decided_by_agent / stats.decided) * 10);
-        setStat("agent_share", `${String(tenths)} in 10`);
+        setStat("ai_share", tenths(stats.decided_by_ai, stats.decided));
+        setStat("expert_share", tenths(stats.decided - stats.decided_by_ai, stats.decided));
+        setStat("traced", `${String(Math.round((stats.traced / stats.decided) * 100))}%`);
       }
-      if (stats.agent_seconds) {
-        const secs = stats.agent_seconds;
-        setStat(
-          "agent_seconds",
-          secs < 90 ? `about ${String(secs)} seconds` : `about ${String(Math.round(secs / 60))} minutes`,
-        );
+      if (stats.slowest_seconds) setStat("ai_time", within(stats.slowest_seconds));
+      if (stats.held_out_claims) {
+        setStat("held_out", `${String(stats.held_out_matched)} of ${String(stats.held_out_claims)}`);
       }
-      setStat("need_a_handler", String(stats.need_a_handler));
       if (stats.redteam_attacks) {
         setStat("redteam", `${String(stats.redteam_held)} of ${String(stats.redteam_attacks)}`);
       }

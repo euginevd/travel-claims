@@ -1012,7 +1012,7 @@ h1 {
 }
 
 .player video {
-  max-height: calc(100vh - 500px);
+  max-height: calc(100vh - 540px);
   min-height: 220px;
 }
 
@@ -1091,4 +1091,133 @@ h1 {
 
 .kicker + h1 {
   margin-top: 10px;
+}
+
+.metric-note {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  opacity: 0.68;
+}
+
+/* Tighter app cards, so screen 1 fits a laptop with the notes */
+.pick {
+  padding: 12px 16px 16px;
+}
+
+.pick-head {
+  margin-bottom: 2px;
+}
+
+.pick .metric-value {
+  font-size: clamp(1.6rem, min(2.4vw, 3.6vh), 2.3rem);
+}
+
+.pick .metric-label {
+  margin-top: 2px;
+  font-size: 0.9rem;
+}
+
+.metric-note {
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
+/* A scroll cue on desktops: a round chevron that bobs gently at the bottom of screen 1 */
+.hero {
+  position: relative;
+}
+
+.scroll-cue {
+  display: none;
+}
+
+@media (min-width: 981px) and (min-height: 820px) {
+  .hero {
+    padding-bottom: 64px;
+  }
+
+  .scroll-cue {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin-left: -21px;
+    border: 1px solid rgb(255 255 255 / 25%);
+    border-radius: 50%;
+    background: rgb(255 255 255 / 6%);
+    color: #fff;
+    backdrop-filter: blur(6px);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    animation: bob 2.2s ease-in-out infinite;
+  }
+
+  .scroll-cue svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .scroll-cue:hover {
+    border-color: rgb(255 255 255 / 60%);
+    background: rgb(255 255 255 / 14%);
+  }
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+@media (min-width: 981px) and (max-height: 1100px) {
+  .hero {
+    padding-top: 14px;
+  }
+
+  .kicker {
+    margin-top: 1.5vh;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, min(4.2vw, 6.6vh), 3.6rem);
+  }
+
+  .lede {
+    max-width: none;
+    margin-top: 10px;
+  }
+
+  .showcase {
+    margin-top: 18px;
+  }
+
+  .launch {
+    margin-top: 12px;
+  }
+
+  .go-app {
+    padding: 11px 18px;
+  }
 }
