@@ -31,9 +31,9 @@
 
 ## 🧪 AI engineers
 
-1. A separate console, with its own sign-in, scores the agent against handlers' decisions on an evaluation set and a held-out set.
+1. A separate AI assurance console, with its own sign-in. **Quality:** it scores the agent against handlers' decisions on an evaluation set and a held-out set.
 2. The improver proposes a better configuration; an AI engineer approves it, and it's kept only if it scores better on the held-out set.
-3. The red-team suite attacks the agent with eight claims and reports which attacks held.
+3. **Security:** the red-team suite attacks the agent with eight claims and reports which attacks held.
 
 ## 📦 Apps
 
@@ -80,7 +80,7 @@ flowchart LR
 |-----|------|---------|
 | `portal` | Customers make and track claims | Docker locally; EKS *(planned)* |
 | `dashboard` | Handlers work the queue, ask customers for documents and sign off payouts | Docker locally; EKS *(planned)* |
-| `console` | AI engineers run evaluations, approve the agent's improvements and run the red team | Docker locally; EKS *(planned)* |
+| `console` | AI assurance: evaluations and improvements (quality), the red team (security) | Docker locally; EKS *(planned)* |
 | `api` | Claims, decisions, payments, settings and sign-in | Docker locally; EKS *(planned)* |
 | `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | Docker locally; EKS *(planned)* |
 | `copilot` | The handlers' chat agent | Docker locally; EKS *(planned)* |
@@ -90,7 +90,7 @@ flowchart LR
 
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), then clone the repo.
 2. Copy `.env.example` to `.env`, and add an Anthropic API key with its workspace ID.
-3. `docker compose up --build -d`, then open the customer portal at http://127.0.0.1:5173, the handlers' dashboard at http://127.0.0.1:5174 and the AI engineers' console at http://127.0.0.1:5175. **Use test account** signs you in on each.
+3. `docker compose up --build -d`, then open the customer portal at http://127.0.0.1:5173, the handlers' dashboard at http://127.0.0.1:5174 and the AI assurance console at http://127.0.0.1:5175. **Use test account** signs you in on each.
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
 
 Developers: [AGENTS.md](AGENTS.md), then [docs/](docs/). Stages and what done means: [spec.md](docs/spec.md).

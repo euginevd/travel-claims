@@ -187,7 +187,7 @@ export function ImprovementPage({ api }: { api: Api }) {
   const current = versions.find((version) => version.current);
   return (
     <section aria-labelledby="improvement-heading">
-      <p className="eyebrow">The claim agent</p>
+      <p className="eyebrow">Quality · The claim agent</p>
       <h1 id="improvement-heading" ref={heading} tabIndex={-1}>
         Improvement
       </h1>

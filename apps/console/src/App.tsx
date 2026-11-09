@@ -44,7 +44,7 @@ function guarded(api: Api, signOut: () => void): Api {
   return wrapped as unknown as Api;
 }
 
-/** The AI engineers' console: evaluations, improvement rounds and the red team. */
+/** The AI assurance console. Quality: evaluations and improvement rounds. Security: the red team. */
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [person, setPerson] = useState<Engineer | null>(null);
@@ -93,7 +93,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   if (token && !person && meError) {
     return (
       <main className="landing" id="main">
-        <h1>AI engineering console</h1>
+        <h1>AI assurance console</h1>
         <p className="error" role="alert">
           We couldn&apos;t check your sign-in: {meError}
         </p>
@@ -125,9 +125,9 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         detail={person.role}
         home={SCOREBOARD_HREF}
         links={[
-          { href: SCOREBOARD_HREF, label: "Scoreboard", Icon: FlaskConical },
-          { href: IMPROVEMENT_HREF, label: "Improvement", Icon: Sparkles },
-          { href: REDTEAM_HREF, label: "Red team", Icon: ShieldCheck },
+          { href: SCOREBOARD_HREF, label: "Quality: Scoreboard", Icon: FlaskConical },
+          { href: IMPROVEMENT_HREF, label: "Quality: Improvement", Icon: Sparkles },
+          { href: REDTEAM_HREF, label: "Security: Red team", Icon: ShieldCheck },
         ]}
         onSignOut={signOut}
       />

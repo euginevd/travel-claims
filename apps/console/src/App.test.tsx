@@ -17,11 +17,14 @@ test("an AI engineer signs in with the test account and sees the scoreboard", as
     "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
-  expect(screen.getByRole("heading", { name: "AI engineering console" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "AI assurance console" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Use test account/ }));
   expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
   expect(screen.getByText("Priya Raman")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Red team" })).toHaveAttribute("href", "#/redteam");
+  expect(screen.getByRole("link", { name: "Security: Red team" })).toHaveAttribute(
+    "href",
+    "#/redteam",
+  );
   expect(screen.queryByRole("link", { name: "Queue" })).not.toBeInTheDocument();
 });
 

@@ -63,7 +63,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
   const held = report?.results.filter((result) => result.passed).length ?? 0;
   return (
     <section aria-labelledby="redteam-heading">
-      <p className="eyebrow">Security</p>
+      <p className="eyebrow">Security · Red team</p>
       <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
         Red-team report
       </h1>

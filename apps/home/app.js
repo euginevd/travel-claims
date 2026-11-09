@@ -13,8 +13,8 @@ const PARTS = {
     facts: { Tech: "React, Vite, nginx", Port: "5174", Trust: "Staff issuer and audience", Reaches: "/api/staff and the Copilot" },
   },
   console: {
-    title: "console: the AI engineers' console",
-    what: "AI engineers score the agent against handlers' decisions, approve or reject its proposed improvements, and run the red team.",
+    title: "console: the AI assurance console",
+    what: "Quality: AI engineers score the agent against handlers' decisions and approve or reject its improvements. Security: AI security engineers attack it with the red team.",
     facts: { Tech: "React, Vite, nginx", Port: "5175", Trust: "Engineering issuer and audience", Reaches: "/api/engineering only" },
   },
   api: {

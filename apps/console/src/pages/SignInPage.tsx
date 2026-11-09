@@ -65,10 +65,10 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     <main className="landing" id="main">
       <section className="landing-hero">
         <Logo />
-        <h1>AI engineering console</h1>
+        <h1>AI assurance console</h1>
         <p className="lead">
-          Score the claims agent against handlers&apos; decisions, approve its improvements and
-          attack it with the red team, apart from the claims handlers&apos; workspace.
+          Quality and security for the claims agent: score it against handlers&apos; decisions,
+          approve its improvements and attack it with the red team.
         </p>
         <TravelIllustration />
       </section>

@@ -149,7 +149,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
 
   return (
     <section aria-labelledby="scoreboard-heading">
-      <p className="eyebrow">Evaluations</p>
+      <p className="eyebrow">Quality · Evaluations</p>
       <h1 id="scoreboard-heading" ref={heading} tabIndex={-1}>
         Scoreboard
       </h1>
