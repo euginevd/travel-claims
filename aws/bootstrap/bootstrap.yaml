@@ -189,6 +189,16 @@ Resources:
                     iam:PassedToService:
                       - lambda.amazonaws.com
                       - bedrock-agentcore.amazonaws.com
+              # AgentCore creates its service-linked roles on first use; only those, by service name.
+              - Sid: IamAgentCoreServiceLinkedRoles
+                Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*'
+                Condition:
+                  StringLike:
+                    iam:AWSServiceName:
+                      - bedrock-agentcore.amazonaws.com
+                      - '*.bedrock-agentcore.amazonaws.com'
               # Pipeline roles are off limits.
               - Sid: DenyPipelineRoles
                 Effect: Deny
