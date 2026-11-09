@@ -11,7 +11,7 @@
 ## Stages
 
 4. **Stage 1, local build and test (complete):** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Stage 2, AWS build, test and deploy (in progress):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api` and `context` on Lambda, `agent` and `copilot` on AgentCore Runtime behind AgentCore Gateway, PostgreSQL on Supabase in Sydney, with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts. **Stage 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
+5. **Stage 2, AWS build, test and deploy (in progress):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api` and `context` on Lambda, `agent` and `copilot` on AgentCore Runtime behind AgentCore Gateway, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts. **Stage 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
 
 ## Apps
 
