@@ -25,13 +25,14 @@
   "paid_to": null,
   "receipts": [
     {
-      "receipt_id": "42ccbcb22bb4f7bfbda26eab87ac822f",
+      "receipt_id": "2984ff644fe0587948c3ec2e917b0a53",
       "media_type": "image/png",
       "size": 24,
-      "uploaded_at": "2026-11-09T02:39:09+00:00"
+      "uploaded_at": "2026-11-09T03:10:10+00:00"
     }
   ],
   "requests": [],
+  "letter": null,
   "can_add_receipts": true,
   "review_requested": false,
   "can_request_review": false

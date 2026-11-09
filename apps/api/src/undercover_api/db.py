@@ -255,6 +255,18 @@ notices = Table(
     Column("sent_at", String(32), nullable=False),
 )
 
+# The letter a handler sent a customer about a claim's decision, one a claim.
+letters = Table(
+    "letters",
+    metadata,
+    Column("claim_id", String(20), ForeignKey("claims.claim_id"), primary_key=True),
+    Column("subject", String(200), nullable=False),
+    Column("body", Text, nullable=False),
+    Column("drafted_by_ai", Boolean, nullable=False),
+    Column("sent_by", String(200), nullable=False),
+    Column("sent_at", String(32), nullable=False),
+)
+
 # A customer's claim in progress, saved so they can finish it later: one at a time.
 claim_drafts = Table(
     "claim_drafts",

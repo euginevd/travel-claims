@@ -30,7 +30,7 @@
     }
   ],
   "status": "waiting_for_sign_off",
-  "thread_id": "8333ce4513f24f959130431e9dce9ff3",
+  "thread_id": "8874b71b90394fd8abf9d5d93c5c2dda",
   "attempts": 1,
   "policy": {
     "policy_id": "POL-2003",
@@ -70,7 +70,7 @@
     "section": "Policy wording section 10",
     "reason": "The receipts support the claim under the plan's limits.",
     "decided_by": "UnderCover Agent v1",
-    "decided_at": "2026-11-09T02:39:08+00:00",
+    "decided_at": "2026-11-09T03:10:09+00:00",
     "manual_version": "2026.2",
     "approval_limit": 1000.0,
     "hold_reason": null,
@@ -87,11 +87,12 @@
     "received": "2026-07-06",
     "checked": null,
     "assessed": null,
-    "decided": "2026-11-09T02:39:08+00:00",
+    "decided": "2026-11-09T03:10:09+00:00",
     "paid": null
   },
   "review_requested_at": null,
   "review_note": null,
   "requests": [],
+  "letter": null,
   "evaluation": false
 }

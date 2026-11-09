@@ -31,7 +31,7 @@ A local page at http://127.0.0.1:5172 that explains the project in two minutes: 
 
 1. **Needs me first:** the queue opens on payouts waiting for sign-off, then referrals and customers' review requests.
 2. **The case brief:** the agent's recommendation, a checklist of what it verified with sources, and the payout worked out line by line. Claims the hidden-instruction check stopped are flagged as screened.
-3. **Decide:** approvals under $1,000 are paid automatically; sign off anything larger, send it back to the agent with a note, or override with a reason code. **Ask the customer** puts a request on their claim and emails and texts them.
+3. **Decide:** approvals under $1,000 are paid automatically; sign off anything larger, send it back to the agent with a note, or override with a reason code. **Ask the customer** puts a request on their claim and emails and texts them. Once decided, AI drafts the customer's letter for the handler to edit and send.
 4. **Help at hand:** search with Ctrl+K, and the **Copilot** answers questions and acts with the handler's own access. A senior handler can pause all payouts at once.
 
 ## 🧪 AI engineers

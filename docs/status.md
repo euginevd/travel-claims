@@ -82,7 +82,7 @@ Three additions that show claims operations, AI and fraud expertise together. Do
 
 30. Done: queue signals. Each claim has a due date (10 business days from submission) with Overdue or Due soon chips; a referred claim whose customer has sent everything asked for returns to Needs me with a Documents in chip, and Needs me puts those first, then the most overdue.
 31. Done: the risk panel on a claim shows receipts seen on other claims, the customer's earlier claims and what was paid, and the amount against the typical one for the claim type (flagged at twice), as signals, never decisions.
-32. AI-drafted customer letters: the agent drafts the approval or decline explanation; the handler edits and sends it to the customer's claim and Updates.
+32. Done: AI-drafted letters. On an approved or declined claim the handler drafts the customer's letter with AI (Claude Haiku, no internal detail), edits it and sends it; it shows on the customer's claim and arrives in their Updates by email. Checked live on CLM-1001.
 
 ## AI assurance console to-do (2026-11-09)
 

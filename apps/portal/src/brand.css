@@ -799,3 +799,17 @@ textarea {
   color: var(--sky-strong);
   flex: none;
 }
+
+/* The decision letter on a claim */
+.letter-card {
+  border-left: 4px solid var(--sky);
+}
+
+.letter-card h2 {
+  margin: 4px 0 8px;
+}
+
+.letter-body {
+  margin: 0;
+  white-space: pre-line;
+}

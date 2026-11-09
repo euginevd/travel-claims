@@ -69,7 +69,16 @@ export const CustomerClaimSummarySchema = z.object({
   open_requests: z.number(),
 });
 
+const LetterSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  drafted_by_ai: z.boolean(),
+  sent_by: z.string(),
+  sent_at: z.string(),
+});
+
 export const CustomerClaimSchema = CustomerClaimSummarySchema.extend({
+  letter: LetterSchema.nullable(),
   incident_date: z.string(),
   incident_location: z.string(),
   story: z.string(),

@@ -157,6 +157,16 @@ class Payment(BaseModel):
     paid_to: str | None = None
 
 
+class CustomerLetter(BaseModel):
+    """The letter sent to the customer about the decision."""
+
+    subject: str
+    body: str
+    drafted_by_ai: bool
+    sent_by: str
+    sent_at: str
+
+
 # Something we ask a customer for: a document or a detail, in words written for them.
 RequestText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
 
@@ -252,6 +262,7 @@ class Claim(BaseModel):
     review_requested_at: str | None
     review_note: str | None
     requests: list[CustomerRequest] = Field(default_factory=list[CustomerRequest])
+    letter: CustomerLetter | None = None
     evaluation: bool = Field(
         default=False, description="An evaluation's copy: never paid and never remembered"
     )
@@ -647,6 +658,7 @@ class CustomerClaim(CustomerClaimSummary):
     paid_to: str | None
     receipts: list[Receipt]
     requests: list[CustomerRequest]
+    letter: CustomerLetter | None = None
     can_add_receipts: bool
     review_requested: bool
     can_request_review: bool
@@ -767,3 +779,16 @@ class ClaimDraft(Strict):
 class SavedDraft(BaseModel):
     draft: ClaimDraft
     updated_at: str
+
+
+class LetterDraft(BaseModel):
+    """A decision letter the assistant drafted, for the handler to edit and send."""
+
+    subject: str
+    body: str
+
+
+class SendLetter(Strict):
+    subject: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+    drafted_by_ai: bool = False

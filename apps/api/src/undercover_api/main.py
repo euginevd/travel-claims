@@ -79,6 +79,7 @@ from undercover_api.kill_switch import (
     refuse_while_paused,
     set_payouts,
 )
+from undercover_api.letters import letters_router
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
@@ -805,6 +806,7 @@ def create_app(
         redteam_router,
         threats_router,
         risk_router,
+        letters_router,
     ):
         app.include_router(router)
     return app

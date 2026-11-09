@@ -17,7 +17,7 @@ from undercover_agent import redteam
 from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.improver import RoundImprover
-from undercover_agent.models import Draft, Drafter
+from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.tools import receipt_block
@@ -72,6 +72,38 @@ class DraftRequest(BaseModel):
     receipts: list[DraftReceipt] = Field(max_length=5)
 
 
+class LetterRequest(BaseModel):
+    """The facts a decision letter is written from."""
+
+    model_config = ConfigDict(extra="forbid")
+    first_name: Annotated[str, StringConstraints(max_length=100)]
+    claim_id: Annotated[str, StringConstraints(max_length=20)]
+    summary: Annotated[str, StringConstraints(max_length=200)]
+    decision: Literal["approve", "decline"]
+    payout: float = Field(ge=0, le=1_000_000)
+    paid_to: Annotated[str, StringConstraints(max_length=200)] = ""
+    section: Annotated[str, StringConstraints(max_length=500)]
+    reason: Annotated[str, StringConstraints(max_length=4000)]
+
+
+def letter_content(request: LetterRequest) -> str:
+    """What the letter is written from. The reason is the decision's own, for context."""
+    outcome = (
+        f"approved, paying ${request.payout:,.2f}"
+        + (f" to their {request.paid_to}" if request.paid_to else "")
+        if request.decision == "approve"
+        else "declined"
+    )
+    return (
+        f"Customer's first name: {request.first_name}\n"
+        f"Claim {request.claim_id}: {request.summary}\n"
+        f"Decision: {outcome}\n"
+        f"Policy sections relied on: {request.section}\n"
+        # nosemgrep: raw-html-format - markers around data for the model, not HTML
+        f"The decision's reason, between the markers:\n<reason>\n{request.reason}\n</reason>"
+    )
+
+
 def picked(case: str) -> str:
     """The tile the customer tapped, in words the assistant can act on."""
     if case == "other":
@@ -98,7 +130,7 @@ def draft_content(request: DraftRequest) -> list[dict[str, object]]:
     return content
 
 
-def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they work with
+def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over what they work with
     make_runner: Callable[[], Runner],
     key: Callable[[], str],
     make_drafter: Callable[[], Drafter] | None = None,
@@ -184,6 +216,16 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
         if found is None:
             raise HTTPException(502, "The drafting assistant couldn't draft this claim")
         return customer_facing(found)
+
+    @app.post("/letter", operation_id="letter", dependencies=[Depends(agents_key)])
+    def letter(request: LetterRequest) -> Letter:  # pyright: ignore[reportUnusedFunction]
+        """Draft the customer's letter about a decision, for a handler to edit and send."""
+        if "claims" not in drafter:
+            raise HTTPException(503, "The drafting assistant isn't set up")
+        found, _ = drafter["claims"].letter(letter_content(request))
+        if found is None:
+            raise HTTPException(502, "The assistant couldn't draft this letter")
+        return found
 
     return app
 

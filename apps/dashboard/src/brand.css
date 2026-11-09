@@ -640,3 +640,36 @@ pre,
   font-weight: 600;
   color: var(--warn);
 }
+
+/* The letter to the customer */
+.letter {
+  margin: 16px 0;
+}
+
+.letter h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.letter-subject {
+  margin: 4px 0;
+  font-weight: 700;
+}
+
+.letter-body {
+  white-space: pre-line;
+}
+
+.letter-form {
+  display: grid;
+  gap: 6px;
+}
+
+.letter-form input,
+.letter-form textarea {
+  font: inherit;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}

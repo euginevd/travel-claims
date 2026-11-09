@@ -209,3 +209,49 @@ def test_a_customer_sees_what_each_trip_covers(
     assert {c["policy_id"] for c in client.get("/api/customer/cover", headers=maya).json()} == {
         "POL-2001"
     }
+
+
+# --- Decision letters ---
+
+
+def approve_and_pay(client: TestClient, claim_id: str) -> None:
+    start(client, claim_id)
+    amount = payout(client, claim_id, "baggage", [line("Suitcase", 400)])["payout"]
+    client.post(
+        f"/api/agent/claims/{claim_id}/decision",
+        json={
+            "decision": "approve",
+            "payout": amount,
+            "section": "Policy wording 10",
+            "reason": "Covered.",
+            "maker": "claim_agent",
+        },
+        headers=AGENT,
+    )
+    client.post(f"/api/agent/claims/{claim_id}/payment", json={"amount": amount}, headers=AGENT)
+
+
+def test_a_handler_drafts_edits_and_sends_a_decision_letter(
+    client: TestClient, dana: dict[str, str], maya: dict[str, str], agent: Any
+) -> None:
+    path = "/api/staff/claims/CLM-1001/letter"
+    assert client.post(f"{path}/draft", headers=dana).status_code == 409  # not decided yet
+    approve_and_pay(client, "CLM-1001")
+    drafted = client.post(f"{path}/draft", headers=dana)
+    assert drafted.status_code == 200, drafted.text
+    assert drafted.json()["subject"] == "Your claim is approved"
+    assert agent.letters[0]["decision"] == "approve"
+    assert agent.letters[0]["first_name"] == "Maya"
+    letter = {"subject": "Good news", "body": "Dear Maya, it's paid.", "drafted_by_ai": True}
+    sent = client.put(path, json=letter, headers=dana)
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["letter"]["sent_by"] == "Dana Whitfield"
+    mine = client.get("/api/customer/claims/CLM-1001", headers=maya).json()
+    assert mine["letter"]["body"] == "Dear Maya, it's paid."
+    assert any(n["subject"] == "Good news" for n in notices(client, maya))
+    assert client.put(path, json=letter, headers=maya).status_code == 401
+
+
+def test_a_referral_gets_no_letter(client: TestClient, dana: dict[str, str]) -> None:
+    refer(client, "CLM-1001", [])
+    assert client.post("/api/staff/claims/CLM-1001/letter/draft", headers=dana).status_code == 409

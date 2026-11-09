@@ -15,6 +15,7 @@ import { useFocusHeading } from "../useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
 import { AskedPanel } from "../components/AskedPanel";
 import { RiskPanel } from "../components/RiskPanel";
+import { LetterPanel } from "../components/LetterPanel";
 
 interface ClaimPageProps {
   api: Api;
@@ -282,6 +283,11 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
               <RiskPanel api={api} claimId={claim.claim_id} />
               <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
+              {claim.status === "decided" &&
+                claim.decision &&
+                claim.decision.decision !== "refer" && (
+                  <LetterPanel api={api} claim={claim} onUpdated={setClaim} />
+                )}
               {claim.documents.length > 0 && (
                 <>
                   <h3>Documents</h3>

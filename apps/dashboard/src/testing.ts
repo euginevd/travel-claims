@@ -131,6 +131,7 @@ export function claim(overrides: Partial<Claim> = {}): Claim {
     review_requested_at: null,
     review_note: null,
     requests: [],
+    letter: null,
     ...overrides,
   };
 }

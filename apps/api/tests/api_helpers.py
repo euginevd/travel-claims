@@ -112,6 +112,7 @@ class FakeAgent:
         self.calls: list[tuple[str, str, str | None]] = []
         self.failure: AgentUnavailableError | None = None
         self.drafts: list[dict[str, object]] = []
+        self.letters: list[dict[str, object]] = []
         self.draft_answer: dict[str, object] = {
             "claim_type": "baggage",
             "summary": "Bag lost on the flight to Rome",
@@ -144,6 +145,12 @@ class FakeAgent:
 
     def redteam(self) -> None:
         self._take(("redteam", "", None))
+
+    def letter(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.letters.append(request)
+        return {"subject": "Your claim is approved", "body": "Dear Maya, we've approved it."}
 
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         if self.failure is not None:

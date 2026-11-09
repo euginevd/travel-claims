@@ -13,6 +13,7 @@ from undercover_api.db import (
     customer_requests,
     customers,
     decisions,
+    letters,
     model_calls,
     now,
     payments,
@@ -28,6 +29,7 @@ from undercover_api.models import (
     Claim,
     ClaimRef,
     ClaimSummary,
+    CustomerLetter,
     CustomerMatch,
     CustomerRequest,
     Decision,
@@ -123,6 +125,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
             "requests": list_requests(db, claim_id),
+            "letter": letter_of(db, claim_id),
             "stages": stages(db, row, decision, payment),
             "evaluation": row["source"] == "evaluation",
         }
@@ -387,3 +390,9 @@ def claim_trace(db: Connection, claim_id: str) -> Trace:
         total_cost=round(sum(c.cost for c in calls), 6),
         total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
     )
+
+
+def letter_of(db: Connection, claim_id: str) -> CustomerLetter | None:
+    """The letter sent to the customer about the claim's decision, if any."""
+    row = db.execute(select(letters).where(letters.c.claim_id == claim_id)).mappings().first()
+    return None if row is None else CustomerLetter.model_validate(dict(row))
