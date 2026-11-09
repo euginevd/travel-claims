@@ -255,3 +255,23 @@ def test_a_handler_drafts_edits_and_sends_a_decision_letter(
 def test_a_referral_gets_no_letter(client: TestClient, dana: dict[str, str]) -> None:
     refer(client, "CLM-1001", [])
     assert client.post("/api/staff/claims/CLM-1001/letter/draft", headers=dana).status_code == 409
+
+
+# --- Ask UnderCover ---
+
+
+def test_ask_undercover_sends_only_the_customers_own_records(
+    client: TestClient, maya: dict[str, str], oliver: dict[str, str], agent: Any
+) -> None:
+    asked = client.post(
+        "/api/customer/ask", json={"question": "Am I covered for delays?"}, headers=maya
+    )
+    assert asked.status_code == 200, asked.text
+    assert asked.json()["sources"] == ["Policy wording section 6"]
+    sent = agent.questions[0]
+    assert sent["first_name"] == "Maya"
+    assert {p["policy_id"] for p in sent["policies"]} == {"POL-2001"}
+    assert all(c["claim_id"] != "CLM-1005" for c in sent["claims"])  # Oliver's, never Maya's
+    too_long = client.post("/api/customer/ask", json={"question": "x" * 600}, headers=maya)
+    assert too_long.status_code == 422
+    assert client.post("/api/customer/ask", json={"question": "hi"}).status_code == 401

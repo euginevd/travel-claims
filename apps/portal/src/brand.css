@@ -813,3 +813,141 @@ textarea {
   margin: 0;
   white-space: pre-line;
 }
+
+/* Ask UnderCover */
+.ask-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  box-shadow: 0 16px 36px -12px rgb(11 37 69 / 55%);
+  cursor: pointer;
+}
+
+.ask-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: min(400px, calc(100vw - 40px));
+  height: min(560px, calc(100vh - 40px));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg-2);
+  box-shadow: 0 24px 60px -20px rgb(11 37 69 / 45%);
+}
+
+.ask-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ask-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ask-close {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.ask-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ask-starters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.ask-starters button {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-3);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ask-msg {
+  max-width: 88%;
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.ask-msg p {
+  margin: 0;
+}
+
+.ask-user {
+  align-self: flex-end;
+  background: var(--sky);
+  color: #fff;
+}
+
+.ask-assistant {
+  align-self: flex-start;
+  background: var(--bg-3);
+}
+
+.ask-assistant .button {
+  margin-top: 8px;
+}
+
+.ask-sources {
+  margin-top: 6px !important;
+  color: var(--ink-2);
+}
+
+.ask-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.ask-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: inherit;
+}

@@ -1,6 +1,7 @@
 import { Bell, FilePlus2, Inbox } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Customer } from "./api";
+import { AskUnderCover } from "./components/AskUnderCover";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { MyClaimPage } from "./pages/MyClaimPage";
@@ -136,6 +137,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api, customer.name)}</ErrorBoundary>
       </main>
+      <AskUnderCover api={api} />
     </>
   );
 }

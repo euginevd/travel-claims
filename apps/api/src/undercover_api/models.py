@@ -792,3 +792,22 @@ class SendLetter(Strict):
     subject: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
     body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
     drafted_by_ai: bool = False
+
+
+class QuestionTurn(Strict):
+    role: Literal["user", "assistant"]
+    text: Annotated[str, StringConstraints(max_length=2000)]
+
+
+class QuestionRequest(Strict):
+    """A customer's question to Ask UnderCover, with the conversation so far."""
+
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    history: list[QuestionTurn] = Field(default_factory=list[QuestionTurn], max_length=8)
+
+
+class QuestionAnswer(BaseModel):
+    answer: str
+    sources: list[str]
+    suggest: Literal["", "start_claim", "ask_person"]
+    screened: bool

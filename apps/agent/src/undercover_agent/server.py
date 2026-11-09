@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from undercover_agent import redteam
+from undercover_agent.ask import Answer, Asker, AskRequest
 from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.improver import RoundImprover
@@ -138,6 +139,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     make_improver: Callable[[], RoundImprover] | None = None,
     *,
     start_redteam: Callable[[], None] | None = None,
+    make_asker: Callable[[], Asker] | None = None,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -145,6 +147,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     drafter: dict[str, Drafter] = {}
     dispatcher: dict[str, Dispatcher] = {}
     improver: dict[str, RoundImprover] = {}
+    asker: dict[str, Asker] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -155,6 +158,8 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
             dispatcher["runs"] = make_dispatcher(runner["claims"])
         if make_improver is not None:
             improver["rounds"] = make_improver()
+        if make_asker is not None:
+            asker["customers"] = make_asker()
         yield
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
@@ -216,6 +221,13 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         if found is None:
             raise HTTPException(502, "The drafting assistant couldn't draft this claim")
         return customer_facing(found)
+
+    @app.post("/ask", operation_id="ask", dependencies=[Depends(agents_key)])
+    def ask(request: AskRequest) -> Answer:  # pyright: ignore[reportUnusedFunction]
+        """Answer a customer's question about their own policy and claims."""
+        if "customers" not in asker:
+            raise HTTPException(503, "The assistant isn't set up")
+        return asker["customers"].ask(request)
 
     @app.post("/letter", operation_id="letter", dependencies=[Depends(agents_key)])
     def letter(request: LetterRequest) -> Letter:  # pyright: ignore[reportUnusedFunction]
@@ -294,6 +306,11 @@ def build_app() -> FastAPI:
         lambda: AnthropicClaude(settings),
         lambda runner: Dispatcher(runner, api_client()),
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
+        make_asker=lambda: Asker(
+            AnthropicClaude(settings),
+            McpContext(settings.undercover_context),
+            settings.drafting_model,
+        ),
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),

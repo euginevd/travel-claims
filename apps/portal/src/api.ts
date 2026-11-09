@@ -172,6 +172,19 @@ export const CoverSchema = z.object({
 
 export type Cover = z.infer<typeof CoverSchema>;
 
+export const AnswerSchema = z.object({
+  answer: z.string(),
+  sources: z.array(z.string()),
+  suggest: z.enum(["", "start_claim", "ask_person"]),
+  screened: z.boolean(),
+});
+
+export type Answer = z.infer<typeof AnswerSchema>;
+export interface AskTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export const SavedDraftSchema = z.object({ draft: ClaimDraftSchema, updated_at: z.string() });
 
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
@@ -239,6 +252,7 @@ export interface Api {
   setPayId: (payid: string) => Promise<string | null>;
   myDelays: () => Promise<DelayOffer[]>;
   myCover: () => Promise<Cover[]>;
+  ask: (question: string, history: AskTurn[]) => Promise<Answer>;
   claimDelay: (flightId: string) => Promise<CustomerClaim>;
   myDraft: () => Promise<SavedDraft | null>;
   saveDraft: (draft: ClaimDraft) => Promise<SavedDraft>;
@@ -350,6 +364,8 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
       (await call(PayIdSchema, "PUT", "/payid", { body: { payid } })).payid,
     myDelays: () => call(z.array(DelayOfferSchema), "GET", "/delays"),
     myCover: () => call(z.array(CoverSchema), "GET", "/cover"),
+    ask: (question, history) =>
+      call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
     claimDelay: (flightId) =>
       call(CustomerClaimSchema, "POST", `/delays/${encodeURIComponent(flightId)}/claim`),
     myDraft: () => call(SavedDraftSchema.nullable(), "GET", "/draft"),

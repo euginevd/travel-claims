@@ -25,7 +25,7 @@ A local page at http://127.0.0.1:5172 that explains the project in two minutes: 
 1. **Make a claim in three steps:** tap what happened, add photos or PDFs of your receipts, then check what an AI assistant drafted. Your words stay the record, and a half-finished claim is saved to finish later.
 2. **Claim a delayed flight in one tap:** when the flight-status feed shows a flight on your trip was late enough for your plan, **My claims** offers it with nothing to fill in.
 3. **Follow it:** a tracker (**Received**, **Assessing**, **Decision**, **Paid**), a list of anything we need from you with an upload for each, and every email and text under **Updates**.
-4. **Get paid and get answers:** approved claims go to your PayID. Every decision says why in plain English and when the AI helped, and you can ask a person to review it.
+4. **Get paid and get answers:** approved claims go to your PayID, and **Ask UnderCover** answers questions about your policy and claims, citing your policy wording. Every decision says why in plain English and when the AI helped, and you can ask a person to review it.
 
 ## 🗂️ Handlers
 
