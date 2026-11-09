@@ -1,6 +1,7 @@
 """The one place the agent reaches Claude: the hidden-instruction check and the claim agent's
 turns, each with its tokens and cost."""
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
@@ -239,6 +240,28 @@ def call_of(model: str, usage: Usage, started: float = 0.0) -> Call:
     return Call(model, usage.input_tokens + read + written, usage.output_tokens, cost, latency)
 
 
+def plain_name(model: str) -> str:
+    """A model's own name (claude-sonnet-5-5), found inside a Bedrock or dated ID too."""
+    found = re.search(r"claude-[a-z]+(?:-\d{1,2}(?!\d))+", model)
+    return found.group(0) if found else model
+
+
+def provider_model(model: str, settings: Settings) -> str:
+    """A configuration's model as this provider names it: its plain name on the Anthropic API,
+    and on Bedrock the configured profile for that model (configurations hold plain names)."""
+    name = plain_name(model)
+    if settings.model_provider == "anthropic":
+        return name
+    configured = (
+        settings.claim_model,
+        settings.screening_model,
+        settings.specialist_model,
+        settings.drafting_model,
+        settings.improver_model,
+    )
+    return next((m for m in configured if plain_name(m) == name), model)
+
+
 def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
     """Claude through the Anthropic API in the user's workspace, or through Bedrock (tier 2)."""
     if settings.model_provider == "bedrock":
@@ -361,7 +384,7 @@ class AnthropicClaude:
     ) -> tuple[Message, Call]:
         """One turn of the claim agent, with its configuration's model and effort; the stable
         instructions and tools are cached."""
-        model = model or self._settings.claim_model
+        model = provider_model(model or self._settings.claim_model, self._settings)
         started = time.monotonic()
         reply = self._client.messages.create(
             model=model,

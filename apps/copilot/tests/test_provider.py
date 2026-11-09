@@ -67,3 +67,8 @@ def test_a_guardrail_is_named_on_every_bedrock_call() -> None:
 def test_without_a_guardrail_no_header_is_sent() -> None:
     settings = Settings(model_provider="bedrock", aws_region="ap-southeast-2", **BASE)  # pyright: ignore[reportArgumentType]
     assert "X-Amzn-Bedrock-GuardrailIdentifier" not in claude_client(settings).default_headers
+
+
+def test_an_unfilled_secret_placeholder_fails_at_start() -> None:
+    with pytest.raises(ValidationError, match="ANTHROPIC_API_KEY"):
+        Settings(anthropic_api_key="SET-ME: a key", anthropic_workspace_id="w", **BASE)  # pyright: ignore[reportArgumentType]

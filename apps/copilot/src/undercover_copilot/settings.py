@@ -38,8 +38,13 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def provider_has_what_it_needs(self) -> Self:
         """The Anthropic API needs its key and workspace; Bedrock uses the role's credentials."""
-        if self.model_provider == "anthropic" and not (
-            self.anthropic_api_key and self.anthropic_workspace_id
+        key = self.anthropic_api_key.get_secret_value() if self.anthropic_api_key else ""
+        # The app secret's placeholders start SET-ME until a person fills them in.
+        if self.model_provider == "anthropic" and (
+            not key
+            or not self.anthropic_workspace_id
+            or "SET-ME" in key
+            or "SET-ME" in self.anthropic_workspace_id
         ):
             raise ValueError(
                 "MODEL_PROVIDER=anthropic needs ANTHROPIC_API_KEY and ANTHROPIC_WORKSPACE_ID"

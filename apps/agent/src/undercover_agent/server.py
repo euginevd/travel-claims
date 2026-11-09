@@ -362,7 +362,7 @@ def build_app() -> FastAPI:
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
     from undercover_agent.memory import StoreMemory  # noqa: PLC0415
-    from undercover_agent.models import AnthropicClaude  # noqa: PLC0415
+    from undercover_agent.models import AnthropicClaude, plain_name  # noqa: PLC0415
     from undercover_agent.redteam import RedTeamStarter  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
     from undercover_agent.tools import McpContext  # noqa: PLC0415
@@ -390,7 +390,8 @@ def build_app() -> FastAPI:
         api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
         first = {
             "instructions": INSTRUCTIONS,
-            "model": settings.claim_model,
+            # Configurations hold the plain name, so they work on either provider.
+            "model": plain_name(settings.claim_model),
             "effort": settings.claim_effort,
         }
         try:
