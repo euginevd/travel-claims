@@ -327,9 +327,13 @@ Resources:
               - bedrock:UntagResource
               - bedrock:UpdateGuardrail
             Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*'
+          # Guardrails, and the inference profiles the units pick Claude's model IDs from.
           - Sid: BedrockList
             Effect: Allow
-            Action: bedrock:ListGuardrails
+            Action:
+              - bedrock:GetInferenceProfile
+              - bedrock:ListGuardrails
+              - bedrock:ListInferenceProfiles
             Resource: '*'
 
   # Read-only plan role; can't read secrets, so keep secret values out of Terraform state.
@@ -396,12 +400,16 @@ Resources:
                   - bedrock-agentcore:Get*
                   - bedrock-agentcore:List*
                   - bedrock:GetGuardrail
+                  - bedrock:GetInferenceProfile
                   - bedrock:ListGuardrails
+                  - bedrock:ListInferenceProfiles
                   - bedrock:ListTagsForResource
                   - cloudfront:Get*
                   - cloudfront:List*
                   - cognito-idp:Describe*
-                  - cognito-idp:Get*
+                  - cognito-idp:GetGroup
+                  - cognito-idp:GetLogDeliveryConfiguration
+                  - cognito-idp:GetUserPoolMfaConfig
                   - cognito-idp:List*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy

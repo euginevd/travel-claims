@@ -49,3 +49,11 @@ def test_without_app_secret_nothing_is_fetched(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.delenv("APP_SECRET", raising=False)
     load_app_secret(lambda name: pytest.fail(f"fetched {name}"))
+
+
+def test_bedrock_model_ids_are_priced_like_their_model() -> None:
+    from undercover_agent.models import PRICES, price_for  # noqa: PLC0415
+
+    assert price_for("au.anthropic.claude-sonnet-5-5-v1:0") == PRICES["claude-sonnet-5-5"]
+    assert price_for("claude-haiku-5-5") == PRICES["claude-haiku-5-5"]
+    assert price_for("someone-elses-model") == (0.0, 0.0, 0.0, 0.0)

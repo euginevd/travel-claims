@@ -219,9 +219,14 @@ class Drafter(Protocol):
     def letter(self, content: str) -> tuple[Letter | None, Call]: ...
 
 
+def price_for(model: str) -> tuple[float, float, float, float]:
+    """A model's prices, found inside a Bedrock ID (au.anthropic.claude-sonnet-5-5-v1:0) too."""
+    return next((p for name, p in PRICES.items() if name in model), (0.0, 0.0, 0.0, 0.0))
+
+
 def call_of(model: str, usage: Usage, started: float = 0.0) -> Call:
     """A call's tokens and its cost in US dollars, from the reply's usage."""
-    price_in, price_out, price_read, price_write = PRICES.get(model, (0.0, 0.0, 0.0, 0.0))
+    price_in, price_out, price_read, price_write = price_for(model)
     read = usage.cache_read_input_tokens or 0
     written = usage.cache_creation_input_tokens or 0
     cost = (
