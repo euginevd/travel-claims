@@ -11,7 +11,7 @@
 ## Stages
 
 4. **Stage 1, local build and test (complete):** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Stage 2, AWS build, test and deploy (in progress):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api` and `context` on Lambda, `agent` and `copilot` on AgentCore Runtime behind AgentCore Gateway, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts. **Stage 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
+5. **Stage 2, AWS build, test and deploy (in progress):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Stage 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
 
 ## Apps
 
@@ -51,3 +51,19 @@
 ## Not for now
 
 29. Real payments, real email and texts, quotes and policy sales, and a mobile app.
+
+## Stage 2 plan
+
+Every stage 2 piece is switched on by a setting and off by default, so `docker compose up` keeps running stage 1 unchanged (decision 13).
+
+30. **Front ends:** each web app is built by Vite into a private S3 bucket behind its own CloudFront distribution, which forwards only that app's api prefix (`/api/customer/`, `/api/staff/` and `/api/copilot/`, `/api/engineering/`) and adds the same security headers as its nginx today.
+31. **`api`, `context` and `copilot`:** the existing images run on Lambda through the AWS Lambda Web Adapter, which does nothing outside Lambda, each with a function URL that only CloudFront (or the agent) calls. The `api` migrates and seeds on start, as in Docker.
+32. **`agent`:** the existing image runs on AgentCore Runtime. It adds `/invocations` and `/ping` beside its routes: `/invocations` carries the api's request (route and body, with the agent's key) to the same route, and `/ping` says busy while a claim, run, round or red team is working, so a session lasts as long as its work. The api calls it with `invoke_agent_runtime` when `AGENT_RUNTIME_ARN` is set, and over HTTP otherwise. The copilot runs on Lambda, not Runtime, because the dashboard calls it with each handler's own token; AgentCore Gateway waits until a tool needs it.
+33. **Database:** PostgreSQL on Supabase (`ap-southeast-1`, decision 13) through its session pooler, as `DATABASE_URL` and `CHECKPOINT_DATABASE_URL`; the Data API stays on with row-level security on every `public` table and no policies, so it serves nothing.
+34. **Receipts:** a private, encrypted S3 bucket when `RECEIPTS_BUCKET` is set, under the same random names; the Docker volume otherwise.
+35. **Sign-in:** three Cognito user pools (customers, staff, engineers), email and password only, each with its own app client and groups; the apps' existing issuer and audience settings point at them, and the web apps sign in to Cognito when `VITE_COGNITO_CLIENT_ID` is set. Test accounts are created by Terraform.
+36. **Models:** Claude on Bedrock when `MODEL_PROVIDER=bedrock` (model ids from settings, Australian inference profile), through the same Anthropic SDK; the Anthropic API otherwise. A Bedrock guardrail screens model calls.
+37. **Secrets:** the database URLs, the agent's key and anything else secret live in Secrets Manager under `travel-claims/`, read at start; nothing secret is in Terraform variables, images or state.
+38. **Units** under `aws/`, applied in order by the pipeline: `registry` (ECR), `secrets`, `storage` (receipts and web buckets), `identity` (Cognito), `api` (the three Lambda functions), `agent` (Runtime), `web` (CloudFront). The bootstrap's deploy role grants only what these use.
+39. **Images:** a workflow builds the `api`, `context`, `copilot` and `agent` images on merge and pushes them to ECR, tagged by commit; each unit deploys the tag it's given.
+40. **Done when** each unit's PR shows its plan and cost comment, applies after approval, and spec 19 holds: every app answers its health check through CloudFront, and a claim is worked end to end on Bedrock.

@@ -91,7 +91,7 @@ flowchart LR
 | `home` | The local project page | Docker locally only |
 | `api` | Claims, decisions, payments, settings and sign-in | Docker locally; Lambda *(planned)* |
 | `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | Docker locally; AgentCore Runtime *(planned)* |
-| `copilot` | The handlers' chat agent | Docker locally; AgentCore Runtime *(planned)* |
+| `copilot` | The handlers' chat agent | Docker locally; Lambda *(planned)* |
 | `context` | Policy wording, claims manual and reference data as an MCP server | Docker locally; Lambda *(planned)* |
 
 ## 🚀 Run it
