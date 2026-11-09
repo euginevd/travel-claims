@@ -42,13 +42,13 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 23. A claim with instructions hidden in it goes to a handler, and the claim agent's model never sees it.
 24. A dispatch works the queue with 1 to 25 claim agents at once, survives a restart without deciding or paying any claim twice, and summarises itself from the records.
 25. An evaluation scores the agent against the handlers' decisions on a labelled set, and the scoreboard shows it.
-26. The improver proposes a new configuration, a senior handler approves or rejects it, and the keep-or-roll-back rule decides on the held-out set.
+26. The improver proposes a new configuration, an AI engineer approves or rejects it in the AI assurance console, and the keep-or-roll-back rule decides on the held-out set.
 27. The Copilot answers a handler's questions from the records and signs off a held payout only after the handler confirms on a card.
 28. All checks and the injection tests pass, and the local stack is documented in `status.md`.
 29. A customer signs in, sees only their own policy and claims with a plain-English status and reason, and submits a claim with up to five receipts (JPEG, PNG or PDF, 5 MB each); the hidden-instruction check reads the receipts before the claim agent does, and Claude reads them when deciding.
 30. Customers file photo first and type little: they snap a receipt or pick a common case, an AI drafting assistant (Claude Haiku) asks only what's missing and drafts the summary, items, amounts and dates, tagging where each came from and highlighting what it's unsure of; the customer confirms or fixes it before submitting. The assistant only drafts; the hidden-instruction check screens the customer's own words and receipts, and the claim agent reads the customer's original story as the record.
 31. Customers follow their claim on a plain status tracker, and can ask for a person to review any decision.
-32. Handlers see a case brief by default: a stage tracker (received, checked, assessed, decided, paid), a banner only when something needs them, a recommendation card with the outcome, the reason and a checklist of what was verified (exceptions first, each line linked to its receipt or clause), and the payout bar. They can sign off, send back, or override with a reason code. The agent's live activity sits in a separate panel, and a trace toggle shows the raw tool calls, JSON, model, tokens and cost.
+32. Handlers see a case brief by default: a stage tracker (received, checked, assessed, decided, paid), a banner only when something needs them, a recommendation card with the outcome, the reason and a checklist of what was verified (exceptions first, each line linked to its receipt or clause), and the payout bar. They can sign off, send back, or override with a reason code. The agent's live activity sits in a separate panel, and a trace toggle shows the raw tool calls, JSON and sources; tokens and cost are in the AI assurance console's claim trace.
 33. The queue puts what needs a handler first, with keyboard shortcuts and a command palette. AI-produced content carries one consistent marker in both apps.
 
 ## Rules
@@ -67,7 +67,7 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 
 ## Not for now
 
-45. Real payments, and messages to customers.
+45. Real payments, and delivering email and texts to customers (stage 1 keeps an outbox the portal shows).
 46. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
 47. Anything on AWS until stage 2 is spec'd.
 
@@ -75,10 +75,21 @@ Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks a
 
 48. **Evaluations:** a dispatcher works many claims at once (1 to 25 claim agents) and survives a restart without deciding or paying twice; an evaluation runs copies of a labelled set through it and a scoreboard shows accuracy, payout accuracy, the share handled straight through, cost and time per claim, with each miss beside the handler's decision.
 49. **Kill switch:** a senior handler can stop all payouts while the app keeps running; the agent still decides and every approval holds until payouts are back on.
-50. **Red-team suite:** a set of attack claims (instructions hidden in receipt images and PDFs, fake approval notes, goal hijacking, payout inflation) runs on demand with a pass or fail report; every attack must end referred or held, never paid.
+50. **Red-team suite:** run by an AI engineer from the AI assurance console, a set of attack claims (instructions hidden in receipt images and PDFs, fake approval notes, goal hijacking, payout inflation) runs on demand with a pass or fail report; every attack must end referred or held, never paid.
 51. **Specialist sub-agents:** a document checker (receipts against the story, dates and trip), a duplicate-receipt detector across claims, and a medical reviewer for medical claims; the claim agent calls them and cites them in its checklist.
-52. **Improver:** a second agent reads an evaluation's misses and proposes a change to the claim agent's instructions, model or effort as a diff; a senior handler approves or rejects it; an approved version is kept only if it improves the held-out scores without making any worse, and the improver never sees the held-out answers.
+52. **Improver:** a second agent reads an evaluation's misses and proposes a change to the claim agent's instructions, model or effort as a diff; an AI engineer approves or rejects it; an approved version is kept only if it improves the held-out scores without making any worse, and the improver never sees the held-out answers.
 53. **Copilot:** a chat in the staff dashboard that answers from the records and acts as the signed-in handler, never with the agent's key; it signs off only after the handler confirms on a card.
 54. **Customer memory:** the agent remembers each customer's earlier claims and decisions, used only for that customer's claims and never in evaluations.
 55. **Polish:** Work this claim carries on a claim the agent stopped on; optionally the agent starts as soon as a customer submits.
 56. Claude spend for building and testing these stays under $10 in all; evaluations and improvement rounds have their own spending limits.
+
+## Added during stage 1 (2026-11-09)
+
+57. **Asking the customer:** a referral can list what the customer can send (the claim agent, or a handler from the claim page); the customer sees each request on their claim with its own upload, and the handler sees when it's sent. The hidden-instruction check never asks.
+58. **Flight-delay claims:** a flight-status feed (a stand-in locally) finds flights on a customer's trip delayed past their plan's waiting time; the portal offers a one-tap claim carrying the feed's record, worked by the agent like any other.
+59. **PayID payouts:** a customer adds an email, mobile number or ABN; payments record where they went, shown masked.
+60. **Updates:** every status change worth telling (received, with a handler, declined, paid) and every request is written as an email and a text to an outbox, shown on the portal's Updates page.
+61. **Saved claims:** a claim being filled in is saved on the server, without its receipts, and offered back to finish or discard.
+62. **AI assurance console:** evaluations, improvement rounds, claim traces and the red team sit in their own app, behind a third sign-in issuer and audience for AI engineers; the handlers' workspace holds only claims work (decision 12).
+63. **Demo home:** a local-only page that explains the project, shows live counts and links to the three apps; it reads no customer data and is never deployed.
+
