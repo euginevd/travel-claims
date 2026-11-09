@@ -401,7 +401,7 @@ Resources:
                   - cloudfront:Get*
                   - cloudfront:List*
                   - cognito-idp:Describe*
-                  - cognito-idp:GetUserPoolMfaConfig
+                  - cognito-idp:Get*
                   - cognito-idp:List*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy
