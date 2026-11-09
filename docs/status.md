@@ -90,5 +90,5 @@ Two additions that show security and AI engineering together. The payouts switch
 ## Customer portal to-do (2026-11-09)
 
 35. Policy at a glance: a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
-36. Ask about my claim: a chat on the claim page that answers from the claim and policy with the customer's own access, behind the hidden-instruction check.
+36. Ask UnderCover: one assistant in the portal for policy questions, claim questions and starting a claim (agentic RAG). It chooses a tool per question: search the policy wording for the customer's plan and cite the clause, read their policy and plan limits, read their claim and its customer-facing reason, start a draft for the claim form (never sending it), or ask a person. Guardrails: customer-facing sources only (never the claims manual); only the signed-in customer's own records; explains and cites but never promises cover or payment; every message through the hidden-instruction check, with new red-team attacks; Claude Haiku, rate-limited, conversations logged with personal data redacted.
 
