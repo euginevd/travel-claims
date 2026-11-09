@@ -12,8 +12,8 @@ terraform {
     }
   }
 
-  # The pipeline passes the bucket and key at init, so no project name or account ID is in the code:
-  # terraform init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=$PROJECT_NAME/<unit>.tfstate"
+  # The pipeline passes the bucket, region and key at init (region overrides the default below), so no project name or account ID is in the code:
+  # terraform init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION" -backend-config="key=$PROJECT_NAME/<unit>.tfstate"
   backend "s3" {
     region       = "ap-southeast-2"
     use_lockfile = true
