@@ -32,7 +32,7 @@ The end-to-end flow, through the stages in section 3, for both a new project and
 
 Step 1 in full, for a new project:
 
-1. `gh repo create <name> --template euginevd/sdlc-template --private --clone`, then `bash scripts/setup.sh` and `bash scripts/protect-main.sh` (Actions limits, squash-only merges, GitHub's security features and the `main` ruleset; rerun it after changing it). A private repo needs a paid GitHub plan for the ruleset and the approval environments; a public repo gets them free.
+1. `gh repo create <name> --template euginevd/sdlc-template --private --clone`, then `bash scripts/setup.sh` and `bash scripts/protect-main.sh` (Actions limits, squash-only merges, GitHub's security features and the `main` ruleset; rerun it after changing it). A private repo needs a paid GitHub plan for the ruleset and the approval environments; a public repo gets them free. On a public repo, also turn on **Malware alerts** under Settings → Advanced Security and check **Copilot Autofix** is on: both are free, but neither has an API.
 2. Replace the worked example, keeping its structure: `business-context.md` per business; `spec.md`, `status.md`, the README and the root `pyproject.toml` name (then `uv lock`) per project; `decisions.md`. Keep `design-system.md`, `threat-model.md` and `costs.md` only if needed.
 3. Keep `AGENTS.md`, `code-standards.md`, the workflows and the scripts as they are.
 4. Bootstrap AWS: the steps at the top of [bootstrap.yaml](../aws/bootstrap/bootstrap.yaml).
