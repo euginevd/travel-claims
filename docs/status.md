@@ -71,3 +71,18 @@
 ## Next
 
 29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
+
+## Claims handler to-do (2026-11-09)
+
+What a handler needs from the dashboard, in order. Batch 1 is 30, 31 and 38; batch 2 is 32 and 33; batch 3 is 34 to 36.
+
+30. Age and service deadlines in the queue: days open, a due date, amber or red when close, sorted by urgency.
+31. "Documents in": when a customer answers every request, the claim returns to Needs me with a chip.
+32. Message the customer: a free-text note from the claim page, sent as email and text to their Updates, with the thread kept on the claim.
+33. Notes and follow-ups: private handler notes and "remind me on <date>" on each claim.
+34. Risk panel: receipts seen on other claims, repeat claims, the amount against typical for the claim type, and the hidden-instruction check, as signals, never automatic declines.
+35. Documents in the page: receipts and PDFs shown inline, with the AI's reading of each beside it.
+36. AI-drafted customer letters: the agent drafts the approval or decline explanation; the handler edits and sends it.
+37. Mine and the team's: assign claims to a handler, a Mine tab and simple workload counts.
+38. Navigation for handlers: Queue, Search, Copilot and their claims; Scoreboard, Improvement, Red team and the payouts switch only for senior handlers or the AI engineering side.
+
