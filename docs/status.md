@@ -1,5 +1,7 @@
 # Status
 
+Stage 1 (local) is complete. Stage 2 (serverless on AWS, decision 13) is in progress. Stage 3 (enterprise, on EKS) comes later, at work.
+
 ## Built
 
 1. Scaffold: a uv workspace with `apps/api` and `apps/agent` (health endpoints only), a web app (React, Vite and TypeScript, a placeholder page; now `apps/portal` and `apps/dashboard`), a Dockerfile per app, `docker-compose.yml` with PostgreSQL 17, and the `apps` workflow running each app's checks.
@@ -70,7 +72,7 @@
 
 ## Next
 
-29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
+29. Done: stage 1 complete (2026-11-09); stage 2's to-do is at the end.
 
 ## Project page (2026-11-09)
 
