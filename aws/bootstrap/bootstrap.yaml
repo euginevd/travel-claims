@@ -570,13 +570,13 @@ Outputs:
     Value: !Ref ProjectBoundary
 
   StateBucketName:
-    Description: TF_STATE_BUCKET on both GitHub environments
+    Description: GitHub variable TF_STATE_BUCKET on both environments, such as aws-dev-plan and aws-dev-apply
     Value: !Ref StateBucket
 
   DeployRoleArn:
-    Description: AWS_DEPLOY_ROLE_ARN on the aws-<target>-apply environment
+    Description: GitHub variable AWS_DEPLOY_ROLE_ARN on the apply environment, such as aws-dev-apply
     Value: !GetAtt DeployRole.Arn
 
   PlanRoleArn:
-    Description: AWS_PLAN_ROLE_ARN on the aws-<target>-plan environment
+    Description: GitHub variable AWS_PLAN_ROLE_ARN on the plan environment, such as aws-dev-plan
     Value: !GetAtt PlanRole.Arn
