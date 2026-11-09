@@ -57,10 +57,12 @@ def is_seeded(db: Connection) -> bool:
 
 def seed(db: Connection, data: Path) -> None:
     """Load the records into an empty database."""
-    company = cast(dict[str, Any], json.loads((data / "company.json").read_text(encoding="utf-8")))
-    every_customer = read(data, "customers.json") + read(data / "security", "customers.json")
-    every_policy = read(data, "policies.json") + read(data / "security", "policies.json")
-    queue = read(data, "claims.json") + read(data / "security", "claims.json")
+    records = data / "records"
+    company_file = (records / "company.json").read_text(encoding="utf-8")
+    company = cast(dict[str, Any], json.loads(company_file))
+    every_customer = read(records, "customers.json") + read(data / "security", "customers.json")
+    every_policy = read(records, "policies.json") + read(data / "security", "policies.json")
+    queue = read(records, "claims.json") + read(data / "security", "claims.json")
 
     db.execute(
         insert(customers),
@@ -85,7 +87,7 @@ def seed(db: Connection, data: Path) -> None:
         insert(handlers),
         [
             {k: h[k] for k in ("handler_id", "name", "role", "email", "can_approve_over_limit")}
-            for h in read(data, "handlers.json")
+            for h in read(records, "handlers.json")
         ],
     )
     db.execute(
@@ -118,7 +120,7 @@ def seed(db: Connection, data: Path) -> None:
 
 
 LABEL_SETS = (
-    ("evaluation", "claims.json", "evals/decisions.json"),
+    ("evaluation", "records/claims.json", "evals/decisions.json"),
     ("held_out", "evals/held_out_claims.json", "evals/held_out_decisions.json"),
 )
 
@@ -151,7 +153,7 @@ def seed_labels(db: Connection, data: Path) -> None:
 def seed_engineers(db: Connection, data: Path) -> None:
     """Load the AI engineers, adding any new one and updating any changed one by id, even in a
     database seeded before they existed."""
-    for engineer in read(data, "engineers.json"):
+    for engineer in read(data / "records", "engineers.json"):
         found = db.execute(
             update(engineers)
             .where(engineers.c.engineer_id == engineer["engineer_id"])

@@ -18,7 +18,7 @@ WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 # Only the records seeding loads, and the labelled sets evaluations score against (the api
 # keeps their labels to itself); never the security claim's decision.
-COPY data/claims.json data/policies.json data/customers.json data/handlers.json data/engineers.json data/company.json /app/data/
+COPY data/records/claims.json data/records/policies.json data/records/customers.json data/records/handlers.json data/records/engineers.json data/records/company.json /app/data/records/
 COPY data/evals/decisions.json data/evals/held_out_claims.json data/evals/held_out_decisions.json /app/data/evals/
 COPY data/security/claims.json data/security/policies.json data/security/customers.json /app/data/security/
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data RECEIPTS_DIR=/data/receipts
