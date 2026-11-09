@@ -4,7 +4,7 @@ python3 scripts/fill-secret.py <secret-id> [KEY=VALUE ...]
 
 Adds the agent's key (random) and SET-ME placeholders for the values only a person has, keeps
 every value already set, and sets each KEY=VALUE given (such as the agent's runtime ARN). Run by
-Terraform's apply with the deploy role; it prints key names, never values.
+Terraform's apply with the deploy role; it prints only whether it changed anything.
 """
 
 import json
@@ -75,7 +75,8 @@ def main(secret_id: str, pairs: list[str]) -> None:
     changed = fill(values, given)
     if changed:
         write(secret_id, values)
-    print(f"{secret_id}: {', '.join(changed) if changed else 'nothing to add'}")
+    # Whether it changed, never which values: nothing drawn from the secret reaches the log.
+    print(f"{secret_id}: {'updated' if changed else 'nothing to add'}")
 
 
 if __name__ == "__main__":
