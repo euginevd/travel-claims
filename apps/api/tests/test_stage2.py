@@ -3,6 +3,7 @@ Both stay off unless their setting is given, so stage 1 runs as before."""
 
 import io
 import json
+import os
 from typing import Any
 
 import pytest
@@ -109,3 +110,29 @@ def test_receipts_in_s3_keep_random_names_and_read_back() -> None:
 
 def test_without_a_bucket_receipts_stay_in_the_folder(database_url: str) -> None:
     assert make_receipts(make_settings(database_url)) is None
+
+
+def test_app_secret_fills_in_only_what_the_environment_lacks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from undercover_api.settings import load_app_secret  # noqa: PLC0415
+
+    monkeypatch.setenv("APP_SECRET", "travel-claims/dev/app")
+    monkeypatch.setenv("KEPT", "from-environment")
+    monkeypatch.delenv("FILLED", raising=False)
+    asked: list[str] = []
+
+    def fetch(name: str) -> str:
+        asked.append(name)
+        return '{"KEPT": "from-secret", "FILLED": "from-secret"}'
+
+    load_app_secret(fetch)
+    assert asked == ["travel-claims/dev/app"]
+    assert (os.environ["KEPT"], os.environ["FILLED"]) == ("from-environment", "from-secret")
+
+
+def test_without_app_secret_nothing_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
+    from undercover_api.settings import load_app_secret  # noqa: PLC0415
+
+    monkeypatch.delenv("APP_SECRET", raising=False)
+    load_app_secret(lambda name: pytest.fail(f"fetched {name}"))

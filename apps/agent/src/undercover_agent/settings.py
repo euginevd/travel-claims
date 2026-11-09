@@ -1,7 +1,10 @@
 """The agent's settings, read from the environment once and validated at start-up."""
 
+import json
+import os
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Any, Literal, Self, cast
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -53,7 +56,27 @@ class Settings(BaseSettings):
         return self
 
 
+def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
+    """On AWS (stage 2), fill in settings from the JSON secret named by APP_SECRET; anything already
+    in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
+    name = os.environ.get("APP_SECRET")
+    if not name:
+        return
+    values = json.loads((fetch or fetch_secret)(name))
+    for key, value in values.items():
+        os.environ.setdefault(str(key), str(value))
+
+
+def fetch_secret(name: str) -> str:
+    """A secret's value from Secrets Manager, with the role's credentials."""
+    import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    client = cast(Any, boto3).client("secretsmanager")
+    return str(client.get_secret_value(SecretId=name)["SecretString"])
+
+
 @lru_cache
 def get_settings() -> Settings:
     """The settings, read once."""
+    load_app_secret()
     return Settings()  # pyright: ignore[reportCallIssue] - pydantic-settings fills them in
