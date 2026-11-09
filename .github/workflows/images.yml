@@ -1,10 +1,10 @@
 name: images
 
-# Spec 39: builds the four images on merge, pushes them to ECR by commit, then runs the aws workflow; plain docker.
+# Spec 39: on merge, pushes the four images to ECR and the web apps to S3, then runs the aws workflow; plain docker.
 on:
   push:
     branches: [main]
-    paths: [apps/api/**, apps/agent/**, apps/context/**, apps/copilot/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
+    paths: [apps/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
   workflow_dispatch:
 
 permissions:
@@ -69,6 +69,54 @@ jobs:
           docker build --platform "$PLATFORM" --provenance=false -f "apps/$APP/Dockerfile" -t "$image" .
           docker push "$image"
           echo "Pushed \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Each web app, built by its own Dockerfile with its audience's Cognito client, into its bucket.
+  web:
+    if: vars.PROJECT_NAME != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { app: portal, audience: customers }
+          - { app: dashboard, audience: staff }
+          - { app: console, audience: engineering }
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: aws-dev-apply
+    permissions:
+      contents: read
+      id-token: write
+    # Passed to the shell as variables, never pasted into the script.
+    env:
+      APP: ${{ matrix.app }}
+      AUDIENCE: ${{ matrix.audience }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build, upload and refresh
+        run: |
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          bucket="$PROJECT_NAME-web-dev-$APP-$account"
+          if ! aws s3api head-bucket --bucket "$bucket" > /dev/null 2>&1; then
+            echo "::notice::No bucket $bucket yet: apply the web unit first."
+            exit 0
+          fi
+          pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
+          client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
+          docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" -f "apps/$APP/Dockerfile" -t "web-$APP" .
+          id="$(docker create "web-$APP")"
+          docker cp "$id:/web/dist" ./dist
+          aws s3 sync ./dist "s3://$bucket" --delete
+          distribution="$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$APP'].Id | [0]" --output text)"
+          aws cloudfront create-invalidation --distribution-id "$distribution" --paths '/*' > /dev/null
+          echo "Deployed $APP to \`$bucket\`" >> "$GITHUB_STEP_SUMMARY"
 
   # The units pick up the newest image, so a deploy is an aws workflow run.
   deploy:

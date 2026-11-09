@@ -232,6 +232,8 @@ Resources:
             Effect: Allow
             Action:
               - cloudfront:ListCachePolicies
+              - cloudfront:ListDistributions
+              - cloudfront:ListFunctions
               - cloudfront:ListOriginAccessControls
               - cloudfront:ListResponseHeadersPolicies
             Resource: '*'
