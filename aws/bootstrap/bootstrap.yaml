@@ -414,6 +414,7 @@ Resources:
                   - bedrock:ListGuardrails
                   - bedrock:ListInferenceProfiles
                   - bedrock:ListTagsForResource
+                  - cloudfront:DescribeFunction
                   - cloudfront:Get*
                   - cloudfront:List*
                   - cognito-idp:AdminGetUser
