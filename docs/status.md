@@ -72,6 +72,10 @@
 
 29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
 
+## Demo home (2026-11-09)
+
+Done: redesigned to two screens, big and visual: the real logo, a bold headline with live numbers, the three apps as screenshot cards, then the architecture diagram, one claim's journey a step at a time, six ideas as icons and the stack in one line.
+
 ## Claims handler to-do (2026-11-09)
 
 Three additions that show claims operations, AI and fraud expertise together. Done: the handler's navigation now holds only claims work (the AI pages moved to the AI assurance console), and tokens and cost moved from the handler's trace to the console's Claim trace page.
