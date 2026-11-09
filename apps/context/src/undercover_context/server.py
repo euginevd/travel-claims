@@ -79,8 +79,13 @@ def build_server() -> MCPServer:
 
 def build_app() -> Starlette:
     """The server as an ASGI app, guarding against DNS rebinding with the allowed hosts."""
-    hosts = os.environ.get("CONTEXT_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS).split(",")
-    security = TransportSecuritySettings(allowed_hosts=[host.strip() for host in hosts])
+    allowed = os.environ.get("CONTEXT_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
+    # "*" on Lambda (stage 2): its URL is generated, and rebinding only threatens a laptop's server.
+    if allowed.strip() == "*":
+        security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    else:
+        hosts = [host.strip() for host in allowed.split(",")]
+        security = TransportSecuritySettings(allowed_hosts=hosts)
     return build_server().streamable_http_app(
         stateless_http=True, json_response=True, transport_security=security
     )
