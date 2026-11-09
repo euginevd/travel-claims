@@ -104,6 +104,16 @@ services:
     ports:
       - "127.0.0.1:5175:8080"
 
+  # The demo home: what UnderCover is, how it fits together, and links to the three apps.
+  home:
+    build:
+      context: .
+      dockerfile: apps/home/Dockerfile
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:5172:8080"
+
 volumes:
   postgres-data:
   receipts:

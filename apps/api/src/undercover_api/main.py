@@ -68,6 +68,7 @@ from undercover_api.db import (
     payments,
     sent_back,
 )
+from undercover_api.demo import demo_router
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
@@ -798,6 +799,7 @@ def create_app(
         app.include_router(staff_sign_in_router)
         app.include_router(customer_sign_in_router)
         app.include_router(engineering_sign_in_router)
+        app.include_router(demo_router)
     else:
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)

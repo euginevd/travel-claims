@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UnderCover demo</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%231e6fd9'/%3E%3Cpath d='M6 17a10 10 0 0 1 20 0z' fill='%23ff6b4a'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="top">
+      <div class="wrap top-row">
+        <a class="brand" href="#main"><span class="logo" aria-hidden="true"></span>UnderCover <small>demo</small></a>
+        <nav aria-label="Sections">
+          <a href="#try">Try it</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#concepts">Concepts</a>
+          <a href="#security">Security</a>
+          <a href="#stack">Stack</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- 1. Hero and the three apps -->
+      <section class="hero">
+        <div class="wrap">
+          <p class="eyebrow">Agentic travel insurance claims · local lab</p>
+          <h1>AI agents decide routine travel claims in minutes. People handle the ones that need judgement.</h1>
+          <p class="lead">
+            UnderCover is a working pilot of an AI claims platform: a customer portal, a claims
+            handler's workspace and an AI engineering console, with Claude agents in the middle and
+            hard limits around them.
+          </p>
+          <div class="apps">
+            <a class="app-card" href="http://localhost:5173" data-health="http://localhost:5173">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="app-port">:5173</span>
+              <h2>Customer portal</h2>
+              <p>Make a claim from a photo, claim a delayed flight in one tap, send what we ask for, get paid to a PayID.</p>
+              <span class="tip">Use test account: Oliver Grant</span>
+            </a>
+            <a class="app-card" href="http://localhost:5174" data-health="http://localhost:5174">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="app-port">:5174</span>
+              <h2>Claims handler</h2>
+              <p>Work the queue, read the agent's case brief, ask the customer for documents, sign off or override.</p>
+              <span class="tip">Use test account: Dana Whitfield, senior handler</span>
+            </a>
+            <a class="app-card" href="http://localhost:5175" data-health="http://localhost:5175">
+              <span class="dot" aria-hidden="true"></span>
+              <span class="app-port">:5175</span>
+              <h2>AI engineer console</h2>
+              <p>Score the agent against handlers' decisions, approve its improvements, run the red team.</p>
+              <span class="tip">Use test account: Priya Raman, AI engineer</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Live numbers -->
+      <section class="numbers" aria-label="Live numbers">
+        <div class="wrap stats">
+          <div class="stat"><span class="stat-value" data-stat="claims">–</span><span class="stat-label">claims in the system</span></div>
+          <div class="stat"><span class="stat-value" data-stat="agent_share">–</span><span class="stat-label">decided by the agent alone</span></div>
+          <div class="stat"><span class="stat-value" data-stat="average_cost">–</span><span class="stat-label">average model cost per claim</span></div>
+          <div class="stat"><span class="stat-value" data-stat="redteam">–</span><span class="stat-label">red-team attacks held</span></div>
+        </div>
+      </section>
+
+      <!-- 2. Try it in 5 minutes -->
+      <section id="try" class="section">
+        <div class="wrap">
+          <h2 class="section-title">Try it in five minutes</h2>
+          <ol class="script">
+            <li>
+              <strong>Claim a delayed flight.</strong> In the portal, sign in as Oliver. The flight-status
+              feed found UL 503 was 4h 40m late: tap <em>Claim $35.00</em>. Add a PayID on the same page.
+              <a href="http://localhost:5173">Open the portal</a>
+            </li>
+            <li>
+              <strong>Let the agent decide.</strong> In the handler workspace, sign in as Dana, open the new
+              claim and press <em>Work</em>. Watch the case brief fill in: checks, sources and the payout.
+              <a href="http://localhost:5174">Open the workspace</a>
+            </li>
+            <li>
+              <strong>See it land.</strong> Back in the portal: the claim is paid to the PayID, and
+              <em>Updates</em> shows the email and text we sent.
+              <a href="http://localhost:5173/#/updates">Open Updates</a>
+            </li>
+            <li>
+              <strong>Try to fool it.</strong> Make a claim with
+              <code>data/sample-receipts/04-injection-test-mara-lodge.png</code>, a receipt hiding an
+              instruction to the AI. The hidden-instruction check stops it before the agent reads it.
+            </li>
+            <li>
+              <strong>Hold it to account.</strong> In the console, sign in as Priya and run the five-claim
+              evaluation (about $0.15): the agent's decisions against the handlers'.
+              <a href="http://localhost:5175">Open the console</a>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- 3. Architecture and 4. a claim's journey -->
+      <section id="architecture" class="section alt">
+        <div class="wrap">
+          <h2 class="section-title">Architecture</h2>
+          <p class="section-lead">Select a part to see what it does. The dashed outlines are trust boundaries: each app has its own sign-in issuer and audience.</p>
+          <div class="arch">
+            <svg viewBox="0 0 960 470" role="group" aria-label="Architecture diagram" class="diagram">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead" /></marker>
+              </defs>
+              <!-- trust boundaries -->
+              <rect x="20" y="20" width="200" height="120" rx="14" class="boundary" /><text x="34" y="40" class="boundary-label">Customers</text>
+              <rect x="20" y="170" width="200" height="120" rx="14" class="boundary" /><text x="34" y="190" class="boundary-label">Staff</text>
+              <rect x="20" y="320" width="200" height="120" rx="14" class="boundary" /><text x="34" y="340" class="boundary-label">AI engineering</text>
+              <!-- edges -->
+              <path d="M200 90 L330 200" class="edge" data-edge="portal-api" marker-end="url(#arrow)" />
+              <path d="M200 240 L330 230" class="edge" data-edge="dashboard-api" marker-end="url(#arrow)" />
+              <path d="M200 390 L330 260" class="edge" data-edge="console-api" marker-end="url(#arrow)" />
+              <path d="M200 255 Q260 330 330 345" class="edge" data-edge="dashboard-copilot" marker-end="url(#arrow)" />
+              <path d="M450 345 Q470 300 450 260" class="edge" data-edge="copilot-api" marker-end="url(#arrow)" />
+              <path d="M510 230 L620 140" class="edge" data-edge="api-agent" marker-end="url(#arrow)" />
+              <path d="M450 270 L450 300 L620 400" class="edge" data-edge="api-db" marker-end="url(#arrow)" />
+              <path d="M740 115 L820 115" class="edge" data-edge="agent-claude" marker-end="url(#arrow)" />
+              <path d="M680 165 L680 230" class="edge" data-edge="agent-context" marker-end="url(#arrow)" />
+              <path d="M510 345 Q700 350 820 140" class="edge" data-edge="copilot-claude" marker-end="url(#arrow)" />
+              <!-- nodes -->
+              <g class="node" data-node="portal" tabindex="0" role="button" aria-label="Customer portal"><rect x="40" y="60" width="160" height="56" rx="12" /><text x="120" y="85">portal</text><text x="120" y="103" class="sub">make claims</text></g>
+              <g class="node" data-node="dashboard" tabindex="0" role="button" aria-label="Handler dashboard"><rect x="40" y="210" width="160" height="56" rx="12" /><text x="120" y="235">dashboard</text><text x="120" y="253" class="sub">work claims</text></g>
+              <g class="node" data-node="console" tabindex="0" role="button" aria-label="AI engineer console"><rect x="40" y="360" width="160" height="56" rx="12" /><text x="120" y="385">console</text><text x="120" y="403" class="sub">evaluate the agent</text></g>
+              <g class="node core" data-node="api" tabindex="0" role="button" aria-label="API"><rect x="330" y="190" width="180" height="80" rx="12" /><text x="420" y="225">api</text><text x="420" y="245" class="sub">claims · payments · limits</text></g>
+              <g class="node ai" data-node="copilot" tabindex="0" role="button" aria-label="Copilot"><rect x="390" y="320" width="120" height="50" rx="12" /><text x="450" y="342">copilot</text><text x="450" y="359" class="sub">handlers' chat</text></g>
+              <g class="node ai" data-node="agent" tabindex="0" role="button" aria-label="Claim agent"><rect x="620" y="70" width="120" height="95" rx="12" /><text x="680" y="105">agent</text><text x="680" y="124" class="sub">claim agent</text><text x="680" y="140" class="sub">+ specialists</text></g>
+              <g class="node" data-node="context" tabindex="0" role="button" aria-label="Context server"><rect x="620" y="230" width="120" height="56" rx="12" /><text x="680" y="254">context</text><text x="680" y="272" class="sub">MCP server</text></g>
+              <g class="node store" data-node="db" tabindex="0" role="button" aria-label="PostgreSQL"><rect x="620" y="370" width="150" height="60" rx="12" /><text x="695" y="396">PostgreSQL</text><text x="695" y="414" class="sub">records + receipts</text></g>
+              <g class="node external" data-node="claude" tabindex="0" role="button" aria-label="Claude"><rect x="820" y="85" width="120" height="60" rx="30" /><text x="880" y="112">Claude</text><text x="880" y="130" class="sub">Sonnet · Haiku</text></g>
+            </svg>
+            <aside class="detail" aria-live="polite">
+              <h3 id="detail-title">Select a part</h3>
+              <p id="detail-what">Each box is a container in Docker Compose today and on EKS in stage 2.</p>
+              <dl id="detail-facts"></dl>
+            </aside>
+          </div>
+
+          <div class="journey">
+            <div class="journey-head">
+              <h3>One claim's journey</h3>
+              <div class="journey-controls">
+                <button type="button" class="button secondary" id="journey-back">Back</button>
+                <button type="button" class="button" id="journey-next">Start</button>
+              </div>
+            </div>
+            <ol class="journey-steps" id="journey-steps"></ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Core concepts -->
+      <section id="concepts" class="section">
+        <div class="wrap">
+          <h2 class="section-title">Core concepts</h2>
+          <div class="cards">
+            <article class="card"><h3>Human in the loop</h3><p>The agent pays approvals under $1,000 on its own. Anything larger waits for a senior handler's sign-off, and every decision can be overridden with a reason code.</p><a href="http://localhost:5174">See the queue</a></article>
+            <article class="card"><h3>The agent decides; code pays</h3><p>Limits, payouts and the one-payment-per-claim rule live in the api, where no prompt can reach. The agent can only ask.</p></article>
+            <article class="card"><h3>Prompt-injection defence</h3><p>A hidden-instruction check reads every claim and receipt before the agent does, and refers anything that tries to give the AI orders.</p></article>
+            <article class="card"><h3>Evaluations with a held-out set</h3><p>The agent is scored against handlers' decisions on an evaluation set, and on a held-out set it never sees.</p><a href="http://localhost:5175">See the scoreboard</a></article>
+            <article class="card"><h3>Self-improvement, human-gated</h3><p>An improver proposes a new configuration from the misses. An AI engineer approves it, and it's kept only if it scores better on the held-out set.</p><a href="http://localhost:5175/#/improvement">See improvement</a></article>
+            <article class="card"><h3>Kill switch</h3><p>A senior handler can pause every payout at once. Approvals then wait for sign-off until payouts are back on.</p></article>
+            <article class="card"><h3>Three trust boundaries</h3><p>Customers, handlers and AI engineers each use their own app, sign-in issuer and token audience, so one app's token opens nothing in another.</p></article>
+            <article class="card"><h3>Context over MCP</h3><p>Policy wording, the claims manual and reference data sit in an MCP server the agent queries, with each answer's source recorded.</p></article>
+            <article class="card"><h3>Fraud signals</h3><p>Receipts are fingerprinted to find the same one on another claim, and the agent remembers a customer's earlier claims.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. Security and governance -->
+      <section id="security" class="section alt">
+        <div class="wrap">
+          <h2 class="section-title">Security and governance</h2>
+          <div class="cols">
+            <div>
+              <h3>In the app</h3>
+              <ul class="ticks">
+                <li>A threat model with a data flow diagram, kept with the code</li>
+                <li>A red-team suite of eight attack claims mapped to the OWASP Top 10 for LLM applications</li>
+                <li>Every agent step traced: tool calls, sources, tokens and cost</li>
+                <li>Receipts checked by their contents, size-limited and served only as downloads</li>
+                <li>Strict content security policy on every app; customer names redacted from logs</li>
+              </ul>
+            </div>
+            <div>
+              <h3>In the pipeline</h3>
+              <ul class="ticks">
+                <li>A secure agentic SDLC: spec, plan, threat model and review for every change</li>
+                <li>Semgrep, CodeQL, secret scanning and an SBOM on every pull request</li>
+                <li>Dependabot with a seven-day cooldown; every action and image pinned by digest</li>
+                <li>Protected main: changes land only through pull requests with passing checks</li>
+                <li>GitHub Actions deploy to AWS with OIDC, no long-lived keys (stage 2)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Stack -->
+      <section id="stack" class="section">
+        <div class="wrap">
+          <h2 class="section-title">Stack</h2>
+          <ul class="stack">
+            <li><strong>Claude Sonnet and Haiku 5.5</strong><span>the claim agent, specialists, improver and Copilot</span></li>
+            <li><strong>LangGraph</strong><span>the agent's steps, with saved progress in PostgreSQL</span></li>
+            <li><strong>MCP</strong><span>the context server for policy wording and the claims manual</span></li>
+            <li><strong>FastAPI</strong><span>the api: claims, decisions, payments and sign-in</span></li>
+            <li><strong>PostgreSQL</strong><span>records, the agent's memory and saved progress</span></li>
+            <li><strong>React and Vite</strong><span>the portal, dashboard and console</span></li>
+            <li><strong>Docker Compose</strong><span>every part in a container on a laptop</span></li>
+            <li><strong>GitHub Actions</strong><span>checks, scans and, in stage 2, deployment</span></li>
+            <li><strong>Terraform and EKS</strong><span>the AWS platform for stage 2 (planned)</span></li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
