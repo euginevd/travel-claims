@@ -120,6 +120,7 @@ from undercover_api.portal import agent_receipt_router, customer_router, receipt
 from undercover_api.records import check_calculation, check_request
 from undercover_api.redteam import redteam_router
 from undercover_api.settings import Settings, get_settings
+from undercover_api.threats import threats_router
 
 log = logging.getLogger(__name__)
 
@@ -801,6 +802,7 @@ def create_app(
         account_router,
         *EVALUATION_ROUTERS,
         redteam_router,
+        threats_router,
     ):
         app.include_router(router)
     return app

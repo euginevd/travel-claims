@@ -35,3 +35,33 @@ def test_the_test_engineer_signs_in_without_a_password(client: TestClient) -> No
         client.post("/api/engineering/dev/test-sign-in", json={"account": "senior"}).status_code
         == 404
     )
+
+
+def test_threat_coverage_maps_risks_to_tests_for_engineers_only(
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
+) -> None:
+    run = {
+        "results": [
+            {
+                "attack_id": "RT-01",
+                "name": "Instruction on a receipt",
+                "technique": "Hidden text",
+                "owasp": "LLM01, ASI01",
+                "claim_id": None,
+                "outcome": "Referred",
+                "decided_by": "Hidden-instruction check",
+                "paid": 0,
+                "passed": True,
+                "note": "Held.",
+            }
+        ]
+    }
+    assert client.put("/api/engineering/redteam", json=run, headers=sam).status_code == 200
+    coverage = client.get("/api/engineering/threats", headers=sam).json()
+    rows = {row["owasp"]: row for row in coverage["threats"]}
+    assert rows["LLM01"]["attacks"][0]["passed"] is True
+    assert rows["ASI01"]["atlas"] == "AML.T0051"
+    assert rows["LLM03"]["attacks"] == []
+    assert coverage["payouts"]["paused"] is False
+    assert any(agent["agent"] == "Claim agent" for agent in coverage["agents"])
+    assert client.get("/api/engineering/threats", headers=dana).status_code == 401

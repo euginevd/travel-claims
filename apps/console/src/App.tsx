@@ -1,4 +1,4 @@
-import { FlaskConical, ScrollText, ShieldCheck, Sparkles } from "lucide-react";
+import { FlaskConical, Radar, ScrollText, ShieldCheck, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -8,12 +8,14 @@ import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
+import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
   IMPROVEMENT_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
+  THREATS_HREF,
   TRACE_HREF,
   useHashRoute,
   type Route,
@@ -131,6 +133,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
           { href: IMPROVEMENT_HREF, label: "Quality: Improvement", Icon: Sparkles },
           { href: TRACE_HREF, label: "Quality: Claim trace", Icon: ScrollText },
           { href: REDTEAM_HREF, label: "Security: Red team", Icon: ShieldCheck },
+          { href: THREATS_HREF, label: "Security: Threat coverage", Icon: Radar },
         ]}
         onSignOut={signOut}
       />
@@ -150,5 +153,6 @@ function page(route: Route, api: Api) {
   if (route.page === "improvement") return <ImprovementPage api={api} />;
   if (route.page === "redteam") return <RedTeamPage api={api} />;
   if (route.page === "trace") return <TracePage api={api} />;
+  if (route.page === "threats") return <ThreatsPage api={api} />;
   return <ScoreboardPage api={api} />;
 }

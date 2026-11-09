@@ -604,3 +604,17 @@ pre,
   border-radius: 10px;
   font: inherit;
 }
+
+.attack {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 8px;
+}
+
+.payouts-readonly {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+}

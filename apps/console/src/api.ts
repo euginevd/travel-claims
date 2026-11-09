@@ -175,6 +175,32 @@ export const TraceSchema = z.object({
 });
 
 export type Trace = z.infer<typeof TraceSchema>;
+
+export const ThreatCoverageSchema = z.object({
+  redteam_run_at: z.string().nullable(),
+  threats: z.array(
+    z.object({
+      owasp: z.string(),
+      risk: z.string(),
+      atlas: z.string(),
+      control: z.string(),
+      attacks: z.array(z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() })),
+      last_fired: z.string().nullable(),
+      fired: z.number(),
+    }),
+  ),
+  agents: z.array(
+    z.object({ agent: z.string(), model: z.string(), tools: z.string(), sources: z.string() }),
+  ),
+  payouts: z.object({
+    paused: z.boolean(),
+    changed_by: z.string().nullable(),
+    changed_at: z.string().nullable(),
+    reason: z.string().nullable(),
+  }),
+});
+
+export type ThreatCoverage = z.infer<typeof ThreatCoverageSchema>;
 export type Engineer = z.infer<typeof EngineerSchema>;
 export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
 export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
@@ -196,6 +222,7 @@ export interface Api {
   reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
   stopRound: (roundId: number) => Promise<Round>;
   getTrace: (claimId: string) => Promise<Trace>;
+  getThreats: () => Promise<ThreatCoverage>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -287,6 +314,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
     getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),
   };
 }
