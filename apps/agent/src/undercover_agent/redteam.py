@@ -234,7 +234,7 @@ class RedTeamStarter:
             raise RedTeamUnavailableError(
                 "The red team signs in with the local test accounts, which are only on locally"
             ) from error
-        threading.Thread(target=self._run, args=(portal,), daemon=True).start()
+        threading.Thread(target=self._run, args=(portal,), name="redteam", daemon=True).start()
 
     def _run(self, portal: Portal) -> None:
         try:
