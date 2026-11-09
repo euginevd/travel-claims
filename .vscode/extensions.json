@@ -1,3 +1,10 @@
 {
-  "recommendations": ["AquaSecurityOfficial.trivy-vulnerability-scanner", "Semgrep.semgrep"]
+  "recommendations": [
+    "AquaSecurityOfficial.trivy-vulnerability-scanner",
+    "Semgrep.semgrep",
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "hashicorp.terraform",
+    "dbaeumer.vscode-eslint"
+  ]
 }

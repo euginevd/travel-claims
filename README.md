@@ -107,4 +107,18 @@ flowchart LR
    | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer |
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
 
+## 💰 Costs
+
+Rough monthly figures in USD for `dev` on AWS (stage 2), mostly free tiers; checked by AWS Budgets and each PR's cost comment.
+
+| Piece | Idle | Demo use |
+|-------|-----:|---------:|
+| Claude on Bedrock (claims, drafts, Wattle AI) | $0 | $5–15 |
+| AgentCore Runtime (the agent) | $0 | $1–3 |
+| Secrets Manager (2 secrets), ECR images, CloudWatch logs | $2 | $2–3 |
+| Lambda, CloudFront (4 sites), S3, Cognito, Supabase | $0 | $0–1 |
+| **Total** | **≈ $2** | **≈ $10–20** |
+
+Stage 1 costs only the Anthropic API tokens. Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+
 Developers: [AGENTS.md](AGENTS.md), then [docs/](docs/). Stages and what done means: [spec.md](docs/spec.md).

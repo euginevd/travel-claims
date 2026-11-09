@@ -11,3 +11,7 @@ apps/home/img/** binary
 *.svg text eol=lf
 apps/home/media/** binary
 *.mp4 binary
+# Lock files are generated: collapsed in PR diffs.
+uv.lock linguist-generated=true
+.terraform.lock.hcl linguist-generated=true
+**/package-lock.json linguist-generated=true

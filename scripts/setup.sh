@@ -32,6 +32,10 @@ install trivy AquaSecurity.Trivy trivy || exit 1
 install lefthook evilmartians.lefthook lefthook || exit 1
 install uv astral-sh.uv uv || exit 1
 install terraform Hashicorp.Terraform hashicorp/tap/terraform || exit 1
+# Warns when the installed Terraform is older than the units need, as installs never upgrade.
+want=$(grep -ho '>= [0-9]*\.[0-9]*' aws/*/versions.tf 2>/dev/null | head -1 | cut -c4-)
+have=$(terraform version | head -1 | grep -o '[0-9]*\.[0-9]*' | head -1)
+[ -n "$want" ] && [ "$(printf '%s\n' "$want" "$have" | sort -V | head -1)" != "$want" ] && echo "Terraform $have found, the units need $want: upgrade it with winget or brew."
 lefthook install || exit 1
 [ -f pyproject.toml ] && { uv sync || exit 1; }
 
