@@ -35,8 +35,7 @@ ClaimId = Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")]
 ThreadId = Annotated[str, StringConstraints(min_length=1, max_length=100)]
 
 
-# The routes the api may reach through /invocations, and the names of the threads that mean work
-# is going (claims are named by their id, runs and rounds by theirs, and the red team).
+# Routes /invocations may reach, and the thread names that mean work is going.
 INVOCABLE = Literal[
     "/work", "/resume", "/dispatch", "/improve", "/redteam", "/draft", "/ask", "/explain", "/letter"
 ]

@@ -39,8 +39,7 @@ class Settings(BaseSettings):
     # Where receipts are kept: a Docker volume locally, a private S3 bucket when the bucket is set.
     receipts_dir: Path = Path("receipts")
     receipts_bucket: str | None = None
-    # The agent's service, which the api asks to work or resume a claim: over HTTP locally, or
-    # on AgentCore Runtime when its ARN is set (stage 2).
+    # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (stage 2).
     agent_url: str = "http://127.0.0.1:8080"
     agent_runtime_arn: str | None = None
     # The claim agent's configuration version, named on every decision it makes.

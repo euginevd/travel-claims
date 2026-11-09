@@ -16,8 +16,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # Claude through the Anthropic API locally, or through Bedrock with the role's credentials
-    # (stage 2); on Bedrock the model settings below are Bedrock model or inference profile ids.
+    # Anthropic API locally, Bedrock on AWS (stage 2), where the model settings are Bedrock ids.
     model_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)

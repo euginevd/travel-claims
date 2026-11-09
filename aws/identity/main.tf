@@ -1,5 +1,4 @@
-# Three user pools, one per audience (decisions 10 and 12, spec 35): a token from one fails the
-# others' signature and audience checks. Email and password only; accounts are made by an admin.
+# One user pool per audience (decisions 10 and 12, spec 35), email and password, accounts made by an admin.
 locals {
   audiences = {
     customers   = { group = "customers", description = "Customers of the portal" }

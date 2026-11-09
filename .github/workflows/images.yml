@@ -1,0 +1,84 @@
+name: images
+
+# Spec 39: builds the four images on merge, pushes them to ECR by commit, then runs the aws workflow; plain docker.
+on:
+  push:
+    branches: [main]
+    paths: [apps/api/**, apps/agent/**, apps/context/**, apps/copilot/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+
+jobs:
+  build:
+    if: vars.PROJECT_NAME != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { app: api, runner: ubuntu-latest, platform: linux/amd64 }
+          - { app: context, runner: ubuntu-latest, platform: linux/amd64 }
+          - { app: copilot, runner: ubuntu-latest, platform: linux/amd64 }
+          # AgentCore Runtime runs arm64 images.
+          - { app: agent, runner: ubuntu-24.04-arm, platform: linux/arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    environment: aws-dev-apply
+    permissions:
+      contents: read
+      id-token: write
+    # Passed to the shell as variables, never pasted into the script.
+    env:
+      APP: ${{ matrix.app }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build and push
+        run: |
+          repo="$PROJECT_NAME/$APP"
+          if ! aws ecr describe-repositories --repository-names "$repo" > /dev/null 2>&1; then
+            echo "::notice::No repository $repo yet: apply the registry unit first."
+            exit 0
+          fi
+          # Tags are immutable, so a rerun for the same commit keeps the image it pushed.
+          if aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$GITHUB_SHA" > /dev/null 2>&1; then
+            echo "::notice::$repo:$GITHUB_SHA is already pushed."
+            exit 0
+          fi
+          registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          image="$registry/$repo:$GITHUB_SHA"
+          # Lambda and Runtime take a plain single-platform image, so no attestation index.
+          docker build --platform "$PLATFORM" --provenance=false -f "apps/$APP/Dockerfile" -t "$image" .
+          docker push "$image"
+          echo "Pushed \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # The units pick up the newest image, so a deploy is an aws workflow run.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Ask the aws workflow to deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run aws.yml -R "$GITHUB_REPOSITORY" -f target=dev -f unit=all -f action=apply
