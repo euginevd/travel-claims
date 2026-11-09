@@ -14,6 +14,7 @@ import { date, dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
 import { AskedPanel } from "../components/AskedPanel";
+import { RiskPanel } from "../components/RiskPanel";
 
 interface ClaimPageProps {
   api: Api;
@@ -279,6 +280,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 </tbody>
               </table>
               <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
+              <RiskPanel api={api} claimId={claim.claim_id} />
               <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
               {claim.documents.length > 0 && (
                 <>

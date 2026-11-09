@@ -184,6 +184,19 @@ export const ClaimSchema = z.object({
   ),
 });
 
+export const RiskSchema = z.object({
+  shared_receipts: z.array(
+    z.object({ receipt: z.number(), claim_id: z.string(), match: z.string() }),
+  ),
+  earlier_claims: z.number(),
+  earlier_paid: z.number(),
+  amount_claimed: z.number(),
+  typical_amount: z.number().nullable(),
+  high_amount: z.boolean(),
+});
+
+export type Risk = z.infer<typeof RiskSchema>;
+
 export const StepSchema = z.object({
   step_id: z.number(),
   kind: StepKindSchema,
@@ -270,6 +283,7 @@ export interface Api {
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
+  getRisk: (claimId: string) => Promise<Risk>;
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
   getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
@@ -364,6 +378,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
+    getRisk: (claimId) => call(RiskSchema, "GET", `${claimPath(claimId)}/risk`),
     askCustomer: (claimId, text) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/requests`, { body: { text } }),
     receipt: async (claimId, receiptId) => {

@@ -604,3 +604,39 @@ pre,
   border-radius: 10px;
   font: inherit;
 }
+
+/* Risk signals on a claim */
+.risk {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.risk-flagged {
+  border-color: var(--warn);
+  background: var(--warn-tint);
+}
+
+.risk h3 {
+  margin: 0 0 8px;
+}
+
+.risk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.risk-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-list li.flag {
+  font-weight: 600;
+  color: var(--warn);
+}

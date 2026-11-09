@@ -119,6 +119,7 @@ from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_pay
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.records import check_calculation, check_request
 from undercover_api.redteam import redteam_router
+from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
 from undercover_api.threats import threats_router
 
@@ -803,6 +804,7 @@ def create_app(
         *EVALUATION_ROUTERS,
         redteam_router,
         threats_router,
+        risk_router,
     ):
         app.include_router(router)
     return app
