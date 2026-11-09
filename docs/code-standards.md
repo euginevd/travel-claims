@@ -28,7 +28,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Terraform
 
-13. One root per unit in `aws/<unit>/`, copied from `aws/api`: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
+13. One root per unit in `aws/<unit>/`, copied from sdlc-template's `aws/api`: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
 14. No hardcoded IDs, regions, ARNs, project names or environments. Name resources `${var.project}-<unit>-<what>-${var.environment}`, give every IAM role the `${var.project}-boundary` boundary, and tag through `default_tags`.
 
 ## Languages
