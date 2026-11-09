@@ -87,3 +87,9 @@ Three additions that show security and AI engineering together. The payouts swit
 33. Threat coverage page (Security): the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS; each row with UnderCover's control, the red-team attack that tests it, its last result and when its guardrail last fired. Beside it, each agent's model, tools and MCP sources, and the payouts switch's status, read-only.
 34. Red team as a gate: an improvement round's candidate version must pass the red team before it's kept, with the bypass rate tracked per version.
 35. Guardrail events: count hidden-instruction catches, refusals and duplicate-receipt hits, shown as the "last fired" column on the threat coverage page.
+
+## Customer portal to-do (2026-11-09)
+
+36. Policy at a glance: a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
+37. Ask about my claim: a chat on the claim page that answers from the claim and policy with the customer's own access, behind the hidden-instruction check.
+

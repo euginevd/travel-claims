@@ -26,6 +26,8 @@ One page that explains the project, then sends you into the apps.
 
 ## 3. Customer portal (5173)
 
+One portal for travellers: claim in minutes and always know where it stands. AI does the paperwork and says when it helped; people decide anything uncertain.
+
 ### My claims
 
 - **Claims grouped** into In progress and Completed, each with a four-step tracker: Received, Assessing, Decision, Paid.
@@ -37,20 +39,31 @@ One page that explains the project, then sends you into the apps.
 ### Make a claim
 
 - **Three steps:** what happened (pick the trip and tap a tile), receipts (photos or PDFs), then check.
-- **AI drafting assistant:** reads your words and receipts and drafts the claim for you to check; your words stay the record.
+- **AI drafting assistant:** reads your words and receipts and drafts the claim for you to check. Your words stay the record, it never sends anything itself, and it's limited to 10 drafts an hour.
 - **Helpers:** airport and city suggestions, a date picker limited to your trip.
 - **Saved as you go:** leave and come back later (receipts aren't saved).
+- **Receipts checked:** files are checked by their contents (JPEG, PNG or PDF), up to 5 MB each and 5 a claim.
 
 ### A claim
 
 - **What we need from you:** each document we've asked for, with its own upload button.
 - **Where it stands:** the status in plain words, the decision's reason, and the amount paid and where it went.
+- **AI disclosure:** a decision says when it was made with help from the AI claims agent.
+- **Referrals kept private:** a referred claim says a handler will look at it, never the internal reason, so screening and fraud checks stay hidden.
 - **Ask a person:** request a human review of a decision you disagree with.
 - **Your claim:** what happened, the items and amounts, and your receipts, with more uploads while it waits.
 
-### Updates
+### Across the portal
 
-- **Every email and text** we've sent you about your claims, newest first, each linked to its claim.
+- **Updates:** every email and text we've sent you about your claims, newest first, each linked to its claim.
+- **Only your own claims:** every page shows only the signed-in customer's claims, with a sign-in of its own, apart from the staff apps.
+
+### Coming next
+
+The customer to-do in [docs/status.md](../docs/status.md): two additions.
+
+1. **Policy at a glance:** a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
+2. **Ask about my claim:** a chat on the claim page that answers from the claim and policy with the customer's own access, defended against prompt injection like the claim agent.
 
 ## 4. Claims handler workspace (5174)
 
