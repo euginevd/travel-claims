@@ -7,3 +7,8 @@ output "client_ids" {
   description = "Each audience's web client ID: the api's token audience and the web app's VITE_COGNITO_CLIENT_ID"
   value       = { for name, client in aws_cognito_user_pool_client.web : name => client.id }
 }
+
+output "test_accounts_secret" {
+  description = "Where the test accounts' passwords are kept"
+  value       = aws_secretsmanager_secret.test_accounts.name
+}

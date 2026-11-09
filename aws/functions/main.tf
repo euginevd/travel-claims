@@ -3,6 +3,17 @@ data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}
 
+# Claude's Australian inference profiles, found in the region unless a variable names one.
+data "aws_bedrock_inference_profiles" "system" {
+  type = "SYSTEM_DEFINED"
+}
+
+locals {
+  profiles = data.aws_bedrock_inference_profiles.system.inference_profile_summaries[*].inference_profile_id
+  sonnet   = coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none"))
+  haiku    = coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none"))
+}
+
 locals {
   account   = data.aws_caller_identity.current.account_id
   partition = data.aws_partition.current.partition
@@ -185,6 +196,7 @@ resource "aws_lambda_function" "copilot" {
       ENVIRONMENT    = var.environment
       APP_SECRET     = data.aws_secretsmanager_secret.app.name
       MODEL_PROVIDER = "bedrock"
+      COPILOT_MODEL  = local.sonnet
       UNDERCOVER_API = trimsuffix(aws_lambda_function_url.service["api"].function_url, "/")
     }
   }
@@ -195,6 +207,13 @@ resource "aws_lambda_function" "copilot" {
   }
 
   depends_on = [aws_iam_role_policy.function]
+
+  lifecycle {
+    precondition {
+      condition     = local.sonnet != "none" && local.haiku != "none"
+      error_message = "No Australian inference profile for Claude Sonnet 5.5 or Haiku 5.5 here: turn on model access in the Bedrock console, or set sonnet_model and haiku_model."
+    }
+  }
 }
 
 # The api checks tokens or the agent's key itself; the context has no auth of its own, so only the agent's role may call it.

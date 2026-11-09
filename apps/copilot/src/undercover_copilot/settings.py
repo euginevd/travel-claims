@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
+    # Stage 2: a Bedrock guardrail on every model call, when its ID is set.
+    bedrock_guardrail_id: str | None = None
+    bedrock_guardrail_version: str = "1"
     undercover_api: str = "http://127.0.0.1:8000"
     # psycopg's own form (postgresql://...), where conversations and their progress are kept.
     checkpoint_database_url: SecretStr
