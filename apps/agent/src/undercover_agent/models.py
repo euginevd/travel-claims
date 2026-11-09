@@ -242,8 +242,18 @@ def call_of(model: str, usage: Usage, started: float = 0.0) -> Call:
 def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
     """Claude through the Anthropic API in the user's workspace, or through Bedrock (stage 2)."""
     if settings.model_provider == "bedrock":
+        # Bedrock applies the guardrail to the call when these headers name it.
+        guardrail = (
+            {
+                "X-Amzn-Bedrock-GuardrailIdentifier": settings.bedrock_guardrail_id,
+                "X-Amzn-Bedrock-GuardrailVersion": settings.bedrock_guardrail_version,
+            }
+            if settings.bedrock_guardrail_id
+            else {}
+        )
         return AnthropicBedrock(
             aws_region=settings.aws_region,
+            default_headers=guardrail,
             timeout=settings.model_timeout_seconds,
             max_retries=settings.model_retries,
         )
