@@ -101,34 +101,35 @@ RESULT = {
 }
 
 
-def test_the_latest_red_team_run_is_kept_for_staff(
-    client: TestClient, dana: dict[str, str], marcus: dict[str, str]
+def test_the_latest_red_team_run_is_kept_for_engineers(
+    client: TestClient, dana: dict[str, str], priya: dict[str, str]
 ) -> None:
-    assert client.get("/api/staff/redteam", headers=marcus).json()["report"] is None
+    assert client.get("/api/engineering/redteam", headers=priya).json()["report"] is None
     run = {"results": [RESULT]}
-    assert client.put("/api/staff/redteam", json=run, headers=marcus).status_code == 403
-    assert client.put("/api/staff/redteam", json=run, headers=dana).status_code == 200
-    latest = client.get("/api/staff/redteam", headers=marcus).json()["report"]
-    assert latest["run_by"] == "Dana Whitfield"
+    # A handler's token is refused at the engineers' routes.
+    assert client.put("/api/engineering/redteam", json=run, headers=dana).status_code == 401
+    assert client.put("/api/engineering/redteam", json=run, headers=priya).status_code == 200
+    latest = client.get("/api/engineering/redteam", headers=priya).json()["report"]
+    assert latest["run_by"] == "Priya Raman"
     assert latest["results"][0]["attack_id"] == "RT-01"
 
 
-def test_a_senior_starts_one_red_team_run_at_a_time(
-    client: TestClient, agent: FakeAgent, dana: dict[str, str], marcus: dict[str, str]
+def test_an_engineer_starts_one_red_team_run_at_a_time(
+    client: TestClient, agent: FakeAgent, dana: dict[str, str], priya: dict[str, str]
 ) -> None:
-    assert client.post("/api/staff/redteam/runs", headers=marcus).status_code == 403
-    started = client.post("/api/staff/redteam/runs", headers=dana)
+    assert client.post("/api/engineering/redteam/runs", headers=dana).status_code == 401
+    started = client.post("/api/engineering/redteam/runs", headers=priya)
     assert started.status_code == 202
     assert started.json()["running"] is True
     assert ("redteam", "", None) in agent.calls
-    assert client.post("/api/staff/redteam/runs", headers=dana).status_code == 409
-    client.put("/api/staff/redteam", json={"results": [RESULT]}, headers=dana)
-    assert client.get("/api/staff/redteam", headers=dana).json()["running"] is False
+    assert client.post("/api/engineering/redteam/runs", headers=priya).status_code == 409
+    client.put("/api/engineering/redteam", json={"results": [RESULT]}, headers=priya)
+    assert client.get("/api/engineering/redteam", headers=priya).json()["running"] is False
 
 
 def test_a_red_team_run_the_agent_cant_take_is_not_left_running(
-    client: TestClient, agent: FakeAgent, dana: dict[str, str]
+    client: TestClient, agent: FakeAgent, priya: dict[str, str]
 ) -> None:
     agent.unreachable()
-    assert client.post("/api/staff/redteam/runs", headers=dana).status_code == 503
-    assert client.get("/api/staff/redteam", headers=dana).json()["running"] is False
+    assert client.post("/api/engineering/redteam/runs", headers=priya).status_code == 503
+    assert client.get("/api/engineering/redteam", headers=priya).json()["running"] is False

@@ -42,6 +42,16 @@ policies = Table(
     Column("record", JSON, nullable=False),
 )
 
+# The AI engineers who evaluate, improve and red-team the agent, in their own console.
+engineers = Table(
+    "engineers",
+    metadata,
+    Column("engineer_id", String(20), primary_key=True),
+    Column("name", String(200), nullable=False),
+    Column("role", String(100), nullable=False),
+    Column("email", String(320), nullable=False, unique=True),
+)
+
 handlers = Table(
     "handlers",
     metadata,

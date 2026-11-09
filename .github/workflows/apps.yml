@@ -20,6 +20,7 @@ jobs:
     outputs:
       python: ${{ steps.diff.outputs.python }}
       dashboard: ${{ steps.diff.outputs.dashboard }}
+      console: ${{ steps.diff.outputs.console }}
       portal: ${{ steps.diff.outputs.portal }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,21 +31,22 @@ jobs:
         name: Apps changed by this PR
         run: |
           # HEAD is the PR merged into main; its first parent is main.
-          files=$(git diff --name-only HEAD^1 HEAD) || { { echo "python=true"; echo "dashboard=true"; echo "portal=true"; } >> "$GITHUB_OUTPUT"; exit 0; }
-          python=false; dashboard=false; portal=false
+          files=$(git diff --name-only HEAD^1 HEAD) || { { echo "python=true"; echo "dashboard=true"; echo "console=true"; echo "portal=true"; } >> "$GITHUB_OUTPUT"; exit 0; }
+          python=false; dashboard=false; console=false; portal=false
           while IFS= read -r f; do
             case "$f" in
               "") ;;
               apps/dashboard/*) dashboard=true ;;
+              apps/console/*) console=true ;;
               apps/portal/*) portal=true ;;
               apps/* | data/* | *.py | pyproject.toml | uv.lock | .python-version) python=true ;;
               *.md | docs/* | guides/* | LICENSE | aws/* | .vscode/*) ;;
-              *) python=true; dashboard=true; portal=true ;;
+              *) python=true; dashboard=true; console=true; portal=true ;;
             esac
           done <<< "$files"
           echo "$files"
-          echo "python=$python dashboard=$dashboard portal=$portal"
-          { echo "python=$python"; echo "dashboard=$dashboard"; echo "portal=$portal"; } >> "$GITHUB_OUTPUT"
+          echo "python=$python dashboard=$dashboard console=$console portal=$portal"
+          { echo "python=$python"; echo "dashboard=$dashboard"; echo "console=$console"; echo "portal=$portal"; } >> "$GITHUB_OUTPUT"
 
   python:
     needs: changes
@@ -101,6 +103,25 @@ jobs:
     defaults:
       run:
         working-directory: apps/dashboard
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  console:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.console != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
+    defaults:
+      run:
+        working-directory: apps/console
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Connection, RowMapping, func, insert, select, update
 
 from undercover_api.agent_service import AgentService, AgentUnavailableError
-from undercover_api.auth import Database, SeniorHandler, SignedIn
+from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.claims import find_claim
 from undercover_api.db import configurations, now, rounds, settings
 from undercover_api.evaluations import (
@@ -163,19 +163,19 @@ def scores_of(db: Connection, run_id: int) -> Scores:
 
 
 @staff_eval_router.get("/rounds", operation_id="list_rounds")
-def list_rounds(_: SignedIn, db: Database) -> list[Round]:
+def list_rounds(_: SignedInEngineer, db: Database) -> list[Round]:
     """Every improvement round, newest first."""
     rows = db.execute(select(rounds).order_by(rounds.c.round_id.desc())).mappings()
     return [round_of(db, r) for r in rows]
 
 
 @staff_eval_router.get("/rounds/{round_id}", operation_id="get_round")
-def get_round(round_id: int, _: SignedIn, db: Database) -> Round:
+def get_round(round_id: int, _: SignedInEngineer, db: Database) -> Round:
     return round_of(db, round_row(db, round_id))
 
 
 @staff_eval_router.post("/rounds", operation_id="start_round", status_code=201)
-def start_round(handler: SeniorHandler, db: Database, service: AgentCalls) -> Round:
+def start_round(engineer: SignedInEngineer, db: Database, service: AgentCalls) -> Round:
     """Start a round: evaluate the current version on the evaluation and held-out sets (their
     tiny claims, in this pilot), then ask the improver."""
     if db.execute(select(func.count()).where(rounds.c.status.in_(OPEN))).scalar_one():
@@ -188,14 +188,14 @@ def start_round(handler: SeniorHandler, db: Database, service: AgentCalls) -> Ro
                 baseline_version=version,
                 improver_cost=0,
                 spend_limit=spend_limit(db),
-                started_by=handler.name,
+                started_by=engineer.name,
                 started_at=now(),
             )
         )
     )
     for label_set, column in BASELINES:
         body = StartRunRequest(label_set=label_set, size=TINY, concurrency=CONCURRENCY)
-        run_id, ids = create_run(db, body, version, handler.name, round_id)
+        run_id, ids = create_run(db, body, version, engineer.name, round_id)
         update_round(db, round_id, **{column: run_id})
         dispatch(db, service, run_id, ids, CONCURRENCY)
     return round_of(db, round_row(db, round_id))
@@ -203,20 +203,24 @@ def start_round(handler: SeniorHandler, db: Database, service: AgentCalls) -> Ro
 
 @staff_eval_router.post("/rounds/{round_id}/review", operation_id="review_proposal")
 def review_proposal(
-    round_id: int, body: ReviewRequest, handler: SeniorHandler, db: Database, service: AgentCalls
+    round_id: int,
+    body: ReviewRequest,
+    engineer: SignedInEngineer,
+    db: Database,
+    service: AgentCalls,
 ) -> Round:
     """Approve the improver's proposal, which is then tried on the held-out set, or reject it
     with the reason."""
     row = round_row(db, round_id)
     if row["status"] != "awaiting_review":
         raise HTTPException(409, f"Round {round_id} has no proposal waiting for review")
-    review = {"approved": body.approve, "reason": body.reason, "by": handler.name, "at": now()}
+    review = {"approved": body.approve, "reason": body.reason, "by": engineer.name, "at": now()}
     candidate = row["candidate_version"]
     if not body.approve:
         db.execute(
             update(configurations)
             .where(configurations.c.version == candidate)
-            .values(status="rejected", reviewed_by=handler.name)
+            .values(status="rejected", reviewed_by=engineer.name)
         )
         update_round(db, round_id, status="rejected", review=review)
         return round_of(db, round_row(db, round_id))
@@ -230,17 +234,17 @@ def review_proposal(
     db.execute(
         update(configurations)
         .where(configurations.c.version == candidate)
-        .values(status="candidate", reviewed_by=handler.name)
+        .values(status="candidate", reviewed_by=engineer.name)
     )
     body_run = StartRunRequest(label_set="held_out", size=TINY, concurrency=CONCURRENCY)
-    run_id, ids = create_run(db, body_run, candidate, handler.name, round_id)
+    run_id, ids = create_run(db, body_run, candidate, engineer.name, round_id)
     update_round(db, round_id, status="evaluating", review=review, candidate_held_run=run_id)
     dispatch(db, service, run_id, ids, CONCURRENCY)
     return round_of(db, round_row(db, round_id))
 
 
 @staff_eval_router.post("/rounds/{round_id}/stop", operation_id="stop_round")
-def stop_round(round_id: int, _: SeniorHandler, db: Database) -> Round:
+def stop_round(round_id: int, _: SignedInEngineer, db: Database) -> Round:
     """Stop an open round; the current version stays as it was."""
     row = round_row(db, round_id)
     if row["status"] not in OPEN:

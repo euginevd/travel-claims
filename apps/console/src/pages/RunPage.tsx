@@ -1,9 +1,9 @@
 import { CircleCheck, CircleX, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Api, Handler, RunInFull } from "../api";
+import type { Api, RunInFull } from "../api";
 import { dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { SCOREBOARD_HREF, claimHref } from "../useHashRoute";
+import { SCOREBOARD_HREF } from "../useHashRoute";
 import { measures } from "./ScoreboardPage";
 
 const POLL_MS = 3000;
@@ -13,7 +13,7 @@ function outcome(decision: string | null, payout: number | null): string {
   return decision === "approve" ? `Approve ${dollars(payout ?? 0)}` : decision;
 }
 
-export function RunPage({ api, runId, handler }: { api: Api; runId: number; handler: Handler }) {
+export function RunPage({ api, runId }: { api: Api; runId: number }) {
   const [run, setRun] = useState<RunInFull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -96,7 +96,7 @@ export function RunPage({ api, runId, handler }: { api: Api; runId: number; hand
               ))}
             </ul>
           )}
-          {handler.can_approve_over_limit && run.status !== "running" && stuck && (
+          {run.status !== "running" && stuck && (
             <button type="button" className="button secondary" onClick={() => void resume()}>
               <RotateCw size={16} strokeWidth={2} aria-hidden="true" />
               Carry on with the unfinished claims
@@ -123,7 +123,7 @@ export function RunPage({ api, runId, handler }: { api: Api; runId: number; hand
                   .map((claim) => (
                     <tr key={claim.claim_id} className={claim.payout_matched ? "" : "miss"}>
                       <td className="nowrap">
-                        <a href={claimHref(claim.claim_id)}>{claim.original_claim_id}</a>
+                        <span className="mono">{claim.original_claim_id}</span>
                       </td>
                       <td>{claim.summary}</td>
                       <td>

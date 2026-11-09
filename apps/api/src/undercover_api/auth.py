@@ -14,9 +14,9 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Connection, Engine, func, select
 
-from undercover_api.db import customers, handlers
+from undercover_api.db import customers, engineers, handlers
 from undercover_api.local_sign_in import LocalIssuer
-from undercover_api.models import Customer, Handler
+from undercover_api.models import Customer, Engineer, Handler
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +28,8 @@ KEY_IS_NOT_A_HANDLER = HTTPException(403, "The agent's key can't act as a handle
 KEY_IS_NOT_A_CUSTOMER = HTTPException(403, "The agent's key can't act as a customer")
 HANDLERS_GROUP = "handlers"
 CUSTOMERS_GROUP = "customers"
+ENGINEERS_GROUP = "engineers"
+KEY_IS_NOT_AN_ENGINEER = HTTPException(403, "The agent's key can't act as an engineer")
 OVER_THE_LIMIT_ONLY = HTTPException(
     403, "Only a handler who can sign off over the approval limit may do this"
 )
@@ -192,3 +194,32 @@ def signed_in_customer(
 
 
 SignedInCustomer = Annotated[Customer, Depends(signed_in_customer)]
+
+
+def signed_in_engineer(
+    request: Request,
+    db: Database,
+    key: Annotated[str | None, Depends(AGENT_KEY_HEADER)],
+    bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
+) -> Engineer:
+    """The AI engineer signed in, with a token from the engineering issuer only. Neither the
+    agent's key nor a handler's or customer's token stands in."""
+    if key is not None:
+        raise KEY_IS_NOT_AN_ENGINEER
+    if bearer is None:
+        raise NOT_SIGNED_IN
+    verifier: TokenVerifier = request.app.state.engineering_verifier
+    email, groups = verifier.identity(bearer.credentials)
+    if ENGINEERS_GROUP not in groups:
+        raise HTTPException(403, "You aren't an AI engineer")
+    row = (
+        db.execute(select(engineers).where(func.lower(engineers.c.email) == email.lower()))
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(403, "You aren't an AI engineer")
+    return Engineer.model_validate(dict(row))
+
+
+SignedInEngineer = Annotated[Engineer, Depends(signed_in_engineer)]

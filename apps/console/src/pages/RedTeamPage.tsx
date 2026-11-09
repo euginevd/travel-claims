@@ -1,24 +1,15 @@
 import { LoaderCircle, Play, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, type Api, type Handler, type RedTeamStatus } from "../api";
+import { ApiError, type Api, type RedTeamStatus } from "../api";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { claimHref } from "../useHashRoute";
 
 // How often the page checks on a run while it's going.
 export const REDTEAM_POLL_MS = 3000;
 
-/** The red-team suite: a senior runs it from here, then each attack, what the app did and
+/** The red-team suite: an AI engineer runs it from here, then each attack, what the app did and
  * whether it held. */
-export function RedTeamPage({
-  api,
-  handler,
-  pollMs = REDTEAM_POLL_MS,
-}: {
-  api: Api;
-  handler: Handler;
-  pollMs?: number;
-}) {
+export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollMs?: number }) {
   const [status, setStatus] = useState<RedTeamStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -69,7 +60,6 @@ export function RedTeamPage({
   }
 
   const report = status?.report ?? null;
-  const senior = handler.can_approve_over_limit;
   const held = report?.results.filter((result) => result.passed).length ?? 0;
   return (
     <section aria-labelledby="redteam-heading">
@@ -89,7 +79,7 @@ export function RedTeamPage({
             onClick={() => {
               void run();
             }}
-            disabled={!senior || running || starting || !status}
+            disabled={running || starting || !status}
           >
             {running || starting ? (
               <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden="true" />
@@ -100,9 +90,8 @@ export function RedTeamPage({
           </button>
         </div>
         <p className="muted small">
-          {senior
-            ? "Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of Claude, a few minutes."
-            : "Only a senior handler can run the red team."}
+          Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of
+          Claude, a few minutes.
         </p>
         {running && (
           <p role="status" className="redteam-progress">
@@ -121,11 +110,7 @@ export function RedTeamPage({
       {status && !report && !running && (
         <div className="panel empty">
           <h2>No run yet</h2>
-          <p className="muted">
-            {senior
-              ? "Run the red team to see how the app stands up to attack claims."
-              : "The report appears here after a senior handler first runs the red team."}
-          </p>
+          <p className="muted">Run the red team to see how the app stands up to attack claims.</p>
         </div>
       )}
       {!status && !error && <p role="status">Loading the report…</p>}
@@ -167,7 +152,7 @@ export function RedTeamPage({
                       <span className="mono">{result.attack_id}</span> {result.name}
                       {result.claim_id && (
                         <div>
-                          <a href={claimHref(result.claim_id)}>{result.claim_id}</a>
+                          <span className="mono">{result.claim_id}</span>
                         </div>
                       )}
                     </th>

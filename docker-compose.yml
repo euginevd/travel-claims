@@ -93,6 +93,17 @@ services:
     ports:
       - "127.0.0.1:5174:8080"
 
+  console:
+    build:
+      context: .
+      dockerfile: apps/console/Dockerfile
+      args:
+        VITE_LOCAL_SIGN_IN: ${LOCAL_SIGN_IN:-false}
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:5175:8080"
+
 volumes:
   postgres-data:
   receipts:

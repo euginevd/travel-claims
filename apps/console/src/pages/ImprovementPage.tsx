@@ -1,6 +1,6 @@
 import { Check, Sparkles, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Api, Configuration, Handler, Round } from "../api";
+import type { Api, Configuration, Round } from "../api";
 import { AiMark } from "../components/AiMark";
 import { when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -12,11 +12,11 @@ const OPEN = ["baselining", "improving", "awaiting_review", "evaluating"];
 const STAGE_TEXT: Record<string, string> = {
   baselining: "Evaluating the current version on both sets…",
   improving: "The improver is reading the misses and drafting a proposal…",
-  awaiting_review: "A proposal is waiting for a senior handler's review.",
+  awaiting_review: "A proposal is waiting for an AI engineer's review.",
   evaluating: "Trying the approved version on the held-out set…",
   kept: "Kept: the new version is now the current one.",
   rolled_back: "Rolled back: the current version stays.",
-  rejected: "Rejected by a senior handler.",
+  rejected: "Rejected by an AI engineer.",
   stopped: "Stopped.",
 };
 
@@ -138,7 +138,7 @@ function RoundPanel(props: { api: Api; round: Round; senior: boolean; onChange: 
   );
 }
 
-export function ImprovementPage({ api, handler }: { api: Api; handler: Handler }) {
+export function ImprovementPage({ api }: { api: Api }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
   const [versions, setVersions] = useState<Configuration[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -193,16 +193,16 @@ export function ImprovementPage({ api, handler }: { api: Api; handler: Handler }
       </h1>
       <p className="muted">
         The improver reads where the agent disagreed with the handlers on the evaluation set and
-        proposes a new configuration. A senior handler approves or rejects it, and an approved
-        version is kept only if it does better on the held-out set without doing worse on any
-        measure. The improver never sees the held-out answers.
+        proposes a new configuration. An AI engineer approves or rejects it, and an approved version
+        is kept only if it does better on the held-out set without doing worse on any measure. The
+        improver never sees the held-out answers.
       </p>
       {current && (
         <p>
           Current: <strong>v{current.version}</strong>, {current.model} at {current.effort} effort
         </p>
       )}
-      {handler.can_approve_over_limit && !open && (
+      {!open && (
         <button type="button" className="button" onClick={() => void start()}>
           <Sparkles size={16} strokeWidth={2} aria-hidden="true" />
           Start an improvement round
@@ -218,13 +218,7 @@ export function ImprovementPage({ api, handler }: { api: Api; handler: Handler }
       )}
       {!rounds && !error && <p role="status">Loading the rounds…</p>}
       {rounds?.map((round) => (
-        <RoundPanel
-          key={round.round_id}
-          api={api}
-          round={round}
-          senior={handler.can_approve_over_limit}
-          onChange={refresh}
-        />
+        <RoundPanel key={round.round_id} api={api} round={round} senior onChange={refresh} />
       ))}
       {versions.length > 0 && (
         <section aria-labelledby="versions-heading">

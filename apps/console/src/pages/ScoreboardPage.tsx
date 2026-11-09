@@ -1,6 +1,6 @@
 import { FlaskConical, Play } from "lucide-react";
 import { useCallback, useEffect, useState, type SubmitEvent } from "react";
-import type { Api, Handler, Run, Scores, StartRunRequest } from "../api";
+import type { Api, Run, Scores, StartRunRequest } from "../api";
 import { useFocusHeading } from "../useFocusHeading";
 import { when } from "../format";
 import { runHref } from "../useHashRoute";
@@ -111,7 +111,7 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
   );
 }
 
-export function ScoreboardPage({ api, handler }: { api: Api; handler: Handler }) {
+export function ScoreboardPage({ api }: { api: Api }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -153,11 +153,7 @@ export function ScoreboardPage({ api, handler }: { api: Api; handler: Handler })
       <h1 id="scoreboard-heading" ref={heading} tabIndex={-1}>
         Scoreboard
       </h1>
-      {handler.can_approve_over_limit ? (
-        <StartRun api={api} onStarted={refresh} />
-      ) : (
-        <p className="muted">Only a senior handler can start an evaluation.</p>
-      )}
+      <StartRun api={api} onStarted={refresh} />
       {error && (
         <p className="error" role="alert">
           {error}

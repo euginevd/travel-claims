@@ -17,6 +17,7 @@ from sqlalchemy import Connection, Engine, func, insert, select
 from undercover_api.db import (
     claims,
     customers,
+    engineers,
     handlers,
     labelled_claims,
     make_engine,
@@ -147,10 +148,18 @@ def seed_labels(db: Connection, data: Path) -> None:
         db.execute(insert(labelled_claims), rows)
 
 
+def seed_engineers(db: Connection, data: Path) -> None:
+    """Load the AI engineers once, even into a database seeded before they existed."""
+    if db.execute(select(func.count()).select_from(engineers)).scalar_one():
+        return
+    db.execute(insert(engineers), read(data, "engineers.json"))
+
+
 def seed_if_empty(engine: Engine, data: Path) -> bool:
     """Seed the database unless it already holds claims. Says whether it seeded."""
     with engine.begin() as db:
         seed_labels(db, data)
+        seed_engineers(db, data)
         if is_seeded(db):
             return False
         seed(db, data)
