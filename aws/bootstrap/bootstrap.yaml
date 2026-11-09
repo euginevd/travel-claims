@@ -469,6 +469,13 @@ Resources:
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
               - bedrock-agentcore:InvokeAgentRuntime
             Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
+          # The agent calls the context's IAM-only function URL.
+          - Sid: LambdaUrls
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:InvokeFunctionUrl
+            Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
           # Agent, copilot and assistants call Claude through a guardrail.
           - Sid: Bedrock
             Effect: Allow

@@ -205,3 +205,13 @@ def test_ping_says_busy_while_a_claim_is_working() -> None:
         release.set()
         worker.join(timeout=5)
         assert http.get("/ping").json()["status"] == "Healthy"
+
+
+def test_on_runtime_invocations_need_no_key_since_aws_checked_the_caller() -> None:
+    body = {"claim_id": "CLM-1001", "thread_id": "t"}
+    with TestClient(create_app(StubRunner, lambda: KEY, on_runtime=True)) as http:
+        on_runtime = http.post("/invocations", json={"path": "/work", "body": body})
+    with client() as http:
+        off_runtime = http.post("/invocations", json={"path": "/work", "body": body})
+    assert on_runtime.json() == {"status": 202, "body": {"accepted": True}}
+    assert off_runtime.json()["status"] == 401

@@ -197,13 +197,13 @@ resource "aws_lambda_function" "copilot" {
   depends_on = [aws_iam_role_policy.function]
 }
 
-# Each app checks every caller itself (tokens or the agent's key), so the URLs need no AWS signature.
+# The api checks tokens or the agent's key itself; the context has no auth of its own, so only the agent's role may call it.
 resource "aws_lambda_function_url" "service" {
-  #checkov:skip=CKV_AWS_258: the api, context and copilot authenticate every request themselves; CloudFront and the agent call them
+  #checkov:skip=CKV_AWS_258: the api authenticates every request itself; the context's URL is AWS_IAM
   for_each = aws_lambda_function.service
 
   function_name      = each.value.function_name
-  authorization_type = "NONE"
+  authorization_type = each.key == "context" ? "AWS_IAM" : "NONE"
 }
 
 resource "aws_lambda_function_url" "copilot" {

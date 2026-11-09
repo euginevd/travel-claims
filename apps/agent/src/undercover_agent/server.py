@@ -43,12 +43,13 @@ WORK_THREADS = ("CLM-", "run-", "round-", "redteam")
 
 
 class Invocation(BaseModel):
-    """What the api sends through AgentCore Runtime: the route, its body and the agent's key."""
+    """What the api sends through AgentCore Runtime: the route and its body. Off Runtime the
+    caller adds the agent's key; on Runtime AWS has already checked the caller's IAM role."""
 
     model_config = ConfigDict(extra="forbid")
     path: INVOCABLE
     body: dict[str, object]
-    key: Annotated[str, StringConstraints(max_length=200)]
+    key: Annotated[str, StringConstraints(max_length=200)] = ""
 
 
 def busy() -> bool:
@@ -215,6 +216,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     start_redteam: Callable[[], None] | None = None,
     make_asker: Callable[[], Asker] | None = None,
     make_explainer: Callable[[], Explainer] | None = None,
+    on_runtime: bool = False,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -254,7 +256,8 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     @app.post("/invocations", operation_id="invocations")
     async def invocations(invocation: Invocation) -> dict[str, object]:  # pyright: ignore[reportUnusedFunction]
         """AgentCore Runtime's entry point: the route's own answer, wrapped with its status."""
-        status, body = await call_route(app, invocation.path, invocation.body, invocation.key)
+        caller = key() if on_runtime else invocation.key
+        status, body = await call_route(app, invocation.path, invocation.body, caller)
         return {"status": status, "body": body}
 
     @app.get("/ping", operation_id="ping")
@@ -366,6 +369,12 @@ def build_app() -> FastAPI:
 
     settings = get_settings()
 
+    signer = None
+    if settings.context_aws_auth:
+        from undercover_agent.aws_auth import LambdaUrlSigner  # noqa: PLC0415
+
+        signer = LambdaUrlSigner(settings.aws_region or os.environ["AWS_REGION"])
+
     def make_runner() -> Runner:
         pool = ConnectionPool(
             settings.checkpoint_database_url.get_secret_value(),
@@ -389,7 +398,7 @@ def build_app() -> FastAPI:
         graph = build_graph(
             api,
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context),
+            McpContext(settings.undercover_context, signer),
             saver,
             max_model_calls=settings.max_model_calls,
             memory=StoreMemory(store),
@@ -407,10 +416,11 @@ def build_app() -> FastAPI:
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
         make_asker=lambda: Asker(
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context),
+            McpContext(settings.undercover_context, signer),
             settings.drafting_model,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
+        on_runtime=settings.agentcore_runtime,
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),

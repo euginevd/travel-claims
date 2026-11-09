@@ -91,6 +91,8 @@ resource "aws_iam_role_policy" "agent" {
         ]
       },
       { Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = data.aws_secretsmanager_secret.app.arn },
+      # The context's URL takes only IAM-signed calls, and only this role may make them.
+      { Effect = "Allow", Action = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"], Resource = "arn:${local.partition}:lambda:${local.region}:${local.account}:function:${local.prefix}-context" },
     ]
   })
 }
@@ -124,6 +126,8 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     ENVIRONMENT        = var.environment
     APP_SECRET         = data.aws_secretsmanager_secret.app.name
     MODEL_PROVIDER     = "bedrock"
+    CONTEXT_AWS_AUTH   = "true"
+    AGENTCORE_RUNTIME  = "true"
     UNDERCOVER_API     = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
     UNDERCOVER_CONTEXT = "${trimsuffix(data.aws_lambda_function_url.context.function_url, "/")}/mcp"
   }

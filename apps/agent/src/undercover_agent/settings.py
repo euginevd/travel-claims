@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
+    # Stage 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
+    context_aws_auth: bool = False
+    agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
     undercover_api: str = "http://127.0.0.1:8000"
     undercover_context: str = "http://127.0.0.1:8006/mcp"

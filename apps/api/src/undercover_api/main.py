@@ -759,7 +759,7 @@ def make_agent_service(settings: Settings) -> AgentService:
     """The agent on AgentCore Runtime when its ARN is set (stage 2), else over HTTP."""
     key = settings.undercover_api_key.get_secret_value()
     if settings.agent_runtime_arn:
-        return RuntimeAgentService(settings.agent_runtime_arn, key, runtime_client())
+        return RuntimeAgentService(settings.agent_runtime_arn, runtime_client())
     return HttpAgentService(settings.agent_url, key)
 
 

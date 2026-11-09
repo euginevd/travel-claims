@@ -39,22 +39,21 @@ class FakeRuntime:
         return {"response": io.BytesIO(json.dumps(answer).encode())}
 
 
-def test_work_goes_through_the_runtime_with_the_key_and_a_long_session_id() -> None:
+def test_work_goes_through_the_runtime_without_the_key_and_with_a_long_session_id() -> None:
     runtime = FakeRuntime({"status": 202, "body": {"accepted": True}})
-    RuntimeAgentService(ARN, KEY, runtime).work("CLM-1001", "thread-1")
+    RuntimeAgentService(ARN, runtime).work("CLM-1001", "thread-1")
     call = runtime.calls[0]
     assert call["agentRuntimeArn"] == ARN
     assert len(call["runtimeSessionId"]) >= 33  # noqa: PLR2004 - Runtime's minimum
     assert json.loads(call["payload"]) == {
         "path": "/work",
         "body": {"claim_id": "CLM-1001", "thread_id": "thread-1"},
-        "key": KEY,
     }
 
 
 def test_each_request_gets_its_own_session() -> None:
     runtime = FakeRuntime(*[{"status": 202, "body": {"accepted": True}}] * 2)
-    service = RuntimeAgentService(ARN, KEY, runtime)
+    service = RuntimeAgentService(ARN, runtime)
     service.resume("CLM-1001", "thread-1", Outcome.SIGNED_OFF)
     service.improve(3)
     first, second = (c["runtimeSessionId"] for c in runtime.calls)
@@ -64,23 +63,23 @@ def test_each_request_gets_its_own_session() -> None:
 def test_a_refusal_comes_back_with_its_reason() -> None:
     runtime = FakeRuntime({"status": 409, "body": {"refused": "Already working CLM-1001"}})
     with pytest.raises(AgentRefusedError, match="Already working CLM-1001"):
-        RuntimeAgentService(ARN, KEY, runtime).work("CLM-1001", "thread-1")
+        RuntimeAgentService(ARN, runtime).work("CLM-1001", "thread-1")
 
 
 def test_an_unreachable_runtime_is_unavailable() -> None:
     runtime = FakeRuntime(TimeoutError("read timed out"))
     with pytest.raises(AgentUnavailableError):
-        RuntimeAgentService(ARN, KEY, runtime).work("CLM-1001", "thread-1")
+        RuntimeAgentService(ARN, runtime).work("CLM-1001", "thread-1")
 
 
 def test_a_draft_returns_the_agents_answer() -> None:
     runtime = FakeRuntime({"status": 200, "body": {"summary": "Bag delayed"}})
-    assert RuntimeAgentService(ARN, KEY, runtime).draft({"text": "x"}) == {"summary": "Bag delayed"}
+    assert RuntimeAgentService(ARN, runtime).draft({"text": "x"}) == {"summary": "Bag delayed"}
 
 
 def test_the_runtime_needs_an_arn() -> None:
     with pytest.raises(ValueError, match="ARN"):
-        RuntimeAgentService("http://agent:8080", KEY, FakeRuntime())
+        RuntimeAgentService("http://agent:8080", FakeRuntime())
 
 
 def test_without_a_runtime_arn_the_agent_is_reached_over_http(database_url: str) -> None:

@@ -10,7 +10,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
+import httpx2
 from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
 
 from undercover_agent.api_client import ApiClient, ApiError
 
@@ -201,16 +203,23 @@ class Context(Protocol):
 
 
 class McpContext:
-    """The context layer over MCP at its url, one short session per lookup."""
+    """The context layer over MCP at its url, one short session per lookup; on AWS each request
+    is signed with the agent's role (stage 2)."""
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, auth: httpx2.Auth | None = None) -> None:
         self._url = url
+        self._auth = auth
 
     def call(self, name: str, arguments: Json) -> tuple[Json, bool]:
         return asyncio.run(self._call(name, arguments))
 
     async def _call(self, name: str, arguments: Json) -> tuple[Json, bool]:
-        async with Client(self._url) as client:
+        server = (
+            streamable_http_client(self._url, http_client=httpx2.AsyncClient(auth=self._auth))
+            if self._auth
+            else self._url
+        )
+        async with Client(server) as client:
             result = await client.call_tool(name, arguments)
         if result.structured_content is not None:
             return dict(result.structured_content), result.is_error

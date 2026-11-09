@@ -15,8 +15,8 @@ never calls /start or /take for work the api handed it.
     POST {AGENT_URL}/improve  {"round_id": 1}
 
 On AgentCore Runtime (stage 2, AGENT_RUNTIME_ARN set) the same requests go through
-invoke_agent_runtime as {"path": "/work", "body": {...}, "key": "<agent's key>"}; the agent's
-/invocations answers {"status": 202, "body": {...}}, so both routes share one contract.
+invoke_agent_runtime as {"path": "/work", "body": {...}}, with no key: AWS checks the api's
+IAM role first. The agent's /invocations answers {"status": 202, "body": {...}}.
 
 /dispatch works an evaluation's copies, up to `concurrency` at once, starting each waiting
 copy itself (/start) or carrying on one already in progress, then tells the api the run is
@@ -168,15 +168,14 @@ class RuntimeAgentService(HttpAgentService):
     """The same agent on AgentCore Runtime: each request starts a session of its own, and the
     session lasts while the agent says it's busy."""
 
-    def __init__(self, arn: str, key: str, client: Any) -> None:
+    def __init__(self, arn: str, client: Any) -> None:
         if not arn.startswith("arn:"):
             raise ValueError("The agent's runtime must be an ARN")
         self._arn = arn
-        self._key = key
         self._client = client
 
     def _post(self, path: str, body: dict[str, object], timeout: float) -> object:
-        payload = json.dumps({"path": path, "body": body, "key": self._key}).encode()
+        payload = json.dumps({"path": path, "body": body}).encode()
         try:
             reply = self._client.invoke_agent_runtime(
                 agentRuntimeArn=self._arn,
