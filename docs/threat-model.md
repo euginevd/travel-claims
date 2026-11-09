@@ -39,7 +39,7 @@ flowchart LR
   class browser,laptop,agentzone,third boundary
 ```
 
-Rectangles are external entities, circles processes, cylinders data stores, red dashed boxes trust boundaries; TB labels mark the flows that cross a boundary. In stage 2 the laptop becomes the AWS account in `ap-southeast-2`, sign-in moves to Amazon Cognito, and Claude moves to Bedrock's Australian inference profile.
+Rectangles are external entities, circles processes, cylinders data stores, red dashed boxes trust boundaries; TB labels mark the flows that cross a boundary. In stage 2 the laptop becomes the AWS account in `ap-southeast-2` (serverless, decision 13), PostgreSQL moves to Supabase in Sydney, sign-in moves to Amazon Cognito, and Claude moves to Bedrock's Australian inference profile.
 
 | ID | Data | Class | Where |
 |:-:|------|-------|-------|

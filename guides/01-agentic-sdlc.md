@@ -79,7 +79,7 @@ travel-claims/
 │   └── context/              policy wording and claims manual over MCP
 ├── aws/                   05 the infrastructure, as Terraform
 │   ├── bootstrap/            CloudFormation, run once: OIDC, state bucket, CI roles
-│   └── api/                  Terraform for stage 2 on AWS (planned)
+│   └── <unit>/               Terraform for stage 2 on AWS, one folder per unit (planned)
 ├── .github/workflows/     06 the pipeline, one workflow per concern
 │   ├── aws.yml               plan on the PR with a cost comment (Infracost), apply after your approval
 │   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL, for the apps a PR changes

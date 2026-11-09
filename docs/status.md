@@ -97,3 +97,11 @@ Two additions that show security and AI engineering together. The payouts switch
 36. Done: Ask UnderCover. A chat in the portal answers questions about the customer's own policy and claims: the agent picks a tool per question (search and read the policy wording only, never the claims manual; the customer's own policies and claims from the api), cites what it used, offers to start a claim or ask a person, and never promises cover. Every question goes through the hidden-instruction check first; Claude Haiku, 20 questions an hour. Checked live: a cover question answered with citations, an injection attempt stopped.
 
 37. Done: Wattle AI, one named assistant in all three apps. The same mark, header button ("Wattle AI") and right-hand panel (intro, ask box, questions that fit the page, sources as chips, "AI powered · cites its sources · a claims expert makes the final call"). Three separate agents behind it: customers get Ask UnderCover's policy-wording search over their own records; claims experts get the Copilot with its sign-off cards; AI engineers get a new read-only explainer (`POST /api/engineering/ask` to the agent's `/explain`) over runs, rounds, the red team, threat coverage and the traces of claims named in the question. Every question goes through the hidden-instruction check first. Each app's header also links back to the project page (`VITE_PROJECT_URL`, port 5172 when unset), and the portal home shows the cover cards and PayID in a sticky right column from 1024px wide. Checked live: a customer's excess question and an engineer's accuracy question, both answered with sources.
+
+## Stage 2 to-do (2026-11-09)
+
+Serverless with Supabase (decision 13). The bootstrap stack is deployed and the GitHub environments are set.
+
+38. The stage 2 spec: units, order, and how each app runs on Lambda or AgentCore Runtime.
+39. Re-scope the bootstrap's permissions from EKS to Lambda, AgentCore, S3, CloudFront, Cognito, Secrets Manager and Bedrock, then update the stack.
+40. The Terraform units and the app changes (FastAPI on Lambda, the agent as an AgentCore app), deployed through the pipeline one unit at a time.

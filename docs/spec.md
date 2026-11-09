@@ -11,7 +11,7 @@
 ## Stages
 
 4. **Stage 1, local build and test (built):** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Stage 2, AWS build, test and deploy (planned):** the same images on EKS in `ap-southeast-2` with Aurora PostgreSQL, Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails, Secrets Manager and ECR; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts.
+5. **Stage 2, AWS build, test and deploy (planned):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api` and `context` on Lambda, `agent` and `copilot` on AgentCore Runtime behind AgentCore Gateway, PostgreSQL on Supabase in Sydney, with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts.
 
 ## Apps
 
@@ -34,7 +34,7 @@
 ## Done when
 
 18. **Stage 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; `status.md` documents the stack.
-19. **Stage 2:** the pipeline deploys the same images to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
+19. **Stage 2:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
 
 ## Rules
 
