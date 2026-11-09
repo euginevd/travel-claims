@@ -3,8 +3,15 @@
 *.tfstate.*
 tfplan
 *.tfvars
+override.tf
+*_override.tf
+crash*.log
+.terraformrc
+terraform.rc
 *.zip
 .env
+.env.*
+!.env.example
 .venv/
 node_modules/
 dist/
@@ -15,3 +22,6 @@ __pycache__/
 .coverage
 coverage/
 *.tsbuildinfo
+.claude/settings.local.json
+.claude/worktrees/
+.DS_Store

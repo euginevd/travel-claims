@@ -3,35 +3,17 @@ import { ApiError, type Api } from "../api";
 import { TravelIllustration } from "../components/Illustration";
 import { Logo } from "../components/Logo";
 
-// The test-account button appears only where the local sign-in stand-in runs: a development
-// build, or a local image built with VITE_LOCAL_SIGN_IN=true. It asks the api's dev route to
-// sign in the fixed test customer, so no password is ever in the browser.
-export const LOCAL_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_LOCAL_SIGN_IN === "true";
+// The test-account button: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
+// or the tier 2 demo built with VITE_TEST_SIGN_IN=true. The api signs in the fixed test customer.
+export const LOCAL_SIGN_IN =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_LOCAL_SIGN_IN === "true" ||
+  import.meta.env.VITE_TEST_SIGN_IN === "true";
 
 interface SignInPageProps {
   api: Api;
   onSignedIn: (token: string) => void;
   checking: boolean;
-}
-
-function GoogleMark() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M17.6 9.2c0-.6-.1-1.2-.2-1.8H9v3.4h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5Z"
-      />
-      <path
-        fill="#34A853"
-        d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18Z"
-      />
-      <path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8l3-2.3Z" />
-      <path
-        fill="#EA4335"
-        d="M9 3.6c1.3 0 2.5.5 3.5 1.4L15 2.4A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6Z"
-      />
-    </svg>
-  );
 }
 
 export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
@@ -89,21 +71,6 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
       </section>
       <section className="landing-form panel" aria-labelledby={`${ids}-title`}>
         <h2 id={`${ids}-title`}>Sign in</h2>
-        <button
-          type="button"
-          className="button secondary wide google"
-          disabled
-          aria-describedby={`${ids}-soon`}
-        >
-          <GoogleMark />
-          Continue with Google
-        </button>
-        <p id={`${ids}-soon`} className="muted small center">
-          Coming soon
-        </p>
-        <p className="divider">
-          <span>or with your email</span>
-        </p>
         <form onSubmit={submit} noValidate>
           <label htmlFor={`${ids}-email`}>Email</label>
           <input

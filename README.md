@@ -8,9 +8,9 @@
 ![LangGraph](https://img.shields.io/badge/LangGraph-Agents-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-OIDC-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-Planned-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-Serverless-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
 
-[Project](#-project-page) · [Customers](#-customers) · [Handlers](#️-handlers) · [AI engineers](#-ai-engineers) · [Apps](#-apps) · [Run it](#-run-it)
+[Project](#-project-page) · [Customers](#-customers) · [Handlers](#️-handlers) · [AI engineers](#-ai-engineers) · [Apps](#-apps) · [Run it](#-run-it) · [Tiers](#️-tiers)
 
 </div>
 
@@ -107,4 +107,16 @@ flowchart LR
    | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer |
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
 
-Developers: [AGENTS.md](AGENTS.md), then [docs/](docs/). Stages and what done means: [spec.md](docs/spec.md).
+## 🏗️ Tiers
+
+The same apps run three ways (decision 14). Rough monthly cost in USD:
+
+| Tier | Runs on | Status | Cost a month |
+|------|---------|--------|-------------:|
+| 1 · Local | Docker Compose on a laptop, Claude through the Anthropic API | Complete | Tokens only |
+| 2 · AWS cost-optimised | Serverless: S3 and CloudFront, Lambda, AgentCore, Cognito, Bedrock, Supabase | In progress | ≈ $10 (≈ $2 idle) |
+| 3 · AWS enterprise pattern | EKS in private subnets, WAF, Multi-AZ PostgreSQL, Bedrock | Planned | ≈ $400 before Claude |
+
+Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+
+Developers: [AGENTS.md](AGENTS.md), then [docs/](docs/). Tiers and what done means: [spec.md](docs/spec.md).

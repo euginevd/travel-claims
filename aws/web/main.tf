@@ -12,6 +12,13 @@ locals {
     portal    = { "/api/customer/*" = "api" }
     dashboard = { "/api/staff/*" = "api", "/api/copilot/*" = "copilot" }
     console   = { "/api/engineering/*" = "api" }
+    home      = { "/api/demo/*" = "api" }
+  }
+
+  # The apps reach only themselves and Cognito; the project page pings the three apps' sites.
+  connect = {
+    app  = "'self' https://cognito-idp.${local.region}.amazonaws.com"
+    home = "'self' https://*.cloudfront.net"
   }
 
   # AWS's managed policies: cache static files, never cache the api, and send the origin its own host.
@@ -78,13 +85,20 @@ resource "aws_cloudfront_origin_access_control" "web" {
   signing_protocol                  = "sigv4"
 }
 
-# The same headers as each nginx.conf, with Cognito's endpoint added for sign-in, plus HSTS.
+moved {
+  from = aws_cloudfront_response_headers_policy.web
+  to   = aws_cloudfront_response_headers_policy.web["app"]
+}
+
+# The same headers as each nginx.conf, with what each kind of site connects to, plus HSTS.
 resource "aws_cloudfront_response_headers_policy" "web" {
-  name = "${local.prefix}-web"
+  for_each = local.connect
+
+  name = each.key == "app" ? "${local.prefix}-web" : "${local.prefix}-web-${each.key}"
 
   security_headers_config {
     content_security_policy {
-      content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://cognito-idp.${local.region}.amazonaws.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src ${each.value}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
       override                = true
     }
     content_type_options {
@@ -173,7 +187,7 @@ resource "aws_cloudfront_distribution" "web" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     cache_policy_id            = local.caching_optimized
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.web[each.key == "home" ? "home" : "app"].id
     compress                   = true
 
     function_association {
@@ -192,7 +206,7 @@ resource "aws_cloudfront_distribution" "web" {
       cached_methods             = ["GET", "HEAD"]
       cache_policy_id            = local.caching_disabled
       origin_request_policy_id   = local.all_viewer_but_host
-      response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.web[each.key == "home" ? "home" : "app"].id
       compress                   = true
     }
   }

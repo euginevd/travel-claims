@@ -103,7 +103,7 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
-  # Apply role for stage 2 (spec 30-38); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
+  # Apply role for tier 2 (spec 30-38); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
@@ -414,6 +414,7 @@ Resources:
                   - bedrock:ListGuardrails
                   - bedrock:ListInferenceProfiles
                   - bedrock:ListTagsForResource
+                  - cloudfront:DescribeFunction
                   - cloudfront:Get*
                   - cloudfront:List*
                   - cognito-idp:AdminGetUser
@@ -507,6 +508,11 @@ Resources:
               - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*'
               - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*'
               - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*'
+          # The api's demo test buttons set a test account's password just before signing it in.
+          - Sid: CognitoTestSignIn
+            Effect: Allow
+            Action: cognito-idp:AdminSetUserPassword
+            Resource: !Sub 'arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
           - Sid: Secrets
             Effect: Allow
             Action:

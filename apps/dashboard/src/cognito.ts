@@ -1,4 +1,4 @@
-// Stage 2: sign-in through the audience's Cognito user pool when the build names its client (spec 35).
+// Tier 2: sign-in through the audience's Cognito user pool when the build names its client (spec 35).
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export interface CognitoConfig {

@@ -18,7 +18,7 @@ class Claude(Protocol):
 
 
 def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
-    """Claude through the Anthropic API in the user's workspace, or through Bedrock (stage 2)."""
+    """Claude through the Anthropic API in the user's workspace, or through Bedrock (tier 2)."""
     if settings.model_provider == "bedrock":
         # Bedrock applies the guardrail to the call when these headers name it.
         guardrail = (

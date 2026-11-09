@@ -7,7 +7,10 @@ COPY apps/portal ./
 # Only a local image offers the seeded customers on its sign-in page.
 ARG VITE_LOCAL_SIGN_IN=false
 ENV VITE_LOCAL_SIGN_IN=$VITE_LOCAL_SIGN_IN
-# Stage 2: the audience's Cognito client and region; empty means local sign-in.
+# Tier 2 demo: the test-account buttons, signed in by the api through Cognito.
+ARG VITE_TEST_SIGN_IN=false
+ENV VITE_TEST_SIGN_IN=$VITE_TEST_SIGN_IN
+# Tier 2: the audience's Cognito client and region; empty means local sign-in.
 ARG VITE_COGNITO_CLIENT_ID=
 ARG VITE_COGNITO_REGION=
 ENV VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID VITE_COGNITO_REGION=$VITE_COGNITO_REGION

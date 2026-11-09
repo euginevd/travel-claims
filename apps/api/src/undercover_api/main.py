@@ -73,6 +73,7 @@ from undercover_api.db import (
     sent_back,
 )
 from undercover_api.demo import demo_router
+from undercover_api.demo_sign_in import CognitoTestSignIn
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
@@ -140,6 +141,10 @@ staff_router = APIRouter(prefix="/api/staff")
 staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
 customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
 engineering_sign_in_router = APIRouter(prefix="/api/engineering/dev")
+# Tier 2's test-account buttons, at the same paths as the stand-in's.
+staff_demo_router = APIRouter(prefix="/api/staff/dev")
+customer_demo_router = APIRouter(prefix="/api/customer/dev")
+engineering_demo_router = APIRouter(prefix="/api/engineering/dev")
 
 
 @health_router.get("/api/health", operation_id="health")
@@ -714,6 +719,42 @@ def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Databas
     return SignIn(id_token=issuer.issue(email, ENGINEERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
+def demo_sign_in(
+    request: Request, accounts: dict[str, str], account: str, issuer: str, client_id: str
+) -> SignIn:
+    """A fixed test account signed in through Cognito; tier 2's demo only. The pool's ID ends
+    its issuer."""
+    email = accounts.get(account)
+    if email is None:
+        raise HTTPException(404, "No such test account")
+    signer: CognitoTestSignIn = request.app.state.test_sign_in
+    return signer.sign_in(email, issuer.rsplit("/", 1)[-1], client_id)
+
+
+@staff_demo_router.post("/test-sign-in", operation_id="demo_sign_in_staff")
+def demo_sign_in_staff(request: Request, body: TestSignInRequest) -> SignIn:
+    """Sign in as one of the fixed staff test accounts, through Cognito."""
+    settings = request.app.state.settings
+    issuer, audience = settings.staff_token_issuer, settings.staff_token_audience
+    return demo_sign_in(request, STAFF_TEST_ACCOUNTS, body.account, issuer, audience)
+
+
+@customer_demo_router.post("/test-sign-in", operation_id="demo_sign_in_customer")
+def demo_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
+    """Sign in as the fixed customer test account, through Cognito."""
+    settings = request.app.state.settings
+    issuer, audience = settings.customer_token_issuer, settings.customer_token_audience
+    return demo_sign_in(request, CUSTOMER_TEST_ACCOUNTS, body.account, issuer, audience)
+
+
+@engineering_demo_router.post("/test-sign-in", operation_id="demo_sign_in_engineer")
+def demo_sign_in_engineer(request: Request, body: TestSignInRequest) -> SignIn:
+    """Sign in as the fixed AI engineer test account, through Cognito."""
+    settings = request.app.state.settings
+    issuer, audience = settings.engineering_token_issuer, settings.engineering_token_audience
+    return demo_sign_in(request, ENGINEERING_TEST_ACCOUNTS, body.account, issuer, audience)
+
+
 @engineering_sign_in_router.get("/.well-known/jwks.json", operation_id="get_engineering_jwks")
 def engineering_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
     """The engineering issuer's public signing keys, at the path Cognito uses."""
@@ -756,7 +797,7 @@ def load_names_to_redact(engine: Engine) -> None:
 
 
 def make_agent_service(settings: Settings) -> AgentService:
-    """The agent on AgentCore Runtime when its ARN is set (stage 2), else over HTTP."""
+    """The agent on AgentCore Runtime when its ARN is set (tier 2), else over HTTP."""
     key = settings.undercover_api_key.get_secret_value()
     if settings.agent_runtime_arn:
         return RuntimeAgentService(settings.agent_runtime_arn, runtime_client())
@@ -764,10 +805,10 @@ def make_agent_service(settings: Settings) -> AgentService:
 
 
 def make_receipts(settings: Settings) -> Receipts | None:
-    """The receipts bucket when one is set (stage 2); the folder is used otherwise."""
+    """The receipts bucket when one is set (tier 2); the folder is used otherwise."""
     if not settings.receipts_bucket:
         return None
-    from undercover_api.aws import aws_client  # noqa: PLC0415 - only stage 2 needs it
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only tier 2 needs it
 
     return S3ReceiptStore(settings.receipts_bucket, aws_client("s3"))
 
@@ -813,6 +854,11 @@ def create_app(
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
         app.state.engineering_verifier = TokenVerifier(RemoteKeys(engineering[0]), *engineering)
+        if settings.test_sign_in:
+            app.state.test_sign_in = CognitoTestSignIn()
+            for router in (staff_demo_router, customer_demo_router, engineering_demo_router):
+                app.include_router(router)
+            app.include_router(demo_router)
     app.middleware("http")(log_requests)
     for router in (
         health_router,

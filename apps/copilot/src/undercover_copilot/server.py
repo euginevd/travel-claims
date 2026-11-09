@@ -198,9 +198,11 @@ def build_app() -> FastAPI:
     settings = get_settings()
     pool = ConnectionPool(
         settings.checkpoint_database_url.get_secret_value(),
+        # One connection held when idle; no prepared statements, for the transaction pooler.
+        min_size=1,
         max_size=6,
         open=False,
-        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+        kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
     )
 
     def make_graph() -> Graph:

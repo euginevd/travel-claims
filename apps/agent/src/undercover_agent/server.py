@@ -1,6 +1,6 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
 undercover_api.agent_service. It answers at once and works in the background. On AgentCore
-Runtime (stage 2) the same routes are reached through /invocations, and /ping tells Runtime to
+Runtime (tier 2) the same routes are reached through /invocations, and /ping tells Runtime to
 keep the session while work is going."""
 
 import json
@@ -378,8 +378,10 @@ def build_app() -> FastAPI:
     def make_runner() -> Runner:
         pool = ConnectionPool(
             settings.checkpoint_database_url.get_secret_value(),
+            # One connection held when idle; no prepared statements, for the transaction pooler.
+            min_size=1,
             max_size=8,
-            kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+            kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
         )
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
         saver.setup()

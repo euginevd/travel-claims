@@ -1,5 +1,5 @@
-"""Stage 2's switches: the agent on AgentCore Runtime and receipts in S3, with stand-ins for AWS.
-Both stay off unless their setting is given, so stage 1 runs as before."""
+"""Tier 2's switches: the agent on AgentCore Runtime and receipts in S3, with stand-ins for AWS.
+Both stay off unless their setting is given, so tier 1 runs as before."""
 
 import io
 import json
@@ -135,3 +135,100 @@ def test_without_app_secret_nothing_is_fetched(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.delenv("APP_SECRET", raising=False)
     load_app_secret(lambda name: pytest.fail(f"fetched {name}"))
+
+
+class FakeCognito:
+    """Cognito's stand-in: keeps each password set, and signs in only with the one kept."""
+
+    def __init__(self, fail_sets: int = 0) -> None:
+        self.passwords: dict[str, str] = {}
+        self.pools: list[str] = []
+        self.clients: list[str] = []
+        self.fail_sets = fail_sets
+
+    def admin_set_user_password(self, **call: Any) -> None:
+        if self.fail_sets:
+            self.fail_sets -= 1
+            raise RuntimeError(f"InvalidPasswordException: {call['Password']}")
+        assert call["Permanent"] is True
+        self.pools.append(call["UserPoolId"])
+        self.passwords[call["Username"]] = call["Password"]
+
+    def initiate_auth(self, **call: Any) -> dict[str, Any]:
+        self.clients.append(call["ClientId"])
+        given = call["AuthParameters"]
+        assert self.passwords[given["USERNAME"]] == given["PASSWORD"]
+        return {"AuthenticationResult": {"IdToken": "cognito-token", "ExpiresIn": 3600}}
+
+
+ISSUER = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_"
+
+
+def demo_settings(database_url: str) -> Any:
+    return make_settings(
+        database_url,
+        environment="dev",
+        local_sign_in=False,
+        handler_password=None,
+        test_sign_in=True,
+        staff_token_issuer=f"{ISSUER}staff",
+        customer_token_issuer=f"{ISSUER}customers",
+        customer_token_audience="customer-client",
+        engineering_token_issuer=f"{ISSUER}engineering",
+    )
+
+
+def test_a_test_account_signs_in_with_a_fresh_password_in_its_own_pool(database_url: str) -> None:
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from undercover_api.demo_sign_in import CognitoTestSignIn  # noqa: PLC0415
+    from undercover_api.main import create_app  # noqa: PLC0415
+
+    cognito = FakeCognito()
+    app = create_app(demo_settings(database_url))
+    app.state.test_sign_in = CognitoTestSignIn(cognito)
+    client = TestClient(app)
+    path = "/api/customer/dev/test-sign-in"
+    answer = client.post(path, json={"account": "customer"})
+    first = cognito.passwords["oliver.grant@example.com"]
+    client.post(path, json={"account": "customer"})
+    assert answer.json() == {"id_token": "cognito-token", "expires_in": 3600}
+    assert cognito.pools == ["ap-southeast-2_customers"] * 2
+    assert cognito.clients == ["customer-client"] * 2
+    assert cognito.passwords["oliver.grant@example.com"] != first
+    assert client.post(path, json={"account": "x"}).status_code == 404  # noqa: PLR2004
+    # The red team's account and the password sign-in stay local.
+    redteam = {"account": "attacker"}
+    assert client.post("/api/customer/dev/redteam-sign-in", json=redteam).status_code == 404  # noqa: PLR2004
+    login = {"email": "a@b.c", "password": "p"}
+    assert client.post("/api/customer/dev/sign-in", json=login).status_code == 404  # noqa: PLR2004
+
+
+def test_a_failed_sign_in_tries_again_and_never_echoes_the_password() -> None:
+    from fastapi import HTTPException  # noqa: PLC0415
+
+    from undercover_api.demo_sign_in import CognitoTestSignIn  # noqa: PLC0415
+
+    assert CognitoTestSignIn(FakeCognito(fail_sets=1)).sign_in("o@x.y", "pool", "c").id_token
+    with pytest.raises(HTTPException) as raised:
+        CognitoTestSignIn(FakeCognito(fail_sets=2)).sign_in("o@x.y", "pool", "c")
+    assert raised.value.status_code == 503  # noqa: PLR2004
+    assert "InvalidPassword" not in str(raised.value.detail)
+    assert raised.value.__cause__ is None
+
+
+def test_without_test_sign_in_there_are_no_demo_routes(database_url: str) -> None:
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from undercover_api.main import create_app  # noqa: PLC0415
+
+    settings = demo_settings(database_url).model_copy(update={"test_sign_in": False})
+    client = TestClient(create_app(settings))
+    body = {"account": "customer"}
+    assert client.post("/api/customer/dev/test-sign-in", json=body).status_code == 404  # noqa: PLR2004
+    assert client.get("/api/demo/stats").status_code == 404  # noqa: PLR2004
+
+
+def test_test_sign_in_is_refused_alongside_the_local_stand_in(database_url: str) -> None:
+    with pytest.raises(ValueError, match="TEST_SIGN_IN"):
+        make_settings(database_url, test_sign_in=True)

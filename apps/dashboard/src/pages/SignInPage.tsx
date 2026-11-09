@@ -3,10 +3,12 @@ import { ApiError, type Api, type TestAccount } from "../api";
 import { TravelIllustration } from "../components/Illustration";
 import { Logo } from "../components/Logo";
 
-// The test-account buttons appear only where the local sign-in stand-in runs: a development
-// build, or a local image built with VITE_LOCAL_SIGN_IN=true. They ask the api's dev route to
-// sign in a fixed test account, so no password is ever in the browser.
-export const LOCAL_SIGN_IN = import.meta.env.DEV || import.meta.env.VITE_LOCAL_SIGN_IN === "true";
+// The test-account buttons: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
+// or the tier 2 demo built with VITE_TEST_SIGN_IN=true. The api signs in a fixed test account.
+export const LOCAL_SIGN_IN =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_LOCAL_SIGN_IN === "true" ||
+  import.meta.env.VITE_TEST_SIGN_IN === "true";
 
 interface SignInPageProps {
   api: Api;

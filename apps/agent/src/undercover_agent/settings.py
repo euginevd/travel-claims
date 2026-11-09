@@ -15,15 +15,15 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # Anthropic API locally, Bedrock on AWS (stage 2), where the model settings are Bedrock ids.
+    # Anthropic API locally, Bedrock on AWS (tier 2), where the model settings are Bedrock ids.
     model_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
-    # Stage 2: a Bedrock guardrail on every model call, when its ID is set.
+    # Tier 2: a Bedrock guardrail on every model call, when its ID is set.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str = "1"
-    # Stage 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
+    # Tier 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
     agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (stage 2), fill in settings from the JSON secret named by APP_SECRET; anything already
+    """On AWS (tier 2), fill in settings from the JSON secret named by APP_SECRET; anything already
     in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:

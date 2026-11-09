@@ -16,7 +16,7 @@
 ## 🔁 Making a change
 
 1. Start from the spec: a change it doesn't cover starts with an update to [docs/spec.md](docs/spec.md).
-2. Plan before code, then build in phases with tests: [guides/01-agentic-sdlc.md](guides/01-agentic-sdlc.md), section 2.
+2. Plan before code, then build in phases with tests.
 3. Never push to `main` or skip the pre-push scan.
 
 ## 🔀 Pull requests

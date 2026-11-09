@@ -32,12 +32,12 @@ test("a customer signs in and sees their own claims", async () => {
   expect(fetchFn.calls.every((c) => c.path.startsWith("/api/customer/"))).toBe(true);
 });
 
-test("the sign-in page is a normal sign-in with Google coming soon", () => {
+test("the sign-in page is a plain email and password sign-in", () => {
   render(<App fetchFn={fakeFetch(routes)} />);
   expect(screen.queryByText(/claims handler/i)).not.toBeInTheDocument();
   expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Continue with Google/ })).toBeDisabled();
-  expect(screen.getByText("Coming soon")).toBeInTheDocument();
+  expect(screen.queryByText(/Google/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Email")).toBeInTheDocument();
 });
 
 test("the test account signs in through the dev route, with no password in the browser", async () => {
