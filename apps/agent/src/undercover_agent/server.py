@@ -1,6 +1,6 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
 undercover_api.agent_service. It answers at once and works in the background. On AgentCore
-Runtime (stage 2) the same routes are reached through /invocations, and /ping tells Runtime to
+Runtime (tier 2) the same routes are reached through /invocations, and /ping tells Runtime to
 keep the session while work is going."""
 
 import json

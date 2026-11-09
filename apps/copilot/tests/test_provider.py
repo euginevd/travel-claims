@@ -1,4 +1,4 @@
-"""Stage 2's model switch: Bedrock when MODEL_PROVIDER=bedrock, the Anthropic API otherwise."""
+"""Tier 2's model switch: Bedrock when MODEL_PROVIDER=bedrock, the Anthropic API otherwise."""
 
 import os
 

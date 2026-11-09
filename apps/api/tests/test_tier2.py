@@ -1,5 +1,5 @@
-"""Stage 2's switches: the agent on AgentCore Runtime and receipts in S3, with stand-ins for AWS.
-Both stay off unless their setting is given, so stage 1 runs as before."""
+"""Tier 2's switches: the agent on AgentCore Runtime and receipts in S3, with stand-ins for AWS.
+Both stay off unless their setting is given, so tier 1 runs as before."""
 
 import io
 import json

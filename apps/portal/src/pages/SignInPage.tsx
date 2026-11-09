@@ -4,7 +4,7 @@ import { TravelIllustration } from "../components/Illustration";
 import { Logo } from "../components/Logo";
 
 // The test-account button: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
-// or the stage 2 demo built with VITE_TEST_SIGN_IN=true. The api signs in the fixed test customer.
+// or the tier 2 demo built with VITE_TEST_SIGN_IN=true. The api signs in the fixed test customer.
 export const LOCAL_SIGN_IN =
   import.meta.env.DEV ||
   import.meta.env.VITE_LOCAL_SIGN_IN === "true" ||

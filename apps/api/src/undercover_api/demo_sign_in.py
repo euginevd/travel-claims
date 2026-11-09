@@ -1,4 +1,4 @@
-"""Stage 2's public demo (spec 35): the test-account buttons sign a fixed account in through its
+"""Tier 2's public demo (spec 35): the test-account buttons sign a fixed account in through its
 Cognito pool with the password the apply keeps in Secrets Manager, so none reaches the browser."""
 
 import json

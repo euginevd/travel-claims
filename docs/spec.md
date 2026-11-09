@@ -8,10 +8,10 @@
 2. Goal: an AI agent decides routine claims as accurately as a handler, so handlers spend their time only on claims that need judgement.
 3. Users: customers make and track claims; handlers work the queue, and senior handlers sign off large payouts and can pause payouts; AI engineers evaluate, improve and red-team the agent.
 
-## Stages
+## Tiers
 
-4. **Stage 1, local build and test (complete):** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Stage 2, AWS build, test and deploy (in progress):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Stage 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
+4. **Tier 1, local (Docker), complete:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
+5. **Tier 2, AWS cost-optimised (serverless), in progress:** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Tier 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
 
 ## Apps
 
@@ -23,7 +23,7 @@
 ## What it does
 
 10. **Customers** see only their own claims; make a claim photo first, with an AI drafting assistant and up to five receipts (JPEG, PNG or PDF, 5 MB each), saved to finish later; and claim a delayed flight in one tap when the flight-status feed shows it qualifies.
-11. **Customers** follow each claim on a tracker with a plain-English reason and an AI disclosure, upload each document asked for, ask a person to review a decision, get paid to a PayID, and see every email and text in Updates (an outbox in stage 1). They can ask an assistant about their policy and claims, answered from customer-facing sources only, citing the wording and never promising cover.
+11. **Customers** follow each claim on a tracker with a plain-English reason and an AI disclosure, upload each document asked for, ask a person to review a decision, get paid to a PayID, and see every email and text in Updates (an outbox in tier 1). They can ask an assistant about their policy and claims, answered from customer-facing sources only, citing the wording and never promising cover.
 12. **The hidden-instruction check** reads every claim and receipt first, on a separate model; a claim with hidden instructions goes to a handler and the claim agent never sees it.
 13. **The claim agent** uses the context layer, specialists (document checker, duplicate receipts, medical reviewer) and the customer's earlier claims to approve, decline or refer, with the payout from the payout rules and a decision record that meets claims manual section 14 or is refused. A referral can ask the customer for documents.
 14. **Payments:** an approval under $1,000 is paid at once, and a claim is paid once at most; anything over waits for a senior handler's sign-off. A senior handler can pause all payouts, and approvals then hold.
@@ -33,8 +33,8 @@
 
 ## Done when
 
-18. **Stage 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; `status.md` documents the stack.
-19. **Stage 2:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
+18. **Tier 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; `status.md` documents the stack.
+19. **Tier 2:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
 
 ## Rules
 
@@ -44,7 +44,7 @@
 23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations.
 24. The agent and the improver never see the held-out set's answers.
 25. Every decision is logged with its reasons; personal data is redacted.
-26. Stage 1 sends only made-up data to the Anthropic API; from stage 2, claim data goes only to Bedrock in Australia.
+26. Tier 1 sends only made-up data to the Anthropic API; from tier 2, claim data goes only to Bedrock in Australia.
 27. A payout held for sign-off is never paid without a handler.
 28. Amounts are in US dollars. Security baseline: OWASP ASVS 5.0 Level 2.
 
@@ -52,9 +52,9 @@
 
 29. Real payments, real email and texts, quotes and policy sales, and a mobile app.
 
-## Stage 2 plan
+## Tier 2 plan
 
-Every stage 2 piece is switched on by a setting and off by default, so `docker compose up` keeps running stage 1 unchanged (decision 13).
+Every tier 2 piece is switched on by a setting and off by default, so `docker compose up` keeps running tier 1 unchanged (decision 13).
 
 30. **Front ends:** each web app is built by Vite into a private S3 bucket behind its own CloudFront distribution, which forwards only that app's api prefix (`/api/customer/`, `/api/staff/` and `/api/copilot/`, `/api/engineering/`) and adds the same security headers as its nginx today.
 31. **`api`, `context` and `copilot`:** the existing images run on Lambda through the AWS Lambda Web Adapter, which does nothing outside Lambda, each with a function URL that only CloudFront (or the agent) calls. The `api` migrates and seeds on start, as in Docker.

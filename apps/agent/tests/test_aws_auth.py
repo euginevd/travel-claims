@@ -1,4 +1,4 @@
-"""The agent signs its calls to the context's IAM-only function URL (stage 2)."""
+"""The agent signs its calls to the context's IAM-only function URL (tier 2)."""
 
 import httpx2
 from botocore.credentials import ReadOnlyCredentials  # pyright: ignore[reportMissingTypeStubs]

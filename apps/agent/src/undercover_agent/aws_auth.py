@@ -1,4 +1,4 @@
-"""Signs the agent's calls to the context layer with its AWS role (stage 2), so the context's
+"""Signs the agent's calls to the context layer with its AWS role (tier 2), so the context's
 function URL takes only IAM-authenticated callers. botocore ships without type stubs, so its
 untyped edges stay here."""
 

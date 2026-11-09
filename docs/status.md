@@ -1,6 +1,6 @@
 # Status
 
-Stage 1 (local) is complete. Stage 2 (serverless on AWS, decision 13) is in progress. Stage 3 (enterprise, on EKS) comes later, at work.
+Three deployment tiers of the same apps (decision 14). Tier 1 (local, Docker) is complete. Tier 2 (AWS cost-optimised, serverless, decision 13) is in progress. Tier 3 (AWS enterprise pattern, EKS) comes later, at work.
 
 ## Built
 
@@ -72,7 +72,7 @@ Stage 1 (local) is complete. Stage 2 (serverless on AWS, decision 13) is in prog
 
 ## Next
 
-29. Done: stage 1 complete (2026-11-09); stage 2's to-do is at the end.
+29. Done: tier 1 complete (2026-11-09); tier 2's to-do is at the end.
 
 ## Project page (2026-11-09)
 
@@ -100,12 +100,12 @@ Two additions that show security and AI engineering together. The payouts switch
 
 37. Done: Wattle AI, one named assistant in all three apps. The same mark, header button ("Wattle AI") and right-hand panel (intro, ask box, questions that fit the page, sources as chips, "AI powered · cites its sources · a claims expert makes the final call"). Three separate agents behind it: customers get Ask UnderCover's policy-wording search over their own records; claims experts get the Copilot with its sign-off cards; AI engineers get a new read-only explainer (`POST /api/engineering/ask` to the agent's `/explain`) over runs, rounds, the red team, threat coverage and the traces of claims named in the question. Every question goes through the hidden-instruction check first. Each app's header also links back to the project page (`VITE_PROJECT_URL`, port 5172 when unset), and the portal home shows the cover cards and PayID in a sticky right column from 1024px wide. Checked live: a customer's excess question and an engineer's accuracy question, both answered with sources.
 
-## Stage 2 to-do (2026-11-09)
+## Tier 2 to-do (2026-11-09)
 
 Serverless with Supabase (decision 13). The bootstrap stack is deployed and the GitHub environments are set.
 
-38. Done: the stage 2 plan (spec 30–40): every piece switched on by a setting, so stage 1 still runs locally.
+38. Done: the tier 2 plan (spec 30–40): every piece switched on by a setting, so tier 1 still runs locally.
 39. Done in the template: the bootstrap grants Lambda, AgentCore, ECR, S3, CloudFront, Cognito, Secrets Manager and Bedrock instead of EKS. You update the stack with the new file.
 40. Built, not yet deployed: the app switches, each off by default (receipts in S3, the agent on AgentCore Runtime through `/invocations` and `/ping`, Claude on Bedrock, `APP_SECRET`, the Lambda Web Adapter in the images, any host for the context layer); the web apps' Cognito sign-in; the `images` workflow, which also builds the web apps into their buckets; and the units `registry`, `storage`, `secrets`, `identity`, `functions`, `agent` and `web` (S3 and CloudFront per app). The `identity` unit also makes the four test accounts (Oliver Grant, Dana Whitfield, Marcus Oyelaran, Sam Carter) with generated passwords in `travel-claims/dev/test-accounts`. The `guardrail` unit makes a Bedrock guardrail (harmful content, prompt attacks) that the apps name on every call once its `enabled` variable is true; it stays off until it's checked live against the hidden-instruction check, which it must not block. Left: the red team on AWS (it signs in as its attacker through the local stand-in).
 41. First deploy, in order: update the bootstrap stack with the new file; merge, so `registry`, `storage`, `secrets` and `identity` apply (`secrets` generates the agent's key and `SET-ME` placeholders); deploy `aws/bootstrap/database-url.yaml` as stack `travel-claims-database-url` with Supabase's session pooler URL, which writes both database URLs into `travel-claims/dev/app`; run `images`, which pushes and applies `functions`; run `aws` again for `agent` (which records its ARN in the secret) and `web`; then run `images` once more so the web apps upload. Bedrock model access must be on first: the units find Claude's Australian profiles, or take `SONNET_MODEL` and `HAIKU_MODEL` repo variables.
-42. Deployed 2026-11-09: every unit, the agent on Runtime, the database URL from the `travel-claims-database-url` stack. Then the demo as in stage 1: **Use test account** on each app (the api signs in through Cognito with `travel-claims/dev/test-accounts`), the project page as a fourth site with its links in `links.json`, and no Google button on the portal.
+42. Deployed 2026-11-09: every unit, the agent on Runtime, the database URL from the `travel-claims-database-url` stack. Then the demo as in tier 1: **Use test account** on each app (the api signs in through Cognito with `travel-claims/dev/test-accounts`), the project page as a fourth site with its links in `links.json`, and no Google button on the portal.

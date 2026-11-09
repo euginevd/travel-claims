@@ -19,7 +19,7 @@ const SPEC = {
     facts: {
       Identity: "Cognito staff user pool, MFA; ID token for the staff audience; seniors carry the sign-off right",
       Reaches: "The dashboard; the api's /api/staff routes and the Copilot",
-      Security: "Allowed networks only in stage 2; every sign-off, override and send-back is recorded with who and why",
+      Security: "Allowed networks only in tier 2; every sign-off, override and send-back is recorded with who and why",
     },
   },
   engineer: {

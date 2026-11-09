@@ -1,4 +1,4 @@
-"""The one place the api reaches AWS's SDK, used only in stage 2: boto3 ships without type stubs,
+"""The one place the api reaches AWS's SDK, used only in tier 2: boto3 ships without type stubs,
 so its untyped edges stay here."""
 
 from typing import Any, cast

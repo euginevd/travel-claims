@@ -204,7 +204,7 @@ class Context(Protocol):
 
 class McpContext:
     """The context layer over MCP at its url, one short session per lookup; on AWS each request
-    is signed with the agent's role (stage 2)."""
+    is signed with the agent's role (tier 2)."""
 
     def __init__(self, url: str, auth: httpx2.Auth | None = None) -> None:
         self._url = url

@@ -103,7 +103,7 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
-  # Apply role for stage 2 (spec 30-38); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
+  # Apply role for tier 2 (spec 30-38); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
