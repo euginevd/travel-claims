@@ -1,6 +1,6 @@
 """Gives each Cognito test account a password (spec 35), kept in a secret. Stdlib and the AWS CLI.
 
-python3 scripts/test-accounts.py <secret-id> <pool-id>=<email> [<pool-id>=<email> ...]
+python3 scripts/test-accounts.py <store> <pool-id>=<email> [<pool-id>=<email> ...]
 
 Each account's password is generated once and kept in the secret as {email: password}; the
 account is set to that password, so it signs in without a reset. Run by Terraform's apply with
@@ -46,29 +46,29 @@ def with_file(values: object, call: list[str]) -> subprocess.CompletedProcess[st
         os.remove(path)
 
 
-def main(secret_id: str, accounts: list[str]) -> None:
+def main(store: str, accounts: list[str]) -> None:
     got = aws(
         "secretsmanager",
         "get-secret-value",
         "--secret-id",
-        secret_id,
+        store,
         "--query",
         "SecretString",
         "--output",
         "text",
     )
     if got.returncode != 0 and "ResourceNotFoundException" not in got.stderr:
-        sys.exit(f"Couldn't read {secret_id}: {got.stderr.strip()}")
+        sys.exit(f"Couldn't read {store}: {got.stderr.strip()}")
     kept: dict[str, str] = json.loads(got.stdout or "{}") if got.returncode == 0 else {}
     pairs = [account.split("=", 1) for account in accounts]
     missing = [email for _, email in pairs if email not in kept]
     # Saved first, so an account never gets a password the secret doesn't hold.
     if missing:
         kept.update({email: password() for email in missing})
-        call = ["secretsmanager", "put-secret-value", "--secret-id", secret_id, "--secret-string"]
+        call = ["secretsmanager", "put-secret-value", "--secret-id", store, "--secret-string"]
         put = with_file(kept, [*call, "{file}"])
         if put.returncode != 0:
-            sys.exit(f"Couldn't write {secret_id}: {put.stderr.strip()}")
+            sys.exit(f"Couldn't write {store}: {put.stderr.strip()}")
     for pool, email in pairs:
         request = {
             "UserPoolId": pool,
