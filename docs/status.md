@@ -88,12 +88,8 @@ What a handler needs from the dashboard, in order. Batch 1 is 30, 31 and 38; bat
 
 ## AI assurance console to-do (2026-11-09)
 
-What an AI security engineer needs, in order. Next batch: 39 and 40.
+Three additions that show security and AI engineering together. The payouts switch stays with senior handlers (separation of duties); the console shows it read-only.
 
-39. Threat coverage matrix: the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS, each with UnderCover's control, the red-team attack that tests it and its last result.
+39. Threat coverage page (Security): the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS; each row with UnderCover's control, the red-team attack that tests it, its last result and when its guardrail last fired. Beside it, each agent's model, tools and MCP sources, and the payouts switch's status, read-only.
 40. Red team as a gate: an improvement round's candidate version must pass the red team before it's kept, with the bypass rate tracked per version.
-41. Guardrail events: a log and trend of hidden-instruction catches, refusals, duplicate-receipt hits and blocked tool calls.
-42. Agent inventory: each agent's model and version, the tools it can call, its api scopes and its MCP sources.
-43. Agent kill switch: stop the agents working claims, apart from the payouts switch.
-44. Evidence export: who approved each agent version, with its evaluation scores and red-team results, as one download for IRAP or ISO 42001.
-
+41. Guardrail events: count hidden-instruction catches, refusals and duplicate-receipt hits, shown as the "last fired" column on the threat coverage page.
