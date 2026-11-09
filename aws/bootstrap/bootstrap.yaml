@@ -406,6 +406,8 @@ Resources:
                   - bedrock:ListTagsForResource
                   - cloudfront:Get*
                   - cloudfront:List*
+                  - cognito-idp:AdminGetUser
+                  - cognito-idp:AdminListGroupsForUser
                   - cognito-idp:Describe*
                   - cognito-idp:GetGroup
                   - cognito-idp:GetLogDeliveryConfiguration
