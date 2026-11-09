@@ -8,7 +8,3 @@ output "client_ids" {
   value       = { for name, client in aws_cognito_user_pool_client.web : name => client.id }
 }
 
-output "test_accounts_secret" {
-  description = "Where the test accounts' passwords are kept"
-  value       = aws_secretsmanager_secret.test_accounts.name
-}

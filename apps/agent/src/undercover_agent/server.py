@@ -378,8 +378,10 @@ def build_app() -> FastAPI:
     def make_runner() -> Runner:
         pool = ConnectionPool(
             settings.checkpoint_database_url.get_secret_value(),
+            # One connection held when idle; no prepared statements, for the transaction pooler.
+            min_size=1,
             max_size=8,
-            kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+            kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
         )
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
         saver.setup()

@@ -508,6 +508,11 @@ Resources:
               - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*'
               - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*'
               - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*'
+          # The api's demo test buttons set a test account's password just before signing it in.
+          - Sid: CognitoTestSignIn
+            Effect: Allow
+            Action: cognito-idp:AdminSetUserPassword
+            Resource: !Sub 'arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
           - Sid: Secrets
             Effect: Allow
             Action:

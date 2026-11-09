@@ -720,35 +720,39 @@ def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Databas
 
 
 def demo_sign_in(
-    request: Request, accounts: dict[str, str], account: str, client_id: str
+    request: Request, accounts: dict[str, str], account: str, issuer: str, client_id: str
 ) -> SignIn:
-    """A fixed test account signed in through Cognito; tier 2's demo only."""
+    """A fixed test account signed in through Cognito; tier 2's demo only. The pool's ID ends
+    its issuer."""
     email = accounts.get(account)
     if email is None:
         raise HTTPException(404, "No such test account")
     signer: CognitoTestSignIn = request.app.state.test_sign_in
-    return signer.sign_in(email, client_id)
+    return signer.sign_in(email, issuer.rsplit("/", 1)[-1], client_id)
 
 
 @staff_demo_router.post("/test-sign-in", operation_id="demo_sign_in_staff")
 def demo_sign_in_staff(request: Request, body: TestSignInRequest) -> SignIn:
     """Sign in as one of the fixed staff test accounts, through Cognito."""
-    audience = request.app.state.settings.staff_token_audience
-    return demo_sign_in(request, STAFF_TEST_ACCOUNTS, body.account, audience)
+    settings = request.app.state.settings
+    issuer, audience = settings.staff_token_issuer, settings.staff_token_audience
+    return demo_sign_in(request, STAFF_TEST_ACCOUNTS, body.account, issuer, audience)
 
 
 @customer_demo_router.post("/test-sign-in", operation_id="demo_sign_in_customer")
 def demo_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
     """Sign in as the fixed customer test account, through Cognito."""
-    audience = request.app.state.settings.customer_token_audience
-    return demo_sign_in(request, CUSTOMER_TEST_ACCOUNTS, body.account, audience)
+    settings = request.app.state.settings
+    issuer, audience = settings.customer_token_issuer, settings.customer_token_audience
+    return demo_sign_in(request, CUSTOMER_TEST_ACCOUNTS, body.account, issuer, audience)
 
 
 @engineering_demo_router.post("/test-sign-in", operation_id="demo_sign_in_engineer")
 def demo_sign_in_engineer(request: Request, body: TestSignInRequest) -> SignIn:
     """Sign in as the fixed AI engineer test account, through Cognito."""
-    audience = request.app.state.settings.engineering_token_audience
-    return demo_sign_in(request, ENGINEERING_TEST_ACCOUNTS, body.account, audience)
+    settings = request.app.state.settings
+    issuer, audience = settings.engineering_token_issuer, settings.engineering_token_audience
+    return demo_sign_in(request, ENGINEERING_TEST_ACCOUNTS, body.account, issuer, audience)
 
 
 @engineering_sign_in_router.get("/.well-known/jwks.json", operation_id="get_engineering_jwks")
@@ -850,8 +854,8 @@ def create_app(
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
         app.state.engineering_verifier = TokenVerifier(RemoteKeys(engineering[0]), *engineering)
-        if settings.test_accounts_secret:
-            app.state.test_sign_in = CognitoTestSignIn(settings.test_accounts_secret)
+        if settings.test_sign_in:
+            app.state.test_sign_in = CognitoTestSignIn()
             for router in (staff_demo_router, customer_demo_router, engineering_demo_router):
                 app.include_router(router)
             app.include_router(demo_router)

@@ -1,7 +1,7 @@
 # Deploy as stack <ProjectName>-database-url after the secrets unit applies; update it to change the URL.
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Writes the Supabase session pooler URL into the app secret's DATABASE_URL and
+  Writes the Supabase pooler URL, as the transaction pooler's, into the app secret's DATABASE_URL and
   CHECKPOINT_DATABASE_URL, leaving its other keys as they are. Deleting the stack leaves the secret.
 
 Parameters:
@@ -100,8 +100,9 @@ Resources:
 
 
           def urls(pooler):
-              """Both forms the apps take: psycopg's for the api, plain for the agent's checkpoints."""
+              """Both forms the apps take, through the transaction pooler (6543), which Lambda's many short clients share."""
               plain = pooler.replace("postgresql+psycopg://", "postgresql://", 1).replace("postgres://", "postgresql://", 1)
+              plain = plain.replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/", 1)
               return plain.replace("postgresql://", "postgresql+psycopg://", 1), plain
 
 
@@ -131,3 +132,5 @@ Resources:
       ServiceToken: !GetAtt FillFunction.Arn
       SecretId: !Sub '${ProjectName}/${Target}/app'
       PoolerUrl: !Ref PoolerUrl
+      # Changed when the URLs' form changes, so an update rewrites them.
+      Form: transaction-pooler

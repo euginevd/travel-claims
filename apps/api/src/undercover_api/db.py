@@ -359,7 +359,12 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+# Supabase's transaction pooler (tier 2) gives each transaction any connection: none are prepared.
+NO_PREPARED_STATEMENTS = {"prepare_threshold": None}
+
+
 def make_engine(url: str) -> Engine:
     """An engine for the database at the url. Errors never carry the statement's values,
-    which can hold customers' personal data."""
-    return create_engine(url, pool_pre_ping=True, hide_parameters=True)
+    which can hold customers' personal data. No prepared statements, for a transaction pooler."""
+    extra = NO_PREPARED_STATEMENTS if url.startswith("postgresql+psycopg") else {}
+    return create_engine(url, pool_pre_ping=True, hide_parameters=True, connect_args=extra)

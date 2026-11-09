@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     local_sign_in: bool = False
     handler_password: SecretStr | None = None
     # Tier 2's demo: test-account buttons signed in through Cognito, and the home page's counts.
-    test_accounts_secret: str | None = None
+    test_sign_in: bool = False
     # Where each audience's ID tokens come from and who they are for: names, not secrets.
     # Staff and customers have separate issuers (two Cognito user pools in tier 2), so a
     # token for one audience fails the other's signature and audience checks.
@@ -54,8 +54,8 @@ class Settings(BaseSettings):
             raise ValueError("LOCAL_SIGN_IN may be true only when ENVIRONMENT is local")
         if self.local_sign_in and not self.handler_password:
             raise ValueError("LOCAL_SIGN_IN needs HANDLER_PASSWORD")
-        if self.local_sign_in and self.test_accounts_secret:
-            raise ValueError("TEST_ACCOUNTS_SECRET is for tier 2; locally the stand-in signs in")
+        if self.local_sign_in and self.test_sign_in:
+            raise ValueError("TEST_SIGN_IN is for tier 2; locally the stand-in signs in")
         issuers = (
             self.staff_token_issuer,
             self.customer_token_issuer,

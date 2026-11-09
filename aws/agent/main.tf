@@ -127,9 +127,9 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     server_protocol = "HTTP"
   }
 
-  # An idle session ends after 15 minutes; /ping keeps it while work is going, up to 8 hours.
+  # An idle session ends after 2 minutes, freeing its connections; /ping keeps it while working, up to 8 hours.
   lifecycle_configuration = [{
-    idle_runtime_session_timeout = 900
+    idle_runtime_session_timeout = 120
     max_lifetime                 = 28800
   }]
 
