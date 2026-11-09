@@ -89,7 +89,7 @@ Three additions that show claims operations, AI and fraud expertise together. Do
 Two additions that show security and AI engineering together. The payouts switch stays with senior handlers (separation of duties); the console shows it read-only.
 
 33. Done: the Threat coverage page (Security) maps OWASP LLM and agentic risks to MITRE ATLAS, with each control, the red-team attacks that test it and their last result, how often its guardrail fired, the agents with their models, tools and sources, and the payouts switch read-only.
-34. Red team as a gate: an improvement round's candidate version must pass the red team before it's kept, with the bypass rate tracked per version.
+34. Done: red team as a gate. A candidate that wins on the held-out set moves to red_teaming, the red team attacks it (its claims pinned to the candidate version), and it's kept only if every attack holds; the round's verdict records how many held.
 
 ## Customer portal to-do (2026-11-09)
 

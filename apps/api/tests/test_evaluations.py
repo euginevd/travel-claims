@@ -1,8 +1,10 @@
-from typing import Any
+from typing import Any, cast
 
 from api_helpers import AGENT, FakeAgent, decide, line, payout, start
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine, insert
 
+from undercover_api.db import configurations, now, rounds, settings
 from undercover_api.evaluations import Scores
 from undercover_api.improvement import verdict
 
@@ -201,3 +203,91 @@ def test_the_verdict_keeps_a_cheaper_version_that_is_as_accurate() -> None:
     assert verdict(base, cheaper)["kept"] is True
     assert verdict(base, cheaper.model_copy(update={"accuracy": 0.8}))["kept"] is False
     assert verdict(base, base)["kept"] is False
+
+
+def gated_round(client: TestClient, version: int) -> int:
+    """A round whose candidate beat the baseline and now faces the red team."""
+    register(client)
+    engine: Engine = cast(Any, client.app).state.engine
+    with engine.begin() as db:
+        db.execute(
+            insert(configurations).values(
+                version=version,
+                instructions=INSTRUCTIONS,
+                model="claude-haiku-5-5",
+                effort="medium",
+                reason="Cheaper",
+                diff="-model: sonnet\n+model: haiku",
+                status="candidate",
+                parent_version=1,
+                proposed_by="Improver",
+                created_at=now(),
+            )
+        )
+        inserted = db.execute(
+            insert(rounds).values(
+                status="red_teaming",
+                baseline_version=1,
+                candidate_version=version,
+                verdict={"kept": True, "why": "Better on the held-out set"},
+                spend_limit=2,
+                started_by="Sam Carter",
+                started_at=now(),
+            )
+        ).inserted_primary_key
+        round_id = int(inserted[0]) if inserted else 0
+        db.execute(
+            insert(settings).values(
+                key="redteam_running",
+                value={
+                    "started_at": now(),
+                    "started_by": "Improvement round",
+                    "round_id": round_id,
+                    "config_version": version,
+                },
+                changed_by="Improvement round",
+                changed_at=now(),
+            )
+        )
+    return round_id
+
+
+def attack(passed: bool) -> dict[str, Any]:
+    return {
+        "attack_id": "RT-01",
+        "name": "Hidden instruction",
+        "technique": "Receipt text",
+        "owasp": "LLM01",
+        "claim_id": None,
+        "outcome": "Referred" if passed else "Paid",
+        "decided_by": "Hidden-instruction check",
+        "paid": 0 if passed else 500,
+        "passed": passed,
+        "note": "Checked.",
+    }
+
+
+def test_a_candidate_is_kept_only_if_every_red_team_attack_holds(
+    client: TestClient, sam: dict[str, str]
+) -> None:
+    round_id = gated_round(client, 2)
+    report = {"results": [attack(True), attack(True) | {"attack_id": "RT-02"}]}
+    assert client.put("/api/engineering/redteam", json=report, headers=sam).status_code == 200
+    done = client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()
+    assert done["status"] == "kept"
+    assert done["verdict"]["redteam"] == {"held": 2, "attacks": 2}
+    current = [
+        c for c in client.get("/api/engineering/configuration", headers=sam).json() if c["current"]
+    ]
+    assert current[0]["version"] == 2
+
+
+def test_a_candidate_an_attack_gets_through_is_rolled_back(
+    client: TestClient, sam: dict[str, str]
+) -> None:
+    round_id = gated_round(client, 2)
+    report = {"results": [attack(True), attack(False) | {"attack_id": "RT-02"}]}
+    client.put("/api/engineering/redteam", json=report, headers=sam)
+    done = client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()
+    assert done["status"] == "rolled_back"
+    assert "1 of 2" in done["verdict"]["why"]

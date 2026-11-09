@@ -511,4 +511,7 @@ def version_for_attempt(db: Connection, claim_id: str) -> int | None:
     row = find_claim(db, claim_id)
     if row["source"] == EVALUATION:
         return row["config_version"]
-    return current_version(db)
+    from undercover_api.redteam import REDTEAM_CUSTOMER, gate_version  # noqa: PLC0415
+
+    gated = gate_version(db) if row["customer_id"] == REDTEAM_CUSTOMER else None
+    return gated or current_version(db)

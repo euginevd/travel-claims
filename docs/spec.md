@@ -28,7 +28,7 @@
 13. **The claim agent** uses the context layer, specialists (document checker, duplicate receipts, medical reviewer) and the customer's earlier claims to approve, decline or refer, with the payout from the payout rules and a decision record that meets claims manual section 14 or is refused. A referral can ask the customer for documents.
 14. **Payments:** an approval under $1,000 is paid at once, and a claim is paid once at most; anything over waits for a senior handler's sign-off. A senior handler can pause all payouts, and approvals then hold.
 15. **Handlers** get a queue with what needs them first, a case brief (recommendation, checklist with sources, payout lines, screened claims flagged), and sign off, send back, override with a reason code, or ask the customer. The Copilot acts as the handler and signs off only after they confirm.
-16. **AI engineers** run evaluations on labelled sets with 1 to 25 agents at once (restart-safe), see scores, misses and any claim's tokens and cost, approve or reject the improver's proposals (kept only if the held-out scores improve), and run the red team: eight attack claims mapped to the OWASP Top 10 for LLMs, none of which may end paid.
+16. **AI engineers** run evaluations on labelled sets with 1 to 25 agents at once (restart-safe), see scores, misses and any claim's tokens and cost, approve or reject the improver's proposals (kept only if the held-out scores improve and every red-team attack holds against it), and run the red team: eight attack claims mapped to the OWASP Top 10 for LLMs, none of which may end paid.
 17. **The demo home** explains the project, shows live counts and links to the three apps; local only, no customer data.
 
 ## Done when

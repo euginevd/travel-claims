@@ -39,7 +39,7 @@ A local page at http://127.0.0.1:5172 that explains the project in two minutes: 
 A separate **AI assurance console** with its own sign-in, apart from the handlers' workspace because it changes how the agent behaves.
 
 1. **Quality:** score the agent against handlers' decisions on an evaluation set and a held-out set, and see any claim's model calls, tokens and cost.
-2. **Improvement:** the improver proposes a better configuration as a diff; an AI engineer approves it, and it's kept only if it scores better on the held-out set.
+2. **Improvement:** the improver proposes a better configuration as a diff; an AI engineer approves it, and it's kept only if it scores better on the held-out set and the red team can't get past it.
 3. **Security:** the red-team suite attacks the agent with eight claims mapped to the OWASP Top 10 for LLMs and reports which attacks held.
 
 ## 📦 Apps
