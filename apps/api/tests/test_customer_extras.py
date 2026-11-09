@@ -198,3 +198,14 @@ def test_a_claim_in_progress_is_saved_and_cleared_on_sending(
     client.put("/api/customer/draft", json=draft, headers=maya)
     assert client.delete("/api/customer/draft", headers=maya).status_code == 204
     assert client.get("/api/customer/draft", headers=maya).json() is None
+
+
+def test_a_customer_sees_what_each_trip_covers(
+    client: TestClient, oliver: dict[str, str], maya: dict[str, str]
+) -> None:
+    cover = client.get("/api/customer/cover", headers=oliver).json()
+    by_trip = {c["policy_id"]: c for c in cover}
+    assert by_trip["POL-2006"]["plan"]["trip_delay_waiting_hours"] == 3
+    assert {c["policy_id"] for c in client.get("/api/customer/cover", headers=maya).json()} == {
+        "POL-2001"
+    }

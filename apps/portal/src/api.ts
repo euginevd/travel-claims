@@ -139,6 +139,30 @@ export const ClaimDraftSchema = z.object({
   step: z.enum(["what", "receipts", "check"]),
 });
 
+export const CoverSchema = z.object({
+  policy_id: z.string(),
+  destination: z.string(),
+  departs_on: z.string(),
+  returns_on: z.string(),
+  plan: z.object({
+    plan: z.string(),
+    name: z.string(),
+    trip_cancellation_max: z.number(),
+    trip_delay_waiting_hours: z.number(),
+    trip_delay_max: z.number(),
+    baggage_delay_waiting_hours: z.number(),
+    baggage_delay_max: z.number(),
+    baggage_max: z.number(),
+    per_item_limit: z.number(),
+    passport_max: z.number(),
+    emergency_medical_max: z.number(),
+    deductible: z.number(),
+  }),
+  add_ons: z.array(z.string()),
+});
+
+export type Cover = z.infer<typeof CoverSchema>;
+
 export const SavedDraftSchema = z.object({ draft: ClaimDraftSchema, updated_at: z.string() });
 
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
@@ -205,6 +229,7 @@ export interface Api {
   myPayId: () => Promise<string | null>;
   setPayId: (payid: string) => Promise<string | null>;
   myDelays: () => Promise<DelayOffer[]>;
+  myCover: () => Promise<Cover[]>;
   claimDelay: (flightId: string) => Promise<CustomerClaim>;
   myDraft: () => Promise<SavedDraft | null>;
   saveDraft: (draft: ClaimDraft) => Promise<SavedDraft>;
@@ -315,6 +340,7 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     setPayId: async (payid) =>
       (await call(PayIdSchema, "PUT", "/payid", { body: { payid } })).payid,
     myDelays: () => call(z.array(DelayOfferSchema), "GET", "/delays"),
+    myCover: () => call(z.array(CoverSchema), "GET", "/cover"),
     claimDelay: (flightId) =>
       call(CustomerClaimSchema, "POST", `/delays/${encodeURIComponent(flightId)}/claim`),
     myDraft: () => call(SavedDraftSchema.nullable(), "GET", "/draft"),

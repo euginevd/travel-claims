@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Api, CustomerClaimSummary } from "../api";
 import { DelayOffers, PayoutCard, ResumeDraft } from "../components/AccountCards";
 import { ClaimTracker } from "../components/ClaimTracker";
+import { CoverCards } from "../components/CoverCards";
 import { ClaimTypeIcon } from "../components/ClaimTypeIcon";
 import { CustomerStatusChip, STATUS_LINE } from "../components/StatusChip";
 import { CLAIM_TYPES } from "./NewClaimPage";
@@ -171,6 +172,7 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           )}
         </>
       )}
+      <CoverCards api={api} />
       <PayoutCard api={api} />
     </section>
   );
