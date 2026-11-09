@@ -54,6 +54,8 @@ test("the queue's figures count the claims and add up what's paid", () => {
     amount_claimed: 0,
     submitted_on: "",
     review_requested: false,
+    due_on: "2026-07-07",
+    documents_in: false,
   };
   const claims: ClaimSummary[] = [
     { ...base, claim_id: "CLM-1", status: "waiting", decision: null, payout: null },

@@ -9,6 +9,7 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Response
 from fastapi import Path as FastPath
+from pydantic import BaseModel
 from sqlalchemy import Connection, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +25,7 @@ from undercover_api.models import (
     Notice,
     PayId,
     PayIdRequest,
+    Plan,
     Policy,
     SavedDraft,
     Status,
@@ -132,6 +134,42 @@ def discard_draft(customer: SignedInCustomer, db: Database) -> Response:
     """Throw away the saved claim."""
     db.execute(delete(claim_drafts).where(claim_drafts.c.customer_id == customer.customer_id))
     return Response(status_code=204)
+
+
+# --- Cover at a glance ---
+
+
+class Cover(BaseModel):
+    """What one of the customer's policies covers, from its plan's limits."""
+
+    policy_id: str
+    destination: str
+    departs_on: str
+    returns_on: str
+    plan: Plan
+    add_ons: list[str]
+
+
+@account_router.get("/cover", operation_id="list_my_cover")
+def my_cover(customer: SignedInCustomer, db: Database) -> list[Cover]:
+    """Each of the customer's active trips with the limits its plan gives."""
+    by_plan = {p.plan: p for p in plans(db).plans}
+    found: list[Cover] = []
+    for policy in my_active_policies(db, customer):
+        plan = by_plan.get(policy.plan)
+        if plan is None:
+            continue
+        found.append(
+            Cover(
+                policy_id=policy.policy_id,
+                destination=policy.trip.destination,
+                departs_on=policy.trip.departs_on,
+                returns_on=policy.trip.returns_on,
+                plan=plan,
+                add_ons=policy.add_ons,
+            )
+        )
+    return found
 
 
 # --- Flight delays ---

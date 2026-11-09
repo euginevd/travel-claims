@@ -13,6 +13,7 @@ const STAGE_TEXT: Record<string, string> = {
   baselining: "Evaluating the current version on both sets…",
   improving: "The improver is reading the misses and drafting a proposal…",
   awaiting_review: "A proposal is waiting for an AI engineer's review.",
+  red_teaming: "Better on the held-out set. The red team is attacking it before it's kept.",
   evaluating: "Trying the approved version on the held-out set…",
   kept: "Kept: the new version is now the current one.",
   rolled_back: "Rolled back: the current version stays.",

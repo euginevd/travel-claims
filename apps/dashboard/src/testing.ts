@@ -30,6 +30,8 @@ export const SUMMARY: ClaimSummary = {
   decision: null,
   payout: null,
   review_requested: false,
+  due_on: "2026-07-07",
+  documents_in: false,
 };
 
 export const APPROVAL: Decision = {
@@ -129,6 +131,7 @@ export function claim(overrides: Partial<Claim> = {}): Claim {
     review_requested_at: null,
     review_note: null,
     requests: [],
+    letter: null,
     ...overrides,
   };
 }

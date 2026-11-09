@@ -151,10 +151,72 @@ export interface StartRunRequest {
   concurrency: number;
 }
 
+export const TraceSchema = z.object({
+  steps: z.array(
+    z.object({
+      step_id: z.number(),
+      kind: z.string(),
+      content: z.string(),
+      created_at: z.string(),
+    }),
+  ),
+  model_calls: z.array(
+    z.object({
+      model: z.string(),
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cost: z.number(),
+      latency_ms: z.number().nullable(),
+      created_at: z.string(),
+    }),
+  ),
+  total_cost: z.number(),
+  total_tokens: z.number(),
+});
+
+export type Trace = z.infer<typeof TraceSchema>;
+
+export const ThreatCoverageSchema = z.object({
+  redteam_run_at: z.string().nullable(),
+  threats: z.array(
+    z.object({
+      owasp: z.string(),
+      risk: z.string(),
+      atlas: z.string(),
+      control: z.string(),
+      attacks: z.array(z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() })),
+      last_fired: z.string().nullable(),
+      fired: z.number(),
+    }),
+  ),
+  agents: z.array(
+    z.object({ agent: z.string(), model: z.string(), tools: z.string(), sources: z.string() }),
+  ),
+  payouts: z.object({
+    paused: z.boolean(),
+    changed_by: z.string().nullable(),
+    changed_at: z.string().nullable(),
+    reason: z.string().nullable(),
+  }),
+});
+
+export type ThreatCoverage = z.infer<typeof ThreatCoverageSchema>;
 export type Engineer = z.infer<typeof EngineerSchema>;
 export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
 export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
 export type RedTeamStatus = z.infer<typeof RedTeamStatusSchema>;
+
+export const AnswerSchema = z.object({
+  answer: z.string(),
+  sources: z.array(z.string()),
+  suggest: z.string(),
+  screened: z.boolean(),
+});
+export type Answer = z.infer<typeof AnswerSchema>;
+export interface AskTurn {
+  role: "user" | "assistant";
+  text: string;
+}
 
 export interface Api {
   signIn: (email: string, password: string) => Promise<string>;
@@ -171,6 +233,9 @@ export interface Api {
   startRound: () => Promise<Round>;
   reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
   stopRound: (roundId: number) => Promise<Round>;
+  getTrace: (claimId: string) => Promise<Trace>;
+  getThreats: () => Promise<ThreatCoverage>;
+  ask: (question: string, history: AskTurn[]) => Promise<Answer>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -262,5 +327,9 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
+    ask: (question, history) =>
+      call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
+    getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),
   };
 }

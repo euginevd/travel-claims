@@ -23,6 +23,7 @@ from undercover_api.agent_service import (
     HttpAgentService,
     Outcome,
 )
+from undercover_api.ask import ask_router, engineer_ask_router
 from undercover_api.auth import (
     CUSTOMERS_GROUP,
     ENGINEERS_GROUP,
@@ -42,6 +43,7 @@ from undercover_api.claims import (
     attempts_calculation,
     claim_history,
     claim_in_full,
+    claim_trace,
     claims_policy,
     find_claim,
     find_customers,
@@ -78,6 +80,7 @@ from undercover_api.kill_switch import (
     refuse_while_paused,
     set_payouts,
 )
+from undercover_api.letters import letters_router
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
@@ -93,7 +96,6 @@ from undercover_api.models import (
     DecisionRequest,
     Handler,
     HoldRequest,
-    ModelCall,
     ModelCallRequest,
     NewStep,
     OverrideRequest,
@@ -119,7 +121,9 @@ from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_pay
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.records import check_calculation, check_request
 from undercover_api.redteam import redteam_router
+from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
+from undercover_api.threats import threats_router
 
 log = logging.getLogger(__name__)
 
@@ -612,21 +616,7 @@ def set_payout_switch(
 @staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
 def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
     """Every step and model call on a claim, for the trace view."""
-    found = list_steps(db, claim_id)
-    calls = [
-        ModelCall.model_validate(dict(r))
-        for r in db.execute(
-            select(model_calls)
-            .where(model_calls.c.claim_id == claim_id)
-            .order_by(model_calls.c.call_id)
-        ).mappings()
-    ]
-    return Trace(
-        steps=found,
-        model_calls=calls,
-        total_cost=round(sum(c.cost for c in calls), 6),
-        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
-    )
+    return claim_trace(db, claim_id)
 
 
 # --- The local sign-in stand-in ---
@@ -697,7 +687,7 @@ def redteam_sign_in_customer(request: Request, body: TestSignInRequest, db: Data
     return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
-ENGINEERING_TEST_ACCOUNTS = {"engineer": "priya.raman@undercover.example"}
+ENGINEERING_TEST_ACCOUNTS = {"engineer": "sam.carter@undercover.example"}
 
 
 @engineering_sign_in_router.post("/sign-in", operation_id="sign_in_engineer")
@@ -815,6 +805,11 @@ def create_app(
         account_router,
         *EVALUATION_ROUTERS,
         redteam_router,
+        threats_router,
+        risk_router,
+        letters_router,
+        ask_router,
+        engineer_ask_router,
     ):
         app.include_router(router)
     return app

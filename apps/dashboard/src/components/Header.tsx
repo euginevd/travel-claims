@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { LogOut, Search, Sparkle, type LucideIcon } from "lucide-react";
+import { LogOut, Search, type LucideIcon } from "lucide-react";
 import { Logo } from "./Logo";
+import { ProjectLink, WattleButton } from "./Wattle";
 
 export interface NavLink {
   href: string;
@@ -46,6 +47,7 @@ export function Header({
       <a className="brand" href={home} aria-label="UnderCover Claims, home">
         <Logo tone="on-ink" />
       </a>
+      <ProjectLink />
       <nav aria-label="Main">
         <ul>
           {links.map(({ href, label, Icon }) => (
@@ -70,12 +72,7 @@ export function Header({
           <kbd aria-hidden="true">Ctrl K</kbd>
         </button>
       )}
-      {onCopilot && (
-        <button type="button" className="copilot-button" onClick={onCopilot}>
-          <Sparkle size={16} strokeWidth={2.4} aria-hidden="true" />
-          Ask Copilot
-        </button>
-      )}
+      {onCopilot && <WattleButton onClick={onCopilot} />}
       <div className="who">
         {status}
         <span className="avatar" aria-hidden="true">

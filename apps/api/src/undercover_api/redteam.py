@@ -2,6 +2,7 @@
 read the latest report. The agent runs the attacks; this keeps whether a run is going."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -40,6 +41,44 @@ def running_since(db: Connection) -> tuple[str, str] | None:
     return str(value["started_at"]), str(value["started_by"])
 
 
+# The red team's own customer, whose claims a gate run pins to the candidate version.
+REDTEAM_CUSTOMER = "CUS-3901"
+
+
+def running_value(db: Connection) -> dict[str, Any] | None:
+    row = db.execute(select(settings.c.value).where(settings.c.key == RUNNING)).first()
+    return None if row is None else cast(dict[str, Any], row.value)
+
+
+def gate_version(db: Connection) -> int | None:
+    """The candidate version a gate run is testing, or None outside a gate."""
+    value = running_value(db)
+    if value is None or running_since(db) is None:
+        return None
+    version = value.get("config_version")
+    return int(version) if version is not None else None
+
+
+def start_gate(db: Connection, service: AgentService, round_id: int, version: int) -> None:
+    """Run the red team against a candidate version before an improvement round keeps it."""
+    clear_running(db)
+    db.execute(
+        insert(settings).values(
+            key=RUNNING,
+            value={
+                "started_at": now(),
+                "started_by": f"Improvement round {round_id}",
+                "round_id": round_id,
+                "config_version": version,
+            },
+            changed_by=f"Improvement round {round_id}",
+            changed_at=now(),
+        )
+    )
+    db.commit()
+    service.redteam()
+
+
 def clear_running(db: Connection) -> None:
     db.execute(delete(settings).where(settings.c.key == RUNNING))
 
@@ -75,9 +114,14 @@ def record_redteam_report(
 ) -> RedTeamReport:
     """Keep a red-team run's results, run by the senior handler signed in; the run is over."""
     stamp = now()
+    gate = running_value(db)
     results = [result.model_dump() for result in run.results]
     db.execute(insert(redteam_reports).values(run_at=stamp, run_by=engineer.name, results=results))
     clear_running(db)
+    if gate and gate.get("round_id") is not None:
+        from undercover_api.improvement import finish_gate  # noqa: PLC0415 - improvement imports this
+
+        finish_gate(db, int(gate["round_id"]), run.results)
     return RedTeamReport(run_at=stamp, run_by=engineer.name, results=run.results)
 
 

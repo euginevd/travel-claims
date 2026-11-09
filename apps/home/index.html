@@ -3,224 +3,275 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>UnderCover demo</title>
+    <title>UnderCover project</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-fubV9hHyqzI+zZPxSCJXTO3AiheEqj/0wDtXgPItcg7173ixlXpG02tFFyCp/30F" />
-    <script src="app.js" integrity="sha384-3JxqjoPNhAkymSPYL5gMX8k2GTX8EuVdX7bXNqW40zyDeEJsknrRwz4w+bTnMZfw" defer></script>
+    <link rel="stylesheet" href="styles.css" integrity="sha384-MAZAxLhcnkBlmu+1jIV77ATNn07AAt1+8WERoS2H3IbiWONj+KwDHdbIYx0bfeQa" />
+    <script src="app.js" integrity="sha384-DShtTbiGbI9vufbATowy2rQVMKxTcOeHpdLm+dsmibJufI7Ngm9bCTu49gVYYwvg" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="top">
-      <div class="wrap top-row">
-        <a class="brand" href="#main"><span class="logo" aria-hidden="true"></span>UnderCover <small>demo</small></a>
-        <nav aria-label="Sections">
-          <a href="#try">Try it</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#concepts">Concepts</a>
-          <a href="#security">Security</a>
-          <a href="#stack">Stack</a>
-        </nav>
-      </div>
-    </header>
+    <svg width="0" height="0" class="sprite" aria-hidden="true">
+      <symbol id="i-banknote" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol>
+      <symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4M12 16h.01" /></symbol>
+      <symbol id="i-user-check" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="m16 11 2 2 4-4" /></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0l1.58 6.14a2 2 0 0 0 1.44 1.44l6.14 1.58a.5.5 0 0 1 0 .96l-6.14 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z" /></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><path d="M2.59 17.41A2 2 0 0 0 2 18.83V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.17a2 2 0 0 0 1.41-.59l.82-.81a6.5 6.5 0 1 0-4-4z" /><circle cx="16.5" cy="7.5" r="1" /></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></symbol>
+      <symbol id="i-briefcase" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></symbol>
+      <symbol id="i-microscope" viewBox="0 0 24 24"><path d="M6 18h8M3 22h18M14 22a7 7 0 1 0 0-14h-1M9 14h2M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2zM12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" /></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></symbol>
+      <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2M20 14h2M15 13v2M9 13v2" /></symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" /></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></symbol>
+      <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></symbol>
+      <symbol id="i-split" viewBox="0 0 24 24"><path d="M12 3v6M12 9l-7 6M12 9l7 6M5 15v6M19 15v6" /></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="m3 8 9 5 9-5M12 13v8" /></symbol>
+      <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="9" r="2.5" /><path d="M6 8.5v7M18 11.5c0 4-6 3-10.5 5" /></symbol>
+      <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" /></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z" /><path d="m2 12 10 5 10-5M2 17l10 5 10-5" /></symbol>
+      <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1zM12 15l-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z" /></symbol>
+      <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><path d="M12 12 19 5" /></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
+    </svg>
 
     <main id="main">
-      <!-- 1. Hero and the three apps -->
+      <!-- Screen 1: what it is, and go -->
       <section class="hero">
+        <div class="glow" aria-hidden="true"></div>
         <div class="wrap">
-          <p class="eyebrow">Agentic travel insurance claims · local lab</p>
-          <h1>AI agents decide routine travel claims in minutes. People handle the ones that need judgement.</h1>
-          <p class="lead">
-            UnderCover is a working pilot of an AI claims platform: a customer portal, a claims
-            handler's workspace and an AI assurance console, with Claude agents in the middle and
-            hard limits around them.
-          </p>
-          <div class="apps">
-            <a class="app-card" href="#" data-port="5173" data-path="" data-health>
-              <span class="dot" aria-hidden="true"></span>
-              <span class="app-port">:5173</span>
-              <h2>Customer portal</h2>
-              <p>Make a claim from a photo, claim a delayed flight in one tap, send what we ask for, get paid to a PayID.</p>
-              <span class="tip">Use test account: Oliver Grant</span>
-            </a>
-            <a class="app-card" href="#" data-port="5174" data-path="" data-health>
-              <span class="dot" aria-hidden="true"></span>
-              <span class="app-port">:5174</span>
-              <h2>Claims handler</h2>
-              <p>Work the queue, read the agent's case brief, ask the customer for documents, sign off or override.</p>
-              <span class="tip">Use test account: Dana Whitfield, senior handler</span>
-            </a>
-            <a class="app-card" href="#" data-port="5175" data-path="" data-health>
-              <span class="dot" aria-hidden="true"></span>
-              <span class="app-port">:5175</span>
-              <h2>AI assurance console</h2>
-              <p>Quality: score the agent and approve its improvements. Security: attack it with the red team.</p>
-              <span class="tip">Use test account: Priya Raman, AI engineer</span>
-            </a>
-          </div>
-        </div>
-      </section>
+          <header class="brand-row">
+            <span class="brand">
+              <svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
+                <circle class="mark-disc" cx="24" cy="24" r="24" />
+                <path class="mark-canopy" d="M8 23c1.6-8 8.3-13 16-13s14.4 5 16 13c-2.6-2.2-5.3-2.2-8 0-2.6-2.2-5.4-2.2-8 0-2.6-2.2-5.4-2.2-8 0-2.7-2.2-5.4-2.2-8 0z" />
+                <path class="mark-line" d="M24 23v4" />
+                <rect class="mark-case" x="15" y="28" width="18" height="12" rx="2.5" />
+                <path class="mark-line thin" d="M20.5 28v-2.2a1.5 1.5 0 0 1 1.5-1.5h4a1.5 1.5 0 0 1 1.5 1.5V28M15 33.5h18" />
+              </svg>
+              UnderCover <span class="brand-sub">Travel insurance</span>
+            </span>
+          </header>
 
-      <!-- 8. Live numbers -->
-      <section class="numbers" aria-label="Live numbers">
-        <div class="wrap stats">
-          <div class="stat"><span class="stat-value" data-stat="claims">–</span><span class="stat-label">claims in the system</span></div>
-          <div class="stat"><span class="stat-value" data-stat="agent_share">–</span><span class="stat-label">decided by the agent alone</span></div>
-          <div class="stat"><span class="stat-value" data-stat="average_cost">–</span><span class="stat-label">average model cost per claim</span></div>
-          <div class="stat"><span class="stat-value" data-stat="redteam">–</span><span class="stat-label">red-team attacks held</span></div>
-        </div>
-      </section>
+          <p class="kicker">AI travel insurance claims portal</p>
+          <h1>AI agents decide the routine claims.<br /><span>Claims experts decide the rest.</span></h1>
 
-      <!-- 2. Try it in 5 minutes -->
-      <section id="try" class="section">
-        <div class="wrap">
-          <h2 class="section-title">Try it in five minutes</h2>
-          <ol class="script">
-            <li>
-              <strong>Claim a delayed flight.</strong> In the portal, sign in as Oliver. The flight-status
-              feed found UL 503 was 4h 40m late: tap <em>Claim $35.00</em>. Add a PayID on the same page.
-              <a href="#" data-port="5173" data-path="">Open the portal</a>
-            </li>
-            <li>
-              <strong>Let the agent decide.</strong> In the handler workspace, sign in as Dana, open the new
-              claim and press <em>Work</em>. Watch the case brief fill in: checks, sources and the payout.
-              <a href="#" data-port="5174" data-path="">Open the workspace</a>
-            </li>
-            <li>
-              <strong>See it land.</strong> Back in the portal: the claim is paid to the PayID, and
-              <em>Updates</em> shows the email and text we sent.
-              <a href="#" data-port="5173" data-path="/#/updates">Open Updates</a>
-            </li>
-            <li>
-              <strong>Try to fool it.</strong> Make a claim with
-              <code>data/sample-receipts/04-injection-test-mara-lodge.png</code>, a receipt hiding an
-              instruction to the AI. The hidden-instruction check stops it before the agent reads it.
-            </li>
-            <li>
-              <strong>Hold it to account.</strong> In the console, sign in as Priya and run the five-claim
-              evaluation (about $0.15): the agent's decisions against the handlers'.
-              <a href="#" data-port="5175" data-path="">Open the console</a>
-            </li>
-          </ol>
-        </div>
-      </section>
+          <p class="lede">A working pilot for a travel insurer: customers claim online, AI agents decide the routine claims in seconds, and claims experts focus on the ones that need judgement.</p>
 
-      <!-- 3. Architecture and 4. a claim's journey -->
-      <section id="architecture" class="section alt">
-        <div class="wrap">
-          <h2 class="section-title">Architecture</h2>
-          <p class="section-lead">Select a part to see what it does. The dashed outlines are trust boundaries: each app has its own sign-in issuer and audience.</p>
-          <div class="arch">
-            <svg viewBox="0 0 960 470" role="group" aria-label="Architecture diagram" class="diagram">
-              <defs>
-                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead" /></marker>
-              </defs>
-              <!-- trust boundaries -->
-              <rect x="20" y="20" width="200" height="120" rx="14" class="boundary" /><text x="34" y="40" class="boundary-label">Customers</text>
-              <rect x="20" y="170" width="200" height="120" rx="14" class="boundary" /><text x="34" y="190" class="boundary-label">Staff</text>
-              <rect x="20" y="320" width="200" height="120" rx="14" class="boundary" /><text x="34" y="340" class="boundary-label">AI engineering</text>
-              <!-- edges -->
-              <path d="M200 90 L330 200" class="edge" data-edge="portal-api" marker-end="url(#arrow)" />
-              <path d="M200 240 L330 230" class="edge" data-edge="dashboard-api" marker-end="url(#arrow)" />
-              <path d="M200 390 L330 260" class="edge" data-edge="console-api" marker-end="url(#arrow)" />
-              <path d="M200 255 Q260 330 330 345" class="edge" data-edge="dashboard-copilot" marker-end="url(#arrow)" />
-              <path d="M450 345 Q470 300 450 260" class="edge" data-edge="copilot-api" marker-end="url(#arrow)" />
-              <path d="M510 230 L620 140" class="edge" data-edge="api-agent" marker-end="url(#arrow)" />
-              <path d="M450 270 L450 300 L620 400" class="edge" data-edge="api-db" marker-end="url(#arrow)" />
-              <path d="M740 115 L820 115" class="edge" data-edge="agent-claude" marker-end="url(#arrow)" />
-              <path d="M680 165 L680 230" class="edge" data-edge="agent-context" marker-end="url(#arrow)" />
-              <path d="M510 345 Q700 350 820 140" class="edge" data-edge="copilot-claude" marker-end="url(#arrow)" />
-              <!-- nodes -->
-              <g class="node" data-node="portal" tabindex="0" role="button" aria-label="Customer portal"><rect x="40" y="60" width="160" height="56" rx="12" /><text x="120" y="85">portal</text><text x="120" y="103" class="sub">make claims</text></g>
-              <g class="node" data-node="dashboard" tabindex="0" role="button" aria-label="Handler dashboard"><rect x="40" y="210" width="160" height="56" rx="12" /><text x="120" y="235">dashboard</text><text x="120" y="253" class="sub">work claims</text></g>
-              <g class="node" data-node="console" tabindex="0" role="button" aria-label="AI assurance console"><rect x="40" y="360" width="160" height="56" rx="12" /><text x="120" y="385">console</text><text x="120" y="403" class="sub">quality and security</text></g>
-              <g class="node core" data-node="api" tabindex="0" role="button" aria-label="API"><rect x="330" y="190" width="180" height="80" rx="12" /><text x="420" y="225">api</text><text x="420" y="245" class="sub">claims · payments · limits</text></g>
-              <g class="node ai" data-node="copilot" tabindex="0" role="button" aria-label="Copilot"><rect x="390" y="320" width="120" height="50" rx="12" /><text x="450" y="342">copilot</text><text x="450" y="359" class="sub">handlers' chat</text></g>
-              <g class="node ai" data-node="agent" tabindex="0" role="button" aria-label="Claim agent"><rect x="620" y="70" width="120" height="95" rx="12" /><text x="680" y="105">agent</text><text x="680" y="124" class="sub">claim agent</text><text x="680" y="140" class="sub">+ specialists</text></g>
-              <g class="node" data-node="context" tabindex="0" role="button" aria-label="Context server"><rect x="620" y="230" width="120" height="56" rx="12" /><text x="680" y="254">context</text><text x="680" y="272" class="sub">MCP server</text></g>
-              <g class="node store" data-node="db" tabindex="0" role="button" aria-label="PostgreSQL"><rect x="620" y="370" width="150" height="60" rx="12" /><text x="695" y="396">PostgreSQL</text><text x="695" y="414" class="sub">records + receipts</text></g>
-              <g class="node external" data-node="claude" tabindex="0" role="button" aria-label="Claude"><rect x="820" y="85" width="120" height="60" rx="30" /><text x="880" y="112">Claude</text><text x="880" y="130" class="sub">Sonnet · Haiku</text></g>
-            </svg>
-            <aside class="detail" aria-live="polite">
-              <h3 id="detail-title">Select a part</h3>
-              <p id="detail-what">Each box is a container in Docker Compose today and on EKS in stage 2.</p>
-              <dl id="detail-facts"></dl>
-            </aside>
-          </div>
-
-          <div class="journey">
-            <div class="journey-head">
-              <h3>One claim's journey</h3>
-              <div class="journey-controls">
-                <button type="button" class="button secondary" id="journey-back">Back</button>
-                <button type="button" class="button" id="journey-next">Start</button>
-              </div>
+          <div class="showcase">
+            <div class="player">
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i><b id="player-url">localhost:5173</b></span>
+              <video id="player" muted playsinline preload="auto" poster="img/portal.webp" width="1440" height="855" aria-label="A short recording of the selected app"></video>
             </div>
-            <ol class="journey-steps" id="journey-steps"></ol>
+            <div class="rail" role="tablist" aria-label="The three apps">
+              <button type="button" class="pick" role="tab" data-clip="portal" data-port="5173" aria-selected="true">
+                <span class="pick-head"><span class="app-name">Customer</span><span class="dot" data-health-port="5173" aria-hidden="true"></span></span>
+                <span class="metric-value" data-stat="ai_share">8 in 10</span>
+                <span class="metric-label">claims decided <span data-stat="ai_time">in under 30 seconds</span></span>
+                <span class="metric-note">Under $1,000? Paid straight to your PayID.</span>
+                <span class="bar" aria-hidden="true"><i></i></span>
+              </button>
+              <button type="button" class="pick" role="tab" data-clip="handler" data-port="5174" aria-selected="false">
+                <span class="pick-head"><span class="app-name">Claims handler</span><span class="dot" data-health-port="5174" aria-hidden="true"></span></span>
+                <span class="metric-value" data-stat="expert_share">2 in 10</span>
+                <span class="metric-label">claims need your judgement</span>
+                <span class="metric-note">Each arrives with the case brief, sources and risk signals. You sign off payouts over $1,000.</span>
+                <span class="bar" aria-hidden="true"><i></i></span>
+              </button>
+              <button type="button" class="pick" role="tab" data-clip="console" data-port="5175" aria-selected="false">
+                <span class="pick-head"><span class="app-name">AI assurance</span><span class="dot" data-health-port="5175" aria-hidden="true"></span></span>
+                <span class="metric-value" data-stat="traced">100%</span>
+                <span class="metric-label">of AI decisions traced end to end</span>
+                <span class="metric-note">Every step, source, model and cost on record. Matched claims experts on <span data-stat="held_out">5 of 5</span> unseen claims · <span data-stat="redteam">8 of 8</span> attacks blocked.</span>
+                <span class="bar" aria-hidden="true"><i></i></span>
+              </button>
+            </div>
+          </div>
+          <div class="launch">
+            <a class="go-app" href="#" data-port="5173"><span><b>Open the customer portal</b></span><svg class="go"><use href="#i-arrow" /></svg></a>
+            <a class="go-app" href="#" data-port="5174"><span><b>Open the handler workspace</b></span><svg class="go"><use href="#i-arrow" /></svg></a>
+            <a class="go-app" href="#" data-port="5175"><span><b>Open AI assurance</b></span><svg class="go"><use href="#i-arrow" /></svg></a>
           </div>
         </div>
+        <a class="scroll-cue" href="#how" aria-label="Scroll to how it works"><svg><use href="#i-down" /></svg></a>
       </section>
 
-      <!-- 5. Core concepts -->
-      <section id="concepts" class="section">
+      <!-- Screen 2: how it's built, the target state on AWS -->
+      <section class="how" id="how">
         <div class="wrap">
-          <h2 class="section-title">Core concepts</h2>
-          <div class="cards">
-            <article class="card"><h3>Human in the loop</h3><p>The agent pays approvals under $1,000 on its own. Anything larger waits for a senior handler's sign-off, and every decision can be overridden with a reason code.</p><a href="#" data-port="5174" data-path="">See the queue</a></article>
-            <article class="card"><h3>The agent decides; code pays</h3><p>Limits, payouts and the one-payment-per-claim rule live in the api, where no prompt can reach. The agent can only ask.</p></article>
-            <article class="card"><h3>Prompt-injection defence</h3><p>A hidden-instruction check reads every claim and receipt before the agent does, and refers anything that tries to give the AI orders.</p></article>
-            <article class="card"><h3>Evaluations with a held-out set</h3><p>The agent is scored against handlers' decisions on an evaluation set, and on a held-out set it never sees.</p><a href="#" data-port="5175" data-path="">See the scoreboard</a></article>
-            <article class="card"><h3>Self-improvement, human-gated</h3><p>An improver proposes a new configuration from the misses. An AI engineer approves it, and it's kept only if it scores better on the held-out set.</p><a href="#" data-port="5175" data-path="/#/improvement">See improvement</a></article>
-            <article class="card"><h3>Kill switch</h3><p>A senior handler can pause every payout at once. Approvals then wait for sign-off until payouts are back on.</p></article>
-            <article class="card"><h3>Three trust boundaries</h3><p>Customers, handlers and AI engineers each use their own app, sign-in issuer and token audience, so one app's token opens nothing in another.</p></article>
-            <article class="card"><h3>Context over MCP</h3><p>Policy wording, the claims manual and reference data sit in an MCP server the agent queries, with each answer's source recorded.</p></article>
-            <article class="card"><h3>Fraud signals</h3><p>Receipts are fingerprinted to find the same one on another claim, and the agent remembers a customer's earlier claims.</p></article>
-          </div>
-        </div>
-      </section>
-
-      <!-- 6. Security and governance -->
-      <section id="security" class="section alt">
-        <div class="wrap">
-          <h2 class="section-title">Security and governance</h2>
-          <div class="cols">
+          <header class="how-head">
             <div>
-              <h3>In the app</h3>
-              <ul class="ticks">
-                <li>A threat model with a data flow diagram, kept with the code</li>
-                <li>A red-team suite of eight attack claims mapped to the OWASP Top 10 for LLM applications</li>
-                <li>Every agent step traced: tool calls, sources, tokens and cost</li>
-                <li>Receipts checked by their contents, size-limited and served only as downloads</li>
-                <li>Strict content security policy on every app; customer names redacted from logs</li>
-              </ul>
+              <p class="kicker">Architecture · target state on AWS</p>
+              <h2>Secure by design, end to end</h2>
             </div>
-            <div>
-              <h3>In the pipeline</h3>
-              <ul class="ticks">
-                <li>A secure agentic SDLC: spec, plan, threat model and review for every change</li>
-                <li>Semgrep, CodeQL, secret scanning and an SBOM on every pull request</li>
-                <li>Dependabot with a seven-day cooldown; every action and image pinned by digest</li>
-                <li>Protected main: changes land only through pull requests with passing checks</li>
-                <li>GitHub Actions deploy to AWS with OIDC, no long-lived keys (stage 2)</li>
-              </ul>
+            <div class="flows" role="group" aria-label="Light up a flow">
+              <button type="button" class="flow" data-flow="claim">Customer claim</button>
+              <button type="button" class="flow" data-flow="decide">AI decision</button>
+              <button type="button" class="flow" data-flow="deliver">Secure delivery</button>
+            </div>
+          </header>
+          <div class="arch2">
+            <div class="net-wrap" tabindex="0" role="region" aria-label="Architecture diagram, scrolls sideways on small screens">
+<svg viewBox="0 0 1400 790" class="net" role="group" aria-label="Target-state architecture on AWS">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahd" /></marker></defs>
+<rect x="190" y="14" width="1196" height="630" rx="14" class="z z-aws" /><text x="202" y="32" class="zl">AWS ACCOUNT · ap-southeast-2 (Sydney) · TARGET STATE</text>
+
+<rect x="388" y="44" width="726" height="486" rx="14" class="z z-vpc" /><text x="400" y="62" class="zl">VPC · 3 AVAILABILITY ZONES</text>
+
+<rect x="402" y="70" width="150" height="446" rx="14" class="z z-pub" /><text x="414" y="88" class="zl">PUBLIC SUBNETS</text>
+
+<rect x="566" y="70" width="366" height="446" rx="14" class="z z-app" /><text x="578" y="88" class="zl">PRIVATE APP SUBNETS</text>
+
+<rect x="946" y="70" width="154" height="446" rx="14" class="z z-data" /><text x="958" y="88" class="zl">PRIVATE DATA SUBNETS</text>
+
+<rect x="578" y="96" width="342" height="408" rx="14" class="z z-eks" /><text x="590" y="114" class="zl">AMAZON EKS · PRIVATE NODES</text>
+
+<rect x="1128" y="44" width="246" height="486" rx="14" class="z z-ai" /><text x="1140" y="62" class="zl">MANAGED AI AND SUPPLY CHAIN</text>
+
+<rect x="388" y="546" width="986" height="86" rx="14" class="z z-obs" /><text x="400" y="564" class="zl">SECURITY AND OBSERVABILITY</text>
+
+<rect x="14" y="660" width="1372" height="118" rx="14" class="z z-pipe" /><text x="26" y="678" class="zl">DEVSECOPS PIPELINE · GITHUB TO AWS, NO LONG-LIVED KEYS</text>
+
+<rect x="14" y="14" width="162" height="360" rx="14" class="z z-people" /><text x="26" y="32" class="zl">PEOPLE</text>
+
+<path d="M164 96 L206 118" class="e " data-edge="cust-cdn" marker-end="url(#ah)" />
+
+<path d="M164 186 L206 140" class="e " data-edge="hand-cdn" marker-end="url(#ah)" />
+
+<path d="M164 276 L206 152" class="e " data-edge="eng-cdn" marker-end="url(#ah)" />
+
+<path d="M290 168 L290 190" class="e " data-edge="cdn-waf" marker-end="url(#ah)" />
+
+<path d="M370 220 C 395 220, 400 240, 412 240" class="e " data-edge="waf-alb" marker-end="url(#ah)" />
+
+<path d="M290 168 C 250 230, 250 280, 262 300" class="e faint" data-edge="cdn-cog" marker-end="url(#ah)" />
+
+<path d="M542 230 L590 146" class="e " data-edge="alb-portal" marker-end="url(#ah)" />
+
+<path d="M542 240 L590 210" class="e " data-edge="alb-dash" marker-end="url(#ah)" />
+
+<path d="M542 250 L590 274" class="e " data-edge="alb-console" marker-end="url(#ah)" />
+
+<path d="M740 146 L770 196" class="e " data-edge="portal-api" marker-end="url(#ah)" />
+
+<path d="M740 210 L770 214" class="e " data-edge="dash-api" marker-end="url(#ah)" />
+
+<path d="M740 274 L770 232" class="e " data-edge="console-api" marker-end="url(#ah)" />
+
+<path d="M664 232 L664 334" class="e " data-edge="dash-copilot" marker-end="url(#ah)" />
+
+<path d="M740 350 C 755 330, 760 260, 772 244" class="e " data-edge="copilot-api" marker-end="url(#ah)" />
+
+<path d="M840 252 L840 300" class="e " data-edge="api-agent" marker-end="url(#ah)" />
+
+<path d="M840 362 L840 404" class="e " data-edge="agent-context" marker-end="url(#ah)" />
+
+<path d="M910 210 L956 150" class="e " data-edge="api-aurora" marker-end="url(#ah)" />
+
+<path d="M910 222 L956 240" class="e " data-edge="api-s3" marker-end="url(#ah)" />
+
+<path d="M910 234 C 930 300, 940 330, 956 336" class="e faint" data-edge="api-secrets" marker-end="url(#ah)" />
+
+<path d="M910 324 C 1040 324, 1090 230, 1140 210" class="e " data-edge="agent-guard" marker-end="url(#ah)" />
+
+<path d="M1250 186 L1250 156" class="e " data-edge="guard-bedrock" marker-end="url(#ah)" />
+
+<path d="M910 316 C 935 260, 935 180, 956 160" class="e faint" data-edge="agent-aurora" marker-end="url(#ah)" />
+
+<path d="M840 430 C 840 520, 760 560, 720 572" class="e faint" data-edge="api-obs" marker-end="url(#ah)" />
+
+<path d="M196 726 L240 726" class="e " data-edge="gh-actions" marker-end="url(#ah)" />
+
+<path d="M436 726 L480 726" class="e " data-edge="actions-oidc" marker-end="url(#ah)" />
+
+<path d="M676 726 L720 726" class="e " data-edge="oidc-tf" marker-end="url(#ah)" />
+
+<path d="M916 726 L960 726" class="e " data-edge="tf-ecr" marker-end="url(#ah)" />
+
+<path d="M1156 726 L1200 726" class="e " data-edge="ecr-deploy" marker-end="url(#ah)" />
+
+<path d="M1290 700 C 1290 640, 960 600, 900 500" class="e " data-edge="deploy-eks" marker-end="url(#ah)" />
+
+<path d="M95 640 L95 696" class="e " data-edge="dev-gh" marker-end="url(#ah)" />
+
+<path d="M1180 336 C 1100 420, 980 470, 922 470" class="e faint" data-edge="ecr-eks" marker-end="url(#ah)" />
+
+<g class="n person" data-node="customer" tabindex="0" role="button" aria-label="Customer"><rect x="26" y="72" width="138" height="52" rx="10" /><use href="#i-user" x="36" y="88.0" width="20" height="20" /><text x="64" y="96.0" class="t">Customer</text><text x="64" y="111.0" class="s">portal user</text></g>
+
+<g class="n person" data-node="handler" tabindex="0" role="button" aria-label="Claims expert"><rect x="26" y="162" width="138" height="52" rx="10" /><use href="#i-briefcase" x="36" y="178.0" width="20" height="20" /><text x="64" y="186.0" class="t">Claims expert</text><text x="64" y="201.0" class="s">workspace user</text></g>
+
+<g class="n person" data-node="engineer" tabindex="0" role="button" aria-label="AI engineer"><rect x="26" y="252" width="138" height="52" rx="10" /><use href="#i-microscope" x="36" y="268.0" width="20" height="20" /><text x="64" y="276.0" class="t">AI engineer</text><text x="64" y="291.0" class="s">assurance user</text></g>
+
+<g class="n person" data-node="developer" tabindex="0" role="button" aria-label="Developer"><rect x="26" y="588" width="138" height="52" rx="10" /><use href="#i-user" x="36" y="604.0" width="20" height="20" /><text x="64" y="612.0" class="t">Developer</text><text x="64" y="627.0" class="s">and AI coding agent</text></g>
+
+<g class="n edgesvc" data-node="cdn" tabindex="0" role="button" aria-label="CloudFront"><rect x="206" y="108" width="168" height="58" rx="10" /><use href="#i-globe" x="216" y="127.0" width="20" height="20" /><text x="244" y="135.0" class="t">CloudFront</text><text x="244" y="150.0" class="s">Route 53 · TLS · Shield</text></g>
+
+<g class="n edgesvc sec" data-node="waf" tabindex="0" role="button" aria-label="AWS WAF"><rect x="206" y="192" width="168" height="52" rx="10" /><use href="#i-shield" x="216" y="208.0" width="20" height="20" /><text x="244" y="216.0" class="t">AWS WAF</text><text x="244" y="231.0" class="s">managed + rate rules</text></g>
+
+<g class="n edgesvc sec" data-node="cognito" tabindex="0" role="button" aria-label="Cognito"><rect x="206" y="270" width="168" height="58" rx="10" /><use href="#i-key" x="216" y="289.0" width="20" height="20" /><text x="244" y="297.0" class="t">Cognito</text><text x="244" y="312.0" class="s">3 user pools</text></g>
+
+<g class="n " data-node="alb" tabindex="0" role="button" aria-label="ALB"><rect x="412" y="210" width="130" height="58" rx="10" /><use href="#i-split" x="422" y="229.0" width="20" height="20" /><text x="450" y="237.0" class="t">ALB</text><text x="450" y="252.0" class="s">TLS · private targets</text></g>
+
+<g class="n app" data-node="portal" tabindex="0" role="button" aria-label="portal"><rect x="590" y="120" width="150" height="52" rx="10" /><use href="#i-user" x="600" y="136.0" width="20" height="20" /><text x="628" y="144.0" class="t">portal</text><text x="628" y="159.0" class="s">customer SPA</text></g>
+
+<g class="n app" data-node="dashboard" tabindex="0" role="button" aria-label="dashboard"><rect x="590" y="184" width="150" height="52" rx="10" /><use href="#i-briefcase" x="600" y="200.0" width="20" height="20" /><text x="628" y="208.0" class="t">dashboard</text><text x="628" y="223.0" class="s">handler SPA</text></g>
+
+<g class="n app" data-node="console" tabindex="0" role="button" aria-label="console"><rect x="590" y="248" width="150" height="52" rx="10" /><use href="#i-microscope" x="600" y="264.0" width="20" height="20" /><text x="628" y="272.0" class="t">console</text><text x="628" y="287.0" class="s">AI assurance SPA</text></g>
+
+<g class="n ai" data-node="copilot" tabindex="0" role="button" aria-label="copilot"><rect x="590" y="334" width="150" height="52" rx="10" /><use href="#i-chat" x="600" y="350.0" width="20" height="20" /><text x="628" y="358.0" class="t">copilot</text><text x="628" y="373.0" class="s">handlers' agent</text></g>
+
+<g class="n core" data-node="api" tabindex="0" role="button" aria-label="api"><rect x="770" y="176" width="140" height="76" rx="10" /><use href="#i-shield" x="780" y="204.0" width="20" height="20" /><text x="808" y="212.0" class="t">api</text><text x="808" y="227.0" class="s">limits · payments</text></g>
+
+<g class="n ai" data-node="agent" tabindex="0" role="button" aria-label="agent"><rect x="770" y="300" width="140" height="62" rx="10" /><use href="#i-bot" x="780" y="321.0" width="20" height="20" /><text x="808" y="329.0" class="t">agent</text><text x="808" y="344.0" class="s">LangGraph agents</text></g>
+
+<g class="n " data-node="context" tabindex="0" role="button" aria-label="context"><rect x="770" y="404" width="140" height="52" rx="10" /><use href="#i-book" x="780" y="420.0" width="20" height="20" /><text x="808" y="428.0" class="t">context</text><text x="808" y="443.0" class="s">MCP server</text></g>
+
+<g class="n data" data-node="aurora" tabindex="0" role="button" aria-label="Aurora"><rect x="956" y="120" width="134" height="58" rx="10" /><use href="#i-db" x="966" y="139.0" width="20" height="20" /><text x="994" y="147.0" class="t">Aurora</text><text x="994" y="162.0" class="s">PostgreSQL · KMS</text></g>
+
+<g class="n data" data-node="s3" tabindex="0" role="button" aria-label="S3"><rect x="956" y="212" width="134" height="58" rx="10" /><use href="#i-box" x="966" y="231.0" width="20" height="20" /><text x="994" y="239.0" class="t">S3</text><text x="994" y="254.0" class="s">receipts · KMS</text></g>
+
+<g class="n data sec" data-node="secrets" tabindex="0" role="button" aria-label="Secrets"><rect x="956" y="306" width="134" height="58" rx="10" /><use href="#i-lock" x="966" y="325.0" width="20" height="20" /><text x="994" y="333.0" class="t">Secrets</text><text x="994" y="348.0" class="s">Manager · KMS</text></g>
+
+<g class="n ai" data-node="bedrock" tabindex="0" role="button" aria-label="Amazon Bedrock"><rect x="1140" y="96" width="222" height="60" rx="10" /><use href="#i-sparkles" x="1150" y="116.0" width="20" height="20" /><text x="1178" y="124.0" class="t">Amazon Bedrock</text><text x="1178" y="139.0" class="s">Claude · AU inference</text></g>
+
+<g class="n ai sec" data-node="guard" tabindex="0" role="button" aria-label="Bedrock Guardrails"><rect x="1140" y="186" width="222" height="52" rx="10" /><use href="#i-shield-alert" x="1150" y="202.0" width="20" height="20" /><text x="1178" y="210.0" class="t">Bedrock Guardrails</text><text x="1178" y="225.0" class="s">+ injection check</text></g>
+
+<g class="n " data-node="ecr" tabindex="0" role="button" aria-label="Amazon ECR"><rect x="1140" y="306" width="222" height="58" rx="10" /><use href="#i-box" x="1150" y="325.0" width="20" height="20" /><text x="1178" y="333.0" class="t">Amazon ECR</text><text x="1178" y="348.0" class="s">scan on push · signed</text></g>
+
+<g class="n sec wide" data-node="obs" tabindex="0" role="button" aria-label="CloudTrail · CloudWatch · GuardDuty · Security Hub · Config"><rect x="402" y="568" width="958" height="50" rx="10" /><use href="#i-radar" x="412" y="583.0" width="20" height="20" /><text x="440" y="591.0" class="t">CloudTrail · CloudWatch · GuardDuty · Security Hub · Config</text><text x="440" y="606.0" class="s">audit, logs, threat detection, posture</text></g>
+
+<g class="n pipe" data-node="github" tabindex="0" role="button" aria-label="GitHub"><rect x="30" y="700" width="166" height="52" rx="10" /><use href="#i-git" x="40" y="716.0" width="20" height="20" /><text x="68" y="724.0" class="t">GitHub</text><text x="68" y="739.0" class="s">protected main</text></g>
+
+<g class="n pipe sec" data-node="actions" tabindex="0" role="button" aria-label="Actions checks"><rect x="240" y="700" width="196" height="52" rx="10" /><use href="#i-scan" x="250" y="716.0" width="20" height="20" /><text x="278" y="724.0" class="t">Actions checks</text><text x="278" y="739.0" class="s">Semgrep CodeQL Trivy</text></g>
+
+<g class="n pipe sec" data-node="oidc" tabindex="0" role="button" aria-label="OIDC to IAM"><rect x="480" y="700" width="196" height="52" rx="10" /><use href="#i-key" x="490" y="716.0" width="20" height="20" /><text x="518" y="724.0" class="t">OIDC to IAM</text><text x="518" y="739.0" class="s">no stored keys</text></g>
+
+<g class="n pipe" data-node="terraform" tabindex="0" role="button" aria-label="Terraform"><rect x="720" y="700" width="196" height="52" rx="10" /><use href="#i-layers" x="730" y="716.0" width="20" height="20" /><text x="758" y="724.0" class="t">Terraform</text><text x="758" y="739.0" class="s">plan · approve · apply</text></g>
+
+<g class="n pipe" data-node="ecrpush" tabindex="0" role="button" aria-label="Image to ECR"><rect x="960" y="700" width="196" height="52" rx="10" /><use href="#i-box" x="970" y="716.0" width="20" height="20" /><text x="998" y="724.0" class="t">Image to ECR</text><text x="998" y="739.0" class="s">SBOM · scan · sign</text></g>
+
+<g class="n pipe" data-node="deploy" tabindex="0" role="button" aria-label="Deploy to EKS"><rect x="1200" y="700" width="176" height="52" rx="10" /><use href="#i-rocket" x="1210" y="716.0" width="20" height="20" /><text x="1238" y="724.0" class="t">Deploy to EKS</text><text x="1238" y="739.0" class="s">dev on merge · prod gated</text></g>
+
+</svg>
+            </div>
+            <div class="spec" aria-live="polite">
+              <p class="spec-zone" id="spec-zone">Select any part</p>
+              <h3 id="spec-title">How UnderCover is built</h3>
+              <p id="spec-what">Three apps, one api and a set of Claude agents on EKS, behind CloudFront, WAF and Cognito, with Bedrock reached privately and every change shipped through a gated pipeline. Locally the same images run in Docker today.</p>
+              <dl id="spec-facts"></dl>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- 7. Stack -->
-      <section id="stack" class="section">
-        <div class="wrap">
-          <h2 class="section-title">Stack</h2>
-          <ul class="stack">
-            <li><strong>Claude Sonnet and Haiku 5.5</strong><span>the claim agent, specialists, improver and Copilot</span></li>
-            <li><strong>LangGraph</strong><span>the agent's steps, with saved progress in PostgreSQL</span></li>
-            <li><strong>MCP</strong><span>the context server for policy wording and the claims manual</span></li>
-            <li><strong>FastAPI</strong><span>the api: claims, decisions, payments and sign-in</span></li>
-            <li><strong>PostgreSQL</strong><span>records, the agent's memory and saved progress</span></li>
-            <li><strong>React and Vite</strong><span>the portal, dashboard and console</span></li>
-            <li><strong>Docker Compose</strong><span>every part in a container on a laptop</span></li>
-            <li><strong>GitHub Actions</strong><span>checks, scans and, in stage 2, deployment</span></li>
-            <li><strong>Terraform and EKS</strong><span>the AWS platform for stage 2 (planned)</span></li>
+          <ul class="controls">
+            <li>No long-lived keys</li>
+            <li>Private subnets only</li>
+            <li>Deny-by-default egress</li>
+            <li>KMS everywhere</li>
+            <li>Separate identity per audience</li>
+            <li>Guardrails + injection check</li>
+            <li>Code pays, never the model</li>
           </ul>
         </div>
       </section>

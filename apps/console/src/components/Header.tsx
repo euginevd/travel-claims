@@ -1,5 +1,6 @@
 import { LogOut, type LucideIcon } from "lucide-react";
 import { Logo } from "./Logo";
+import { ProjectLink, WattleButton } from "./Wattle";
 
 export interface NavLink {
   href: string;
@@ -13,6 +14,7 @@ interface HeaderProps {
   home: string;
   links: NavLink[];
   onSignOut: () => void;
+  onAssistant?: () => void;
 }
 
 /** Up to two initials for the avatar, e.g. "Dana Whitfield" -> "DW". */
@@ -27,12 +29,13 @@ export function initials(name: string): string {
 
 // The header band: logo, navigation, the engineer signed in and sign-out. It wraps rather than
 // clipping, so nothing falls off the edge at any width.
-export function Header({ name, detail, home, links, onSignOut }: HeaderProps) {
+export function Header({ name, detail, home, links, onSignOut, onAssistant }: HeaderProps) {
   return (
     <header className="header">
       <a className="brand" href={home} aria-label="UnderCover Claims, home">
         <Logo tone="on-ink" />
       </a>
+      <ProjectLink />
       <nav aria-label="Main">
         <ul>
           {links.map(({ href, label, Icon }) => (
@@ -45,6 +48,7 @@ export function Header({ name, detail, home, links, onSignOut }: HeaderProps) {
           ))}
         </ul>
       </nav>
+      {onAssistant && <WattleButton onClick={onAssistant} />}
       <div className="who">
         <span className="avatar" aria-hidden="true">
           {initials(name)}

@@ -43,6 +43,8 @@ export const HandlerSchema = z.object({
 });
 
 export const ClaimSummarySchema = z.object({
+  due_on: z.string(),
+  documents_in: z.boolean(),
   claim_id: z.string(),
   customer_name: z.string(),
   plan: z.string(),
@@ -134,6 +136,14 @@ const StagesSchema = z.object({
   paid: z.string().nullable(),
 });
 
+const LetterSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  drafted_by_ai: z.boolean(),
+  sent_by: z.string(),
+  sent_at: z.string(),
+});
+
 export const ClaimSchema = z.object({
   claim_id: z.string(),
   customer_name: z.string(),
@@ -170,6 +180,7 @@ export const ClaimSchema = z.object({
   stages: StagesSchema,
   review_requested_at: z.string().nullable(),
   review_note: z.string().nullable(),
+  letter: LetterSchema.nullable(),
   requests: z.array(
     z.object({
       request_id: z.number(),
@@ -181,6 +192,19 @@ export const ClaimSchema = z.object({
     }),
   ),
 });
+
+export const RiskSchema = z.object({
+  shared_receipts: z.array(
+    z.object({ receipt: z.number(), claim_id: z.string(), match: z.string() }),
+  ),
+  earlier_claims: z.number(),
+  earlier_paid: z.number(),
+  amount_claimed: z.number(),
+  typical_amount: z.number().nullable(),
+  high_amount: z.boolean(),
+});
+
+export type Risk = z.infer<typeof RiskSchema>;
 
 export const StepSchema = z.object({
   step_id: z.number(),
@@ -268,6 +292,12 @@ export interface Api {
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
+  getRisk: (claimId: string) => Promise<Risk>;
+  draftLetter: (claimId: string) => Promise<{ subject: string; body: string }>;
+  sendLetter: (
+    claimId: string,
+    letter: { subject: string; body: string; drafted_by_ai: boolean },
+  ) => Promise<Claim>;
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
   getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
@@ -362,6 +392,15 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
     signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
+    getRisk: (claimId) => call(RiskSchema, "GET", `${claimPath(claimId)}/risk`),
+    draftLetter: (claimId) =>
+      call(
+        z.object({ subject: z.string(), body: z.string() }),
+        "POST",
+        `${claimPath(claimId)}/letter/draft`,
+      ),
+    sendLetter: (claimId, letter) =>
+      call(ClaimSchema, "PUT", `${claimPath(claimId)}/letter`, { body: letter }),
     askCustomer: (claimId, text) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/requests`, { body: { text } }),
     receipt: async (claimId, receiptId) => {

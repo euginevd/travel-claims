@@ -1,10 +1,10 @@
 import { ApiError, createApi } from "./api";
-import { fakeFetch, PRIYA } from "./testing";
+import { fakeFetch, SAM } from "./testing";
 
 test("talks only to the engineering routes, with the token", async () => {
-  const fetchFn = fakeFetch({ "GET /api/engineering/me": () => [200, PRIYA] });
+  const fetchFn = fakeFetch({ "GET /api/engineering/me": () => [200, SAM] });
   const api = createApi(fetchFn, () => "token-e");
-  expect(await api.me()).toEqual(PRIYA);
+  expect(await api.me()).toEqual(SAM);
   expect(fetchFn.calls[0]).toMatchObject({ path: "/api/engineering/me", auth: "Bearer token-e" });
 });
 

@@ -1,84 +1,53 @@
 # Spec
 
-`travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from the UnderCover project in Ed Donner's AI FDE course. Built in stages: first the whole app on a laptop, then on AWS, then hardened and published.
+`travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from the UnderCover project in Ed Donner's AI FDE course ([`week3day5-end`](https://github.com/ed-donner/undercover) is the reference for behaviour and data; the code is written fresh, with credit).
 
 ## Project
 
-1. Name: `travel-claims`. The business is UnderCover, a fictional insurer (`business-context.md`).
-2. Problem: claims handlers work through a queue of travel insurance claims by hand, so simple claims wait days to be paid.
-3. Goal: an AI agent decides routine claims as accurately as a handler, and handlers spend their time only on claims that need judgement.
-4. Users: customers (policyholders) sign in, submit a claim with receipts and track their own claims; handlers work the queue and sign off large payouts; senior handlers also run evaluations and improvement rounds and change settings.
-5. Source: the course repo's `week3day5-end` branch is the reference for behaviour and data. The code here is written fresh, with credit to the course.
+1. Problem: handlers work through a queue of travel claims by hand, so simple claims wait days to be paid (`business-context.md`).
+2. Goal: an AI agent decides routine claims as accurately as a handler, so handlers spend their time only on claims that need judgement.
+3. Users: customers make and track claims; handlers work the queue, and senior handlers sign off large payouts and can pause payouts; AI engineers evaluate, improve and red-team the agent.
 
 ## Stages
 
-6. **Stage 1, local (now):** the whole app runs on a laptop with `docker compose up`, calling Claude through the Anthropic API with the user's own key, on the course's made-up data only.
-7. **Stage 2, AWS** *(planned)*: the same containers on AWS in `ap-southeast-2`, deployed by the pipeline. EKS, Aurora PostgreSQL, Cognito, Claude on Bedrock through the Australian inference profile, Bedrock Guardrails, Secrets Manager and ECR. Spec'd in detail before it starts.
-8. **Stage 3, hardened and published** *(planned)*: the security controls in `threat-model.md` across every DevSecOps stage, then the repo made public and posted on LinkedIn.
+4. **Stage 1, local build and test (built):** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
+5. **Stage 2, AWS build, test and deploy (planned):** the same images on EKS in `ap-southeast-2` with Aurora PostgreSQL, Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails, Secrets Manager and ECR; the pipeline deploys `dev` on merge and `prod` by hand. Spec'd in detail before it starts.
 
-Stage 1 is built in four plans, each working end to end before the next: the claim flow, the dispatcher and evaluations, the improver, and the Copilot.
+## Apps
 
-## Stack
+6. `portal` (customers), `dashboard` (handlers) and `console` (the AI assurance console for AI engineers): React, Vite and TypeScript, each with its own sign-in, token issuer and audience (decisions 10, 12). `home`: a static local project page.
+7. `api` (claims, decisions, payments, notices; Python, FastAPI, PostgreSQL), `agent` (claim agent, hidden-instruction check, specialists, dispatcher, improver, drafting assistant, red team; LangGraph), `copilot` (handlers' chat agent) and `context` (an MCP server over the policy wording, claims manual and reference data).
+8. Models: Claude Sonnet for the claim agent; Claude Haiku for the hidden-instruction check, specialists and drafting assistant; one module per app chooses the Anthropic API or Bedrock.
+9. Locally: PostgreSQL and receipts in Docker, a sign-in stand-in issuing Cognito-shaped tokens, and a stand-in flight-status feed.
 
-Template defaults: GitHub Actions, Terraform on AWS (stage 2) and the Gitleaks and Trivy pre-push scan. Each app has its own Dockerfile from stage 1, so stage 2 ships the same images.
+## What it does
 
-9. `portal` and `dashboard`: the customers' portal and the handlers' dashboard, as two React, Vite and TypeScript apps on separate addresses, each with its own sign-in, token issuer and audience (decision 10). React, Vite and TypeScript. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
-10. `api`: claims, policies, decisions, payments, settings and records. Python, FastAPI and SQLAlchemy on PostgreSQL. Payments are a module of their own that checks every limit in code. Checks: `uv run ruff check`, `uv run pyright`, `uv run pytest`.
-11. `agent`: the claim agent, the hidden-instruction check, the dispatcher and the improver. Python and LangGraph, with progress saved to PostgreSQL. Same checks as `api`.
-12. `copilot`: the handlers' chat agent. Python and LangGraph. Same checks as `api`.
-13. `context`: the context layer, an MCP server over the policy wording, claims manual, plans, rules and reference data. Same checks as `api`.
-14. Models: one module per app reaches Claude, through the Anthropic API in stage 1 and Bedrock in stage 2, chosen by settings. The claim agent runs on Claude Sonnet, and the hidden-instruction check and the judge on Claude Haiku, with explicit model IDs (code-standards 19).
-15. Local services: PostgreSQL in Docker; a local sign-in stand-in for handlers and customers that issues tokens shaped like Cognito's, so the `api` checks them the same way in both stages (customers get Google through Cognito in stage 2); receipts on a local Docker volume behind one storage module (a private, encrypted S3 bucket in stage 2). The agent's memory of customers is kept in PostgreSQL.
-16. End-to-end: Playwright against the running stack, with the models stubbed.
-17. Machine: Docker Desktop, uv, Node and an Anthropic API key in `.env`, which is never committed.
+10. **Customers** see only their own claims; make a claim photo first, with an AI drafting assistant and up to five receipts (JPEG, PNG or PDF, 5 MB each), saved to finish later; and claim a delayed flight in one tap when the flight-status feed shows it qualifies.
+11. **Customers** follow each claim on a tracker with a plain-English reason and an AI disclosure, upload each document asked for, ask a person to review a decision, get paid to a PayID, and see every email and text in Updates (an outbox in stage 1). They can ask an assistant about their policy and claims, answered from customer-facing sources only, citing the wording and never promising cover.
+12. **The hidden-instruction check** reads every claim and receipt first, on a separate model; a claim with hidden instructions goes to a handler and the claim agent never sees it.
+13. **The claim agent** uses the context layer, specialists (document checker, duplicate receipts, medical reviewer) and the customer's earlier claims to approve, decline or refer, with the payout from the payout rules and a decision record that meets claims manual section 14 or is refused. A referral can ask the customer for documents.
+14. **Payments:** an approval under $1,000 is paid at once, and a claim is paid once at most; anything over waits for a senior handler's sign-off. A senior handler can pause all payouts, and approvals then hold.
+15. **Handlers** get a queue with what needs them first, a case brief (recommendation, checklist with sources, payout lines, screened claims flagged), and sign off, send back, override with a reason code, ask the customer, or send an AI-drafted letter they've checked. Wattle AI (the Copilot) acts as the handler and signs off only after they confirm.
+16. **AI engineers** run evaluations on labelled sets with 1 to 25 agents at once (restart-safe), see scores, misses and any claim's tokens and cost, approve or reject the improver's proposals (kept only if the held-out scores improve and every red-team attack holds against it), and run the red team: eight attack claims mapped to the OWASP Top 10 for LLMs, none of which may end paid.
+17. **The project page** explains the project, shows live counts and links to the three apps; local only, no customer data.
 
-## Done when (stage 1)
+## Done when
 
-18. `docker compose up` starts every app; a handler signs in and sees the queue.
-19. The agent works a claim: the hidden-instruction check first, then lookups in the context layer, then approve, decline or refer, with the payout worked out by the payout rules and a reason that quotes the policy wording.
-20. Every decision record meets claims manual section 14, or the `api` refuses it, saying what's missing.
-21. An approval under $1,000 is paid at once; anything over waits for a handler who can sign it off or send it back with a note, and the agent decides again.
-22. The `api` refuses any payment over the approval limit, whatever the agent does.
-23. A claim with instructions hidden in it goes to a handler, and the claim agent's model never sees it.
-24. A dispatch works the queue with 1 to 25 claim agents at once, survives a restart without deciding or paying any claim twice, and summarises itself from the records.
-25. An evaluation scores the agent against the handlers' decisions on a labelled set, and the scoreboard shows it.
-26. The improver proposes a new configuration, a senior handler approves or rejects it, and the keep-or-roll-back rule decides on the held-out set.
-27. The Copilot answers a handler's questions from the records and signs off a held payout only after the handler confirms on a card.
-28. All checks and the injection tests pass, and the local stack is documented in `status.md`.
-29. A customer signs in, sees only their own policy and claims with a plain-English status and reason, and submits a claim with up to five receipts (JPEG, PNG or PDF, 5 MB each); the hidden-instruction check reads the receipts before the claim agent does, and Claude reads them when deciding.
-30. Customers file photo first and type little: they snap a receipt or pick a common case, an AI drafting assistant (Claude Haiku) asks only what's missing and drafts the summary, items, amounts and dates, tagging where each came from and highlighting what it's unsure of; the customer confirms or fixes it before submitting. The assistant only drafts; the hidden-instruction check screens the customer's own words and receipts, and the claim agent reads the customer's original story as the record.
-31. Customers follow their claim on a plain status tracker, and can ask for a person to review any decision.
-32. Handlers see a case brief by default: a stage tracker (received, checked, assessed, decided, paid), a banner only when something needs them, a recommendation card with the outcome, the reason and a checklist of what was verified (exceptions first, each line linked to its receipt or clause), and the payout bar. They can sign off, send back, or override with a reason code. The agent's live activity sits in a separate panel, and a trace toggle shows the raw tool calls, JSON, model, tokens and cost.
-33. The queue puts what needs a handler first, with keyboard shortcuts and a command palette. AI-produced content carries one consistent marker in both apps.
+18. **Stage 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; `status.md` documents the stack.
+19. **Stage 2:** the pipeline deploys the same images to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
 
 ## Rules
 
-34. The agent decides; deterministic code pays and enforces every limit (code-standards 17).
-35. Claim text and documents are untrusted input: text hidden in them must not change a decision.
-36. Handlers sign in, and the `api` checks the handler on every request. The agent uses its own API key, which never stands in for a handler; the Copilot acts as the handler who asked.
-37. The agent acts only on its own claim and reads only its own customer's records. Each customer's memories are used only for that customer's claims.
-38. The agent and the improver never see the handlers' decisions on the held-out set.
-39. Every decision is logged with its reasons, with personal data redacted.
-40. Stage 1 sends only the course's made-up data to the Anthropic API. From stage 2, real-looking claim data goes only to Bedrock in Australia.
-41. Amounts are in US dollars, as in the source data.
-42. Receipts are untrusted: their type is checked from the file's contents, they're never served on a public URL, and a customer reaches only their own policy, claims and receipts.
-43. A payout held for sign-off is never paid without a handler, however long it waits.
-44. Security requirements baseline: OWASP ASVS 5.0 Level 2.
+20. The agent decides; deterministic code pays and enforces every limit.
+21. Claims, documents and receipts are untrusted: hidden text must not change a decision; receipts are typed from their contents and never on a public URL.
+22. Each audience signs in through its own issuer and the `api` checks the person on every request; the agent's key never stands in for a person; the Copilot acts as the handler who asked.
+23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations.
+24. The agent and the improver never see the held-out set's answers.
+25. Every decision is logged with its reasons; personal data is redacted.
+26. Stage 1 sends only made-up data to the Anthropic API; from stage 2, claim data goes only to Bedrock in Australia.
+27. A payout held for sign-off is never paid without a handler.
+28. Amounts are in US dollars. Security baseline: OWASP ASVS 5.0 Level 2.
 
 ## Not for now
 
-45. Real payments, and messages to customers.
-46. Quotes and policy sales, a mobile app, and fraud detection beyond the payment checks.
-47. Anything on AWS until stage 2 is spec'd.
-
-## Advanced agentic features (stage 1)
-
-48. **Evaluations:** a dispatcher works many claims at once (1 to 25 claim agents) and survives a restart without deciding or paying twice; an evaluation runs copies of a labelled set through it and a scoreboard shows accuracy, payout accuracy, the share handled straight through, cost and time per claim, with each miss beside the handler's decision.
-49. **Kill switch:** a senior handler can stop all payouts while the app keeps running; the agent still decides and every approval holds until payouts are back on.
-50. **Red-team suite:** a set of attack claims (instructions hidden in receipt images and PDFs, fake approval notes, goal hijacking, payout inflation) runs on demand with a pass or fail report; every attack must end referred or held, never paid.
-51. **Specialist sub-agents:** a document checker (receipts against the story, dates and trip), a duplicate-receipt detector across claims, and a medical reviewer for medical claims; the claim agent calls them and cites them in its checklist.
-52. **Improver:** a second agent reads an evaluation's misses and proposes a change to the claim agent's instructions, model or effort as a diff; a senior handler approves or rejects it; an approved version is kept only if it improves the held-out scores without making any worse, and the improver never sees the held-out answers.
-53. **Copilot:** a chat in the staff dashboard that answers from the records and acts as the signed-in handler, never with the agent's key; it signs off only after the handler confirms on a card.
-54. **Customer memory:** the agent remembers each customer's earlier claims and decisions, used only for that customer's claims and never in evaluations.
-55. **Polish:** Work this claim carries on a claim the agent stopped on; optionally the agent starts as soon as a customer submits.
-56. Claude spend for building and testing these stays under $10 in all; evaluations and improvement rounds have their own spending limits.
+29. Real payments, real email and texts, quotes and policy sales, and a mobile app.

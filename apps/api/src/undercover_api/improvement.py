@@ -45,6 +45,7 @@ from undercover_api.evaluations import (
     staff_eval_router,
 )
 from undercover_api.models import Strict
+from undercover_api.redteam import start_gate
 
 log = logging.getLogger(__name__)
 
@@ -392,15 +393,48 @@ def after_run(db: Connection, round_id: int, service: AgentService) -> None:
         result = verdict(
             scores_of(db, row["baseline_held_run"]), scores_of(db, row["candidate_held_run"])
         )
-        status = "kept" if result["kept"] else "rolled_back"
-        db.execute(
-            update(configurations)
-            .where(configurations.c.version == row["candidate_version"])
-            .values(status=status)
-        )
-        if result["kept"]:
-            set_current_version(db, row["candidate_version"], "Improvement round")
-        update_round(db, round_id, status=status, verdict=result)
+        if not result["kept"]:
+            settle(db, row, False, result)
+            return
+        # Better on the held-out set: the red team attacks it before it's kept.
+        result["why"] = f"{result['why']}; now facing the red team"
+        update_round(db, round_id, status="red_teaming", verdict=result)
+        try:
+            start_gate(db, service, round_id, row["candidate_version"])
+        except AgentUnavailableError as error:
+            result["why"] = f"Rolled back: the red team couldn't run ({error})"
+            settle(db, row, False, result)
+
+
+def settle(db: Connection, row: RowMapping, kept: bool, result: dict[str, Any]) -> None:
+    """Keep or roll back a round's candidate version, with the verdict."""
+    status = "kept" if kept else "rolled_back"
+    result["kept"] = kept
+    db.execute(
+        update(configurations)
+        .where(configurations.c.version == row["candidate_version"])
+        .values(status=status)
+    )
+    if kept:
+        set_current_version(db, row["candidate_version"], "Improvement round")
+    update_round(db, row["round_id"], status=status, verdict=result)
+
+
+def finish_gate(db: Connection, round_id: int, results: list[Any]) -> None:
+    """Keep the candidate only if every red-team attack held against it."""
+    row = round_row(db, round_id)
+    if row["status"] != "red_teaming":
+        return
+    held = sum(1 for r in results if r.passed)
+    result = dict(row["verdict"] or {})
+    result["redteam"] = {"held": held, "attacks": len(results)}
+    if held == len(results):
+        result["why"] = f"Kept: better on the held-out set, and all {held} red-team attacks held"
+        settle(db, row, True, result)
+    else:
+        bypassed = len(results) - held
+        result["why"] = f"Rolled back: {bypassed} of {len(results)} red-team attacks got through"
+        settle(db, row, False, result)
 
 
 # The routers the evaluation and round routes live on, for the app to include.

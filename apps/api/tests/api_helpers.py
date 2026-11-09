@@ -38,7 +38,7 @@ SIGN_IN = {
     "customer": "/api/customer/dev/sign-in",
     "engineer": "/api/engineering/dev/sign-in",
 }
-PRIYA = "priya.raman@undercover.example"
+SAM = "sam.carter@undercover.example"
 
 
 def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:
@@ -112,6 +112,9 @@ class FakeAgent:
         self.calls: list[tuple[str, str, str | None]] = []
         self.failure: AgentUnavailableError | None = None
         self.drafts: list[dict[str, object]] = []
+        self.letters: list[dict[str, object]] = []
+        self.questions: list[dict[str, object]] = []
+        self.explained: list[dict[str, object]] = []
         self.draft_answer: dict[str, object] = {
             "claim_type": "baggage",
             "summary": "Bag lost on the flight to Rome",
@@ -144,6 +147,34 @@ class FakeAgent:
 
     def redteam(self) -> None:
         self._take(("redteam", "", None))
+
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.explained.append(request)
+        return {
+            "answer": "Run 1 matched 5 of 5.",
+            "sources": ["Run 1"],
+            "suggest": "",
+            "screened": False,
+        }
+
+    def ask(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.questions.append(request)
+        return {
+            "answer": "Your plan covers delays over 6 hours.",
+            "sources": ["Policy wording section 6"],
+            "suggest": "",
+            "screened": False,
+        }
+
+    def letter(self, request: dict[str, object]) -> dict[str, object]:
+        if self.failure is not None:
+            raise self.failure
+        self.letters.append(request)
+        return {"subject": "Your claim is approved", "body": "Dear Maya, we've approved it."}
 
     def draft(self, request: dict[str, object]) -> dict[str, object]:
         if self.failure is not None:

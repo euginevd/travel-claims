@@ -1,6 +1,7 @@
 """Reading claims and moving them between statuses. Every move is a conditional update, so
 two requests racing for the same claim can't both win."""
 
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi import HTTPException
@@ -12,6 +13,8 @@ from undercover_api.db import (
     customer_requests,
     customers,
     decisions,
+    letters,
+    model_calls,
     now,
     payments,
     policies,
@@ -26,9 +29,12 @@ from undercover_api.models import (
     Claim,
     ClaimRef,
     ClaimSummary,
+    CustomerLetter,
     CustomerMatch,
     CustomerRequest,
     Decision,
+    DecisionKind,
+    ModelCall,
     NewStep,
     Payment,
     Payout,
@@ -40,6 +46,7 @@ from undercover_api.models import (
     Stages,
     Status,
     Step,
+    Trace,
 )
 from undercover_api.notices import announce, announce_requests
 from undercover_api.payout import PolicyTerms
@@ -118,6 +125,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "sent_back_decisions": [SentBackDecision.model_validate(dict(r)) for r in returned],
             "receipts": list_receipts(db, claim_id),
             "requests": list_requests(db, claim_id),
+            "letter": letter_of(db, claim_id),
             "stages": stages(db, row, decision, payment),
             "evaluation": row["source"] == "evaluation",
         }
@@ -196,16 +204,46 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
         .where(claims.c.source != "evaluation")
         .order_by(claims.c.submitted_on, claims.c.claim_id)
     )
+    asked = {
+        claim_id: (total, done)
+        for claim_id, total, done in db.execute(
+            select(
+                customer_requests.c.claim_id,
+                func.count(),
+                func.count(customer_requests.c.fulfilled_at),
+            ).group_by(customer_requests.c.claim_id)
+        ).all()
+    }
     return [
         ClaimSummary.model_validate(
             dict(r)
             | {
                 "plan": r["policy"]["plan"],
                 "review_requested": r["review_requested_at"] is not None,
+                "due_on": business_days_after(r["submitted_on"], SERVICE_DAYS),
+                "documents_in": r["claim_id"] in asked
+                and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]
+                and r["decision"] == DecisionKind.REFER,
             }
         )
         for r in db.execute(query).mappings()
     ]
+
+
+# How long a claim may take before it's overdue, in business days.
+SERVICE_DAYS = 10
+SATURDAY = 5
+
+
+def business_days_after(day: str, days: int) -> str:
+    """The date a number of business days (Monday to Friday) after another."""
+    current = date.fromisoformat(day)
+    left = days
+    while left:
+        current += timedelta(days=1)
+        if current.weekday() < SATURDAY:
+            left -= 1
+    return current.isoformat()
 
 
 def claims_policy(db: Connection, claim_id: str) -> Policy:
@@ -333,3 +371,28 @@ def add_requests(db: Connection, claim_id: str, texts: list[str], asked_by: str)
             )
         )
     announce_requests(db, find_claim(db, claim_id), texts)
+
+
+def claim_trace(db: Connection, claim_id: str) -> Trace:
+    """Every step and model call on a claim, with its total tokens and cost."""
+    find_claim(db, claim_id)
+    calls = [
+        ModelCall.model_validate(dict(r))
+        for r in db.execute(
+            select(model_calls)
+            .where(model_calls.c.claim_id == claim_id)
+            .order_by(model_calls.c.call_id)
+        ).mappings()
+    ]
+    return Trace(
+        steps=list_steps(db, claim_id),
+        model_calls=calls,
+        total_cost=round(sum(c.cost for c in calls), 6),
+        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
+    )
+
+
+def letter_of(db: Connection, claim_id: str) -> CustomerLetter | None:
+    """The letter sent to the customer about the claim's decision, if any."""
+    row = db.execute(select(letters).where(letters.c.claim_id == claim_id)).mappings().first()
+    return None if row is None else CustomerLetter.model_validate(dict(row))

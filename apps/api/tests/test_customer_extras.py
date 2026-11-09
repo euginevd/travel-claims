@@ -198,3 +198,97 @@ def test_a_claim_in_progress_is_saved_and_cleared_on_sending(
     client.put("/api/customer/draft", json=draft, headers=maya)
     assert client.delete("/api/customer/draft", headers=maya).status_code == 204
     assert client.get("/api/customer/draft", headers=maya).json() is None
+
+
+def test_a_customer_sees_what_each_trip_covers(
+    client: TestClient, oliver: dict[str, str], maya: dict[str, str]
+) -> None:
+    cover = client.get("/api/customer/cover", headers=oliver).json()
+    by_trip = {c["policy_id"]: c for c in cover}
+    assert by_trip["POL-2006"]["plan"]["trip_delay_waiting_hours"] == 3
+    assert {c["policy_id"] for c in client.get("/api/customer/cover", headers=maya).json()} == {
+        "POL-2001"
+    }
+
+
+# --- Decision letters ---
+
+
+def approve_and_pay(client: TestClient, claim_id: str) -> None:
+    start(client, claim_id)
+    amount = payout(client, claim_id, "baggage", [line("Suitcase", 400)])["payout"]
+    client.post(
+        f"/api/agent/claims/{claim_id}/decision",
+        json={
+            "decision": "approve",
+            "payout": amount,
+            "section": "Policy wording 10",
+            "reason": "Covered.",
+            "maker": "claim_agent",
+        },
+        headers=AGENT,
+    )
+    client.post(f"/api/agent/claims/{claim_id}/payment", json={"amount": amount}, headers=AGENT)
+
+
+def test_a_handler_drafts_edits_and_sends_a_decision_letter(
+    client: TestClient, dana: dict[str, str], maya: dict[str, str], agent: Any
+) -> None:
+    path = "/api/staff/claims/CLM-1001/letter"
+    assert client.post(f"{path}/draft", headers=dana).status_code == 409  # not decided yet
+    approve_and_pay(client, "CLM-1001")
+    drafted = client.post(f"{path}/draft", headers=dana)
+    assert drafted.status_code == 200, drafted.text
+    assert drafted.json()["subject"] == "Your claim is approved"
+    assert agent.letters[0]["decision"] == "approve"
+    assert agent.letters[0]["first_name"] == "Maya"
+    letter = {"subject": "Good news", "body": "Dear Maya, it's paid.", "drafted_by_ai": True}
+    sent = client.put(path, json=letter, headers=dana)
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["letter"]["sent_by"] == "Dana Whitfield"
+    mine = client.get("/api/customer/claims/CLM-1001", headers=maya).json()
+    assert mine["letter"]["body"] == "Dear Maya, it's paid."
+    assert any(n["subject"] == "Good news" for n in notices(client, maya))
+    assert client.put(path, json=letter, headers=maya).status_code == 401
+
+
+def test_a_referral_gets_no_letter(client: TestClient, dana: dict[str, str]) -> None:
+    refer(client, "CLM-1001", [])
+    assert client.post("/api/staff/claims/CLM-1001/letter/draft", headers=dana).status_code == 409
+
+
+# --- Ask UnderCover ---
+
+
+def test_ask_undercover_sends_only_the_customers_own_records(
+    client: TestClient, maya: dict[str, str], oliver: dict[str, str], agent: Any
+) -> None:
+    asked = client.post(
+        "/api/customer/ask", json={"question": "Am I covered for delays?"}, headers=maya
+    )
+    assert asked.status_code == 200, asked.text
+    assert asked.json()["sources"] == ["Policy wording section 6"]
+    sent = agent.questions[0]
+    assert sent["first_name"] == "Maya"
+    assert {p["policy_id"] for p in sent["policies"]} == {"POL-2001"}
+    assert all(c["claim_id"] != "CLM-1005" for c in sent["claims"])  # Oliver's, never Maya's
+    too_long = client.post("/api/customer/ask", json={"question": "x" * 600}, headers=maya)
+    assert too_long.status_code == 422
+    assert client.post("/api/customer/ask", json={"question": "hi"}).status_code == 401
+
+
+def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
+    client: TestClient, sam: dict[str, str], maya: dict[str, str], agent: Any
+) -> None:
+    asked = client.post(
+        "/api/engineering/ask", json={"question": "Explain clm-1001 and CLM-9999"}, headers=sam
+    )
+    assert asked.status_code == 200, asked.text
+    sent = agent.explained[0]
+    assert sent["first_name"] == "Sam"
+    assert set(sent["traces"]) == {"CLM-1001"}
+    assert {"runs", "rounds", "redteam", "threats"} <= set(sent)
+    assert (
+        client.post("/api/engineering/ask", json={"question": "hi"}, headers=maya).status_code
+        == 401
+    )

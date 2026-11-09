@@ -54,7 +54,7 @@ test("asks, shows the sign-off card and pays only when the handler confirms", as
   );
   render(<Copilot copilot={copilot} onClose={() => undefined} />);
 
-  await user.type(screen.getByLabelText("Ask the Copilot"), "Sign off CLM-1003");
+  await user.type(screen.getByLabelText("Your question"), "Sign off CLM-1003");
   await user.click(screen.getByRole("button", { name: "Ask" }));
 
   expect(await screen.findByText(/This pays/)).toHaveTextContent(

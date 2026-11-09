@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from api_helpers import DANA, DATA, MARCUS, PRIYA, FakeAgent, make_settings, sign_in
+from api_helpers import DANA, DATA, MARCUS, SAM, FakeAgent, make_settings, sign_in
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
@@ -63,5 +63,5 @@ def marcus(client: TestClient) -> dict[str, str]:
 
 
 @pytest.fixture
-def priya(client: TestClient) -> dict[str, str]:
-    return sign_in(client, PRIYA, role="engineer")
+def sam(client: TestClient) -> dict[str, str]:
+    return sign_in(client, SAM, role="engineer")

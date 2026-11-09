@@ -102,34 +102,34 @@ RESULT = {
 
 
 def test_the_latest_red_team_run_is_kept_for_engineers(
-    client: TestClient, dana: dict[str, str], priya: dict[str, str]
+    client: TestClient, dana: dict[str, str], sam: dict[str, str]
 ) -> None:
-    assert client.get("/api/engineering/redteam", headers=priya).json()["report"] is None
+    assert client.get("/api/engineering/redteam", headers=sam).json()["report"] is None
     run = {"results": [RESULT]}
     # A handler's token is refused at the engineers' routes.
     assert client.put("/api/engineering/redteam", json=run, headers=dana).status_code == 401
-    assert client.put("/api/engineering/redteam", json=run, headers=priya).status_code == 200
-    latest = client.get("/api/engineering/redteam", headers=priya).json()["report"]
-    assert latest["run_by"] == "Priya Raman"
+    assert client.put("/api/engineering/redteam", json=run, headers=sam).status_code == 200
+    latest = client.get("/api/engineering/redteam", headers=sam).json()["report"]
+    assert latest["run_by"] == "Sam Carter"
     assert latest["results"][0]["attack_id"] == "RT-01"
 
 
 def test_an_engineer_starts_one_red_team_run_at_a_time(
-    client: TestClient, agent: FakeAgent, dana: dict[str, str], priya: dict[str, str]
+    client: TestClient, agent: FakeAgent, dana: dict[str, str], sam: dict[str, str]
 ) -> None:
     assert client.post("/api/engineering/redteam/runs", headers=dana).status_code == 401
-    started = client.post("/api/engineering/redteam/runs", headers=priya)
+    started = client.post("/api/engineering/redteam/runs", headers=sam)
     assert started.status_code == 202
     assert started.json()["running"] is True
     assert ("redteam", "", None) in agent.calls
-    assert client.post("/api/engineering/redteam/runs", headers=priya).status_code == 409
-    client.put("/api/engineering/redteam", json={"results": [RESULT]}, headers=priya)
-    assert client.get("/api/engineering/redteam", headers=priya).json()["running"] is False
+    assert client.post("/api/engineering/redteam/runs", headers=sam).status_code == 409
+    client.put("/api/engineering/redteam", json={"results": [RESULT]}, headers=sam)
+    assert client.get("/api/engineering/redteam", headers=sam).json()["running"] is False
 
 
 def test_a_red_team_run_the_agent_cant_take_is_not_left_running(
-    client: TestClient, agent: FakeAgent, priya: dict[str, str]
+    client: TestClient, agent: FakeAgent, sam: dict[str, str]
 ) -> None:
     agent.unreachable()
-    assert client.post("/api/engineering/redteam/runs", headers=priya).status_code == 503
-    assert client.get("/api/engineering/redteam", headers=priya).json()["running"] is False
+    assert client.post("/api/engineering/redteam/runs", headers=sam).status_code == 503
+    assert client.get("/api/engineering/redteam", headers=sam).json()["running"] is False

@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import Connection, Engine, func, insert, select
+from sqlalchemy import Connection, Engine, func, insert, select, update
 
 from undercover_api.db import (
     claims,
@@ -149,10 +149,16 @@ def seed_labels(db: Connection, data: Path) -> None:
 
 
 def seed_engineers(db: Connection, data: Path) -> None:
-    """Load the AI engineers once, even into a database seeded before they existed."""
-    if db.execute(select(func.count()).select_from(engineers)).scalar_one():
-        return
-    db.execute(insert(engineers), read(data, "engineers.json"))
+    """Load the AI engineers, adding any new one and updating any changed one by id, even in a
+    database seeded before they existed."""
+    for engineer in read(data, "engineers.json"):
+        found = db.execute(
+            update(engineers)
+            .where(engineers.c.engineer_id == engineer["engineer_id"])
+            .values(**engineer)
+        )
+        if found.rowcount == 0:
+            db.execute(insert(engineers).values(**engineer))
 
 
 def seed_if_empty(engine: Engine, data: Path) -> bool:

@@ -65,6 +65,18 @@ class AgentService(Protocol):
         """Ask the drafting assistant for a draft claim; the api validates what comes back."""
         ...
 
+    def letter(self, request: dict[str, object]) -> dict[str, object]:
+        """Ask the assistant to draft a decision letter; the api validates what comes back."""
+        ...
+
+    def ask(self, request: dict[str, object]) -> dict[str, object]:
+        """Ask the customers' assistant a question; the api validates what comes back."""
+        ...
+
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        """Ask the engineers' assistant a question; the api validates what comes back."""
+        ...
+
 
 class HttpAgentService:
     """The agent's service over HTTP, at its url, with the agent's key."""
@@ -101,6 +113,24 @@ class HttpAgentService:
         answer = self._post("/draft", request, DRAFT_TIMEOUT_SECONDS)
         if not isinstance(answer, dict):
             raise AgentRefusedError("The drafting assistant gave no draft")
+        return cast(dict[str, object], answer)
+
+    def letter(self, request: dict[str, object]) -> dict[str, object]:
+        answer = self._post("/letter", request, DRAFT_TIMEOUT_SECONDS)
+        if not isinstance(answer, dict):
+            raise AgentRefusedError("The assistant gave no letter")
+        return cast(dict[str, object], answer)
+
+    def ask(self, request: dict[str, object]) -> dict[str, object]:
+        answer = self._post("/ask", request, DRAFT_TIMEOUT_SECONDS)
+        if not isinstance(answer, dict):
+            raise AgentRefusedError("The assistant gave no answer")
+        return cast(dict[str, object], answer)
+
+    def explain(self, request: dict[str, object]) -> dict[str, object]:
+        answer = self._post("/explain", request, DRAFT_TIMEOUT_SECONDS)
+        if not isinstance(answer, dict):
+            raise AgentRefusedError("The assistant gave no answer")
         return cast(dict[str, object], answer)
 
     def _send(self, path: str, body: dict[str, str]) -> None:

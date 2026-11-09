@@ -1,6 +1,7 @@
-import { FlaskConical, ShieldCheck, Sparkles } from "lucide-react";
+import { FlaskConical, Radar, ScrollText, ShieldCheck, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
+import { AskWattle } from "./components/AskWattle";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { ImprovementPage } from "./pages/ImprovementPage";
@@ -8,11 +9,15 @@ import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
+import { ThreatsPage } from "./pages/ThreatsPage";
+import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
   IMPROVEMENT_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
+  THREATS_HREF,
+  TRACE_HREF,
   useHashRoute,
   type Route,
 } from "./useHashRoute";
@@ -51,6 +56,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   const [meError, setMeError] = useState<string | null>(null);
   const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const signOut = useCallback(() => {
     saveToken(null);
@@ -127,13 +133,27 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         links={[
           { href: SCOREBOARD_HREF, label: "Quality: Scoreboard", Icon: FlaskConical },
           { href: IMPROVEMENT_HREF, label: "Quality: Improvement", Icon: Sparkles },
+          { href: TRACE_HREF, label: "Quality: Claim trace", Icon: ScrollText },
           { href: REDTEAM_HREF, label: "Security: Red team", Icon: ShieldCheck },
+          { href: THREATS_HREF, label: "Security: Threat coverage", Icon: Radar },
         ]}
         onSignOut={signOut}
+        onAssistant={() => {
+          setAssistantOpen((now) => !now);
+        }}
       />
       <main id="main" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api)}</ErrorBoundary>
       </main>
+      {assistantOpen && (
+        <AskWattle
+          api={api}
+          route={route}
+          onClose={() => {
+            setAssistantOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -146,5 +166,7 @@ function page(route: Route, api: Api) {
   if (route.page === "run") return <RunPage key={route.runId} api={api} runId={route.runId} />;
   if (route.page === "improvement") return <ImprovementPage api={api} />;
   if (route.page === "redteam") return <RedTeamPage api={api} />;
+  if (route.page === "trace") return <TracePage api={api} />;
+  if (route.page === "threats") return <ThreatsPage api={api} />;
   return <ScoreboardPage api={api} />;
 }

@@ -20,6 +20,7 @@ from undercover_api.claims import (
     find_claim,
     find_decision,
     find_payment,
+    letter_of,
     list_receipts,
     list_requests,
 )
@@ -160,6 +161,7 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
         paid_to=payment.paid_to if payment else None,
         receipts=general,
         requests=list_requests(db, row["claim_id"]),
+        letter=letter_of(db, row["claim_id"]),
         can_add_receipts=row["status"] == Status.WAITING and len(general) < MAX_RECEIPTS,
         review_requested=row["review_requested_at"] is not None,
         can_request_review=row["status"] == Status.DECIDED and row["review_requested_at"] is None,

@@ -14,10 +14,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from undercover_agent import redteam
+from undercover_agent.ask import Answer, Asker, AskRequest
 from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
+from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
-from undercover_agent.models import Draft, Drafter
+from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.tools import receipt_block
@@ -72,6 +74,38 @@ class DraftRequest(BaseModel):
     receipts: list[DraftReceipt] = Field(max_length=5)
 
 
+class LetterRequest(BaseModel):
+    """The facts a decision letter is written from."""
+
+    model_config = ConfigDict(extra="forbid")
+    first_name: Annotated[str, StringConstraints(max_length=100)]
+    claim_id: Annotated[str, StringConstraints(max_length=20)]
+    summary: Annotated[str, StringConstraints(max_length=200)]
+    decision: Literal["approve", "decline"]
+    payout: float = Field(ge=0, le=1_000_000)
+    paid_to: Annotated[str, StringConstraints(max_length=200)] = ""
+    section: Annotated[str, StringConstraints(max_length=500)]
+    reason: Annotated[str, StringConstraints(max_length=4000)]
+
+
+def letter_content(request: LetterRequest) -> str:
+    """What the letter is written from. The reason is the decision's own, for context."""
+    outcome = (
+        f"approved, paying ${request.payout:,.2f}"
+        + (f" to their {request.paid_to}" if request.paid_to else "")
+        if request.decision == "approve"
+        else "declined"
+    )
+    return (
+        f"Customer's first name: {request.first_name}\n"
+        f"Claim {request.claim_id}: {request.summary}\n"
+        f"Decision: {outcome}\n"
+        f"Policy sections relied on: {request.section}\n"
+        # nosemgrep: raw-html-format - markers around data for the model, not HTML
+        f"The decision's reason, between the markers:\n<reason>\n{request.reason}\n</reason>"
+    )
+
+
 def picked(case: str) -> str:
     """The tile the customer tapped, in words the assistant can act on."""
     if case == "other":
@@ -98,7 +132,7 @@ def draft_content(request: DraftRequest) -> list[dict[str, object]]:
     return content
 
 
-def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they work with
+def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over what they work with
     make_runner: Callable[[], Runner],
     key: Callable[[], str],
     make_drafter: Callable[[], Drafter] | None = None,
@@ -106,6 +140,8 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
     make_improver: Callable[[], RoundImprover] | None = None,
     *,
     start_redteam: Callable[[], None] | None = None,
+    make_asker: Callable[[], Asker] | None = None,
+    make_explainer: Callable[[], Explainer] | None = None,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
     the agent's key."""
@@ -113,6 +149,8 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
     drafter: dict[str, Drafter] = {}
     dispatcher: dict[str, Dispatcher] = {}
     improver: dict[str, RoundImprover] = {}
+    asker: dict[str, Asker] = {}
+    explainer: dict[str, Explainer] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -123,6 +161,10 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
             dispatcher["runs"] = make_dispatcher(runner["claims"])
         if make_improver is not None:
             improver["rounds"] = make_improver()
+        if make_asker is not None:
+            asker["customers"] = make_asker()
+        if make_explainer is not None:
+            explainer["engineers"] = make_explainer()
         yield
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
@@ -184,6 +226,30 @@ def create_app(  # noqa: C901, PLR0913 - the routes are closures over what they 
         if found is None:
             raise HTTPException(502, "The drafting assistant couldn't draft this claim")
         return customer_facing(found)
+
+    @app.post("/ask", operation_id="ask", dependencies=[Depends(agents_key)])
+    def ask(request: AskRequest) -> Answer:  # pyright: ignore[reportUnusedFunction]
+        """Answer a customer's question about their own policy and claims."""
+        if "customers" not in asker:
+            raise HTTPException(503, "The assistant isn't set up")
+        return asker["customers"].ask(request)
+
+    @app.post("/explain", operation_id="explain", dependencies=[Depends(agents_key)])
+    def explain(request: ExplainRequest) -> Explanation:  # pyright: ignore[reportUnusedFunction]
+        """Answer an AI engineer's question from the api's read-only snapshot."""
+        if "engineers" not in explainer:
+            raise HTTPException(503, "The assistant isn't set up")
+        return explainer["engineers"].explain(request)
+
+    @app.post("/letter", operation_id="letter", dependencies=[Depends(agents_key)])
+    def letter(request: LetterRequest) -> Letter:  # pyright: ignore[reportUnusedFunction]
+        """Draft the customer's letter about a decision, for a handler to edit and send."""
+        if "claims" not in drafter:
+            raise HTTPException(503, "The drafting assistant isn't set up")
+        found, _ = drafter["claims"].letter(letter_content(request))
+        if found is None:
+            raise HTTPException(502, "The assistant couldn't draft this letter")
+        return found
 
     return app
 
@@ -252,6 +318,12 @@ def build_app() -> FastAPI:
         lambda: AnthropicClaude(settings),
         lambda runner: Dispatcher(runner, api_client()),
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
+        make_asker=lambda: Asker(
+            AnthropicClaude(settings),
+            McpContext(settings.undercover_context),
+            settings.drafting_model,
+        ),
+        make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
         start_redteam=RedTeamStarter(
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),

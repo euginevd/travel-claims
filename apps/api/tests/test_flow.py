@@ -216,3 +216,15 @@ def test_the_queue_lists_every_claim(client: TestClient, marcus: dict[str, str])
     queue = client.get("/api/staff/claims", headers=marcus).json()
     assert len(queue) == 26
     assert {c["status"] for c in queue} == {"waiting"}
+
+
+def test_the_risk_panel_shows_signals_to_handlers_only(
+    client: TestClient, dana: dict[str, str]
+) -> None:
+    risk = client.get("/api/staff/claims/CLM-1001/risk", headers=dana)
+    assert risk.status_code == 200, risk.text
+    body = risk.json()
+    assert body["shared_receipts"] == []
+    assert body["amount_claimed"] > 0
+    assert "typical_amount" in body
+    assert client.get("/api/staff/claims/CLM-1001/risk").status_code == 401

@@ -103,6 +103,15 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
         <>
           <ClaimTracker status={claim.status} />
           <NeedsPanel api={api} claimId={claimId} requests={claim.requests} onUpdated={setClaim} />
+          {claim.letter && (
+            <section className="panel letter-card" aria-labelledby="letter-heading">
+              <p className="eyebrow">A letter from UnderCover · {when(claim.letter.sent_at)}</p>
+              <h2 id="letter-heading">{claim.letter.subject}</h2>
+              <p className="letter-body" dir="auto">
+                {claim.letter.body}
+              </p>
+            </section>
+          )}
           <div className="panel outcome-card">
             <div className="claim-card-head">
               <h2>Where it stands</h2>
