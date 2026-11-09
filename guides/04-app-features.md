@@ -2,27 +2,42 @@
 
 ## 1. Overview
 
-**UnderCover (travel-claims) is a pilot AI claims platform built with this template: four web apps on one laptop, each for a different person.**
+**UnderCover (travel-claims) is a pilot AI claims platform, built with the [sdlc-template](https://github.com/euginevd/sdlc-template) secure agentic SDLC: four web apps on one laptop, each for a different person.**
 
-| App | Who | Port | One line |
-|-----|-----|:----:|----------|
-| Demo home | Anyone seeing the project | 5172 | What it is, how it fits together, and links to the other three |
-| Customer portal | Travellers | 5173 | Make a claim, send what's asked, get paid |
-| Claims handler workspace | Claims handlers | 5174 | Work the queue and decide what the agent can't |
-| AI assurance console | AI engineers and AI security engineers | 5175 | Quality and security for the claim agent |
+| App | Who | Port | Test account | One line |
+|-----|-----|:----:|--------------|----------|
+| Demo home | Anyone seeing the project | 5172 | None | What it is, how it fits together, and links to the other three |
+| Customer portal | Travellers | 5173 | Oliver Grant | Make a claim, send what's asked, get paid |
+| Claims handler workspace | Claims handlers | 5174 | Dana Whitfield, senior handler | Work the queue and decide what the agent can't |
+| AI assurance console | AI engineers and AI security engineers | 5175 | Priya Raman, AI engineer | Quality and security for the claim agent |
 
-Customers, handlers and the AI assurance console each have their own sign-in issuer and audience, so a token from one opens nothing in another. Locally, each sign-in page has a **Use test account** button.
+What it demonstrates:
+
+- **AI engineering:** Claude agents that decide claims, scored against handlers' decisions and improved only with a person's approval.
+- **Security:** a sign-in issuer for each audience, a hidden-instruction check before the agent reads anything, a red team, and limits enforced in code, not prompts.
+- **Claims operations:** routine claims paid in minutes, and people for anything that needs judgement.
+
+Customers, handlers and the AI assurance console each have their own sign-in issuer and audience, so a token from one opens nothing in another. Locally, each sign-in page has a **Use test account** button. To run it, see the README's **Run it**.
 
 ## 2. Demo home (5172)
 
-One page that explains the project, then sends you into the apps.
+One page that explains the project, then sends you into the apps. Local only: no sign-in, no customer data, and never deployed.
+
+### Get started
 
 - **App cards:** a card for each app with what to try, its test account and a live dot showing whether it's running.
-- **Live numbers:** claims in the system, the share decided by the agent alone, average model cost per claim, and red-team attacks held.
+- **Live numbers:** claims in the system, the share decided by the agent alone, average model cost per claim, and red-team attacks held. Counts only, from a route that exists only on a laptop.
 - **Try it in five minutes:** a guided script across the three apps, from a one-tap flight-delay claim to an evaluation run.
+
+### How it works
+
 - **Architecture diagram:** select any part (portal, dashboard, console, api, agent, Copilot, context server, PostgreSQL, Claude) to see what it does, its tech and its trust boundary.
 - **One claim's journey:** step through a claim moving across the parts, from the portal to payment.
 - **Core concepts, security and stack:** short cards on human-in-the-loop limits, prompt-injection defence, evaluations, the kill switch, the secure pipeline and the tools used.
+
+### Coming next
+
+Nothing of its own: the page shows what the apps do, so it changes when they do.
 
 ## 3. Customer portal (5173)
 
