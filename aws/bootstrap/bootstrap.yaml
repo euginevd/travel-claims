@@ -16,6 +16,16 @@ Parameters:
   GitHubRepo:
     Type: String
     Description: Repository name
+  GitHubOwnerId:
+    Type: String
+    Default: ''
+    AllowedPattern: '[0-9]*'
+    Description: The owner's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
+  GitHubRepoId:
+    Type: String
+    Default: ''
+    AllowedPattern: '[0-9]*'
+    Description: The repo's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
   Target:
     Type: String
     Default: dev
@@ -28,6 +38,7 @@ Parameters:
 
 Conditions:
   CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
+  ImmutableSubject: !Not [!Equals [!Ref GitHubRepoId, '']]
 
 Resources:
 
@@ -113,7 +124,11 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
+                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                token.actions.githubusercontent.com:sub: !If
+                  - ImmutableSubject
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-apply'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
       ManagedPolicyArns:
         - !Ref DeployComputePolicy
         - !Ref DeployAppPolicy
@@ -338,7 +353,11 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
+                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                token.actions.githubusercontent.com:sub: !If
+                  - ImmutableSubject
+                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-plan'
+                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
       Policies:
         - PolicyName: terraform-plan
           PolicyDocument:
