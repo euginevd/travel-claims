@@ -77,16 +77,15 @@
 Three additions that show claims operations, AI and fraud expertise together. Done: the handler's navigation now holds only claims work (the AI pages moved to the AI assurance console), and tokens and cost moved from the handler's trace to the console's Claim trace page.
 
 30. Queue signals: days open and a due date on each claim, amber or red when close, sorted by urgency; a claim whose customer has sent everything asked for returns to Needs me with a "Documents in" chip.
-31. Risk panel: receipts seen on other claims, repeat claims, the amount against typical for the claim type, and whether the hidden-instruction check fired, as signals for the handler, never automatic declines.
+31. Risk panel: receipts seen on other claims, repeat claims and the amount against typical for the claim type, as signals for the handler, never automatic declines.
 32. AI-drafted customer letters: the agent drafts the approval or decline explanation; the handler edits and sends it to the customer's claim and Updates.
 
 ## AI assurance console to-do (2026-11-09)
 
-Three additions that show security and AI engineering together. The payouts switch stays with senior handlers (separation of duties); the console shows it read-only.
+Two additions that show security and AI engineering together. The payouts switch stays with senior handlers (separation of duties); the console shows it read-only.
 
-33. Threat coverage page (Security): the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS; each row with UnderCover's control, the red-team attack that tests it, its last result and when its guardrail last fired. Beside it, each agent's model, tools and MCP sources, and the payouts switch's status, read-only.
+33. Threat coverage page (Security): the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS; each row with UnderCover's control, the red-team attack that tests it, its last result and when its guardrail last fired (hidden-instruction catches, refusals and duplicate-receipt hits, counted). Beside it, each agent's model, tools and MCP sources, and the payouts switch's status, read-only.
 34. Red team as a gate: an improvement round's candidate version must pass the red team before it's kept, with the bypass rate tracked per version.
-35. Guardrail events: count hidden-instruction catches, refusals and duplicate-receipt hits, shown as the "last fired" column on the threat coverage page.
 
 ## Customer portal to-do (2026-11-09)
 

@@ -14,10 +14,10 @@
 What it demonstrates:
 
 - **AI engineering:** Claude agents that decide claims, scored against handlers' decisions and improved only with a person's approval.
-- **Security:** a sign-in issuer for each audience, a hidden-instruction check before the agent reads anything, a red team, and limits enforced in code, not prompts.
+- **Security:** a sign-in issuer and audience for each app, so a token from one opens nothing in another; a hidden-instruction check before the agent reads anything, a red team, and limits enforced in code, not prompts.
 - **Claims operations:** routine claims paid in minutes, and people for anything that needs judgement.
 
-Customers, handlers and the AI assurance console each have their own sign-in issuer and audience, so a token from one opens nothing in another. Locally, each sign-in page has a **Use test account** button. To run it, see the README's **Run it**.
+Locally, each sign-in page has a **Use test account** button. To run it, see the README's **Run it**.
 
 ## 2. Demo home (5172)
 
@@ -35,10 +35,6 @@ One page that explains the project, then sends you into the apps. Local only: no
 - **One claim's journey:** step through a claim moving across the parts, from the portal to payment.
 - **Core concepts, security and stack:** short cards on human-in-the-loop limits, prompt-injection defence, evaluations, the kill switch, the secure pipeline and the tools used.
 
-### Coming next
-
-Nothing of its own: the page shows what the apps do, so it changes when they do.
-
 ## 3. Customer portal (5173)
 
 One portal for travellers: claim in minutes and always know where it stands. AI does the paperwork and says when it helped; people decide anything uncertain.
@@ -47,7 +43,7 @@ One portal for travellers: claim in minutes and always know where it stands. AI 
 
 - **Claims grouped** into In progress and Completed, each with a four-step tracker: Received, Assessing, Decision, Paid.
 - **Flight-delay offers:** a flight on your trip that was late enough for your plan's cover, claimable in one tap with nothing to fill in.
-- **"We need something from you"** on any claim waiting on you.
+- **Waiting on you:** a flag on any claim where we've asked for something.
 - **A claim you haven't sent:** finish it or discard it.
 - **PayID:** add an email, mobile number or ABN so approved claims are paid straight to your bank.
 
@@ -71,18 +67,18 @@ One portal for travellers: claim in minutes and always know where it stands. AI 
 ### Across the portal
 
 - **Updates:** every email and text we've sent you about your claims, newest first, each linked to its claim.
-- **Only your own claims:** every page shows only the signed-in customer's claims, with a sign-in of its own, apart from the staff apps.
+- **Only your own claims:** every page shows only the signed-in customer's claims.
 
 ### Coming next
 
-The customer to-do in [docs/status.md](../docs/status.md): two additions.
+From the to-do in [docs/status.md](../docs/status.md):
 
 1. **Policy at a glance:** a "what you're covered for" card for each trip, with its limits, excess and delay waiting time.
 2. **Ask about my claim:** a chat on the claim page that answers from the claim and policy with the customer's own access, defended against prompt injection like the claim agent.
 
 ## 4. Claims handler workspace (5174)
 
-One workspace for claims handlers, who decide what the agent can't and check what it did. It shows why the agent decided, never what it cost: tokens and cost live in the AI assurance console.
+One workspace for claims handlers, who decide what the agent can't and check what it did. It shows why the agent decided; what it cost is in the AI assurance console.
 
 ### Queue
 
@@ -107,10 +103,10 @@ One workspace for claims handlers, who decide what the agent can't and check wha
 
 ### Coming next
 
-The handler to-do in [docs/status.md](../docs/status.md): three additions that show claims operations, AI and fraud expertise.
+From the to-do in [docs/status.md](../docs/status.md):
 
 1. **Queue signals:** days open and a due date on each claim, sorted by urgency, and a "Documents in" chip when the customer has sent everything asked for.
-2. **Risk panel:** receipts seen on other claims, repeat claims, the amount against typical, and the hidden-instruction check, as signals, never automatic declines.
+2. **Risk panel:** receipts seen on other claims, repeat claims and the amount against typical for the claim type, as signals, never automatic declines.
 3. **AI-drafted letters:** the agent drafts the customer's approval or decline explanation; the handler edits and sends it.
 
 ## 5. AI assurance console (5175)
@@ -140,8 +136,7 @@ Two sections for two roles: **Quality**, for the AI engineer who makes the agent
 
 ### Coming next
 
-The AI assurance to-do in [docs/status.md](../docs/status.md): three additions that show security and AI engineering together.
+From the to-do in [docs/status.md](../docs/status.md):
 
-1. **Threat coverage page (Security):** the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS. Each row has UnderCover's control, the red-team attack that tests it, its last result, and when its guardrail last fired. Beside it, a small table of each agent's model, tools and MCP sources, and the payouts switch's status, read-only (it stays with senior handlers, apart from the people who change the agent).
+1. **Threat coverage page (Security):** the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS. Each row has UnderCover's control, the red-team attack that tests it, its last result, and when its guardrail last fired (hidden-instruction catches, refusals, duplicate receipts). Beside it, a small table of each agent's model, tools and MCP sources, and the payouts switch's status, read-only.
 2. **Red team as a gate (Quality and Security):** a new agent version from Improvement must pass the red team before it's kept, with the bypass rate tracked per version.
-3. **Guardrail events:** hidden-instruction catches, refusals and duplicate-receipt hits, counted and shown as the "last fired" column on the threat coverage page.
