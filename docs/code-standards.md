@@ -19,7 +19,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 ## Safe by design
 
 9. Validate every input at the boundary (API, files, queues) against a schema, and reject what doesn't match. Serve uploaded files with `Content-Security-Policy: default-src 'none'; sandbox`, never as a page.
-10. Check authorisation on every request, on the server, and deny by default.
+10. Check authorisation on every request, on the server, and deny by default, internal services included: nothing reachable from the internet is left open because only our code calls it. Services trust each other through IAM roles and signed requests, not shared keys, and secrets never travel in payloads, URLs, logs or environment variables.
 
 ## Tests
 

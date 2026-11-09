@@ -22,7 +22,7 @@ These rules are the same for every project. The business and the project are des
 
 11. Plan: write `docs/plan-<name>.md` with the design, security risks, phases with checkbox criteria, and PR groups (one PR per plan, or per few hundred changed lines). If the work touches users, data, auth or endpoints, draft or update `docs/threat-model.md` and its data flow diagram too. No code, then stop.
 12. Each phase: build with tests, run the checks, have a fresh subagent review the diff against `code-standards.md` and the threat model's top risks, fix what it blocks, update `docs/status.md`, commit locally.
-13. Each PR group: push, open one PR with a Security line (threat model changes, new skips, packages or permissions), fix every finding in the checks and the PR's security summary at its cause (a skip only as a last resort, with a one-line reason), ask for review only when checks pass, update the branch if `main` has moved (`gh pr update-branch`) and let the checks rerun, squash-merge once approved, then delete the branch locally and on GitHub. Only `main` remains.
+13. Each PR group: push, open one PR with a Security line (threat model changes, new skips, packages or permissions). When its checks finish, list its findings with `bash scripts/pr-findings.sh <pr>` (failed checks, the security summary, code scanning alerts, and review comments, GitHub Advanced Security's included) and fix each at its cause: always critical and high, medium and low when real. Answer the rest with the reason and resolve the thread (`bash scripts/pr-findings.sh resolve <thread-id> "<reply>"`); a skip only as a last resort, with a one-line reason. Ask for review only when checks pass, update the branch if `main` has moved (`gh pr update-branch`) and let the checks rerun, squash-merge once approved, then delete the branch locally and on GitHub. Only `main` remains.
 14. After the last phase: review the whole branch, report what was built and what the reviews found, update `docs/decisions.md`, delete the plan.
 15. Draft or update `docs/spec.md` only when asked, and show the change for the user to approve before planning from it.
 16. Build only what the spec or plan lists, and suggest the rest. Small follow-ups go in the next PR.
@@ -40,3 +40,4 @@ When you or the user find a mistake an agent made, add a one-line fix here in th
 
 24. Shell scripts must keep LF line endings or bash fails on Windows; don't override `.gitattributes`.
 25. A `CLAUDE.md` in the repo makes Claude Code skip this file. Don't add one.
+26. An internal service on a public URL still needs auth: the context server's function URL was left open (travel-claims #46). Make service-to-service URLs IAM-only.
