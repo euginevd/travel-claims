@@ -516,6 +516,13 @@ class ModelCallRequest(Strict):
     latency_ms: int | None = Field(default=None, ge=0, le=MAX_INT)
 
 
+class Engineer(BaseModel):
+    engineer_id: str
+    name: str
+    role: str
+    email: str
+
+
 class Customer(BaseModel):
     customer_id: str
     name: str

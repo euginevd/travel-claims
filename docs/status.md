@@ -71,3 +71,29 @@
 ## Next
 
 29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
+
+## Claims handler to-do (2026-11-09)
+
+What a handler needs from the dashboard, in order. Batch 1 is 30, 31 and 38; batch 2 is 32 and 33; batch 3 is 34 to 36.
+
+30. Age and service deadlines in the queue: days open, a due date, amber or red when close, sorted by urgency.
+31. "Documents in": when a customer answers every request, the claim returns to Needs me with a chip.
+32. Message the customer: a free-text note from the claim page, sent as email and text to their Updates, with the thread kept on the claim.
+33. Notes and follow-ups: private handler notes and "remind me on <date>" on each claim.
+34. Risk panel: receipts seen on other claims, repeat claims, the amount against typical for the claim type, and the hidden-instruction check, as signals, never automatic declines.
+35. Documents in the page: receipts and PDFs shown inline, with the AI's reading of each beside it.
+36. AI-drafted customer letters: the agent drafts the approval or decline explanation; the handler edits and sends it.
+37. Mine and the team's: assign claims to a handler, a Mine tab and simple workload counts.
+38. Navigation for handlers: Queue, Search, Copilot and their claims; Scoreboard, Improvement, Red team and the payouts switch only for senior handlers or the AI engineering side.
+
+## AI assurance console to-do (2026-11-09)
+
+What an AI security engineer needs, in order. Next batch: 39 and 40.
+
+39. Threat coverage matrix: the OWASP Top 10 for LLM apps and for agentic applications (ASI01 to ASI10), mapped to MITRE ATLAS, each with UnderCover's control, the red-team attack that tests it and its last result.
+40. Red team as a gate: an improvement round's candidate version must pass the red team before it's kept, with the bypass rate tracked per version.
+41. Guardrail events: a log and trend of hidden-instruction catches, refusals, duplicate-receipt hits and blocked tool calls.
+42. Agent inventory: each agent's model and version, the tools it can call, its api scopes and its MCP sources.
+43. Agent kill switch: stop the agents working claims, apart from the payouts switch.
+44. Evidence export: who approved each agent version, with its evaluation scores and red-team results, as one download for IRAP or ISO 42001.
+

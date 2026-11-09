@@ -4,7 +4,7 @@ import { createApi, type Round, type Run, type RunInFull } from "./api";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { RunPage } from "./pages/RunPage";
 import { measures, ScoreboardPage } from "./pages/ScoreboardPage";
-import { DANA, fakeFetch, MARCUS } from "./testing";
+import { fakeFetch } from "./testing";
 
 const SCORES = {
   claims: 5,
@@ -71,27 +71,25 @@ test("the measures read as percentages, dollars and seconds", () => {
   expect(measures(SCORES).map((m) => m.value)).toEqual(["80%", "60%", "80%", "$0.031", "22s"]);
 });
 
-test("a senior handler starts a run from the scoreboard", async () => {
+test("an AI engineer starts a run from the scoreboard", async () => {
   const fetchFn = fakeFetch({
-    "GET /api/staff/runs": () => [200, [RUN]],
-    "POST /api/staff/runs": () => [201, { ...RUN, run_id: 4, status: "running", scores: null }],
+    "GET /api/engineering/runs": () => [200, [RUN]],
+    "POST /api/engineering/runs": () => [
+      201,
+      { ...RUN, run_id: 4, status: "running", scores: null },
+    ],
   });
-  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} handler={DANA} />);
+  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("link", { name: "Run 3" })).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Start the run" }));
-  expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === "/api/staff/runs")).toBe(true);
-});
-
-test("a handler without sign-off rights can't start a run", async () => {
-  const fetchFn = fakeFetch({ "GET /api/staff/runs": () => [200, []] });
-  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
-  expect(await screen.findByText("No evaluations yet")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Start the run" })).not.toBeInTheDocument();
+  expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === "/api/engineering/runs")).toBe(
+    true,
+  );
 });
 
 test("a run shows each claim beside the handler's decision, misses first", async () => {
-  const fetchFn = fakeFetch({ "GET /api/staff/runs/3": () => [200, RUN_IN_FULL] });
-  render(<RunPage api={createApi(fetchFn, () => "t")} runId={3} handler={DANA} />);
+  const fetchFn = fakeFetch({ "GET /api/engineering/runs/3": () => [200, RUN_IN_FULL] });
+  render(<RunPage api={createApi(fetchFn, () => "t")} runId={3} />);
   const rows = await screen.findAllByRole("row");
   expect(rows[1]).toHaveTextContent("CLM-1017");
   expect(rows[1]).toHaveTextContent("Miss");
@@ -117,20 +115,20 @@ const ROUND: Round = {
   started_at: "2026-11-08T10:00:00+00:00",
 };
 
-test("a senior handler approves the improver's proposal with a reason", async () => {
+test("an AI engineer approves the improver's proposal with a reason", async () => {
   const fetchFn = fakeFetch({
-    "GET /api/staff/rounds": () => [200, [ROUND]],
-    "GET /api/staff/configuration": () => [200, []],
-    "POST /api/staff/rounds/1/review": () => [200, { ...ROUND, status: "evaluating" }],
+    "GET /api/engineering/rounds": () => [200, [ROUND]],
+    "GET /api/engineering/configuration": () => [200, []],
+    "POST /api/engineering/rounds/1/review": () => [200, { ...ROUND, status: "evaluating" }],
   });
-  render(<ImprovementPage api={createApi(fetchFn, () => "t")} handler={DANA} />);
+  render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText("+Refer when the documents are thin.")).toBeInTheDocument();
   const approve = screen.getByRole("button", { name: /Approve and try it/ });
   await userEvent.click(approve);
   expect(await screen.findByRole("alert")).toHaveTextContent("Say why");
   await userEvent.type(screen.getByLabelText("Your reason"), "Worth trying");
   await userEvent.click(approve);
-  const review = fetchFn.calls.find((c) => c.path === "/api/staff/rounds/1/review");
+  const review = fetchFn.calls.find((c) => c.path === "/api/engineering/rounds/1/review");
   expect(review?.body).toEqual({ approve: true, reason: "Worth trying" });
 });
 
@@ -158,30 +156,20 @@ test("a rejection and a finished round read plainly", async () => {
     verdict: { why: "Rolled back: no measure improved on the held-out set" },
   };
   const fetchFn = fakeFetch({
-    "GET /api/staff/rounds": () => [200, [ROUND, finished]],
-    "GET /api/staff/configuration": () => [200, [VERSION_ONE]],
-    "POST /api/staff/rounds/1/review": () => [200, { ...ROUND, status: "rejected" }],
-    "POST /api/staff/rounds/1/stop": () => [200, { ...ROUND, status: "stopped" }],
+    "GET /api/engineering/rounds": () => [200, [ROUND, finished]],
+    "GET /api/engineering/configuration": () => [200, [VERSION_ONE]],
+    "POST /api/engineering/rounds/1/review": () => [200, { ...ROUND, status: "rejected" }],
+    "POST /api/engineering/rounds/1/stop": () => [200, { ...ROUND, status: "stopped" }],
   });
-  render(<ImprovementPage api={createApi(fetchFn, () => "t")} handler={DANA} />);
+  render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText(/no measure improved/)).toBeInTheDocument();
   expect(screen.getByText("v1 (current)")).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Your reason"), "Too risky");
   await userEvent.click(screen.getByRole("button", { name: "Reject" }));
-  const review = fetchFn.calls.find((c) => c.path === "/api/staff/rounds/1/review");
+  const review = fetchFn.calls.find((c) => c.path === "/api/engineering/rounds/1/review");
   expect(review?.body).toEqual({ approve: false, reason: "Too risky" });
   await userEvent.click(screen.getByRole("button", { name: "Stop the round" }));
-  expect(fetchFn.calls.some((c) => c.path === "/api/staff/rounds/1/stop")).toBe(true);
-});
-
-test("a handler without sign-off rights only reads the rounds", async () => {
-  const fetchFn = fakeFetch({
-    "GET /api/staff/rounds": () => [200, [ROUND]],
-    "GET /api/staff/configuration": () => [200, []],
-  });
-  render(<ImprovementPage api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
-  expect(await screen.findByText(/waiting for a senior handler/)).toBeInTheDocument();
-  expect(screen.queryByLabelText("Your reason")).not.toBeInTheDocument();
+  expect(fetchFn.calls.some((c) => c.path === "/api/engineering/rounds/1/stop")).toBe(true);
 });
 
 test("a stopped run offers to carry on with its unfinished claims", async () => {
@@ -195,23 +183,43 @@ test("a stopped run offers to carry on with its unfinished claims", async () => 
     claims: [{ ...unfinished, decision: null, payout: null }],
   };
   const fetchFn = fakeFetch({
-    "GET /api/staff/runs/3": () => [200, stopped],
-    "POST /api/staff/runs/3/resume": () => [200, { ...RUN, status: "running" }],
+    "GET /api/engineering/runs/3": () => [200, stopped],
+    "POST /api/engineering/runs/3/resume": () => [200, { ...RUN, status: "running" }],
   });
-  render(<RunPage api={createApi(fetchFn, () => "t")} runId={3} handler={DANA} />);
+  render(<RunPage api={createApi(fetchFn, () => "t")} runId={3} />);
   expect(await screen.findByText("Not decided")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Carry on/ }));
-  expect(fetchFn.calls.some((c) => c.path === "/api/staff/runs/3/resume")).toBe(true);
+  expect(fetchFn.calls.some((c) => c.path === "/api/engineering/runs/3/resume")).toBe(true);
 });
 
 test("the scoreboard says what went wrong and tries again", async () => {
   let fail = true;
   const fetchFn = fakeFetch({
-    "GET /api/staff/runs": () => (fail ? [500, { detail: "Database down" }] : [200, [RUN]]),
+    "GET /api/engineering/runs": () => (fail ? [500, { detail: "Database down" }] : [200, [RUN]]),
   });
-  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} handler={DANA} />);
+  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Database down");
   fail = false;
   await userEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByRole("link", { name: "Run 3" })).toBeInTheDocument();
+});
+
+test("a run that can't load says why, and a resume that fails says so", async () => {
+  const user = userEvent.setup();
+  const missing = fakeFetch({ "GET /api/engineering/runs/9": () => [404, { detail: "No run 9" }] });
+  render(<RunPage api={createApi(missing, () => "t")} runId={9} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("No run 9");
+
+  const stopped: RunInFull = {
+    ...RUN_IN_FULL,
+    status: "stopped",
+    claims: RUN_IN_FULL.claims.map((claim) => ({ ...claim, status: "waiting" })),
+  };
+  const failing = fakeFetch({
+    "GET /api/engineering/runs/3": () => [200, stopped],
+    "POST /api/engineering/runs/3/resume": () => [409, { detail: "Already running" }],
+  });
+  render(<RunPage api={createApi(failing, () => "t")} runId={3} />);
+  await user.click(await screen.findByRole("button", { name: /Carry on/ }));
+  expect(await screen.findByText("Already running")).toBeInTheDocument();
 });

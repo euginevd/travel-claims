@@ -12,7 +12,7 @@ updates:
     cooldown: { default-days: 7 }
     groups: { python: { patterns: ["*"] } }
   - package-ecosystem: npm
-    directories: ["/apps/portal", "/apps/dashboard"]
+    directories: ["/apps/portal", "/apps/dashboard", "/apps/console"]
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
     groups: { web: { patterns: ["*"] } }

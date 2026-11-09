@@ -25,6 +25,7 @@ from undercover_api.agent_service import (
 )
 from undercover_api.auth import (
     CUSTOMERS_GROUP,
+    ENGINEERS_GROUP,
     HANDLERS_GROUP,
     Database,
     LocalKeys,
@@ -59,6 +60,7 @@ from undercover_api.db import (
     claims,
     customers,
     decisions,
+    engineers,
     handlers,
     make_engine,
     model_calls,
@@ -66,6 +68,7 @@ from undercover_api.db import (
     payments,
     sent_back,
 )
+from undercover_api.demo import demo_router
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
@@ -129,6 +132,7 @@ agent_router = APIRouter(prefix="/api/agent/claims/{claim_id}", dependencies=AGE
 staff_router = APIRouter(prefix="/api/staff")
 staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
 customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
+engineering_sign_in_router = APIRouter(prefix="/api/engineering/dev")
 
 
 @health_router.get("/api/health", operation_id="health")
@@ -693,6 +697,37 @@ def redteam_sign_in_customer(request: Request, body: TestSignInRequest, db: Data
     return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
 
 
+ENGINEERING_TEST_ACCOUNTS = {"engineer": "priya.raman@undercover.example"}
+
+
+@engineering_sign_in_router.post("/sign-in", operation_id="sign_in_engineer")
+def sign_in_engineer(request: Request, body: SignInRequest, db: Database) -> SignIn:
+    """Sign a seeded AI engineer in with the shared local password; local only."""
+    email = known_email(db, body.email, engineers)
+    right = check_local_password(request.app.state.settings, body.password)
+    if email is None or not right:
+        raise HTTPException(401, "The email or password is wrong")
+    issuer: LocalIssuer = request.app.state.engineering_issuer
+    return SignIn(id_token=issuer.issue(email, ENGINEERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@engineering_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_engineer")
+def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
+    """Sign in as the fixed AI engineer test account; local only."""
+    email = ENGINEERING_TEST_ACCOUNTS.get(body.account)
+    if email is None or known_email(db, email, engineers) is None:
+        raise HTTPException(404, "No such test account")
+    issuer: LocalIssuer = request.app.state.engineering_issuer
+    return SignIn(id_token=issuer.issue(email, ENGINEERS_GROUP), expires_in=TOKEN_LIFETIME)
+
+
+@engineering_sign_in_router.get("/.well-known/jwks.json", operation_id="get_engineering_jwks")
+def engineering_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
+    """The engineering issuer's public signing keys, at the path Cognito uses."""
+    issuer: LocalIssuer = request.app.state.engineering_issuer
+    return issuer.jwks()
+
+
 @staff_sign_in_router.get("/.well-known/jwks.json", operation_id="get_staff_jwks")
 def staff_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
     """The staff issuer's public signing keys, at the path Cognito uses."""
@@ -751,16 +786,24 @@ def create_app(
     )
     staff = (settings.staff_token_issuer, settings.staff_token_audience)
     customer = (settings.customer_token_issuer, settings.customer_token_audience)
+    engineering = (settings.engineering_token_issuer, settings.engineering_token_audience)
     if settings.local_sign_in:
         app.state.staff_issuer = LocalIssuer(*staff)
         app.state.customer_issuer = LocalIssuer(*customer)
         app.state.staff_verifier = TokenVerifier(LocalKeys(app.state.staff_issuer), *staff)
         app.state.customer_verifier = TokenVerifier(LocalKeys(app.state.customer_issuer), *customer)
+        app.state.engineering_issuer = LocalIssuer(*engineering)
+        app.state.engineering_verifier = TokenVerifier(
+            LocalKeys(app.state.engineering_issuer), *engineering
+        )
         app.include_router(staff_sign_in_router)
         app.include_router(customer_sign_in_router)
+        app.include_router(engineering_sign_in_router)
+        app.include_router(demo_router)
     else:
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
+        app.state.engineering_verifier = TokenVerifier(RemoteKeys(engineering[0]), *engineering)
     app.middleware("http")(log_requests)
     for router in (
         health_router,

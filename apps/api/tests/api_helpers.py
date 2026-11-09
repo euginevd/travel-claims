@@ -33,7 +33,12 @@ def make_settings(url: str, **changes: Any) -> Settings:
 AGENT = {"X-API-Key": AGENT_KEY}
 
 
-SIGN_IN = {"handler": "/api/staff/dev/sign-in", "customer": "/api/customer/dev/sign-in"}
+SIGN_IN = {
+    "handler": "/api/staff/dev/sign-in",
+    "customer": "/api/customer/dev/sign-in",
+    "engineer": "/api/engineering/dev/sign-in",
+}
+PRIYA = "priya.raman@undercover.example"
 
 
 def sign_in(client: TestClient, email: str, role: str = "handler") -> dict[str, str]:

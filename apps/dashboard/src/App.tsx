@@ -1,4 +1,4 @@
-import { FlaskConical, ListChecks, ShieldCheck, Sparkles } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Handler } from "./api";
 import { CommandPalette } from "./components/CommandPalette";
@@ -8,21 +8,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./components/PayoutsSwitch";
 import { ClaimPage } from "./pages/ClaimPage";
-import { ImprovementPage } from "./pages/ImprovementPage";
 import { QueuePage } from "./pages/QueuePage";
-import { RedTeamPage } from "./pages/RedTeamPage";
-import { RunPage } from "./pages/RunPage";
-import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
 import { loadToken, saveToken } from "./session";
-import {
-  IMPROVEMENT_HREF,
-  QUEUE_HREF,
-  REDTEAM_HREF,
-  SCOREBOARD_HREF,
-  useHashRoute,
-  type Route,
-} from "./useHashRoute";
+import { QUEUE_HREF, useHashRoute, type Route } from "./useHashRoute";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -138,12 +127,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         name={person.name}
         detail={person.role}
         home={QUEUE_HREF}
-        links={[
-          { href: QUEUE_HREF, label: "Queue", Icon: ListChecks },
-          { href: SCOREBOARD_HREF, label: "Scoreboard", Icon: FlaskConical },
-          { href: IMPROVEMENT_HREF, label: "Improvement", Icon: Sparkles },
-          { href: REDTEAM_HREF, label: "Red team", Icon: ShieldCheck },
-        ]}
+        links={[{ href: QUEUE_HREF, label: "Queue", Icon: ListChecks }]}
         onSignOut={signOut}
         onSearch={() => {
           window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
@@ -206,11 +190,5 @@ function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
       />
     );
   }
-  if (route.page === "redteam") return <RedTeamPage api={api} handler={handler} />;
-  if (route.page === "scoreboard") return <ScoreboardPage api={api} handler={handler} />;
-  if (route.page === "run") {
-    return <RunPage key={route.runId} api={api} runId={route.runId} handler={handler} />;
-  }
-  if (route.page === "improvement") return <ImprovementPage api={api} handler={handler} />;
   return <QueuePage api={api} />;
 }

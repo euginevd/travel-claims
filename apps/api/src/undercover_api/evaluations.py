@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Connection, CursorResult, RowMapping, func, insert, select, update
 
 from undercover_api.agent_service import AgentService, AgentUnavailableError
-from undercover_api.auth import Database, SeniorHandler, SignedIn, require_agent
+from undercover_api.auth import Database, SignedInEngineer, require_agent
 from undercover_api.claims import find_claim, find_decision
 from undercover_api.db import (
     claims,
@@ -28,7 +28,7 @@ from undercover_api.db import (
     settings,
     steps,
 )
-from undercover_api.models import ClaimId, DecisionKind, Status, Strict
+from undercover_api.models import ClaimId, DecisionKind, Engineer, Status, Strict
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ Effort = Literal["low", "medium", "high"]
 Instructions = Annotated[str, StringConstraints(min_length=50, max_length=20_000)]
 
 AGENT = [Depends(require_agent)]
-staff_eval_router = APIRouter(prefix="/api/staff")
+staff_eval_router = APIRouter(prefix="/api/engineering")
 agent_eval_router = APIRouter(prefix="/api/agent", dependencies=AGENT)
 
 
@@ -189,8 +189,14 @@ def get_claims_configuration(claim_id: ClaimId, db: Database) -> Configuration:
     return configuration(db, version)
 
 
+@staff_eval_router.get("/me", operation_id="get_signed_in_engineer")
+def me_engineer(engineer: SignedInEngineer) -> Engineer:
+    """The AI engineer signed in."""
+    return engineer
+
+
 @staff_eval_router.get("/configuration", operation_id="list_configurations")
-def list_configurations(_: SignedIn, db: Database) -> list[Configuration]:
+def list_configurations(_: SignedInEngineer, db: Database) -> list[Configuration]:
     """Every version of the claim agent's configuration, newest first."""
     rows = db.execute(select(configurations).order_by(configurations.c.version.desc()))
     current = current_version(db)
@@ -300,16 +306,16 @@ AgentCalls = Annotated[AgentService, Depends(agent)]
 
 @staff_eval_router.post("/runs", operation_id="start_run", status_code=201)
 def start_run(
-    body: StartRunRequest, handler: SeniorHandler, db: Database, service: AgentCalls
+    body: StartRunRequest, engineer: SignedInEngineer, db: Database, service: AgentCalls
 ) -> Run:
     """Start an evaluation of the current configuration on a labelled set."""
-    run_id, ids = create_run(db, body, need_current(db), handler.name)
+    run_id, ids = create_run(db, body, need_current(db), engineer.name)
     dispatch(db, service, run_id, ids, body.concurrency)
     return run_of(run_row(db, run_id))
 
 
 @staff_eval_router.post("/runs/{run_id}/resume", operation_id="resume_run")
-def resume_run(run_id: int, _: SeniorHandler, db: Database, service: AgentCalls) -> Run:
+def resume_run(run_id: int, _: SignedInEngineer, db: Database, service: AgentCalls) -> Run:
     """Hand a run's unfinished copies to the dispatcher again, after a restart: each carries on
     from its saved progress, and nothing is decided twice."""
     row = run_row(db, run_id)
@@ -436,14 +442,14 @@ def run_cost(db: Connection, run_id: int | None) -> float:
 
 
 @staff_eval_router.get("/runs", operation_id="list_runs")
-def list_runs(_: SignedIn, db: Database) -> list[Run]:
+def list_runs(_: SignedInEngineer, db: Database) -> list[Run]:
     """Every run, newest first, with its scores once finished."""
     rows = db.execute(select(runs).order_by(runs.c.run_id.desc())).mappings()
     return [run_of(r) for r in rows]
 
 
 @staff_eval_router.get("/runs/{run_id}", operation_id="get_run")
-def get_run(run_id: int, _: SignedIn, db: Database) -> RunInFull:
+def get_run(run_id: int, _: SignedInEngineer, db: Database) -> RunInFull:
     """A run with each copy beside the handler's decision, and live scores."""
     row = run_row(db, run_id)
     found, times = run_claims(db, run_id)

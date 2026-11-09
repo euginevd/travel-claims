@@ -51,12 +51,13 @@ POLICY = "POL-2901"
 
 
 class Portal:
-    """The api as the red team reaches it: the customers' and the staff's routes."""
+    """The api as the red team reaches it: the customers', the staff's and the engineers' routes."""
 
     def __init__(self, base_url: str) -> None:
         self.http = httpx2.Client(base_url=base_url, timeout=30.0)
         self.customer = self._token("/api/customer/dev/redteam-sign-in", "attacker")
         self.staff = self._token("/api/staff/dev/test-sign-in", "senior")
+        self.engineer = self._token("/api/engineering/dev/test-sign-in", "engineer")
 
     def _token(self, path: str, account: str) -> dict[str, str]:
         response = self.http.post(path, json={"account": account})
@@ -95,7 +96,9 @@ class Portal:
 
     def record(self, results: list[Result]) -> None:
         body = {"results": [r.__dict__ for r in results]}
-        self.http.put("/api/staff/redteam", json=body, headers=self.staff).raise_for_status()
+        self.http.put(
+            "/api/engineering/redteam", json=body, headers=self.engineer
+        ).raise_for_status()
 
 
 def outcome_of(claim: Json) -> tuple[str, str, float]:

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, delete, insert, select
 
 from undercover_api.agent_service import AgentRefusedError, AgentService, AgentUnavailableError
-from undercover_api.auth import Database, SeniorHandler, SignedIn
+from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.db import now, redteam_reports, settings
 from undercover_api.models import RedTeamReport, RedTeamRun
 
@@ -16,7 +16,7 @@ RUNNING = "redteam_running"
 # A run that hasn't reported back by then has stopped, so another may start.
 STALE_AFTER = timedelta(minutes=20)
 
-redteam_router = APIRouter(prefix="/api/staff", tags=["staff"])
+redteam_router = APIRouter(prefix="/api/engineering", tags=["engineering"])
 
 
 class RedTeamStatus(BaseModel):
@@ -64,23 +64,25 @@ def status_of(db: Connection) -> RedTeamStatus:
 
 
 @redteam_router.get("/redteam", operation_id="get_redteam_report")
-def get_redteam_report(_: SignedIn, db: Database) -> RedTeamStatus:
+def get_redteam_report(_: SignedInEngineer, db: Database) -> RedTeamStatus:
     """The latest red-team run, and whether one is going now."""
     return status_of(db)
 
 
 @redteam_router.put("/redteam", operation_id="record_redteam_report")
-def record_redteam_report(run: RedTeamRun, handler: SeniorHandler, db: Database) -> RedTeamReport:
+def record_redteam_report(
+    run: RedTeamRun, engineer: SignedInEngineer, db: Database
+) -> RedTeamReport:
     """Keep a red-team run's results, run by the senior handler signed in; the run is over."""
     stamp = now()
     results = [result.model_dump() for result in run.results]
-    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=handler.name, results=results))
+    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=engineer.name, results=results))
     clear_running(db)
-    return RedTeamReport(run_at=stamp, run_by=handler.name, results=run.results)
+    return RedTeamReport(run_at=stamp, run_by=engineer.name, results=run.results)
 
 
 @redteam_router.post("/redteam/runs", operation_id="start_redteam_run", status_code=202)
-def start_redteam_run(request: Request, handler: SeniorHandler, db: Database) -> RedTeamStatus:
+def start_redteam_run(request: Request, engineer: SignedInEngineer, db: Database) -> RedTeamStatus:
     """Ask the agent to run the red-team suite, one run at a time."""
     going = running_since(db)
     if going is not None:
@@ -89,8 +91,8 @@ def start_redteam_run(request: Request, handler: SeniorHandler, db: Database) ->
     db.execute(
         insert(settings).values(
             key=RUNNING,
-            value={"started_at": now(), "started_by": handler.name},
-            changed_by=handler.name,
+            value={"started_at": now(), "started_by": engineer.name},
+            changed_by=engineer.name,
             changed_at=now(),
         )
     )
