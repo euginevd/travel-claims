@@ -1,4 +1,4 @@
-// The demo home: live status dots, live numbers, the diagram's details and one claim's journey.
+// The project page: live status dots, live numbers, the diagram's details and one claim's journey.
 // No customer data is read here.
 
 const PARTS = {
@@ -127,7 +127,6 @@ const ORDER = ["portal", "handler", "console"];
 function setUpPlayer() {
   const video = document.getElementById("player");
   const picks = [...document.querySelectorAll(".pick")];
-  const open = document.getElementById("open-app");
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let current = "portal";
 
@@ -140,9 +139,9 @@ function setUpPlayer() {
       pick.querySelector(".bar i").style.width = "0";
     });
     document.getElementById("player-url").textContent = clip.host;
-    document.getElementById("open-label").textContent = clip.label;
-    document.getElementById("open-who").textContent = `Use test account: ${clip.who}`;
-    open.href = appUrl(picks.find((p) => p.dataset.clip === name).dataset.port);
+    document.querySelectorAll(".go-app").forEach((link) => {
+      link.classList.toggle("current", link.dataset.port === picks.find((p) => p.dataset.clip === name).dataset.port);
+    });
     video.poster = `img/${name}.webp`;
     if (still) {
       video.removeAttribute("src");

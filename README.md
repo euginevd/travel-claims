@@ -10,13 +10,13 @@
 ![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-OIDC-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-Planned-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
 
-[Demo](#-demo-home) · [Customers](#-customers) · [Handlers](#️-handlers) · [AI engineers](#-ai-engineers) · [Apps](#-apps) · [Run it](#-run-it)
+[Project](#-project-page) · [Customers](#-customers) · [Handlers](#️-handlers) · [AI engineers](#-ai-engineers) · [Apps](#-apps) · [Run it](#-run-it)
 
 </div>
 
 > Based on the UnderCover project from Ed Donner's AI FDE course ([ed-donner/undercover](https://github.com/ed-donner/undercover)), including its fictional sample data. Built with a secure agentic SDLC from [sdlc-template](https://github.com/euginevd/sdlc-template).
 
-## 🧭 Demo home
+## 🧭 Project page
 
 A local page at http://127.0.0.1:5172 that explains the project in two minutes: a card for each app with its test account and a live status dot, live numbers (claims decided by the agent alone, cost per claim, red-team attacks held), a five-minute script across the apps, a clickable architecture diagram and one claim's journey from portal to payment. No sign-in, no customer data, never deployed.
 
@@ -88,7 +88,7 @@ flowchart LR
 | `portal` | Customers make and track claims | Docker locally; EKS *(planned)* |
 | `dashboard` | Handlers work the queue, ask customers for documents and sign off payouts | Docker locally; EKS *(planned)* |
 | `console` | AI assurance: evaluations and improvements (quality), the red team (security) | Docker locally; EKS *(planned)* |
-| `home` | The local demo home page | Docker locally only |
+| `home` | The local project page | Docker locally only |
 | `api` | Claims, decisions, payments, settings and sign-in | Docker locally; EKS *(planned)* |
 | `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | Docker locally; EKS *(planned)* |
 | `copilot` | The handlers' chat agent | Docker locally; EKS *(planned)* |
@@ -98,7 +98,7 @@ flowchart LR
 
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), then clone the repo.
 2. Copy `.env.example` to `.env`, and add an Anthropic API key with its workspace ID.
-3. `docker compose up --build -d`, then open the demo home at http://127.0.0.1:5172. **Use test account** signs you in on each app:
+3. `docker compose up --build -d`, then open the project page at http://127.0.0.1:5172. **Use test account** signs you in on each app:
 
    | App | Address | Test account |
    |-----|---------|--------------|

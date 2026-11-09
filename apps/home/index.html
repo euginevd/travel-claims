@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>UnderCover demo</title>
+    <title>UnderCover project</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-mH5VayIbC77RMOcB8LtSYCYaGN9CAWDNTNUPV9/oEjnZfpSU6DEtXfLH/6f2LHK1" />
-    <script src="app.js" integrity="sha384-UAHc/EFOlFpXA0I/bP7Npkfxnqkxn42IXf6fhlTOnovloa56zbaK8exKQSbriEmt" defer></script>
+    <link rel="stylesheet" href="styles.css" integrity="sha384-pO233yooKuJWwJXPxtSECiYGc/kI009LFsSGcAdt1v4MbQ5nrDuxABCFDx7kYZGr" />
+    <script src="app.js" integrity="sha384-ROf2ZPf4CsEsQjDD8Dl0F+Z6MOKVXoxURIhxLdEG/80zbmI/WBMDnoP+HRmkSA9L" defer></script>
   </head>
   <body>
     <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -75,9 +75,12 @@
                 <span class="metric-label">attacks on the agent blocked</span>
                 <span class="bar" aria-hidden="true"><i></i></span>
               </button>
-              <a class="open" id="open-app" href="#" data-port="5173"><span id="open-label">Open the customer portal</span> <svg class="go"><use href="#i-arrow" /></svg></a>
-              <p class="who" id="open-who">Use test account: Oliver Grant</p>
             </div>
+          </div>
+          <div class="launch">
+            <a class="go-app" href="#" data-port="5173"><span><b>Open the customer portal</b><small>Test account: Oliver Grant</small></span><svg class="go"><use href="#i-arrow" /></svg></a>
+            <a class="go-app" href="#" data-port="5174"><span><b>Open the handler workspace</b><small>Test account: Dana Whitfield</small></span><svg class="go"><use href="#i-arrow" /></svg></a>
+            <a class="go-app" href="#" data-port="5175"><span><b>Open AI assurance</b><small>Test account: Sam Carter</small></span><svg class="go"><use href="#i-arrow" /></svg></a>
           </div>
         </div>
       </section>
@@ -87,6 +90,7 @@
         <div class="wrap">
           <h2>How it works</h2>
           <div class="arch">
+            <div class="diagram-scroll" tabindex="0" role="region" aria-label="Architecture diagram, scrolls sideways on small screens">
             <svg viewBox="0 0 1000 470" role="group" aria-label="Architecture diagram" class="diagram">
               <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead" /></marker></defs>
               <rect x="12" y="12" width="262" height="446" rx="22" class="lane lane-people" /><text x="32" y="40" class="lane-label">PEOPLE</text>
@@ -111,11 +115,12 @@
               <g class="node " data-node="db" tabindex="0" role="button" aria-label="PostgreSQL"><rect x="600" y="348" width="200" height="72" rx="16" /><g class="ico"><rect x="614" y="364.0" width="40" height="40" rx="11" /><use href="#i-db" x="622" y="372.0" width="24" height="24" /></g><text x="666" y="381.0" class="t">PostgreSQL</text><text x="666" y="400.0" class="sub">records</text></g>
               <g class="node external" data-node="claude" tabindex="0" role="button" aria-label="Claude"><rect x="826" y="66" width="154" height="76" rx="16" /><g class="ico"><rect x="840" y="84.0" width="40" height="40" rx="11" /><use href="#i-sparkles" x="848" y="92.0" width="24" height="24" /></g><text x="892" y="101.0" class="t">Claude</text><text x="892" y="120.0" class="sub">Sonnet · Haiku</text></g>
             </svg>
-            <aside class="detail" aria-live="polite">
+            </div>
+            <div class="detail" aria-live="polite">
               <p class="detail-kicker">The architecture</p>
               <h3 id="detail-title">Every part, one tap</h3>
               <p id="detail-what">Docker on a laptop today. EKS on AWS next.</p>
-            </aside>
+            </div>
           </div>
 
           <div class="journey">

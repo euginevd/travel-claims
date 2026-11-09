@@ -72,7 +72,7 @@
 
 29. Review the whole branch, open the PR, then stage 1 plan 2 (the dispatcher and evaluations).
 
-## Demo home (2026-11-09)
+## Project page (2026-11-09)
 
 Done: redesigned to two screens, big and visual: the real logo, a bold headline with live numbers, the three apps as screenshot cards, then the architecture diagram, one claim's journey a step at a time, six ideas as icons and the stack in one line.
 
