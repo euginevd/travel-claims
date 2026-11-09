@@ -1,7 +1,7 @@
 import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { Api, Step, Trace } from "../api";
-import { dollars, plainStep, STEP_LABELS, when } from "../format";
+import { plainStep, STEP_LABELS, when } from "../format";
 import { AiMark } from "./AiMark";
 
 const TRACE_KEY = "undercover.dashboard.trace";
@@ -112,7 +112,7 @@ export function ActivityRail({
               onTraceChange(event.target.checked);
             }}
           />
-          Show trace <span className="muted small">(tool calls, JSON, tokens and cost · T)</span>
+          Show trace <span className="muted small">(every tool call and its sources · T)</span>
         </label>
         {working && (
           <p className="muted small live" role="status">
@@ -144,43 +144,6 @@ function TraceView({ trace }: { trace: Trace | null }) {
   if (!trace) return <p className="muted">Loading the trace…</p>;
   return (
     <>
-      <p className="small">
-        {trace.model_calls.length} model calls · {trace.total_tokens.toLocaleString("en-AU")} tokens
-        · {dollars(trace.total_cost)}
-      </p>
-      {trace.model_calls.length > 0 && (
-        <table className="trace-calls">
-          <caption className="visually-hidden">Model calls</caption>
-          <thead>
-            <tr>
-              <th scope="col">Model</th>
-              <th scope="col" className="number">
-                Tokens in / out
-              </th>
-              <th scope="col" className="number">
-                Cost
-              </th>
-              <th scope="col" className="number">
-                Time
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {trace.model_calls.map((call, index) => (
-              <tr key={index}>
-                <td className="mono">{call.model}</td>
-                <td className="number">
-                  {call.input_tokens} / {call.output_tokens}
-                </td>
-                <td className="number">${call.cost.toFixed(4)}</td>
-                <td className="number">
-                  {call.latency_ms === null ? "–" : `${(call.latency_ms / 1000).toFixed(1)}s`}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
       <ol className="trace-steps">
         {trace.steps.map((step) => (
           <li key={step.step_id}>

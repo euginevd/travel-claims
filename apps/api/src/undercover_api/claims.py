@@ -12,6 +12,7 @@ from undercover_api.db import (
     customer_requests,
     customers,
     decisions,
+    model_calls,
     now,
     payments,
     policies,
@@ -29,6 +30,7 @@ from undercover_api.models import (
     CustomerMatch,
     CustomerRequest,
     Decision,
+    ModelCall,
     NewStep,
     Payment,
     Payout,
@@ -40,6 +42,7 @@ from undercover_api.models import (
     Stages,
     Status,
     Step,
+    Trace,
 )
 from undercover_api.notices import announce, announce_requests
 from undercover_api.payout import PolicyTerms
@@ -333,3 +336,22 @@ def add_requests(db: Connection, claim_id: str, texts: list[str], asked_by: str)
             )
         )
     announce_requests(db, find_claim(db, claim_id), texts)
+
+
+def claim_trace(db: Connection, claim_id: str) -> Trace:
+    """Every step and model call on a claim, with its total tokens and cost."""
+    find_claim(db, claim_id)
+    calls = [
+        ModelCall.model_validate(dict(r))
+        for r in db.execute(
+            select(model_calls)
+            .where(model_calls.c.claim_id == claim_id)
+            .order_by(model_calls.c.call_id)
+        ).mappings()
+    ]
+    return Trace(
+        steps=list_steps(db, claim_id),
+        model_calls=calls,
+        total_cost=round(sum(c.cost for c in calls), 6),
+        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
+    )

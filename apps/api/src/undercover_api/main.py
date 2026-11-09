@@ -42,6 +42,7 @@ from undercover_api.claims import (
     attempts_calculation,
     claim_history,
     claim_in_full,
+    claim_trace,
     claims_policy,
     find_claim,
     find_customers,
@@ -93,7 +94,6 @@ from undercover_api.models import (
     DecisionRequest,
     Handler,
     HoldRequest,
-    ModelCall,
     ModelCallRequest,
     NewStep,
     OverrideRequest,
@@ -612,21 +612,7 @@ def set_payout_switch(
 @staff_router.get("/claims/{claim_id}/trace", operation_id="get_trace")
 def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
     """Every step and model call on a claim, for the trace view."""
-    found = list_steps(db, claim_id)
-    calls = [
-        ModelCall.model_validate(dict(r))
-        for r in db.execute(
-            select(model_calls)
-            .where(model_calls.c.claim_id == claim_id)
-            .order_by(model_calls.c.call_id)
-        ).mappings()
-    ]
-    return Trace(
-        steps=found,
-        model_calls=calls,
-        total_cost=round(sum(c.cost for c in calls), 6),
-        total_tokens=sum(c.input_tokens + c.output_tokens for c in calls),
-    )
+    return claim_trace(db, claim_id)
 
 
 # --- The local sign-in stand-in ---

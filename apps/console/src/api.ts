@@ -151,6 +151,30 @@ export interface StartRunRequest {
   concurrency: number;
 }
 
+export const TraceSchema = z.object({
+  steps: z.array(
+    z.object({
+      step_id: z.number(),
+      kind: z.string(),
+      content: z.string(),
+      created_at: z.string(),
+    }),
+  ),
+  model_calls: z.array(
+    z.object({
+      model: z.string(),
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cost: z.number(),
+      latency_ms: z.number().nullable(),
+      created_at: z.string(),
+    }),
+  ),
+  total_cost: z.number(),
+  total_tokens: z.number(),
+});
+
+export type Trace = z.infer<typeof TraceSchema>;
 export type Engineer = z.infer<typeof EngineerSchema>;
 export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
 export type RedTeamReport = z.infer<typeof RedTeamReportSchema>;
@@ -171,6 +195,7 @@ export interface Api {
   startRound: () => Promise<Round>;
   reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
   stopRound: (roundId: number) => Promise<Round>;
+  getTrace: (claimId: string) => Promise<Trace>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -262,5 +287,6 @@ export function createApi(fetchFn: Fetch, getToken: () => string | null): Api {
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),
   };
 }

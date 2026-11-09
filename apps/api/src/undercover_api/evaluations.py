@@ -17,7 +17,7 @@ from sqlalchemy import Connection, CursorResult, RowMapping, func, insert, selec
 
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedInEngineer, require_agent
-from undercover_api.claims import find_claim, find_decision
+from undercover_api.claims import claim_trace, find_claim, find_decision
 from undercover_api.db import (
     claims,
     configurations,
@@ -28,7 +28,7 @@ from undercover_api.db import (
     settings,
     steps,
 )
-from undercover_api.models import ClaimId, DecisionKind, Engineer, Status, Strict
+from undercover_api.models import ClaimId, DecisionKind, Engineer, Status, Strict, Trace
 
 log = logging.getLogger(__name__)
 
@@ -193,6 +193,12 @@ def get_claims_configuration(claim_id: ClaimId, db: Database) -> Configuration:
 def me_engineer(engineer: SignedInEngineer) -> Engineer:
     """The AI engineer signed in."""
     return engineer
+
+
+@staff_eval_router.get("/claims/{claim_id}/trace", operation_id="get_trace_for_engineer")
+def engineer_trace(claim_id: ClaimId, _: SignedInEngineer, db: Database) -> Trace:
+    """A claim's steps and model calls with tokens and cost, for the AI engineers."""
+    return claim_trace(db, claim_id)
 
 
 @staff_eval_router.get("/configuration", operation_id="list_configurations")
