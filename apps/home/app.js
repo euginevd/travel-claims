@@ -117,17 +117,24 @@ function loadStats() {
   fetch("/api/demo/stats", { headers: { Accept: "application/json" } })
     .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
     .then((stats) => {
-      setStat("claims", String(stats.claims));
       if (stats.decided) {
-        setStat("agent_share", `${String(Math.round((stats.decided_by_agent / stats.decided) * 100))}%`);
+        const tenths = Math.round((stats.decided_by_agent / stats.decided) * 10);
+        setStat("agent_share", `${String(tenths)} in 10`);
       }
-      if (stats.average_cost) setStat("average_cost", `$${stats.average_cost.toFixed(2)}`);
+      if (stats.agent_seconds) {
+        const secs = stats.agent_seconds;
+        setStat(
+          "agent_seconds",
+          secs < 90 ? `about ${String(secs)} seconds` : `about ${String(Math.round(secs / 60))} minutes`,
+        );
+      }
+      setStat("need_a_handler", String(stats.need_a_handler));
       if (stats.redteam_attacks) {
-        setStat("redteam", `${String(stats.redteam_held)}/${String(stats.redteam_attacks)}`);
+        setStat("redteam", `${String(stats.redteam_held)} of ${String(stats.redteam_attacks)}`);
       }
     })
     .catch(() => {
-      // The numbers shown in the page stand in when the api isn't there.
+      // The numbers in the page stand in when the api isn't there.
     });
 }
 

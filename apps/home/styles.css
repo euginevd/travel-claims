@@ -55,7 +55,7 @@ svg use {
   position: relative;
   overflow: hidden;
   min-height: 100vh;
-  padding: 28px 0 56px;
+  padding: 24px 0 40px;
   color: #fff;
   background: radial-gradient(1200px 600px at 85% -10%, #12407a 0%, transparent 60%),
     linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
@@ -133,8 +133,8 @@ svg use {
 }
 
 h1 {
-  margin: 9vh 0 0;
-  font-size: clamp(2.6rem, 6.2vw, 5.4rem);
+  margin: 4vh 0 0;
+  font-size: clamp(2.4rem, 5.4vw, 4.6rem);
   line-height: 1.02;
   letter-spacing: -0.035em;
   font-weight: 800;
@@ -170,11 +170,48 @@ h1 span {
   opacity: 0.65;
 }
 
+.lede {
+  max-width: 46ch;
+  margin: 18px 0 0;
+  font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
 .apps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
-  margin-top: 56px;
+  gap: 28px;
+  margin-top: 36px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+.metric-value {
+  font-size: clamp(2.2rem, 3.6vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: linear-gradient(90deg, #fff, var(--sky-soft));
+  background-clip: text;
+  color: transparent;
+}
+
+.metric-label {
+  margin-top: 6px;
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+.app-purpose {
+  display: block;
+  margin-top: 2px;
+  font-size: 1rem;
+  opacity: 0.85;
 }
 
 .app {
@@ -227,11 +264,16 @@ h1 span {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(255 255 255 / 12%);
 }
 
 .app-name {
-  font-size: 1.45rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--coral);
   font-weight: 800;
   letter-spacing: -0.015em;
 }

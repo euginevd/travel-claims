@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>UnderCover demo</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-vgnlQFIFtx7k2s3kLSR6WQCbj83DZz/JLK/Szxb6WEXcD8BAtl0vaX4bmWaV+nkC" />
-    <script src="app.js" integrity="sha384-Pdxv560YEx8lt1evIR7fbSooDiOFrtG7fbtpKE8/DukGwP0objcfmp5kwOmtpvC1" defer></script>
+    <link rel="stylesheet" href="styles.css" integrity="sha384-WfbhjIm7iJV+5Hkgb0elonpsKEDv8N9QScAPdNp4UTIIcvbaXThd22l8YXvgVd1N" />
+    <script src="app.js" integrity="sha384-5ImxsEYLH6DCSwxgbaR4eqi/gnANw9iOpIc68ZUvZPKxs+e5yYfa2QYwIgaw1OWx" defer></script>
   </head>
   <body>
     <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -40,27 +40,28 @@
 
           <h1>AI decides the routine claims.<br /><span>People decide the rest.</span></h1>
 
-          <dl class="stats">
-            <div><dt>claims</dt><dd data-stat="claims">28</dd></div>
-            <div><dt>decided by the agent</dt><dd data-stat="agent_share">90%</dd></div>
-            <div><dt>per claim</dt><dd data-stat="average_cost">$0.03</dd></div>
-            <div><dt>attacks held</dt><dd data-stat="redteam">8/8</dd></div>
-          </dl>
+          <p class="lede">A working pilot of an AI claims platform for a travel insurer: AI handles the routine work, so people can focus on the claims that need judgement.</p>
 
           <div class="apps">
             <a class="app" href="#" data-port="5173" data-health>
               <span class="frame"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><img src="img/portal.webp" width="1600" height="950" alt="The customer portal: My claims with a delayed-flight offer" /></span>
+              <span class="metric"><span class="metric-value" data-stat="agent_share">9 in 10</span><span class="metric-label">routine claims answered in <span data-stat="agent_seconds">about 11 seconds</span></span></span>
               <span class="app-row"><span class="app-name">Customer</span><span class="dot" aria-hidden="true"></span></span>
+              <span class="app-purpose">Claim from a photo, get paid to your PayID</span>
               <span class="app-who">Oliver Grant <svg class="go"><use href="#i-arrow" /></svg></span>
             </a>
             <a class="app" href="#" data-port="5174" data-health>
               <span class="frame"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><img src="img/handler.webp" width="1600" height="950" alt="The handler workspace: a claim's case brief" /></span>
+              <span class="metric"><span class="metric-value" data-stat="need_a_handler">2</span><span class="metric-label">claims that need a handler's judgement now</span></span>
               <span class="app-row"><span class="app-name">Claims handler</span><span class="dot" aria-hidden="true"></span></span>
+              <span class="app-purpose">Your expertise on the claims that matter</span>
               <span class="app-who">Dana Whitfield <svg class="go"><use href="#i-arrow" /></svg></span>
             </a>
             <a class="app" href="#" data-port="5175" data-health>
               <span class="frame"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><img src="img/console.webp" width="1600" height="950" alt="The AI assurance console: the evaluation scoreboard" /></span>
+              <span class="metric"><span class="metric-value" data-stat="redteam">8 of 8</span><span class="metric-label">attacks on the agent blocked</span></span>
               <span class="app-row"><span class="app-name">AI assurance</span><span class="dot" aria-hidden="true"></span></span>
+              <span class="app-purpose">Test the AI: score it, improve it, attack it</span>
               <span class="app-who">Sam Carter <svg class="go"><use href="#i-arrow" /></svg></span>
             </a>
           </div>
