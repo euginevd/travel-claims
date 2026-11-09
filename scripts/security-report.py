@@ -16,6 +16,7 @@ CHECKS = {
 }
 # Most severe first; a scanner that rates nothing counts as UNKNOWN.
 SEVERITY = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵", "UNKNOWN": "⚪"}
+URGENT = ("CRITICAL", "HIGH")
 SEMGREP_SEVERITY = {"ERROR": "HIGH", "WARNING": "MEDIUM", "INFO": "LOW"}
 MARKER = "<!-- security-report -->"
 
@@ -41,10 +42,12 @@ def rating(value):
     return value if value in SEVERITY else "UNKNOWN"
 
 
-# Each scanner yields (file, line, rule, message, severity) per finding.
+# Each scanner yields (file, line, rule, message, severity, fix); fixes show for critical and high.
 def gitleaks(data):
     for f in data or []:
-        yield f["File"], f.get("StartLine", 1), f["RuleID"], "Secret found (redacted)", "CRITICAL"
+        fix = "rotate the secret now, then remove it from git history"
+        msg = "Secret found (redacted)"
+        yield f["File"], f.get("StartLine", 1), f["RuleID"], msg, "CRITICAL", fix
 
 
 def trivy(data):
@@ -53,10 +56,12 @@ def trivy(data):
             fixed = v.get("FixedVersion")
             pkg = f"{v['PkgName']} {v['InstalledVersion']}"
             msg = f"{pkg}, fixed in {fixed}" if fixed else f"{pkg}, no fix yet"
-            yield r["Target"], 1, v["VulnerabilityID"], msg, rating(v.get("Severity"))
+            fix = f"upgrade {v['PkgName']} to {fixed}" if fixed else ""
+            yield r["Target"], 1, v["VulnerabilityID"], msg, rating(v.get("Severity")), fix
         for m in r.get("Misconfigurations") or []:
             line = (m.get("CauseMetadata") or {}).get("StartLine") or 1
-            yield r["Target"], line, m["ID"], m["Title"], rating(m.get("Severity"))
+            fix = m.get("Resolution") or ""
+            yield r["Target"], line, m["ID"], m["Title"], rating(m.get("Severity")), fix
 
 
 def checkov(data):
@@ -64,14 +69,19 @@ def checkov(data):
         for c in (block.get("results") or {}).get("failed_checks") or []:
             line = (c.get("file_line_range") or [1])[0]
             path = c["file_path"].lstrip("/")
-            yield path, line, c["check_id"], c["check_name"], rating(c.get("severity"))
+            fix = f"see {c['guideline']}" if c.get("guideline") else ""
+            yield path, line, c["check_id"], c["check_name"], rating(c.get("severity")), fix
 
 
 def semgrep(data):
     for r in data.get("results") or []:
         rule = r["check_id"].split(".")[-1]
         sev = SEMGREP_SEVERITY.get(r["extra"].get("severity"), "UNKNOWN")
-        yield r["path"], r["start"]["line"], rule, r["extra"]["message"].split("\n")[0], sev
+        refs = (r["extra"].get("metadata") or {}).get("references") or []
+        fix = f"see {refs[0]}" if refs else ""
+        if r["extra"].get("fix"):
+            fix = f"replace with `{r['extra']['fix']}`"
+        yield r["path"], r["start"]["line"], rule, r["extra"]["message"].split("\n")[0], sev, fix
 
 
 SCANNERS = {"gitleaks": gitleaks, "trivy": trivy, "checkov": checkov, "semgrep": semgrep}
@@ -86,13 +96,20 @@ def parse(tool, report, out):
     if data is None:
         summary = {"tool": tool, "error": True, "count": 0, "severity": {}, "top": []}
     else:
-        items = [(rel(f), int(line), r, m, s) for f, line, r, m, s in SCANNERS[tool](data)]
+        items = [
+            (rel(f), int(line), r, m, s, x if s in URGENT else "")
+            for f, line, r, m, s, x in SCANNERS[tool](data)
+        ]
         items.sort(key=lambda i: list(SEVERITY).index(i[4]))
-        for f, line, rule, msg, sev in items[:50]:
+        for f, line, rule, msg, sev, fix in items[:50]:
             title = esc_prop(f"{tool} {rule}")
-            print(f"::error file={esc_prop(f)},line={line},title={title}::{esc(f'{sev}: {msg}')}")
+            text = f"{sev}: {msg}" + (f". Fix: {fix}" if fix else "")
+            print(f"::error file={esc_prop(f)},line={line},title={title}::{esc(text)}")
         counts = {s: sum(1 for i in items if i[4] == s) for s in SEVERITY}
-        top = [f"{SEVERITY[s]} {rule}: {msg} ({f}:{line})" for f, line, rule, msg, s in items[:3]]
+        top = [
+            f"{SEVERITY[s]} {rule}: {msg} ({f}:{line})" + (f"<br>**Fix:** {x}" if x else "")
+            for f, line, rule, msg, s, x in items[:3]
+        ]
         summary = {
             "tool": tool,
             "error": False,
@@ -140,7 +157,9 @@ def comment(folder, sha):
     print("\n".join(rows))
     print(f"| **Total** | **{badges(total) or '–'}** |")
     if top:
-        print("\n<details><summary>Top findings</summary>\n")
+        urgent = any(total.get(s) for s in URGENT)
+        summary = "<details open><summary>Fix first" if urgent else "<details><summary>Top findings"
+        print(f"\n{summary}</summary>\n")
         print("\n".join(top))
         print("\n</details>")
     if failed:

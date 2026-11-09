@@ -6,6 +6,7 @@ name: aws
 # Repository variables: PROJECT_NAME, and optionally AWS_REGION (default ap-southeast-2).
 # Environment variables, set on each aws-<target>-plan and aws-<target>-apply environment from that
 # account's bootstrap stack: AWS_PLAN_ROLE_ARN (plan), AWS_DEPLOY_ROLE_ARN (apply), TF_STATE_BUCKET (both).
+# Cost comment: secret INFRACOST_API_KEY; optional variables MONTHLY_COST_LIMIT (warns above it) and COST_CURRENCY (default USD).
 on:
   pull_request:
     paths: [aws/**, '!aws/bootstrap/**', .github/workflows/aws.yml]
@@ -119,6 +120,7 @@ jobs:
           ec=0
           terraform plan -input=false $DESTROY -out=tfplan -detailed-exitcode || ec=$?
           [ "$ec" -eq 1 ] && exit 1
+          terraform show -json tfplan > plan.json
           [ "$ec" -eq 2 ] || rm tfplan
           {
             echo "## Terraform plan: ${{ matrix.unit }} in $TARGET ${DESTROY}"
@@ -136,6 +138,25 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Prices the plan from a pinned image; only price lookups leave the runner, and plan.json is deleted after.
+      - name: Cost
+        env:
+          INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+          INFRACOST_CURRENCY: ${{ vars.COST_CURRENCY || 'USD' }}
+          UNIT: ${{ matrix.unit }}
+        run: |
+          trap 'rm -f plan.json infracost.json' EXIT
+          [ -n "$INFRACOST_API_KEY" ] || { echo "No INFRACOST_API_KEY secret, so no cost estimate."; exit 0; }
+          docker run --rm -e INFRACOST_API_KEY -e INFRACOST_CURRENCY -e INFRACOST_SKIP_UPDATE_CHECK=true -v "$PWD:/unit" --entrypoint infracost infracost/infracost:0.10.47@sha256:76ad6948e83bffb4b6127c9cae13faea068981bcb2b081526920d9bb88a399e1 diff --path /unit/plan.json --format json --out-file /unit/infracost.json || true
+          python3 ../../scripts/cost-report.py parse "$UNIT" infracost.json plan.json "cost-$UNIT.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cost-${{ matrix.unit }}
+          path: aws/${{ matrix.unit }}/cost-${{ matrix.unit }}.json
+          if-no-files-found: ignore
+          retention-days: 1
+
       # Only units with changes upload a plan; apply skips the rest. Zips built at plan time go with it.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -145,6 +166,42 @@ jobs:
             aws/${{ matrix.unit }}/*.zip
           if-no-files-found: ignore
           retention-days: 1
+
+  # One cost comment per PR, updated on each push; no AWS role.
+  cost-report:
+    needs: plan
+    if: always() && github.event_name == 'pull_request' && needs.plan.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: cost-*
+          path: cost
+          merge-multiple: true
+      - name: Post the estimate on the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          LIMIT: ${{ vars.MONTHLY_COST_LIMIT }}
+        run: |
+          python3 scripts/cost-report.py comment cost "$SHA" "$LIMIT" > comment.md
+          [ -s comment.md ] || { echo "No cost estimates to post."; exit 0; }
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- cost-report -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi
 
   apply:
     needs: [detect, plan]

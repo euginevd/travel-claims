@@ -25,7 +25,7 @@ The end-to-end flow, through the stages in section 3, for both a new project and
 | 5 | Code | Developer | **Implement:** *"Implement the plan"*. The agent works through the phases |
 | 6 | Code | Agent | **Build each phase:** code, checks, subagent review, docs, then a local commit |
 | 7 | Code | Agent | **Push:** the pre-push scan runs. ↺ The agent fixes findings, then opens a PR |
-| 8 | Build and test | Pipeline, agent | **PR checks:** security scans, a summary comment and the Terraform plan. ↺ The agent fixes findings |
+| 8 | Build and test | Pipeline, agent | **PR checks:** security scans with a summary comment and fixes, the Terraform plan and a cost comment. ↺ The agent fixes findings |
 | 9 | Release | Developer, agent | **Merge:** you review the diff and security summary, then the agent squash-merges |
 | 10 | Deploy | Developer, pipeline | **Apply:** you approve the plan; it deploys (`dev` on merge, `prod` by hand) and checks `/health` |
 | 11 | Operate and monitor | Agent, developer | **Close the loop:** the agent updates status and decisions; findings feed step 2 |
@@ -81,7 +81,7 @@ travel-claims/
 │   ├── bootstrap/            CloudFormation, run once: OIDC, state bucket, CI roles
 │   └── api/                  Terraform for stage 2 on AWS (planned)
 ├── .github/workflows/     06 the pipeline, one workflow per concern
-│   ├── aws.yml               plan on the PR, apply after your approval
+│   ├── aws.yml               plan on the PR with a cost comment (Infracost), apply after your approval
 │   ├── apps.yml              each app's format, lint, types and tests, and the api on PostgreSQL, for the apps a PR changes
 │   ├── codeql.yml            CodeQL on every PR except docs-only, main and weekly
 │   └── security.yml          Gitleaks, Trivy, Checkov and Semgrep on every PR, main and weekly, with a summary comment and SBOM;
@@ -91,7 +91,7 @@ travel-claims/
 ├── lefthook.yml           07 runs the security scan on every push
 ├── .lefthook/             08 the pre-push hook script
 ├── scripts/               09 setup.sh installs the tools; scan.sh runs Gitleaks and Trivy;
-│                             security-report.py builds the PR summary; protect-main.sh hardens the repo and sets the main ruleset, safe to rerun
+│                             security-report.py and cost-report.py build the PR comments; protect-main.sh hardens the repo and sets the main ruleset, safe to rerun
 ├── .vscode/               10 the Trivy and Semgrep extensions, for your review
 ├── pyproject.toml         11 the Python workspace and tool settings, with uv.lock and .python-version
 ├── guides/                12 reference for people, numbered 01, 02, …
