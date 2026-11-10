@@ -169,9 +169,6 @@ export function PayoutCard({ api }: { api: Api }) {
               event.preventDefault();
               void save();
             }}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) closeIfEmpty();
-            }}
           >
             <label htmlFor="payid" className="small muted">
               Add a PayID (your email, mobile number or ABN) and approved claims are paid straight
@@ -181,6 +178,10 @@ export function PayoutCard({ api }: { api: Api }) {
               <input
                 id="payid"
                 ref={field}
+                onBlur={(event) => {
+                  // Moving on to Save keeps the form; anywhere else closes it if it's empty.
+                  if (!event.currentTarget.form?.contains(event.relatedTarget)) closeIfEmpty();
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape" && payid) {
                     setValue("");
