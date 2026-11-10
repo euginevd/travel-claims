@@ -86,5 +86,8 @@
   "review_note": null,
   "requests": [],
   "letter": null,
-  "evaluation": false
+  "evaluation": false,
+  "heartbeat_at": null,
+  "recoveries": 0,
+  "stalled": false
 }

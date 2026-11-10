@@ -139,6 +139,9 @@ class FakeAgent:
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None:
         self._take(("resume", claim_id, str(outcome)))
 
+    def carry_on(self, claim_id: str, thread_id: str) -> None:
+        self._take(("carry_on", claim_id, thread_id))
+
     def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
         self._take(("dispatch", str(run_id), ",".join(claim_ids)))
 

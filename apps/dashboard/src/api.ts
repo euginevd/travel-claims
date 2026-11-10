@@ -46,6 +46,8 @@ export const HandlerSchema = z.object({
 export const ClaimSummarySchema = z.object({
   due_on: z.string(),
   documents_in: z.boolean(),
+  // In progress, but the agent stopped working it: a handler can retry it.
+  stalled: z.boolean().optional(),
   claim_id: z.string(),
   customer_name: z.string(),
   plan: z.string(),
@@ -181,6 +183,8 @@ export const ClaimSchema = z.object({
   stages: StagesSchema,
   review_requested_at: z.string().nullable(),
   review_note: z.string().nullable(),
+  stalled: z.boolean().optional(),
+  heartbeat_at: z.string().nullable().optional(),
   letter: LetterSchema.nullable(),
   requests: z.array(
     z.object({
@@ -290,6 +294,7 @@ export interface Api {
   getClaim: (claimId: string, signal?: AbortSignal) => Promise<Claim>;
   listSteps: (claimId: string, signal?: AbortSignal) => Promise<Step[]>;
   workClaim: (claimId: string) => Promise<Claim>;
+  retryClaim: (claimId: string) => Promise<Claim>;
   signOff: (claimId: string) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
@@ -399,6 +404,7 @@ export function createApi(
     listSteps: (claimId, signal) =>
       call(z.array(StepSchema), "GET", `${claimPath(claimId)}/steps`, { signal }),
     workClaim: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/work`),
+    retryClaim: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/retry`),
     signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),

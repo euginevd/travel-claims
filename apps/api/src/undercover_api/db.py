@@ -91,6 +91,9 @@ claims = Table(
     Column("original_claim_id", String(20)),
     # The claim agent's configuration version the current attempt works with.
     Column("config_version", Integer),
+    # When the agent last said it was still working the claim, and how often it was carried on.
+    Column("heartbeat_at", String(32)),
+    Column("recoveries", Integer, nullable=False, default=0),
 )
 
 # The labelled claims evaluations copy, with the handlers' decisions. No route the agent can

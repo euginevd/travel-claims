@@ -214,6 +214,9 @@ class ClaimSummary(BaseModel):
     review_requested: bool
     due_on: str = Field(description="Ten business days after it was submitted")
     documents_in: bool = Field(description="The customer has sent everything asked for")
+    stalled: bool = Field(
+        default=False, description="In progress, but the agent stopped working it"
+    )
 
 
 # A name to look customers up by: a few letters, no more than a full name.
@@ -265,6 +268,13 @@ class Claim(BaseModel):
     letter: CustomerLetter | None = None
     evaluation: bool = Field(
         default=False, description="An evaluation's copy: never paid and never remembered"
+    )
+    heartbeat_at: str | None = Field(
+        default=None, description="When the agent last said it was still working the claim"
+    )
+    recoveries: int = Field(default=0, description="How often a stalled claim was carried on")
+    stalled: bool = Field(
+        default=False, description="In progress, but the agent stopped working it"
     )
 
 
@@ -462,6 +472,14 @@ class Payout(BaseModel):
 
 class StartRequest(Strict):
     thread_id: ThreadId
+
+
+class HeartbeatRequest(Strict):
+    thread_id: ThreadId
+
+
+class StalledClaim(BaseModel):
+    claim_id: str
 
 
 class DecisionRequest(Strict):

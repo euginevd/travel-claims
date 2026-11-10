@@ -1,7 +1,7 @@
 """Reading claims and moving them between statuses. Every move is a conditional update, so
 two requests racing for the same claim can't both win."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException
@@ -60,6 +60,19 @@ def not_found(claim_id: str) -> HTTPException:
     return HTTPException(404, f"Claim {claim_id} not found")
 
 
+# How long a claim in progress may go without a heartbeat from the agent before it's stalled.
+STALLED_AFTER = timedelta(seconds=90)
+
+
+def is_stalled(status: str, heartbeat_at: str | None, at: datetime | None = None) -> bool:
+    """Whether the agent stopped working a claim in progress: no heartbeat for too long."""
+    if status != Status.IN_PROGRESS:
+        return False
+    if heartbeat_at is None:
+        return True
+    return (at or datetime.now(UTC)) - datetime.fromisoformat(heartbeat_at) > STALLED_AFTER
+
+
 def find_claim(db: Connection, claim_id: str) -> RowMapping:
     """A claim's row, or a 404."""
     row = db.execute(select(claims).where(claims.c.claim_id == claim_id)).mappings().first()
@@ -70,7 +83,9 @@ def find_claim(db: Connection, claim_id: str) -> RowMapping:
 
 def move_claim(db: Connection, claim_id: str, start: Status, end: Status, **values: Any) -> bool:
     """Move a claim from one status to another only if it's still in the first, with any other
-    values given. Says whether it moved."""
+    values given. Says whether it moved. A claim moved into progress starts its heartbeat."""
+    if end == Status.IN_PROGRESS:
+        values.setdefault("heartbeat_at", now())
     moved = db.execute(
         update(claims)
         .where(claims.c.claim_id == claim_id, claims.c.status == start)
@@ -128,6 +143,7 @@ def claim_in_full(db: Connection, claim_id: str) -> Claim:
             "letter": letter_of(db, claim_id),
             "stages": stages(db, row, decision, payment),
             "evaluation": row["source"] == "evaluation",
+            "stalled": is_stalled(row["status"], row["heartbeat_at"]),
         }
     )
 
@@ -196,6 +212,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             decisions.c.decision,
             decisions.c.payout,
             claims.c.review_requested_at,
+            claims.c.heartbeat_at,
             policies.c.record.label("policy"),
         )
         .join(customers, customers.c.customer_id == claims.c.customer_id)
@@ -220,6 +237,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             | {
                 "plan": r["policy"]["plan"],
                 "review_requested": r["review_requested_at"] is not None,
+                "stalled": is_stalled(r["status"], r["heartbeat_at"]),
                 "due_on": business_days_after(r["submitted_on"], SERVICE_DAYS),
                 "documents_in": r["claim_id"] in asked
                 and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]

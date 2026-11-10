@@ -71,6 +71,20 @@ class ApiClient:
         path = f"/api/agent/claims/{claim_id}/start"
         return cast(Json, self._call("POST", path, {"thread_id": thread_id}))
 
+    def heartbeat(self, claim_id: str, thread_id: str) -> None:
+        """Say the agent is still working the claim on this thread."""
+        path = f"/api/agent/claims/{claim_id}/heartbeat"
+        self._call("POST", path, {"thread_id": thread_id})
+
+    def stalled_claims(self) -> list[str]:
+        """Claims the agent stopped working that it may still carry on by itself."""
+        found = cast(list[Json], self._call("GET", "/api/agent/stalled-claims"))
+        return [str(claim["claim_id"]) for claim in found]
+
+    def recover(self, claim_id: str) -> Json:
+        """Take a stalled claim to carry it on; the api refuses one already taken."""
+        return cast(Json, self._call("POST", f"/api/agent/claims/{claim_id}/recover"))
+
     def configuration(self, claim_id: str) -> Json:
         """The configuration the claim's attempt works with: instructions, model and effort."""
         path = f"/api/agent/claims/{claim_id}/configuration"
