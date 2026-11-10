@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createApi, type Round, type Run, type RunInFull } from "./api";
+import { createApi, type Round, type Run, type RunClaim, type RunInFull } from "./api";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { RunPage } from "./pages/RunPage";
 import { measures, ScoreboardPage } from "./pages/ScoreboardPage";
@@ -15,6 +15,9 @@ const SCORES = {
   cost_per_claim: 0.031,
   seconds_per_claim: 22,
   total_cost: 0.155,
+  grade: 2,
+  graded: 2,
+  judge_cost: 0.004,
 };
 
 const RUN: Run = {
@@ -29,6 +32,7 @@ const RUN: Run = {
   started_at: "2026-11-08T10:00:00+00:00",
   finished_at: "2026-11-08T10:02:00+00:00",
   scores: SCORES,
+  grading: false,
 };
 
 const RUN_IN_FULL: RunInFull = {
@@ -48,6 +52,11 @@ const RUN_IN_FULL: RunInFull = {
       matched: true,
       payout_matched: true,
       cost: 0.03,
+      judged: true,
+      grade: 3,
+      same_grounds: true,
+      same_section: true,
+      grade_note: "Same grounds and section.",
     },
     {
       claim_id: "CLM-90000302",
@@ -63,12 +72,24 @@ const RUN_IN_FULL: RunInFull = {
       matched: false,
       payout_matched: false,
       cost: 0.02,
+      judged: true,
+      grade: 1,
+      same_grounds: false,
+      same_section: true,
+      grade_note: "Missed that the carrier's report is needed.",
     },
   ],
 };
 
 test("the measures read as percentages, dollars and seconds", () => {
-  expect(measures(SCORES).map((m) => m.value)).toEqual(["80%", "60%", "80%", "$0.031", "22s"]);
+  expect(measures(SCORES).map((m) => m.value)).toEqual([
+    "80%",
+    "60%",
+    "80%",
+    "2.00 of 3",
+    "$0.031",
+    "22s",
+  ]);
 });
 
 test("an AI engineer starts a run from the scoreboard", async () => {
@@ -94,6 +115,28 @@ test("a run shows each claim beside the handler's decision, misses first", async
   expect(rows[1]).toHaveTextContent("CLM-1017");
   expect(rows[1]).toHaveTextContent("Miss");
   expect(rows[2]).toHaveTextContent("Match");
+  expect(rows[1]).toHaveTextContent("C · 1");
+  expect(rows[1]).toHaveTextContent("Same grounds: No · Same section: Yes");
+  expect(rows[2]).toHaveTextContent("A · 3");
+});
+
+test("a run the judge is grading says so, and a copy it couldn't grade says not graded", async () => {
+  const [graded, waiting] = RUN_IN_FULL.claims as [RunClaim, RunClaim];
+  const grading: RunInFull = {
+    ...RUN_IN_FULL,
+    grading: true,
+    scores: { ...SCORES, grade: null, graded: 0 },
+    claims: [
+      { ...graded, judged: true, grade: null, same_grounds: null, same_section: null },
+      { ...waiting, judged: false, grade: null, grade_note: null },
+    ],
+  };
+  const fetchFn = fakeFetch({ "GET /api/engineering/runs/3": () => [200, grading] });
+  render(<RunPage api={createApi(fetchFn, () => "t")} runId={3} />);
+  expect(await screen.findByText(/grading…/)).toBeInTheDocument();
+  expect(screen.getByText("Grading…")).toBeInTheDocument();
+  expect(screen.getByText("Not graded", { selector: "span" })).toBeInTheDocument();
+  expect(screen.getByText("Not graded", { selector: "p" })).toBeInTheDocument();
 });
 
 const ROUND: Round = {
