@@ -58,10 +58,11 @@ Built 2026-11-10, in the `agent` unit beside the gateway (units apply in paralle
 
 ## Phase 5: code execution with MCP
 
-The agent writes one short program that calls the Gateway's tools as a code API; AgentCore Code Interpreter runs it and only the result returns to Claude, instead of one model turn per tool call.
+Built 2026-11-10, off until evaluated (`CODE_EXECUTION` repository variable). The agent may call `run_lookup_program` with a short Python program; AgentCore Code Interpreter runs it with the context layer's seven lookups as functions (a helper written into the sandbox signs each call to the gateway as the interpreter's own role), and only what it prints returns to Claude.
 
-- [ ] Threat model first: R23, a receipt's hidden instruction steers the program the model writes. Controls: the sandbox reaches only the Gateway (no internet), the Gateway's tools are the agent's own read and decision routes for one claim, so payments and limits stay in the api's code (decision 4); time, memory and output limits; every program and its result recorded as a step.
-- [ ] `CODE_EXECUTION=true` turns it on; off, the agent calls tools one turn at a time. Evaluated on the tiny sets both ways: kept only if accuracy holds and tokens per claim drop.
+- [x] Threat model R24 first, rated High: the model has read the claim when it writes a program, and the sandbox's network is public, so a program could send out what the model knows. The interpreter's role may call only the context gateway, the claim's tools and every decision stay outside the sandbox (R3, decision 4), a 60-second wait, 4,000 characters in and 8,000 out, each program and its output a step; and nothing exists while it's off.
+- [x] `aws_bedrockagentcore_code_interpreter` (public network for now, for the gateway) and its role in the `agent` unit, created only while `CODE_EXECUTION` is `true`; the agent may start, use and stop sessions on it alone; the boundary gains those three actions. The tool is offered only when `CODE_INTERPRETER_ID` is set, which the unit sets only when `CODE_EXECUTION` is `true`.
+- [ ] Before switching it on: a VPC-mode interpreter whose only egress is the gateway's VPC endpoint (R24). Then evaluate on the tiny sets both ways; keep it on only if accuracy holds and tokens per claim drop.
 
 ## Security
 

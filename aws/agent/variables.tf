@@ -37,3 +37,9 @@ variable "model_provider" {
     error_message = "model_provider is anthropic or bedrock."
   }
 }
+
+variable "code_execution" {
+  description = "Whether the agent may run lookup programs on AgentCore Code Interpreter (plan phase 5); off until evaluated"
+  type        = bool
+  default     = false
+}

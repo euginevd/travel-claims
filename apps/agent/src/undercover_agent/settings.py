@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     memory_id: str | None = None
     # Tier 2: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
+    # Tier 2: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
+    code_interpreter_id: str | None = None
     agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
     undercover_api: str = "http://127.0.0.1:8000"

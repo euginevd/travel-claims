@@ -71,7 +71,7 @@ resource "aws_iam_role_policy" "agent" {
   role = aws_iam_role.agent.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       { Effect = "Allow", Action = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"], Resource = data.aws_ecr_repository.agent.arn },
       { Effect = "Allow", Action = "ecr:GetAuthorizationToken", Resource = "*" },
       {
@@ -110,7 +110,13 @@ resource "aws_iam_role_policy" "agent" {
       { Effect = "Allow", Action = ["bedrock-agentcore:BatchCreateMemoryRecords", "bedrock-agentcore:ListMemoryRecords"], Resource = aws_bedrockagentcore_memory.customers.arn },
       # Ask UnderCover searches the policy wording in its knowledge base.
       { Effect = "Allow", Action = "bedrock:Retrieve", Resource = aws_bedrockagent_knowledge_base.wording.arn },
-    ]
+      ],
+      # Lookup programs, only while they're on: one short session each on their own interpreter.
+      [for ci in aws_bedrockagentcore_code_interpreter.programs : {
+        Effect   = "Allow"
+        Action   = ["bedrock-agentcore:StartCodeInterpreterSession", "bedrock-agentcore:InvokeCodeInterpreter", "bedrock-agentcore:StopCodeInterpreterSession"]
+        Resource = ci.code_interpreter_arn
+    }])
   })
 }
 
@@ -328,6 +334,59 @@ resource "terraform_data" "ingest" {
   depends_on = [aws_s3_object.knowledge]
 }
 
+# Lookup programs (plan phase 5, R24), only while CODE_EXECUTION is on: the agent's programs run
+# here as a role that may call only the context gateway. The network is public, so a program could
+# send out what the model has read: limit the sandbox's egress before switching this on (R24).
+resource "aws_iam_role" "programs" {
+  count = var.code_execution ? 1 : 0
+
+  name                 = "${local.prefix}-programs"
+  description          = "Runs the ${var.project} claim agent's lookup programs, which may call only the context gateway"
+  permissions_boundary = local.boundary
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "bedrock-agentcore.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account }
+        ArnLike      = { "aws:SourceArn" = "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:*" }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "programs" {
+  count = var.code_execution ? 1 : 0
+
+  name = "programs"
+  role = aws_iam_role.programs[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
+    ]
+  })
+}
+
+resource "aws_bedrockagentcore_code_interpreter" "programs" {
+  count = var.code_execution ? 1 : 0
+
+  # Names allow letters, digits and underscores only.
+  name               = "${replace(local.prefix, "-", "_")}_programs"
+  description        = "Runs the ${var.project} claim agent's lookup programs"
+  execution_role_arn = aws_iam_role.programs[0].arn
+
+  # Public, so a program can reach the gateway; its role can call nothing else.
+  network_configuration {
+    network_mode = "PUBLIC"
+  }
+
+  depends_on = [aws_iam_role_policy.programs]
+}
+
 # AgentCore Gateway in front of the context layer (plan phase 3): the agent reaches its lookups as
 # managed MCP tools, and the gateway signs each call to the context's IAM-only URL with its own role.
 resource "aws_iam_role" "gateway" {
@@ -446,6 +505,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
     KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
+    CODE_INTERPRETER_ID = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
   }
 
   depends_on = [aws_iam_role_policy.agent, aws_bedrockagentcore_gateway_target.context]
