@@ -585,7 +585,7 @@ export function NewClaimPage({ api }: { api: Api }) {
             <div className="flow-step">
               <div className="reading-card">
                 <div className="reading-head">
-                  <WattleMark size={30} />
+                  <WattleMark size={30} working />
                   <div>
                     <p role="status" className="reading-title">
                       Reading your receipts and drafting your claim…

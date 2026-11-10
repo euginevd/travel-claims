@@ -23,11 +23,6 @@ function setUpLinks() {
   document.querySelectorAll("a[data-port]").forEach((link) => {
     link.href = appUrl(link.dataset.port);
   });
-  // The address beside each link: the page's own text locally, the deployed host on AWS.
-  if (!links) return;
-  document.querySelectorAll("[data-host-port]").forEach((host) => {
-    host.textContent = new URL(appUrl(host.dataset.hostPort)).host;
-  });
 }
 
 function setUpWalkthrough() {

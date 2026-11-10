@@ -1,25 +1,46 @@
 import { Plus, Send, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-/** Wattle AI's mark: a golden wattle puff on green, the same in every UnderCover app. */
-export function WattleMark({ size = 20 }: { size?: number }) {
+/** Wattle AI's mark: a wattle sprig with coral blossoms on ink, the same in every UnderCover
+    app. The blossoms swell in turn only while Wattle is working. */
+export function WattleMark({ size = 20, working = false }: { size?: number; working?: boolean }) {
   const id = useId();
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="wattle-mark">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={`wattle-mark${working ? " working" : ""}`}
+    >
       <defs>
-        <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffc93c" />
-          <stop offset="1" stopColor="#2f7d4a" />
-        </linearGradient>
+        <radialGradient id={`${id}-ink`} cx="0.3" cy="0" r="1.1">
+          <stop offset="0" stopColor="#4a4844" />
+          <stop offset="0.5" stopColor="#262522" />
+          <stop offset="1" stopColor="#171614" />
+        </radialGradient>
       </defs>
-      <circle cx="16" cy="16" r="15" fill={`url(#${id}-g)`} />
-      <g fill="#fff6c9">
-        <circle cx="16" cy="11" r="3.4" />
-        <circle cx="11" cy="17" r="3" />
-        <circle cx="21" cy="17" r="3" />
-        <circle cx="16" cy="21.5" r="2.6" />
+      <circle cx="12" cy="12" r="12" fill={`url(#${id}-ink)`} />
+      <path
+        d="M6.2 18.6 C8.6 14 12.4 10.2 18.4 6.4"
+        fill="none"
+        stroke="#f4f3f0"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9.3 14.2 L7.6 11.6 M12.2 11.1 L14.6 13.4 M14.9 8.9 L13.6 6.4"
+        fill="none"
+        stroke="#f4f3f0"
+        strokeWidth="1"
+        strokeLinecap="round"
+      />
+      <g fill="#ec8a70">
+        <circle className="b b1" cx="7.1" cy="10.6" r="2.3" />
+        <circle className="b b2" cx="15.4" cy="14.3" r="2" />
+        <circle className="b b3" cx="13.2" cy="5.5" r="1.7" />
+        <circle className="b b4" cx="18.6" cy="6.3" r="1.2" />
       </g>
-      <path d="M24.5 5.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#fff" />
     </svg>
   );
 }
@@ -27,9 +48,10 @@ export function WattleMark({ size = 20 }: { size?: number }) {
 /** The header button that opens Wattle AI. */
 export function WattleButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" className="wattle-pill" onClick={onClick}>
-      <WattleMark size={18} />
-      Wattle AI
+    <button type="button" className="wattle-pill" aria-label="Ask Wattle AI" onClick={onClick}>
+      <WattleMark size={20} />
+      <span className="wattle-pill-label">Ask Wattle</span>
+      <span className="wattle-ai-tag">AI</span>
     </button>
   );
 }
@@ -183,7 +205,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
         ))}
         {busy && (
           <p className="wattle-msg assistant wattle-thinking" role="status">
-            <WattleMark size={16} /> Looking that up…
+            <WattleMark size={16} working /> Looking that up…
           </p>
         )}
         {error && (

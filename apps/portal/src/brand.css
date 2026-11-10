@@ -3125,3 +3125,75 @@ select.unsure {
   background: none;
   color: var(--ink);
 }
+
+/* ---------- Wattle AI's mark and header button ---------- */
+
+.wattle-mark {
+  flex: none;
+}
+
+.wattle-mark .b {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wattle-mark.working .b {
+  animation: wattle-swell 2s ease-in-out infinite;
+}
+
+.wattle-mark.working .b2 {
+  animation-delay: 0.35s;
+}
+
+.wattle-mark.working .b3 {
+  animation-delay: 0.7s;
+}
+
+.wattle-mark.working .b4 {
+  animation-delay: 1.05s;
+}
+
+@keyframes wattle-swell {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(1.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wattle-mark.working .b {
+    animation: none;
+  }
+}
+
+.wattle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(31 30 28 / 4%);
+}
+
+.wattle-pill:hover {
+  border-color: var(--map-dot, #d3d0c9);
+  background: #ffffff;
+  box-shadow: 0 8px 20px -14px rgb(31 30 28 / 45%);
+}
+
+.wattle-ai-tag {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}

@@ -449,19 +449,26 @@ h1 em {
   color: var(--ink-2);
 }
 
+/* The way in: a soft button across the foot of the card, which turns ink when the card is
+   pointed at. The whole card is its target. */
 .go-app {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 2px 12px;
+  gap: 12px;
+  min-height: 42px;
   margin-top: 14px;
+  padding: 0 6px 0 14px;
+  border-radius: 12px;
+  background: var(--soft);
   color: var(--ink);
   font-size: 14px;
   text-decoration: none;
+  transition:
+    background 0.25s,
+    color 0.25s;
 }
 
-/* The whole card is the link's target. */
 .go-app::after {
   content: "";
   position: absolute;
@@ -479,35 +486,33 @@ h1 em {
 }
 
 .go-app b {
-  font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: var(--line-hover);
-  text-underline-offset: 4px;
+  font-weight: 600;
 }
 
-.go-host {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  color: var(--ink-2);
-}
-
-.go-host small {
-  overflow: hidden;
-  font-size: 12px;
-  text-overflow: ellipsis;
-}
-
-.go {
-  flex: none;
-  width: 15px;
-  height: 15px;
+.go-tile {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgb(31 30 28 / 8%);
+  color: var(--ink);
   transition: transform 0.25s var(--ease);
 }
 
-.app-card:hover .go {
-  transform: translateX(3px);
+.go {
+  width: 15px;
+  height: 15px;
+}
+
+.app-card:hover .go-app {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.app-card:hover .go-tile {
+  transform: translateX(2px);
 }
 
 /* Phones: the cards stack. */

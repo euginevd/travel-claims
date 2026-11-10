@@ -154,7 +154,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
         )}
         {busy && (
           <p className="copilot-thinking" role="status">
-            Working on it…
+            <WattleMark size={16} working /> Working on it…
           </p>
         )}
         {error && (
