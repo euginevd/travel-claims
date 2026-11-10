@@ -24,6 +24,7 @@ from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
+from undercover_agent.judge import JudgeRequest, RunJudge
 from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner, Watchdog
@@ -45,6 +46,7 @@ INVOCABLE = Literal[
     "/carry-on",
     "/dispatch",
     "/improve",
+    "/judge",
     "/redteam",
     "/draft",
     "/ask",
@@ -229,6 +231,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     make_asker: Callable[[], Asker] | None = None,
     make_explainer: Callable[[], Explainer] | None = None,
     make_watchdog: Callable[[Runner], Watchdog] | None = None,
+    make_judge: Callable[[], RunJudge] | None = None,
     on_runtime: bool = False,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
@@ -239,6 +242,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     improver: dict[str, RoundImprover] = {}
     asker: dict[str, Asker] = {}
     explainer: dict[str, Explainer] = {}
+    judge: dict[str, RunJudge] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -253,6 +257,8 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
             asker["customers"] = make_asker()
         if make_explainer is not None:
             explainer["engineers"] = make_explainer()
+        if make_judge is not None:
+            judge["runs"] = make_judge()
         watchdog = make_watchdog(runner["claims"]) if make_watchdog is not None else None
         if watchdog is not None:
             watchdog.start()
@@ -317,6 +323,14 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         if "rounds" not in improver:
             return JSONResponse({"refused": "The improver isn't set up"}, status_code=409)
         improver["rounds"].improve(request.round_id)
+        return JSONResponse({"accepted": True}, status_code=202)
+
+    @app.post("/judge", operation_id="judge", dependencies=[Depends(agents_key)])
+    def grade(request: JudgeRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Grade a finished run's explanations against the handlers' in the background."""
+        if "runs" not in judge:
+            return JSONResponse({"refused": "The judge isn't set up"}, status_code=409)
+        judge["runs"].judge(request)
         return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/redteam", operation_id="redteam", dependencies=[Depends(agents_key)])
@@ -491,6 +505,7 @@ def build_app() -> FastAPI:
             else None,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
+        make_judge=lambda: RunJudge(AnthropicClaude(settings), api_client()),
         # On Runtime no agent lives long enough to watch; a handler retries a stalled claim.
         make_watchdog=None
         if settings.agentcore_runtime

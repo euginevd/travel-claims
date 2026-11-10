@@ -27,6 +27,12 @@ IAM role first. The agent's /invocations answers {"status": 202, "body": {...}}.
 copy itself (/start) or carrying on one already in progress, then tells the api the run is
 done (/api/agent/runs/{run_id}/finish). /improve asks the improver for a proposal, which it
 posts to /api/agent/rounds/{round_id}/proposal. Both answer 202 at once, like /work.
+
+    POST {AGENT_URL}/judge {"run_id": 1, "pairs": [{"claim_id": ..., "agent_...": ...,
+                                                    "handler_...": ...}, ...]}
+
+/judge grades each finished copy's explanation against the handler's, in the background, and
+posts the grades to /api/agent/runs/{run_id}/grades. It keeps and logs none of what it is sent.
 """
 
 import json
@@ -70,6 +76,8 @@ class AgentService(Protocol):
     def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None: ...
 
     def improve(self, round_id: int) -> None: ...
+
+    def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None: ...
 
     def redteam(self) -> None: ...
 
@@ -120,6 +128,10 @@ class HttpAgentService:
 
     def improve(self, round_id: int) -> None:
         self._accepted(self._post("/improve", {"round_id": round_id}, TIMEOUT_SECONDS))
+
+    def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None:
+        body: dict[str, object] = {"run_id": run_id, "pairs": pairs}
+        self._accepted(self._post("/judge", body, TIMEOUT_SECONDS))
 
     def redteam(self) -> None:
         self._accepted(self._post("/redteam", {}, TIMEOUT_SECONDS))

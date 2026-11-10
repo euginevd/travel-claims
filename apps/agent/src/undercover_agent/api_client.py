@@ -96,6 +96,10 @@ class ApiClient:
     def finish_run(self, run_id: int) -> Json:
         return cast(Json, self._call("POST", f"/api/agent/runs/{run_id}/finish"))
 
+    def record_grades(self, run_id: int, grades: list[Json]) -> Json:
+        path = f"/api/agent/runs/{run_id}/grades"
+        return cast(Json, self._call("POST", path, {"grades": grades}))
+
     def brief(self, round_id: int) -> Json:
         return cast(Json, self._call("GET", f"/api/agent/rounds/{round_id}/brief"))
 

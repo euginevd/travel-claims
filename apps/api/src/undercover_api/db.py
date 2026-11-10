@@ -141,6 +141,23 @@ runs = Table(
     Column("started_at", String(32), nullable=False),
     Column("finished_at", String(32)),
     Column("scores", JSON),
+    # When the judge took the run's explanations to grade; none if it was never asked.
+    Column("grading_since", String(32)),
+)
+
+# The judge's grade of each evaluated copy's explanation against the handler's: shown beside a
+# run's scores, never used to keep a version or decide a claim. A null score is "not graded".
+grades = Table(
+    "grades",
+    metadata,
+    Column("claim_id", String(20), ForeignKey("claims.claim_id"), primary_key=True),
+    Column("run_id", Integer, ForeignKey("runs.run_id"), nullable=False, index=True),
+    Column("score", Integer),
+    Column("same_grounds", Boolean),
+    Column("same_section", Boolean),
+    Column("note", String(200), nullable=False),
+    Column("cost", Numeric(12, 6, asdecimal=False), nullable=False),
+    Column("graded_at", String(32), nullable=False),
 )
 
 # Improvement rounds: the baseline runs, the improver's proposal, the review and the verdict.
