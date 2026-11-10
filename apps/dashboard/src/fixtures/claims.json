@@ -12,7 +12,8 @@
     "payout": null,
     "review_requested": false,
     "due_on": "2026-07-08",
-    "documents_in": false
+    "documents_in": false,
+    "stalled": false
   },
   {
     "claim_id": "CLM-1008",
@@ -27,7 +28,8 @@
     "payout": null,
     "review_requested": false,
     "due_on": "2026-07-13",
-    "documents_in": false
+    "documents_in": false,
+    "stalled": false
   },
   {
     "claim_id": "CLM-1011",
@@ -42,6 +44,7 @@
     "payout": null,
     "review_requested": false,
     "due_on": "2026-07-13",
-    "documents_in": false
+    "documents_in": false,
+    "stalled": false
   }
 ]

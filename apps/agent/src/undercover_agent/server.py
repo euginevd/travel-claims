@@ -26,7 +26,7 @@ from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
 from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
-from undercover_agent.runner import Busy, Runner
+from undercover_agent.runner import Busy, Runner, Watchdog
 from undercover_agent.tools import receipt_block
 
 if TYPE_CHECKING:
@@ -40,7 +40,16 @@ ThreadId = Annotated[str, StringConstraints(min_length=1, max_length=100)]
 
 # Routes /invocations may reach, and the thread names that mean work is going.
 INVOCABLE = Literal[
-    "/work", "/resume", "/dispatch", "/improve", "/redteam", "/draft", "/ask", "/explain", "/letter"
+    "/work",
+    "/resume",
+    "/carry-on",
+    "/dispatch",
+    "/improve",
+    "/redteam",
+    "/draft",
+    "/ask",
+    "/explain",
+    "/letter",
 ]
 WORK_THREADS = ("CLM-", "run-", "round-", "redteam")
 
@@ -219,6 +228,7 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
     start_redteam: Callable[[], None] | None = None,
     make_asker: Callable[[], Asker] | None = None,
     make_explainer: Callable[[], Explainer] | None = None,
+    make_watchdog: Callable[[Runner], Watchdog] | None = None,
     on_runtime: bool = False,
 ) -> FastAPI:
     """The service, with how to build its runner, dispatcher, improver and drafter, and read
@@ -243,7 +253,12 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
             asker["customers"] = make_asker()
         if make_explainer is not None:
             explainer["engineers"] = make_explainer()
+        watchdog = make_watchdog(runner["claims"]) if make_watchdog is not None else None
+        if watchdog is not None:
+            watchdog.start()
         yield
+        if watchdog is not None:
+            watchdog.stop()
 
     app = FastAPI(title="UnderCover agent", lifespan=lifespan)
 
@@ -282,6 +297,11 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         return start(
             lambda: runner["claims"].resume(request.claim_id, request.thread_id, request.outcome)
         )
+
+    @app.post("/carry-on", operation_id="carry_on", dependencies=[Depends(agents_key)])
+    def carry_on(request: WorkRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Carry a stalled claim on from the last step saved on its thread."""
+        return start(lambda: runner["claims"].carry_on_later(request.claim_id, request.thread_id))
 
     @app.post("/dispatch", operation_id="dispatch", dependencies=[Depends(agents_key)])
     def dispatch(request: DispatchRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
@@ -451,6 +471,10 @@ def build_app() -> FastAPI:
             settings.drafting_model,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
+        # On Runtime no agent lives long enough to watch; a handler retries a stalled claim.
+        make_watchdog=None
+        if settings.agentcore_runtime
+        else lambda runner: Watchdog(runner, api_client()),
         on_runtime=settings.agentcore_runtime,
         start_redteam=RedTeamStarter(
             settings.undercover_api,

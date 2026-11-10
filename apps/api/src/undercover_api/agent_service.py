@@ -11,6 +11,11 @@ won't take the work. The api has already moved the claim (waiting -> in_progress
 sent_back -> in_progress for a sent_back /resume) and committed before it asks, so the agent
 never calls /start or /take for work the api handed it.
 
+    POST {AGENT_URL}/carry-on {"claim_id": "CLM-1001", "thread_id": "<uuid>"}
+
+/carry-on picks a stalled claim up from the last step the agent saved on its thread, or starts
+it afresh when nothing was saved; the api has already taken the claim for it (recovery.py).
+
     POST {AGENT_URL}/dispatch {"run_id": 1, "claim_ids": [...], "concurrency": 5}
     POST {AGENT_URL}/improve  {"round_id": 1}
 
@@ -60,6 +65,8 @@ class AgentService(Protocol):
 
     def resume(self, claim_id: str, thread_id: str, outcome: Outcome) -> None: ...
 
+    def carry_on(self, claim_id: str, thread_id: str) -> None: ...
+
     def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None: ...
 
     def improve(self, round_id: int) -> None: ...
@@ -99,6 +106,9 @@ class HttpAgentService:
         self._send(
             "/resume", {"claim_id": claim_id, "thread_id": thread_id, "outcome": str(outcome)}
         )
+
+    def carry_on(self, claim_id: str, thread_id: str) -> None:
+        self._send("/carry-on", {"claim_id": claim_id, "thread_id": thread_id})
 
     def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
         body: dict[str, object] = {

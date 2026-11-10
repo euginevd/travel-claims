@@ -86,6 +86,7 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R20 | A poisoned memory: a customer's earlier claim steers a later decision | T | ASI06, LLM04 | Medium | Memory holds only the claim's facts and the agent's decision, never the customer's words; nothing from a claim the check referred or an evaluation; one namespace per customer; the claim history in the records still counts (spec 23) | Code, Test |
 | R21 | Money keeps leaving during an incident | T, E | LLM06, ASI02 | High | The payouts kill switch: a senior handler pauses every payment, the payments module refuses first and fails closed, approvals hold, and every change is audited (spec 14) | Code, Operate |
 | R22 | A new attack slips past the defences unnoticed | T | LLM01, ASI01 | Medium | The red-team suite (spec 16) runs attack claims end to end and must end with nothing paid beyond what each claim supports; the latest report is in the AI assurance console | Test |
+| R23 | Retrying a stalled claim starts the same work twice, deciding or paying it twice *(planned)* | T | LLM06, ASI02 | Medium | A retry claims the stalled claim with a compare-and-set on its heartbeat, so only one retry starts; the agent refuses a claim it is already working; one decision per attempt and one payment per claim in the database (R2); automatic recovery capped at 2 a claim; the dev-only stall route only when `ENVIRONMENT=local` (R5) | Code, Test |
 
 ## Compliance
 

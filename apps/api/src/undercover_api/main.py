@@ -123,6 +123,14 @@ from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.records import check_calculation, check_request
+from undercover_api.recovery import (
+    agent_claim_router,
+    agent_recovery_router,
+    dev_router,
+    give_back,
+    note_recovery,
+    take_stalled,
+)
 from undercover_api.redteam import redteam_router
 from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
@@ -428,6 +436,21 @@ def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls
         undo_move(db, claim_id, handover.thread_id, handover.back_to, **handover.undo)
         code = 502 if isinstance(error, AgentRefusedError) else 503
         raise HTTPException(code, str(error)) from error
+    return claim_in_full(db, claim_id)
+
+
+@staff_router.post("/claims/{claim_id}/retry", operation_id="retry_claim")
+def retry_claim(claim_id: ClaimId, handler: SignedIn, db: Database, service: AgentCalls) -> Claim:
+    """Ask the agent to carry a stalled claim on from where it stopped, as the handler signed
+    in."""
+    recovery = take_stalled(db, claim_id)
+    try:
+        ask_agent(db, lambda: service.carry_on(claim_id, recovery.thread_id))
+    except AgentUnavailableError as error:
+        give_back(db, claim_id, recovery)
+        code = 502 if isinstance(error, AgentRefusedError) else 503
+        raise HTTPException(code, str(error)) from error
+    note_recovery(db, claim_id, recovery, handler.name)
     return claim_in_full(db, claim_id)
 
 
@@ -850,6 +873,7 @@ def create_app(
         app.include_router(customer_sign_in_router)
         app.include_router(engineering_sign_in_router)
         app.include_router(demo_router)
+        app.include_router(dev_router)
     else:
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
@@ -863,6 +887,8 @@ def create_app(
     for router in (
         health_router,
         agent_router,
+        agent_claim_router,
+        agent_recovery_router,
         agent_receipt_router,
         staff_router,
         receipt_router,

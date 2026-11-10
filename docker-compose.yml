@@ -42,6 +42,8 @@ services:
 
   agent:
     build: { context: ., dockerfile: apps/agent/Dockerfile }
+    # A crashed agent comes back, and its watchdog carries its stalled claims on.
+    restart: unless-stopped
     environment:
       ENVIRONMENT: ${ENVIRONMENT:?set it in .env}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set it in .env}

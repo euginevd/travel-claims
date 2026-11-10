@@ -5,7 +5,7 @@
     "claim_type": "trip_delay",
     "summary": "Flight delayed overnight",
     "amount_claimed": 180.0,
-    "submitted_on": "2026-11-09",
+    "submitted_on": "2026-11-10",
     "status": "received",
     "status_text": "Received. We'll start looking at it shortly.",
     "open_requests": 0
