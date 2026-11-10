@@ -1,4 +1,4 @@
-import { Sparkle } from "lucide-react";
+import { ArrowLeft, ChevronDown, FileText, Sparkle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
 import { ActivityRail, storedTrace } from "../components/ActivityRail";
@@ -10,7 +10,7 @@ import { ReceiptsPanel } from "../components/ReceiptsPanel";
 import { SourcesPanel } from "../components/SourcesPanel";
 import { StageTracker } from "../components/StageTracker";
 import { StatusChip } from "../components/StatusChip";
-import { date, dollars, when } from "../format";
+import { date, dollars, when, words } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
 import { AskedPanel } from "../components/AskedPanel";
@@ -29,8 +29,9 @@ const OVERRIDABLE = new Set<Claim["status"]>(["decided", "waiting_for_sign_off"]
 
 /** Whether a key press is a shortcut, not typing in a field or a combination. */
 function isShortcut(event: KeyboardEvent): boolean {
-  const target = event.target as HTMLElement | null;
-  const typing = target?.closest("input, textarea, select, [contenteditable='true']");
+  const typing =
+    event.target instanceof Element &&
+    event.target.closest("input, textarea, select, [contenteditable='true']");
   return !typing && !event.ctrlKey && !event.metaKey && !event.altKey;
 }
 // After failed polls, wait longer each time, up to this many times the usual wait.
@@ -177,14 +178,28 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
 
   // One heading for every state, so the focus it takes on opening stays put once loaded.
   return (
-    <article className="claim">
-      <p className="eyebrow">
-        <a href={QUEUE_HREF}>Back to the queue</a>
-      </p>
-      <div className="claim-title">
-        <h1 ref={heading} tabIndex={-1}>
-          Claim {claimId}
-        </h1>
+    <article className="claim page-in">
+      <a className="crumb" href={QUEUE_HREF}>
+        <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
+        Back to the queue
+      </a>
+      <div className="claim-head">
+        <div className="claim-title">
+          {claim && (
+            <p className="eyebrow">
+              {words(claim.claim_type)} · <span className="capitalise">{claim.policy.plan}</span>{" "}
+              plan
+            </p>
+          )}
+          <h1 ref={heading} tabIndex={-1}>
+            Claim {claimId}
+          </h1>
+          {claim && (
+            <p className="claim-summary" dir="auto">
+              {claim.summary}
+            </p>
+          )}
+        </div>
         {claim && <StatusChip status={claim.status} decision={claim.decision?.decision ?? null} />}
       </div>
       {error && (
@@ -242,12 +257,55 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
       OVERRIDABLE.has(claim.status) &&
       !paid &&
       claim.decision !== null;
+    const received = claim.receipts.length + claim.documents.length;
+    const itemsTotal = claim.items.reduce((sum, item) => sum + item.amount, 0);
+    // The agent's work sits beside the claim while it is the news, and under the evidence,
+    // folded away, once there is a decision to read instead.
+    const activity = (steps.length > 0 || working) && (
+      <>
+        <ActivityRail
+          api={api}
+          claimId={claimId}
+          steps={steps}
+          working={working}
+          trace={trace}
+          onTraceChange={setTrace}
+          defaultOpen={claim.decision === null}
+        />
+        {trace && steps.some((step) => step.kind === "lookup") && <SourcesPanel steps={steps} />}
+      </>
+    );
     return (
       <>
-        <p className="muted">
-          {claim.customer_name} · <span className="capitalise">{policy.plan}</span> plan · claimed{" "}
-          {dollars(claim.amount_claimed)} · submitted {date(claim.submitted_on)}
-        </p>
+        <dl className="claim-facts">
+          <div>
+            <dt>Customer</dt>
+            <dd>{claim.customer_name}</dd>
+          </div>
+          <div>
+            <dt>Claimed</dt>
+            <dd>{dollars(claim.amount_claimed)}</dd>
+          </div>
+          <div>
+            <dt>Submitted</dt>
+            <dd>{date(claim.submitted_on)}</dd>
+          </div>
+          <div>
+            <dt>Policy</dt>
+            <dd>
+              {policy.policy_id}
+              {policy.add_ons.length > 0 && <> · add-ons: {policy.add_ons.join(", ")}</>}
+            </dd>
+          </div>
+          <div>
+            <dt>Trip</dt>
+            <dd>
+              {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}
+              {date(policy.trip.returns_on)} · {travellers}{" "}
+              {travellers === 1 ? "traveller" : "travellers"}
+            </dd>
+          </div>
+        </dl>
         <StageTracker claim={claim} />
         <NeedsYouBanner claim={claim} />
         {claim.stalled && (
@@ -266,7 +324,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 void retryClaim();
               }}
             >
-              <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+              <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
               {starting ? "Retrying…" : "Retry"}
             </button>
           </div>
@@ -287,7 +345,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 void workClaim();
               }}
             >
-              <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+              <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
               {starting ? "Starting…" : "Work this claim"}
             </button>
           </div>
@@ -296,53 +354,103 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
         <div className="claim-grid">
           <div className="claim-main">
             <section className="panel" aria-labelledby="story-heading">
-              <h2 id="story-heading">Evidence</h2>
-              <p className="muted small">
-                {date(claim.incident_date)}, {claim.incident_location}
-              </p>
+              <div className="panel-head">
+                <h2 id="story-heading">In the customer&apos;s words</h2>
+                <span className="muted small">
+                  {date(claim.incident_date)}, {claim.incident_location}
+                </span>
+              </div>
+              {/* TODO: highlight the facts the agent pulled out, once the api returns them. */}
               <p className="story" dir="auto">
                 {claim.story}
               </p>
-              <table className="items">
-                <caption>Items claimed</caption>
-                <tbody>
-                  {claim.items.map((item, index) => (
-                    <tr key={index}>
-                      <th scope="row" dir="auto">
-                        {item.description}
-                      </th>
-                      <td className="number">{dollars(item.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
-              <RiskPanel api={api} claimId={claim.claim_id} />
-              <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
-              {claim.status === "decided" &&
-                claim.decision &&
-                claim.decision.decision !== "refer" && (
-                  <LetterPanel api={api} claim={claim} onUpdated={setClaim} />
-                )}
-              {claim.documents.length > 0 && (
-                <>
-                  <h3>Documents</h3>
-                  {claim.documents.map((document, index) => (
-                    <details key={index} className="document">
-                      <summary dir="auto">{document.name}</summary>
-                      <p dir="auto">{document.content}</p>
-                    </details>
-                  ))}
-                </>
-              )}
-              <h3>Policy</h3>
-              <p className="small">
-                {policy.policy_id} · {policy.trip.destination}, {date(policy.trip.departs_on)} to{" "}
-                {date(policy.trip.returns_on)} · {travellers}{" "}
-                {travellers === 1 ? "traveller" : "travellers"}
-                {policy.add_ons.length > 0 && <> · add-ons: {policy.add_ons.join(", ")}</>}
-              </p>
             </section>
+
+            <section className="panel" aria-labelledby="items-heading">
+              <div className="panel-head">
+                <h2 id="items-heading">Items</h2>
+                <span className="muted small">{claim.items.length} claimed</span>
+              </div>
+              {/* TODO: an allowed amount and a reason per line need the decision to carry them. */}
+              <div className="table-scroll">
+                <table className="items">
+                  <caption className="visually-hidden">Items claimed</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Item</th>
+                      <th scope="col">Category</th>
+                      <th scope="col" className="number">
+                        Claimed
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {claim.items.map((item, index) => (
+                      <tr key={index}>
+                        <th scope="row" dir="auto">
+                          {item.description}
+                        </th>
+                        <td>{words(item.category)}</td>
+                        <td className="number">{dollars(item.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <th scope="row" colSpan={2}>
+                        Total
+                      </th>
+                      <td className="number">{dollars(itemsTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </section>
+
+            <section className="panel" aria-labelledby="documents-heading">
+              <div className="panel-head">
+                <h2 id="documents-heading">Documents</h2>
+                <span className="muted small">{received} received</span>
+              </div>
+              {received === 0 && (
+                <p className="muted small">No receipts or documents came with this claim.</p>
+              )}
+              <ReceiptsPanel api={api} claimId={claim.claim_id} receipts={claim.receipts} />
+              {claim.documents.length > 0 && (
+                <ul className="doc-list">
+                  {claim.documents.map((document, index) => (
+                    <li key={index}>
+                      <details className="document">
+                        <summary>
+                          <span className="icon-tile" aria-hidden="true">
+                            <FileText size={15} strokeWidth={1.75} />
+                          </span>
+                          <span className="doc-name" dir="auto">
+                            {document.name}
+                          </span>
+                          <span className="muted small doc-type">{words(document.type)}</span>
+                          <ChevronDown
+                            className="chevron"
+                            size={16}
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                        </summary>
+                        <p dir="auto">{document.content}</p>
+                      </details>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <RiskPanel api={api} claimId={claim.claim_id} />
+            <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
+            {claim.status === "decided" &&
+              claim.decision &&
+              claim.decision.decision !== "refer" && (
+                <LetterPanel api={api} claim={claim} onUpdated={setClaim} />
+              )}
 
             {claim.sent_back_decisions.length > 0 && (
               <section className="panel" aria-labelledby="sent-back-heading">
@@ -364,66 +472,62 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 </ol>
               </section>
             )}
+            {claim.decision && activity}
           </div>
 
           <aside className="claim-side" aria-label="Recommendation and agent activity">
-            {held && (
-              <HeldPayout
-                claim={claim}
-                handler={handler}
-                onSignOff={() =>
-                  act(
-                    () => api.signOff(claimId),
-                    (done) => `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
-                  )
-                }
-                onSendBack={(note) =>
-                  act(
-                    () => api.sendBack(claimId, note),
-                    () => "Sent back to the agent with your note.",
-                  )
-                }
-              />
-            )}
             {claim.decision && (
               <DecisionCard
                 decision={claim.decision}
                 payment={claim.payment}
                 claimed={claim.amount_claimed}
                 steps={steps}
-              />
-            )}
-            {canOverride && (
-              <OverridePanel
-                customerName={claim.customer_name}
-                onOverride={(request) =>
-                  act(
-                    () => api.override(claimId, request),
-                    (done) =>
-                      done.payment
-                        ? `Overridden and paid ${dollars(done.payment.amount)}.`
-                        : "Overridden. Your decision is on the record.",
+                actions={
+                  (held || canOverride) && (
+                    <div className="decision-actions">
+                      {held && (
+                        <HeldPayout
+                          claim={claim}
+                          handler={handler}
+                          onSignOff={() =>
+                            act(
+                              () => api.signOff(claimId),
+                              (done) =>
+                                `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
+                            )
+                          }
+                          onSendBack={(note) =>
+                            act(
+                              () => api.sendBack(claimId, note),
+                              () => "Sent back to the agent with your note.",
+                            )
+                          }
+                        />
+                      )}
+                      {canOverride && (
+                        <OverridePanel
+                          customerName={claim.customer_name}
+                          onOverride={(request) =>
+                            act(
+                              () => api.override(claimId, request),
+                              (done) =>
+                                done.payment
+                                  ? `Overridden and paid ${dollars(done.payment.amount)}.`
+                                  : "Overridden. Your decision is on the record.",
+                            )
+                          }
+                        />
+                      )}
+                    </div>
                   )
                 }
               />
             )}
-            {(steps.length > 0 || working) && (
-              <ActivityRail
-                api={api}
-                claimId={claimId}
-                steps={steps}
-                working={working}
-                trace={trace}
-                onTraceChange={setTrace}
-              />
-            )}
-            {trace && steps.some((step) => step.kind === "lookup") && (
-              <SourcesPanel steps={steps} />
-            )}
+            {!claim.decision && activity}
             {steps.length === 0 && !working && !claim.decision && (
               <div className="panel waiting-card">
                 <p className="ai-line">
-                  <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+                  <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
                   The agent&apos;s recommendation appears here once it has worked the claim.
                 </p>
               </div>

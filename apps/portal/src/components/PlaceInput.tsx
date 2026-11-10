@@ -95,7 +95,7 @@ export function PlaceInput({ id, value, onChange, destination = "", className }:
               pick(airport);
             }}
           >
-            <Plane size={16} strokeWidth={2} aria-hidden="true" />
+            <Plane size={16} strokeWidth={1.75} aria-hidden="true" />
             <span>
               <strong>{airport.city}</strong> · {airport.iata}
               <span className="muted">

@@ -38,7 +38,7 @@ export function previewOf(source: string, steps: Step[]): string {
     return specialistFinding(specialist, steps) ?? `${source}: no findings recorded.`;
   }
   const receipt = /^Receipt (\d+)$/i.exec(source);
-  if (receipt) return `The customer's receipt ${receipt[1] ?? ""}, under Evidence.`;
+  if (receipt) return `The customer's receipt ${receipt[1] ?? ""}, under Documents.`;
   const section = /(policy wording|claims manual)\D*(\d+)/i.exec(source);
   if (section) {
     const file = section[1]?.toLowerCase().startsWith("policy")
@@ -55,11 +55,13 @@ export function previewOf(source: string, steps: Step[]): string {
     if (found) return found.content.slice(0, 280);
     return `${source}: the agent didn't record reading it.`;
   }
-  return source === "Claim" ? "The customer's own words, under Evidence." : source;
+  return source === "Claim" ? "The customer's own words, at the top of the claim." : source;
 }
 
 /** A check's source as a chip: hover or focus previews it, and pressing it goes to the
- * evidence for a receipt or the customer's words. */
+ * customer's words at the top of the claim. */
+// TODO: a drawer with the cited clause needs the clause's own text from the api, not the raw
+// lookup step the preview shows.
 function SourceChip({ source, steps }: { source: string; steps: Step[] }) {
   const id = useId();
   if (!source) return null;
@@ -83,22 +85,28 @@ function SourceChip({ source, steps }: { source: string; steps: Step[] }) {
 }
 
 export function Checklist({ checks, steps }: { checks: Check[]; steps: Step[] }) {
+  const id = useId();
   if (checks.length === 0) return null;
   return (
-    <ul className="checklist" aria-label="What was checked">
-      {sorted(checks).map((check, index) => {
-        const { Icon, label } = ICONS[check.result];
-        return (
-          <li key={index} className={`check check-${check.result}`}>
-            <Icon size={16} strokeWidth={2} aria-label={label} role="img" />
-            <span className="check-text" dir="auto">
-              {check.label}
-              {check.detail && <span className="muted small"> · {check.detail}</span>}
-            </span>
-            <SourceChip source={check.source} steps={steps} />
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <h3 id={id} className="sub-head">
+        What was checked
+      </h3>
+      <ul className="checklist" aria-labelledby={id}>
+        {sorted(checks).map((check, index) => {
+          const { Icon, label } = ICONS[check.result];
+          return (
+            <li key={index} className={`check check-${check.result}`}>
+              <Icon size={16} strokeWidth={1.75} aria-label={label} role="img" />
+              <span className="check-text" dir="auto">
+                {check.label}
+                {check.detail && <span className="muted small"> · {check.detail}</span>}
+              </span>
+              <SourceChip source={check.source} steps={steps} />
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

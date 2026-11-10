@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { useId } from "react";
 
 // The dashboard's Wattle AI panel is the Copilot, with its sign-off cards; this file holds the
@@ -45,7 +46,8 @@ const PROJECT_URL: string =
 export function ProjectLink() {
   return (
     <a className="project-link" href={PROJECT_URL}>
-      <span aria-hidden="true">←</span> Project
+      <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+      Project
     </a>
   );
 }

@@ -56,7 +56,7 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
     return (
       <button
         type="button"
-        className="button secondary small-button"
+        className="button secondary wide"
         onClick={() => {
           setOpen(true);
         }}
@@ -77,14 +77,14 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
 
   return (
     <form
-      className="panel override"
+      className="override"
       noValidate
       aria-labelledby={`${ids}-heading`}
       onSubmit={(event) => {
         void submit(event);
       }}
     >
-      <h2 id={`${ids}-heading`}>Override the decision</h2>
+      <h3 id={`${ids}-heading`}>Override the decision</h3>
       <label htmlFor={`${ids}-decision`}>New decision</label>
       <select
         id={`${ids}-decision`}
@@ -143,7 +143,7 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
         </p>
       )}
       <div className="actions">
-        <button type="submit" className="button" disabled={busy}>
+        <button type="submit" className="button secondary strong" disabled={busy}>
           {busy ? "Saving…" : "Confirm override"}
         </button>
         <button

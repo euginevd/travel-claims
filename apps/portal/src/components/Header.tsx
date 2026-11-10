@@ -55,6 +55,7 @@ export function Header({
               </li>
             ))}
           </ul>
+          <ProjectLink />
         </nav>
         <div className="topbar-right">
           {onAssistant && <WattleButton onClick={onAssistant} />}
@@ -71,7 +72,6 @@ export function Header({
               <span className="sign-out-label">Sign out</span>
             </button>
           </div>
-          <ProjectLink />
         </div>
       </div>
     </header>

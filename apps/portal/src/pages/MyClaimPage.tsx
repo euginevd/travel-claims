@@ -1,4 +1,4 @@
-import { FileText, Image as ImageIcon, Sparkle, UserRound } from "lucide-react";
+import { FileText, Image as ImageIcon, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, type Api, type CustomerClaim } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
@@ -9,6 +9,7 @@ import { CLAIM_TYPES } from "./NewClaimPage";
 import { date, dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { MY_CLAIMS_HREF } from "../useHashRoute";
+import { WattleMark } from "../components/Wattle";
 
 interface MyClaimPageProps {
   api: Api;
@@ -137,7 +138,8 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
                   )}
                 </p>
               )}
-              {claim.reason && (
+              {/* A referred claim's reason only repeats where it stands. */}
+              {claim.reason && claim.outcome && claim.outcome !== "refer" && (
                 <>
                   <h3>Why</h3>
                   <p dir="auto">{claim.reason}</p>
@@ -145,14 +147,14 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
               )}
               {claim.outcome && claim.outcome !== "refer" && (
                 <p className="ai-mark">
-                  <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                  <WattleMark size={16} />
                   Decided with help from our AI claims agent
                 </p>
               )}
               {claim.review_requested && (
                 <p className="notice" role="status">
-                  <UserRound size={16} strokeWidth={2} aria-hidden="true" /> A claims handler will
-                  review your claim personally and contact you.
+                  <UserRound size={16} strokeWidth={1.75} aria-hidden="true" /> A claims handler
+                  will review your claim personally and contact you.
                 </p>
               )}
               {claim.can_request_review && (
@@ -182,7 +184,7 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
                       void askForPerson();
                     }}
                   >
-                    <UserRound size={16} strokeWidth={2} aria-hidden="true" />
+                    <UserRound size={16} strokeWidth={1.75} aria-hidden="true" />
                     {asking ? "Sending…" : "Ask a person to review"}
                   </button>
                 </div>
@@ -235,57 +237,61 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
             </div>
           </div>
 
-          <div className="panel">
-            <h2>Receipts</h2>
-            {claim.receipts.length === 0 ? (
-              <p className="muted">No receipts yet.</p>
-            ) : (
-              <ul className="receipt-list">
-                {claim.receipts.map((receipt, index) => (
-                  <li key={receipt.receipt_id}>
-                    {receipt.media_type === "application/pdf" ? (
-                      <FileText size={18} strokeWidth={2} aria-hidden="true" />
-                    ) : (
-                      <ImageIcon size={18} strokeWidth={2} aria-hidden="true" />
-                    )}
-                    Receipt {index + 1}
-                    <span className="small muted">
-                      {" "}
-                      · {receipt.media_type === "application/pdf" ? "PDF" : "Image"} ·{" "}
-                      {kilobytes(receipt.size)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {notice && (
-              <p className="notice" role="status">
-                {notice}
-              </p>
-            )}
-            {claim.can_add_receipts && (
-              <>
-                <ReceiptPicker files={files} onChange={setFiles} already={claim.receipts.length} />
-                {sendError && (
-                  <p className="error" role="alert">
-                    {sendError}
-                  </p>
-                )}
-                {files.length > 0 && (
-                  <button
-                    type="button"
-                    className="button"
-                    disabled={sending}
-                    onClick={() => {
-                      void send();
-                    }}
-                  >
-                    {sending ? "Sending…" : "Add these receipts"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+          {(claim.receipts.length > 0 || claim.can_add_receipts || notice) && (
+            <div className="panel">
+              <h2>Receipts</h2>
+              {claim.receipts.length > 0 && (
+                <ul className="receipt-list">
+                  {claim.receipts.map((receipt, index) => (
+                    <li key={receipt.receipt_id}>
+                      {receipt.media_type === "application/pdf" ? (
+                        <FileText size={18} strokeWidth={1.75} aria-hidden="true" />
+                      ) : (
+                        <ImageIcon size={18} strokeWidth={1.75} aria-hidden="true" />
+                      )}
+                      Receipt {index + 1}
+                      <span className="small muted">
+                        {" "}
+                        · {receipt.media_type === "application/pdf" ? "PDF" : "Image"} ·{" "}
+                        {kilobytes(receipt.size)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {notice && (
+                <p className="notice" role="status">
+                  {notice}
+                </p>
+              )}
+              {claim.can_add_receipts && (
+                <>
+                  <ReceiptPicker
+                    files={files}
+                    onChange={setFiles}
+                    already={claim.receipts.length}
+                  />
+                  {sendError && (
+                    <p className="error" role="alert">
+                      {sendError}
+                    </p>
+                  )}
+                  {files.length > 0 && (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled={sending}
+                      onClick={() => {
+                        void send();
+                      }}
+                    >
+                      {sending ? "Sending…" : "Add these receipts"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
     </section>

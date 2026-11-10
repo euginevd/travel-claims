@@ -1,4 +1,4 @@
-import { Activity, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, ChevronDown, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { Api, Step, Trace } from "../api";
 import { plainStep, STEP_LABELS, when } from "../format";
@@ -35,6 +35,14 @@ export function pretty(content: string): string {
   }
 }
 
+/** What the hidden-instruction check found, from its own step: nothing, something, or (when
+ * the check hasn't run) null. */
+export function screeningOf(steps: Step[]): "clear" | "found" | null {
+  const check = steps.find((step) => step.kind === "screening");
+  if (!check) return null;
+  return check.content.startsWith("Instructions found") ? "found" : "clear";
+}
+
 interface ActivityRailProps {
   api: Api;
   claimId: string;
@@ -42,6 +50,8 @@ interface ActivityRailProps {
   working: boolean;
   trace: boolean;
   onTraceChange: (on: boolean) => void;
+  /** Open to begin with: yes while the agent's work is the news, no once there's a decision. */
+  defaultOpen?: boolean;
 }
 
 /** The agent's work, kept apart from the decision: plain steps by default, and with the trace on,
@@ -53,13 +63,21 @@ export function ActivityRail({
   working,
   trace,
   onTraceChange,
+  defaultOpen = true,
 }: ActivityRailProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen || trace);
+  // Turning the trace on (the switch, or T) opens the rail if it was folded away.
+  const [lastTrace, setLastTrace] = useState(trace);
+  if (trace !== lastTrace) {
+    setLastTrace(trace);
+    if (trace) setOpen(true);
+  }
   const [found, setFound] = useState<Trace | null>(null);
   const ids = useId();
   const plain = steps
     .map((step) => ({ step, text: plainStep(step.kind, step.content) }))
     .filter((entry) => entry.text !== null);
+  const screening = screeningOf(steps);
 
   useEffect(() => {
     if (!trace) return;
@@ -81,27 +99,40 @@ export function ActivityRail({
     <section className="panel rail" aria-labelledby={`${ids}-heading`}>
       <div className="rail-head">
         <h2 id={`${ids}-heading`}>
-          <Activity size={18} strokeWidth={2} aria-hidden="true" /> Agent activity
+          <Activity size={17} strokeWidth={1.75} aria-hidden="true" /> Agent activity
         </h2>
-        <AiMark />
-        <button
-          type="button"
-          className="icon-button"
-          aria-expanded={open}
-          aria-controls={`${ids}-body`}
-          aria-label={open ? "Collapse agent activity" : "Expand agent activity"}
-          onClick={() => {
-            setOpen((value) => !value);
-          }}
-        >
-          {open ? (
-            <ChevronUp size={18} aria-hidden="true" />
-          ) : (
-            <ChevronDown size={18} aria-hidden="true" />
-          )}
-        </button>
+        {screening === "clear" && (
+          <span className="chip chip-good">
+            <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+            Screened: no hidden instructions
+          </span>
+        )}
+        {screening === "found" && (
+          <span className="chip chip-bad">
+            <ShieldAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+            Screened: hidden instructions found
+          </span>
+        )}
+        <span className="rail-meta">
+          <span className="muted small">
+            {plain.length} {plain.length === 1 ? "step" : "steps"}
+          </span>
+          <AiMark />
+          <button
+            type="button"
+            className={`icon-button rail-toggle${open ? " open" : ""}`}
+            aria-expanded={open}
+            aria-controls={`${ids}-body`}
+            aria-label={open ? "Collapse agent activity" : "Expand agent activity"}
+            onClick={() => {
+              setOpen((value) => !value);
+            }}
+          >
+            <ChevronDown size={18} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        </span>
       </div>
-      <div id={`${ids}-body`} hidden={!open}>
+      <div id={`${ids}-body`} className="rail-body" hidden={!open}>
         <label className="toggle">
           <input
             type="checkbox"
@@ -143,24 +174,22 @@ export function ActivityRail({
 function TraceView({ trace }: { trace: Trace | null }) {
   if (!trace) return <p className="muted">Loading the trace…</p>;
   return (
-    <>
-      <ol className="trace-steps">
-        {trace.steps.map((step) => (
-          <li key={step.step_id}>
-            <details open={step.kind === "screening" || step.kind === "refusal"}>
-              <summary>
-                <strong>{STEP_LABELS[step.kind]}</strong>{" "}
-                <span className="muted small">{when(step.created_at)}</span>
-              </summary>
-              <pre dir="auto">{pretty(step.content)}</pre>
-              {step.sources.length > 0 && (
-                <p className="muted small">From {step.sources.map((s) => s.file).join(", ")}</p>
-              )}
-            </details>
-          </li>
-        ))}
-      </ol>
-    </>
+    <ol className="trace-steps">
+      {trace.steps.map((step) => (
+        <li key={step.step_id}>
+          <details open={step.kind === "screening" || step.kind === "refusal"}>
+            <summary>
+              <strong>{STEP_LABELS[step.kind]}</strong>{" "}
+              <span className="muted small">{when(step.created_at)}</span>
+            </summary>
+            <pre dir="auto">{pretty(step.content)}</pre>
+            {step.sources.length > 0 && (
+              <p className="muted small">From {step.sources.map((s) => s.file).join(", ")}</p>
+            )}
+          </details>
+        </li>
+      ))}
+    </ol>
   );
 }
 

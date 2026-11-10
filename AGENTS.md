@@ -42,3 +42,4 @@ When you or the user find a mistake an agent made, add a one-line fix here in th
 25. A `CLAUDE.md` in the repo makes Claude Code skip this file. Don't add one.
 26. An internal service on a public URL still needs auth: the context server's function URL was left open (travel-claims #46). Make service-to-service URLs IAM-only.
 27. AWS can't use a new IAM role for a few seconds after it's made: a Gateway target failed its first apply (travel-claims #60). Expect it, rerun the apply, and don't change a trust policy that's right.
+28. `apps/home/index.html` pins `styles.css` and `app.js` by integrity hash: an edit to either without recomputing its `sha384` leaves the page unstyled or dead. Recompute after the last edit and load the page in a browser.

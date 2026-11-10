@@ -127,7 +127,14 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         name={person.name}
         detail={person.role}
         home={QUEUE_HREF}
-        links={[{ href: QUEUE_HREF, label: "Queue", Icon: ListChecks }]}
+        links={[
+          {
+            href: QUEUE_HREF,
+            label: "Queue",
+            Icon: ListChecks,
+            current: route.page === "queue",
+          },
+        ]}
         onSignOut={signOut}
         onSearch={() => {
           window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
@@ -146,7 +153,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
           />
         }
       />
-      <main id="main" tabIndex={-1}>
+      <main id="main" className="workspace" tabIndex={-1}>
         <PayoutsSwitch
           api={api}
           handler={person}

@@ -49,7 +49,7 @@ export function StatusChip({ status, decision = null }: StatusChipProps) {
   const { label, Icon, tone } = chipFor(status, decision);
   return (
     <span className={`chip chip-${tone}`}>
-      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+      <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
       {label}
     </span>
   );
@@ -66,7 +66,7 @@ export function OutcomeChip({ decision }: { decision: DecisionKind }) {
   const { label, Icon, tone } = OUTCOME[decision];
   return (
     <span className={`chip chip-${tone}`}>
-      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+      <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
       {label}
     </span>
   );

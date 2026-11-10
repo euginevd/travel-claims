@@ -1,4 +1,4 @@
-import { Plus, Send, X } from "lucide-react";
+import { ArrowLeft, Plus, Send, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 /** Wattle AI's mark: a golden wattle puff on green, the same in every UnderCover app. */
@@ -27,9 +27,9 @@ export function WattleMark({ size = 20 }: { size?: number }) {
 /** The header button that opens Wattle AI. */
 export function WattleButton({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" className="wattle-pill" onClick={onClick}>
-      <WattleMark size={18} />
-      Wattle AI
+    <button type="button" className="wattle-pill" aria-label="Wattle AI" onClick={onClick}>
+      <WattleMark size={20} />
+      <span>Wattle AI</span>
     </button>
   );
 }
@@ -42,8 +42,9 @@ const PROJECT_URL: string =
 /** Back to the UnderCover project page. */
 export function ProjectLink() {
   return (
-    <a className="project-link" href={PROJECT_URL}>
-      <span aria-hidden="true">←</span> Project
+    <a className="project-link" href={PROJECT_URL} aria-label="Project">
+      <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+      <span>Project</span>
     </a>
   );
 }
@@ -135,7 +136,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
             setError(null);
           }}
         >
-          <Plus size={18} strokeWidth={2} aria-hidden="true" />
+          <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -143,7 +144,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
           aria-label="Close Wattle AI"
           onClick={onClose}
         >
-          <X size={18} strokeWidth={2} aria-hidden="true" />
+          <X size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </header>
       <div className="wattle-body" aria-live="polite">
@@ -213,7 +214,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
           }}
         />
         <button type="submit" className="wattle-send" disabled={busy || !text.trim()}>
-          <Send size={16} strokeWidth={2} aria-hidden="true" />
+          <Send size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="visually-hidden">Ask</span>
         </button>
       </form>

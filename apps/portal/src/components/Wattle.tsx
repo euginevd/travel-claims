@@ -135,7 +135,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
             setError(null);
           }}
         >
-          <Plus size={18} strokeWidth={2} aria-hidden="true" />
+          <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -143,7 +143,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
           aria-label="Close Wattle AI"
           onClick={onClose}
         >
-          <X size={18} strokeWidth={2} aria-hidden="true" />
+          <X size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </header>
       <div className="wattle-body" aria-live="polite">
@@ -213,7 +213,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
           }}
         />
         <button type="submit" className="wattle-send" disabled={busy || !text.trim()}>
-          <Send size={16} strokeWidth={2} aria-hidden="true" />
+          <Send size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="visually-hidden">Ask</span>
         </button>
       </form>

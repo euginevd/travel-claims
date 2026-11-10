@@ -89,7 +89,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           }}
           aria-label="New conversation"
         >
-          <Plus size={18} strokeWidth={2} aria-hidden="true" />
+          <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -97,7 +97,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           onClick={onClose}
           aria-label="Close Wattle AI"
         >
-          <X size={18} strokeWidth={2} aria-hidden="true" />
+          <X size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
 
@@ -197,7 +197,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           className="wattle-send"
           disabled={busy || !text.trim() || Boolean(current?.pending)}
         >
-          <Send size={16} strokeWidth={2} aria-hidden="true" />
+          <Send size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="visually-hidden">Ask</span>
         </button>
       </form>
@@ -217,7 +217,7 @@ function Bubble({ entry }: { entry: Entry }) {
     entry.kind === "error" ? AlertCircle : entry.kind === "action" ? CheckCircle2 : Search;
   return (
     <div className={`copilot-card ${entry.kind ?? "step"}`}>
-      <Icon size={16} strokeWidth={2} aria-hidden="true" />
+      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
       <span>
         <strong>{entry.title}</strong>
         {entry.detail && <span className="muted"> · {entry.detail}</span>}

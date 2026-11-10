@@ -65,14 +65,13 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
     <section aria-labelledby="my-claims-heading" className="narrow home">
       <div className="page-head">
         <div>
-          <p className="greeting">{first ? `Hi ${first}` : "Welcome back"}</p>
           <h1 id="my-claims-heading" ref={heading} tabIndex={-1}>
-            My claims
+            {first ? `Hi ${first}` : "Your claims"}
           </h1>
           {claims && claims.length > 0 && <p className="lead">{progressLine(claims)}</p>}
         </div>
         <a className="button" href={NEW_CLAIM_HREF}>
-          <FilePlus2 size={18} strokeWidth={2} aria-hidden="true" />
+          <FilePlus2 size={18} strokeWidth={1.75} aria-hidden="true" />
           Make a claim
         </a>
       </div>

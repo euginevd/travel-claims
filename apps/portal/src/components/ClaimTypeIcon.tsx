@@ -25,7 +25,7 @@ export function ClaimTypeIcon({ claimType }: { claimType: string }) {
   const Icon = ICONS[claimType] ?? FileText;
   return (
     <span className="claim-icon" aria-hidden="true">
-      <Icon size={22} strokeWidth={2} />
+      <Icon size={22} strokeWidth={1.75} />
     </span>
   );
 }

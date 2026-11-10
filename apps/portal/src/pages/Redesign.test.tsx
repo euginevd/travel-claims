@@ -6,7 +6,7 @@ import { SAYS, SignInMap } from "../components/SignInMap";
 import { fakeFetch, MY_POLICY, MY_SUMMARY, type Routes } from "../testing";
 import { MyClaimsPage, STAGE_TIME } from "./MyClaimsPage";
 import { NewClaimPage } from "./NewClaimPage";
-import { toneOf, UpdatesPage } from "./UpdatesPage";
+import { groupNotices, toneOf, UpdatesPage } from "./UpdatesPage";
 
 function apiFor(routes: Routes) {
   const fetchFn = fakeFetch(routes);
@@ -141,4 +141,14 @@ test("the avatar shows up to two initials", () => {
   expect(initials("Oliver James Grant")).toBe("OG");
   expect(initials("Cher")).toBe("C");
   expect(initials("")).toBe("");
+});
+
+test("an email and the text sent straight after it about the same claim are one update", () => {
+  const email = { ...notice(7, "email", "Your claim CLM-1001 is paid"), claim_id: "CLM-1001" };
+  const text = { ...notice(8, "sms", "Claim CLM-1001 paid"), claim_id: "CLM-1001" };
+  const other = { ...notice(6, "email", "We've got your claim CLM-1002"), claim_id: "CLM-1002" };
+  const updates = groupNotices([text, email, other]);
+  expect(updates).toHaveLength(2);
+  expect(updates[0]).toMatchObject({ main: email, channels: ["email", "sms"], tone: "good" });
+  expect(updates[1]).toMatchObject({ main: other, channels: ["email"] });
 });

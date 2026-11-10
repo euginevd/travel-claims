@@ -25,7 +25,9 @@ test("a customer signs in and sees their own claims", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
+  ).toBeInTheDocument();
   expect(screen.getByText("Flight home canceled by the airline")).toBeInTheDocument();
   const signIn = fetchFn.calls.find((c) => c.path === "/api/customer/dev/sign-in");
   expect(signIn?.body).toEqual({ email: "maya.patel@example.com", password: "secret" });
@@ -48,7 +50,9 @@ test("the test account signs in through the dev route, with no password in the b
   });
   render(<App fetchFn={fetchFn} />);
   await user.click(screen.getByRole("button", { name: /Use test account/ }));
-  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
+  ).toBeInTheDocument();
   const call = fetchFn.calls.find((c) => c.path === "/api/customer/dev/test-sign-in");
   expect(call?.body).toEqual({ account: "customer" });
 });
@@ -118,7 +122,9 @@ test("a sign-in check that fails for another reason offers to try again", async 
   render(<App fetchFn={fetchFn} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("The database is busy");
   await user.click(screen.getByRole("button", { name: "Try again" }));
-  expect(await screen.findByRole("heading", { level: 1, name: "My claims" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
+  ).toBeInTheDocument();
 });
 
 test("a claim's link opens that claim", async () => {

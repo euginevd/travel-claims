@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   CalendarX,
   Clock,
   HeartPulse,
@@ -7,7 +8,6 @@ import {
   PlaneTakeoff,
   Plus,
   ShieldAlert,
-  Sparkle,
   Trash2,
   type LucideIcon,
   MessageCircleQuestion,
@@ -506,7 +506,7 @@ export function NewClaimPage({ api }: { api: Api }) {
                         }}
                       />
                       <span className="tile-icon" aria-hidden="true">
-                        <Icon size={22} strokeWidth={2} />
+                        <Icon size={22} strokeWidth={1.75} />
                       </span>
                       <span className="tile-label">{label}</span>
                       <span className="tile-hint">{hint}</span>
@@ -524,6 +524,9 @@ export function NewClaimPage({ api }: { api: Api }) {
                   }}
                 >
                   Next
+                  <span className="arr" aria-hidden="true">
+                    <ArrowRight size={16} strokeWidth={1.75} />
+                  </span>
                 </button>
               </div>
             </div>
@@ -560,14 +563,10 @@ export function NewClaimPage({ api }: { api: Api }) {
                     void goToCheck();
                   }}
                 >
-                  {hasSomethingToRead ? (
-                    <>
-                      <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
-                      Draft my claim
-                    </>
-                  ) : (
-                    "Continue without receipts"
-                  )}
+                  {hasSomethingToRead ? "Draft my claim" : "Continue without receipts"}
+                  <span className="arr" aria-hidden="true">
+                    <ArrowRight size={16} strokeWidth={1.75} />
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -584,14 +583,27 @@ export function NewClaimPage({ api }: { api: Api }) {
 
           {step === "check" && drafting && (
             <div className="flow-step">
-              <p role="status" className="ai-mark live-draft">
-                <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
-                Reading your receipts and drafting your claim…
-              </p>
-              <div aria-hidden="true">
-                <span className="skeleton skeleton-line" />
-                <span className="skeleton skeleton-line" />
-                <span className="skeleton skeleton-card" />
+              <div className="reading-card">
+                <div className="reading-head">
+                  <WattleMark size={30} />
+                  <div>
+                    <p role="status" className="reading-title">
+                      Reading your receipts and drafting your claim…
+                    </p>
+                    <p className="small muted">
+                      Wattle is looking for the place, date and total on each one. This takes a few
+                      seconds.
+                    </p>
+                  </div>
+                </div>
+                <div className="scan" aria-hidden="true">
+                  <span />
+                </div>
+                <div className="reading-fields" aria-hidden="true">
+                  <span className="skeleton skeleton-field" />
+                  <span className="skeleton skeleton-field" />
+                  <span className="skeleton skeleton-field" />
+                </div>
               </div>
             </div>
           )}
@@ -605,7 +617,7 @@ export function NewClaimPage({ api }: { api: Api }) {
               )}
               {drafted && !draftNote && (
                 <p className="ai-mark">
-                  <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                  <WattleMark size={16} />
                   Drafted by our AI assistant. Check it and fix anything that&apos;s wrong.
                 </p>
               )}
@@ -614,7 +626,7 @@ export function NewClaimPage({ api }: { api: Api }) {
                 <span className="tile-icon" aria-hidden="true">
                   {(() => {
                     const { Icon } = CHIPS[chip];
-                    return <Icon size={18} strokeWidth={2} />;
+                    return <Icon size={18} strokeWidth={1.75} />;
                   })()}
                 </span>
                 <span>
@@ -656,7 +668,7 @@ export function NewClaimPage({ api }: { api: Api }) {
               {questions[0] && (
                 <div className="question-card panel">
                   <p className="question">
-                    <Sparkle size={14} strokeWidth={2} aria-hidden="true" /> {questions[0]}
+                    <WattleMark size={16} /> {questions[0]}
                   </p>
                   <label htmlFor={`${ids}-answer`} className="visually-hidden">
                     Your answer
@@ -671,7 +683,7 @@ export function NewClaimPage({ api }: { api: Api }) {
                   <div className="flow-actions">
                     <button
                       type="button"
-                      className="button small-button"
+                      className="button secondary"
                       onClick={() => {
                         answerQuestion(false);
                       }}
@@ -779,7 +791,8 @@ export function NewClaimPage({ api }: { api: Api }) {
                       setLines(lines.filter((_, i) => i !== index));
                     }}
                   >
-                    <Trash2 size={14} strokeWidth={2} aria-hidden="true" /> Remove item {index + 1}
+                    <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" /> Remove item{" "}
+                    {index + 1}
                   </button>
                 </div>
               ))}
@@ -791,7 +804,7 @@ export function NewClaimPage({ api }: { api: Api }) {
                     setLines([...lines, { ...BLANK }]);
                   }}
                 >
-                  <Plus size={16} strokeWidth={2} aria-hidden="true" /> Add an item
+                  <Plus size={16} strokeWidth={1.75} aria-hidden="true" /> Add an item
                 </button>
               )}
               {lines.length > 0 && (
@@ -879,7 +892,7 @@ export function NewClaimPage({ api }: { api: Api }) {
                   />
                   <button
                     type="submit"
-                    className="button small-button"
+                    className="button secondary"
                     disabled={!policy || !told.trim()}
                   >
                     Go

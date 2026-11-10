@@ -1,18 +1,19 @@
-import { LogOut, type LucideIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Logo } from "./Logo";
 import { ProjectLink, WattleButton } from "./Wattle";
 
-export interface NavLink {
-  href: string;
+export interface NavGroup {
   label: string;
-  Icon: LucideIcon;
+  links: { href: string; label: string }[];
 }
 
 interface HeaderProps {
   name: string;
   detail: string;
   home: string;
-  links: NavLink[];
+  groups: NavGroup[];
+  /** The link for the page the engineer is on. */
+  current?: string;
   onSignOut: () => void;
   onAssistant?: () => void;
 }
@@ -27,45 +28,70 @@ export function initials(name: string): string {
     .join("");
 }
 
-// The header band: logo, navigation, the engineer signed in and sign-out. It wraps rather than
-// clipping, so nothing falls off the edge at any width.
-export function Header({ name, detail, home, links, onSignOut, onAssistant }: HeaderProps) {
+// The top bar: logo, the navigation in its two groups, Wattle AI, the engineer signed in,
+// sign-out and the way back to the project page. On small screens the navigation takes its own
+// row and scrolls sideways, so nothing pushes the page wide.
+export function Header({
+  name,
+  detail,
+  home,
+  groups,
+  current,
+  onSignOut,
+  onAssistant,
+}: HeaderProps) {
   return (
-    <header className="header">
-      <a className="brand" href={home} aria-label="UnderCover Claims, home">
-        <Logo tone="on-ink" />
-      </a>
-      <ProjectLink />
-      <nav aria-label="Main">
-        <ul>
-          {links.map(({ href, label, Icon }) => (
-            <li key={href}>
-              <a href={href} title={label}>
-                <Icon size={18} strokeWidth={2} aria-hidden="true" />
-                <span className="nav-label">{label}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      {onAssistant && <WattleButton onClick={onAssistant} />}
-      <div className="who">
-        <span className="avatar" aria-hidden="true">
-          {initials(name)}
-        </span>
-        <span className="who-name">
-          {name}
-          <span className="who-detail">{detail}</span>
-        </span>
-        <button
-          type="button"
-          className="icon-button on-ink"
-          onClick={onSignOut}
-          aria-label="Sign out"
-          title="Sign out"
-        >
-          <LogOut size={18} strokeWidth={2} aria-hidden="true" />
-        </button>
+    <header className="topbar">
+      <div className="topbar-in">
+        <a className="brand" href={home} aria-label="UnderCover Claims, home">
+          <Logo />
+        </a>
+        <nav aria-label="Main" className="topnav">
+          <ul>
+            {groups.map((group) => (
+              <li key={group.label} className="nav-group">
+                <span className="nav-group-label" aria-hidden="true">
+                  {group.label}
+                </span>
+                <ul>
+                  {group.links.map(({ href, label }) => (
+                    <li key={href}>
+                      <a
+                        href={href}
+                        aria-label={`${group.label}: ${label}`}
+                        aria-current={href === current ? "page" : undefined}
+                      >
+                        {label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="topbar-right">
+          {onAssistant && <WattleButton onClick={onAssistant} />}
+          <div className="who">
+            <span className="avatar" aria-hidden="true">
+              {initials(name)}
+            </span>
+            <span className="who-name">
+              {name}
+              <span className="who-detail">{detail}</span>
+            </span>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={onSignOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={17} strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+          <ProjectLink />
+        </div>
       </div>
     </header>
   );

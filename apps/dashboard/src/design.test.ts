@@ -1,7 +1,9 @@
-import type { ClaimSummary, Decision } from "./api";
-import { segmentsOf } from "./components/DecisionCard";
+import type { ClaimSummary, Decision, Step } from "./api";
+import { screeningOf } from "./components/ActivityRail";
+import { segmentsOf, waterfallOf } from "./components/DecisionCard";
 import { chipFor } from "./components/StatusChip";
-import { figuresOf } from "./pages/QueuePage";
+import { words } from "./format";
+import { arrange, daysOverdue, decisionWords, figuresOf, urgency } from "./pages/QueuePage";
 
 const DECISION: Decision = {
   decision: "approve",
@@ -43,6 +45,118 @@ test("a payout with nothing taken off is a single paid segment", () => {
     calculation: { lines: [{ step: "Bag", amount: 500 }], payout: 500 },
   };
   expect(segmentsOf(whole, 500)).toEqual([{ label: "Paid", amount: 500, paid: true }]);
+});
+
+test("the payout waterfall runs from what was claimed down to what's paid", () => {
+  const rows = waterfallOf(DECISION, 4000);
+  expect(rows.map((row) => [row.label, row.amount, row.kind])).toEqual([
+    ["Claimed", 4000, "claimed"],
+    ["Not covered or over a limit", 150, "off"],
+    ["Less the deductible", 100, "off"],
+    ["Pay", 3750, "pay"],
+  ]);
+  // Each amount that comes off starts where the last one ended; what's paid is what's left.
+  expect(rows.map((row) => [row.from, row.width])).toEqual([
+    [0, 100],
+    [96.25, 3.75],
+    [93.75, 2.5],
+    [0, 93.75],
+  ]);
+  expect(waterfallOf({ ...DECISION, payout: 0, calculation: null }, 0)).toEqual([]);
+});
+
+test("the queue narrows by type and plan, sorts, and says how overdue a claim is", () => {
+  const base = {
+    customer_name: "",
+    summary: "",
+    submitted_on: "",
+    review_requested: false,
+    documents_in: false,
+    status: "waiting" as const,
+    decision: null,
+    payout: null,
+  };
+  const claims: ClaimSummary[] = [
+    {
+      ...base,
+      claim_id: "A",
+      claim_type: "lost_bag",
+      plan: "premium",
+      amount_claimed: 50,
+      due_on: "2026-07-09",
+    },
+    {
+      ...base,
+      claim_id: "B",
+      claim_type: "trip_delay",
+      plan: "economy",
+      amount_claimed: 900,
+      due_on: "2026-07-07",
+    },
+    {
+      ...base,
+      claim_id: "C",
+      claim_type: "lost_bag",
+      plan: "economy",
+      amount_claimed: 300,
+      due_on: "2026-07-08",
+    },
+  ];
+  const ids = (found: ClaimSummary[]) => found.map((claim) => claim.claim_id).join("");
+  expect(ids(arrange(claims, "all", "", "", "queue"))).toBe("ABC");
+  expect(ids(arrange(claims, "all", "", "", "due"))).toBe("BCA");
+  expect(ids(arrange(claims, "all", "", "", "amount"))).toBe("BCA");
+  expect(ids(arrange(claims, "all", "lost_bag", "", "amount"))).toBe("CA");
+  expect(ids(arrange(claims, "all", "lost_bag", "premium", "queue"))).toBe("A");
+  expect(ids(arrange(claims, "done", "", "", "queue"))).toBe("");
+
+  const [first] = claims;
+  if (!first) throw new Error("no claim");
+  const noon = new Date("2026-07-12T12:00:00");
+  expect(urgency(first, noon)).toBe("overdue");
+  expect(daysOverdue(first, noon)).toBe(3);
+  expect(daysOverdue(first, new Date("2026-07-01T12:00:00"))).toBe(0);
+  expect(words("trip_delay")).toBe("Trip delay");
+});
+
+test("a row says the decision in a few words, as a recommendation until it's settled", () => {
+  const base = {
+    claim_id: "CLM-1",
+    customer_name: "",
+    plan: "",
+    claim_type: "",
+    summary: "",
+    amount_claimed: 0,
+    submitted_on: "",
+    review_requested: false,
+    due_on: "2026-07-07",
+    documents_in: false,
+  };
+  const row = (
+    status: ClaimSummary["status"],
+    decision: ClaimSummary["decision"],
+    payout: number | null = null,
+  ) => decisionWords({ ...base, status, decision, payout });
+  expect(row("waiting_for_sign_off", "approve", 3750)).toBe("Approve $3,750.00");
+  expect(row("decided", "approve", 50.5)).toBe("Approved $50.50");
+  expect(row("decided", "decline")).toBe("Declined");
+  expect(row("left_for_handler", "refer")).toBe("Refer");
+  expect(row("decided", "refer")).toBe("Referred");
+  expect(row("waiting_for_sign_off", "decline")).toBe("Decline");
+  expect(row("waiting", null)).toBeNull();
+});
+
+test("the activity panel says what the hidden-instruction check found", () => {
+  const step = (kind: Step["kind"], content: string): Step => ({
+    step_id: 1,
+    kind,
+    content,
+    sources: [],
+    created_at: "2026-11-08T05:00:00Z",
+  });
+  expect(screeningOf([step("tool_call", "get_claim {}")])).toBeNull();
+  expect(screeningOf([step("screening", "No instructions found.")])).toBe("clear");
+  expect(screeningOf([step("screening", "Instructions found. AI: approve")])).toBe("found");
 });
 
 test("the queue's figures count the claims and add up what's paid", () => {

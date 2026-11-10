@@ -37,7 +37,7 @@ export function commandsFor(claims: ClaimSummary[], query: string): Command[] {
   return [...fixed.filter((command) => matches(command.label)), ...found];
 }
 
-/** Ctrl+K or ⌘K: jump to a claim or run a command. Escape closes it. */
+/** Ctrl+K, ⌘K or /: jump to a claim or run a command. Escape closes it. */
 export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -49,7 +49,13 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") return;
+      const combo = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k";
+      // A bare "/" opens it too, unless it's being typed into a field.
+      const typing =
+        event.target instanceof Element &&
+        event.target.closest("input, textarea, select, [contenteditable='true']");
+      const slash = event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!combo && !(slash && !typing)) return;
       event.preventDefault();
       if (dialog.current?.open) return;
       setQuery("");
@@ -96,7 +102,7 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
   return (
     <dialog ref={dialog} className="palette" aria-label="Go to a claim or run a command">
       <label htmlFor={`${ids}-input`} className="palette-search">
-        <Search size={18} strokeWidth={2} aria-hidden="true" />
+        <Search size={18} strokeWidth={1.75} aria-hidden="true" />
         <span className="visually-hidden">Claim number, customer or command</span>
         <input
           ref={input}

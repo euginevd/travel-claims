@@ -61,8 +61,7 @@ export function PayoutsStatus({ state, senior, onOpen }: StatusProps) {
   const Icon = paused ? OctagonX : CirclePlay;
   const content = (
     <>
-      <span className="payouts-status-dot" aria-hidden="true" />
-      <Icon size={16} strokeWidth={2.4} aria-hidden="true" />
+      <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
       <span className="payouts-status-label">{label}</span>
     </>
   );
@@ -163,7 +162,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
             {state.paused ? "Resume payouts?" : "Pause all payouts?"}
           </h2>
           <button type="button" className="popover-close" aria-label="Close" onClick={close}>
-            <X size={18} strokeWidth={2} aria-hidden="true" />
+            <X size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
         <p className="muted small">
@@ -185,7 +184,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
                   setChoice(option);
                 }}
               />
-              {choice === option && <Check size={14} strokeWidth={2.6} aria-hidden="true" />}
+              {choice === option && <Check size={14} strokeWidth={1.75} aria-hidden="true" />}
               {option}
             </label>
           ))}
@@ -228,7 +227,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
 
   return (
     <div className="payouts-paused" role="status">
-      <OctagonX size={20} strokeWidth={2} aria-hidden="true" />
+      <OctagonX size={20} strokeWidth={1.75} aria-hidden="true" />
       <div>
         <strong>Payouts are paused.</strong> The agent keeps deciding; every approval waits for a
         sign-off once payouts are back on.
@@ -249,7 +248,7 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
                 onEditing(true);
               }}
             >
-              <CirclePlay size={16} strokeWidth={2} aria-hidden="true" /> Resume payouts
+              <CirclePlay size={16} strokeWidth={1.75} aria-hidden="true" /> Resume payouts
             </button>
           </div>
         )}

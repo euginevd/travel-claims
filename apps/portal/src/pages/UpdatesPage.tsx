@@ -1,5 +1,5 @@
 import { Mail, MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Api, Notice } from "../api";
 import { when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -24,12 +24,53 @@ export function toneOf(notice: Notice): Tone {
   return "plain";
 }
 
-function matches(filter: Filter): (notice: Notice) => boolean {
-  return (notice) =>
+/** One thing we told the customer, by email, by text or both. */
+export interface Update {
+  /** The message shown: the email when there is one, as it says more. */
+  main: Notice;
+  channels: Notice["channel"][];
+  tone: Tone;
+}
+
+// How far apart an email and its text can be sent and still be the same news.
+const PAIR_MS = 10_000;
+
+/** Puts each text with the email sent just before it about the same claim, so the same news
+    is listed once. The api sends the email first and the text straight after. */
+export function groupNotices(notices: Notice[]): Update[] {
+  const emails = new Map(
+    notices.filter((notice) => notice.channel === "email").map((n) => [n.notice_id, n]),
+  );
+  const paired = new Map<number, Notice>();
+  for (const text of notices) {
+    if (text.channel !== "sms" || text.claim_id === null) continue;
+    const email = emails.get(text.notice_id - 1);
+    if (
+      email?.claim_id === text.claim_id &&
+      Math.abs(Date.parse(text.sent_at) - Date.parse(email.sent_at)) <= PAIR_MS
+    )
+      paired.set(email.notice_id, text);
+  }
+  const texted = new Set([...paired.values()].map((text) => text.notice_id));
+  return notices
+    .filter((notice) => !texted.has(notice.notice_id))
+    .map((notice) => {
+      const text = paired.get(notice.notice_id);
+      const tones = [toneOf(notice), ...(text ? [toneOf(text)] : [])];
+      return {
+        main: notice,
+        channels: text ? ["email", "sms"] : [notice.channel],
+        tone: tones.includes("warm") ? "warm" : tones.includes("good") ? "good" : "plain",
+      };
+    });
+}
+
+function matches(filter: Filter): (update: Update) => boolean {
+  return (update) =>
     filter === "all" ||
-    (filter === "needs" && toneOf(notice) === "warm") ||
-    (filter === "payments" && toneOf(notice) === "good") ||
-    notice.channel === filter;
+    (filter === "needs" && update.tone === "warm") ||
+    (filter === "payments" && update.tone === "good") ||
+    update.channels.some((channel) => channel === filter);
 }
 
 /** The emails and texts we've sent the customer about their claims, newest first. */
@@ -59,7 +100,8 @@ export function UpdatesPage({ api }: { api: Api }) {
     };
   }, [api, generation]);
 
-  const shown = notices?.filter(matches(filter)) ?? [];
+  const updates = useMemo(() => groupNotices(notices ?? []), [notices]);
+  const shown = updates.filter(matches(filter));
 
   return (
     <section aria-labelledby="updates-heading" className="narrow updates">
@@ -104,7 +146,7 @@ export function UpdatesPage({ api }: { api: Api }) {
                   }}
                 >
                   {label}
-                  <span className="filter-count">{notices.filter(matches(key)).length}</span>
+                  <span className="filter-count">{updates.filter(matches(key)).length}</span>
                 </button>
               </li>
             ))}
@@ -114,8 +156,7 @@ export function UpdatesPage({ api }: { api: Api }) {
               <p className="muted">Nothing here yet.</p>
             ) : (
               <ul className="notice-list">
-                {shown.map((notice) => {
-                  const tone = toneOf(notice);
+                {shown.map(({ main: notice, channels, tone }) => {
                   return (
                     <li key={notice.notice_id} className={`notice-item channel-${notice.channel}`}>
                       <span className={`notice-icon tone-${tone}`} aria-hidden="true">
@@ -129,7 +170,13 @@ export function UpdatesPage({ api }: { api: Api }) {
                         <div className="notice-head">
                           <h2 className="notice-subject">{notice.subject}</h2>
                           <span className="notice-channel">
-                            <span>{notice.channel === "sms" ? "Text" : "Email"}</span>
+                            <span>
+                              {channels.length > 1
+                                ? "Email and text"
+                                : notice.channel === "sms"
+                                  ? "Text"
+                                  : "Email"}
+                            </span>
                             <span aria-hidden="true">·</span>
                             <span>{when(notice.sent_at)}</span>
                           </span>

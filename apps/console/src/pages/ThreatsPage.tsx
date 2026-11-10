@@ -1,8 +1,63 @@
-import { CircleCheck, CircleX, Lock } from "lucide-react";
+import { CircleCheck, CircleX, LoaderCircle, Lock, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, ThreatCoverage } from "../api";
+import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
+import { REDTEAM_HREF } from "../useHashRoute";
+
+/** The summary cards: built only from what the coverage already holds. */
+function Summary({ coverage }: { coverage: ThreatCoverage }) {
+  const threats = coverage.threats;
+  const controlled = threats.filter((row) => row.control.trim()).length;
+  const tested = threats.filter((row) => row.attacks.length > 0).length;
+  // An attack can test several risks; count each once.
+  const attacks = new Map(
+    threats.flatMap((row) => row.attacks.map((attack) => [attack.attack_id, attack.passed])),
+  );
+  const held = [...attacks.values()].filter(Boolean).length;
+  const fired = threats.filter((row) => row.fired > 0);
+  const lastFired = fired
+    .map((row) => row.last_fired)
+    .filter((value) => value !== null)
+    .sort()
+    .at(-1);
+  return (
+    <ul className="kpis lead-wide" aria-label="Coverage at a glance">
+      <li className="kpi">
+        <p className="kpi-label">Risks with a control</p>
+        <p className="kpi-value">
+          {controlled} of {threats.length}
+        </p>
+        <ul className="coverage" aria-hidden="true">
+          {threats.map((row) => (
+            <li key={row.owasp} className={row.attacks.length > 0 ? "tested" : undefined} />
+          ))}
+        </ul>
+        <p className="coverage-key">
+          <span className="tested">Tested by the red team ({tested})</span>
+          <span>No attack yet ({threats.length - tested})</span>
+        </p>
+      </li>
+      <li className="kpi">
+        <p className="kpi-label">Red-team attacks held</p>
+        <p className="kpi-value">
+          {attacks.size > 0 ? `${String(held)} of ${String(attacks.size)}` : "–"}
+        </p>
+        <p className="kpi-sub">
+          {coverage.redteam_run_at ? `Last run ${when(coverage.redteam_run_at)}` : "Not run yet"}
+        </p>
+      </li>
+      <li className="kpi">
+        <p className="kpi-label">Risks whose guardrail has fired</p>
+        <p className="kpi-value">
+          {fired.length} of {threats.length}
+        </p>
+        <p className="kpi-sub">{lastFired ? `Last ${when(lastFired)}` : "None has fired yet"}</p>
+      </li>
+    </ul>
+  );
+}
 
 /** Each OWASP risk for LLM and agentic apps, its control, the attacks that test it and their last
  * result, when its guardrail last fired, the agents with their tools, and the payouts switch. */
@@ -32,18 +87,22 @@ export function ThreatsPage({ api }: { api: Api }) {
   }, [api, generation]);
 
   return (
-    <section aria-labelledby="threats-heading">
-      <p className="eyebrow">Security · Threat coverage</p>
-      <h1 id="threats-heading" ref={heading} tabIndex={-1}>
-        Threat coverage
-      </h1>
-      <p className="muted">
-        OWASP Top 10 for LLM and agentic applications, mapped to MITRE ATLAS where a technique
-        matches.{" "}
-        {coverage?.redteam_run_at
-          ? `Red team last run ${when(coverage.redteam_run_at)}.`
-          : "The red team has not run yet."}
-      </p>
+    <section className="view" aria-labelledby="threats-heading">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Security · Threat coverage</p>
+          <h1 id="threats-heading" ref={heading} tabIndex={-1}>
+            Threat coverage
+          </h1>
+          <p className="lede">
+            OWASP Top 10 for LLM and agentic applications, mapped to MITRE ATLAS where a technique
+            matches.{" "}
+            {coverage?.redteam_run_at
+              ? `Red team last run ${when(coverage.redteam_run_at)}.`
+              : "The red team has not run yet."}
+          </p>
+        </div>
+      </header>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -52,82 +111,127 @@ export function ThreatsPage({ api }: { api: Api }) {
           </button>
         </p>
       )}
-      {!coverage && !error && <p role="status">Loading the threat coverage…</p>}
+      {!coverage && !error && (
+        <p role="status" className="loading">
+          <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
+          Loading the threat coverage…
+        </p>
+      )}
       {coverage && (
         <>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Risk</th>
-                  <th scope="col">ATLAS</th>
-                  <th scope="col">Control</th>
-                  <th scope="col">Tested by</th>
-                  <th scope="col">Guardrail fired</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coverage.threats.map((row) => (
-                  <tr key={row.owasp}>
-                    <th scope="row">
-                      <span className="mono">{row.owasp}</span> {row.risk}
-                    </th>
-                    <td className="mono">{row.atlas || "–"}</td>
-                    <td>{row.control}</td>
-                    <td>
-                      {row.attacks.length === 0
-                        ? "–"
-                        : row.attacks.map((attack) => (
-                            <span key={attack.attack_id} className="nowrap attack">
+          <Summary coverage={coverage} />
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Risks and controls</h2>
+              <p className="panel-note">A test ID opens the red-team report.</p>
+            </div>
+            <TableScroll label="Risks and controls table">
+              <table className="table min-wide">
+                <thead>
+                  <tr>
+                    <th scope="col">Risk</th>
+                    <th scope="col">ATLAS</th>
+                    <th scope="col">Control</th>
+                    <th scope="col">Tested by</th>
+                    <th scope="col">Guardrail fired</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coverage.threats.map((row) => (
+                    <tr key={row.owasp}>
+                      <th scope="row">
+                        <span className="tag tag-owasp">{row.owasp}</span>
+                        <span className="sub">{row.risk}</span>
+                      </th>
+                      <td className="mono nowrap">{row.atlas || "–"}</td>
+                      <td className="prose">{row.control}</td>
+                      <td>
+                        {row.attacks.length === 0 ? (
+                          <span className="muted small">Not red-teamed yet</span>
+                        ) : (
+                          row.attacks.map((attack) => (
+                            <a
+                              key={attack.attack_id}
+                              className="tag mono"
+                              href={REDTEAM_HREF}
+                              title={attack.name}
+                            >
                               {attack.passed ? (
-                                <CircleCheck size={14} strokeWidth={2} aria-label="Held" />
+                                <CircleCheck
+                                  className="held"
+                                  size={13}
+                                  strokeWidth={1.75}
+                                  aria-label="Held"
+                                />
                               ) : (
-                                <CircleX size={14} strokeWidth={2} aria-label="Failed" />
+                                <CircleX
+                                  className="failed"
+                                  size={13}
+                                  strokeWidth={1.75}
+                                  aria-label="Failed"
+                                />
                               )}
                               {attack.attack_id}
-                            </span>
-                          ))}
-                    </td>
-                    <td>
-                      {row.fired > 0 && row.last_fired
-                        ? `${String(row.fired)} times, last ${when(row.last_fired)}`
-                        : "–"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                            </a>
+                          ))
+                        )}
+                      </td>
+                      <td>
+                        {row.fired > 0 && row.last_fired ? (
+                          <span className="chip chip-warn">
+                            <Zap size={13} strokeWidth={1.75} aria-hidden="true" />
+                            {`${String(row.fired)} ${row.fired === 1 ? "time" : "times"}, last ${when(row.last_fired)}`}
+                          </span>
+                        ) : (
+                          "–"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
           </div>
-          <h2>Agents</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">Agent</th>
-                  <th scope="col">Model</th>
-                  <th scope="col">Tools</th>
-                  <th scope="col">Reads</th>
-                </tr>
-              </thead>
-              <tbody>
-                {coverage.agents.map((agent) => (
-                  <tr key={agent.agent}>
-                    <th scope="row">{agent.agent}</th>
-                    <td className="mono">{agent.model}</td>
-                    <td>{agent.tools}</td>
-                    <td>{agent.sources}</td>
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Agents</h2>
+              <p className="panel-note">Model, tools and what each can read</p>
+            </div>
+            <TableScroll label="Agents table">
+              <table className="table min-mid">
+                <thead>
+                  <tr>
+                    <th scope="col">Agent</th>
+                    <th scope="col">Model</th>
+                    <th scope="col">Tools</th>
+                    <th scope="col">Reads</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {coverage.agents.map((agent) => (
+                    <tr key={agent.agent}>
+                      <th scope="row">{agent.agent}</th>
+                      <td>
+                        <span className="tag mono">{agent.model}</span>
+                      </td>
+                      <td className="prose">{agent.tools}</td>
+                      <td className="prose">{agent.sources}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
           </div>
           <p className="panel payouts-readonly">
-            <Lock size={16} strokeWidth={2} aria-hidden="true" /> Payouts switch:{" "}
-            <strong>{coverage.payouts.paused ? "paused" : "on"}</strong>, owned by senior handlers
-            {coverage.payouts.changed_at
-              ? `, last changed ${when(coverage.payouts.changed_at)} by ${coverage.payouts.changed_by ?? "a handler"}`
-              : ""}
-            . Read-only here.
+            <Lock size={16} strokeWidth={1.75} aria-hidden="true" />
+            <span>
+              Payouts switch: <strong>{coverage.payouts.paused ? "paused" : "on"}</strong>, owned by
+              senior handlers
+              {coverage.payouts.changed_at
+                ? `, last changed ${when(coverage.payouts.changed_at)} by ${coverage.payouts.changed_by ?? "a handler"}`
+                : ""}
+              . Read-only here.
+            </span>
           </p>
         </>
       )}
