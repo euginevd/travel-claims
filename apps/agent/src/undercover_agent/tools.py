@@ -207,11 +207,13 @@ class Context(Protocol):
 
 class McpContext:
     """The context layer over MCP at its url, one short session per lookup; on AWS each request
-    is signed with the agent's role (tier 2)."""
+    is signed with the agent's role and goes through AgentCore Gateway (tier 2), which names
+    each tool after its target."""
 
-    def __init__(self, url: str, auth: httpx2.Auth | None = None) -> None:
+    def __init__(self, url: str, auth: httpx2.Auth | None = None, tool_prefix: str = "") -> None:
         self._url = url
         self._auth = auth
+        self._prefix = tool_prefix
 
     def call(self, name: str, arguments: Json) -> tuple[Json, bool]:
         return asyncio.run(self._call(name, arguments))
@@ -221,11 +223,24 @@ class McpContext:
         http = httpx2.AsyncClient(auth=self._auth, timeout=CONTEXT_TIMEOUT_SECONDS)
         server = streamable_http_client(self._url, http_client=http)
         async with Client(server) as client:
-            result = await client.call_tool(name, arguments)
-        if result.structured_content is not None:
-            return dict(result.structured_content), result.is_error
-        text = " ".join(getattr(block, "text", "") for block in result.content)
-        return {"error": text or "The lookup failed"}, True
+            result = await client.call_tool(self._prefix + name, arguments)
+        return lookup_result(result.structured_content, result.content, result.is_error)
+
+
+def lookup_result(structured: Any, content: list[Any], is_error: bool) -> tuple[Json, bool]:
+    """A lookup's answer from its structured content, or from its text when a relay such as
+    Gateway passes only that; text that isn't a JSON object is an error."""
+    if structured is not None:
+        return dict(structured), is_error
+    text = " ".join(getattr(block, "text", "") for block in content)
+    try:
+        found = json.loads(text)
+    except ValueError:
+        found = None
+    # A relayed {"error": ...} is the lookup's own error, however the relay flagged it.
+    if isinstance(found, dict) and not is_error and set(cast(Json, found)) != {"error"}:
+        return cast(Json, found), False
+    return {"error": text or "The lookup failed"}, True
 
 
 def as_text(value: object) -> str:

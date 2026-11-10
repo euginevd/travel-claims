@@ -39,7 +39,7 @@ flowchart LR
   class browser,laptop,agentzone,third boundary
 ```
 
-Rectangles are external entities, circles processes, cylinders data stores, red dashed boxes trust boundaries; TB labels mark the flows that cross a boundary. In tier 2 the laptop becomes the AWS account in `ap-southeast-2` (serverless, decision 13), PostgreSQL moves to Supabase in Singapore (made-up data only, so nothing real leaves Australia; real data needs a database in Australia), sign-in moves to Amazon Cognito, and Claude moves to Bedrock's Australian inference profile.
+Rectangles are external entities, circles processes, cylinders data stores, red dashed boxes trust boundaries; TB labels mark the flows that cross a boundary. In tier 2 the laptop becomes the AWS account in `ap-southeast-2` (serverless, decision 13), PostgreSQL moves to Supabase in Singapore (made-up data only, so nothing real leaves Australia; real data needs a database in Australia), sign-in moves to Amazon Cognito, and Claude moves to Bedrock's Australian inference profile. On AWS the agent reaches the context layer through AgentCore Gateway: the agent's role may call only that gateway, and only the gateway's role may call the context's IAM-only URL.
 
 | ID | Data | Class | Where |
 |:-:|------|-------|-------|

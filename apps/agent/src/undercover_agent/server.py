@@ -424,9 +424,10 @@ def build_app() -> FastAPI:
 
     signer = None
     if settings.context_aws_auth:
-        from undercover_agent.aws_auth import LambdaUrlSigner  # noqa: PLC0415
+        from undercover_agent.aws_auth import SigV4Signer  # noqa: PLC0415
 
-        signer = LambdaUrlSigner(settings.aws_region or os.environ["AWS_REGION"])
+        region = settings.aws_region or os.environ["AWS_REGION"]
+        signer = SigV4Signer(region, settings.context_aws_service)
 
     def make_runner() -> Runner:
         pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
@@ -449,7 +450,7 @@ def build_app() -> FastAPI:
         graph = build_graph(
             api,
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context, signer),
+            McpContext(settings.undercover_context, signer, settings.context_tool_prefix),
             saver,
             max_model_calls=settings.max_model_calls,
             memory=StoreMemory(store),
@@ -467,7 +468,7 @@ def build_app() -> FastAPI:
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
         make_asker=lambda: Asker(
             AnthropicClaude(settings),
-            McpContext(settings.undercover_context, signer),
+            McpContext(settings.undercover_context, signer, settings.context_tool_prefix),
             settings.drafting_model,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),

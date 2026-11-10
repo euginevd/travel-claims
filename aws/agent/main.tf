@@ -104,10 +104,85 @@ resource "aws_iam_role_policy" "agent" {
         ]
       },
       { Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = data.aws_secretsmanager_secret.app.arn },
-      # The context's URL takes only IAM-signed calls, and only this role may make them.
-      { Effect = "Allow", Action = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"], Resource = "arn:${local.partition}:lambda:${local.region}:${local.account}:function:${local.prefix}-context" },
+      # The context layer only through its gateway, which alone may call the context's URL.
+      { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
     ]
   })
+}
+
+# AgentCore Gateway in front of the context layer (plan phase 3): the agent reaches its lookups as
+# managed MCP tools, and the gateway signs each call to the context's IAM-only URL with its own role.
+resource "aws_iam_role" "gateway" {
+  name                 = "${local.prefix}-gateway"
+  description          = "Signs the ${var.project} gateway's calls to the context layer"
+  permissions_boundary = local.boundary
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "bedrock-agentcore.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account }
+        ArnLike      = { "aws:SourceArn" = "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:gateway/*" }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "gateway" {
+  name = "gateway"
+  role = aws_iam_role.gateway.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # The context's URL takes only IAM-signed calls, and only this role may make them.
+      {
+        Effect    = "Allow"
+        Action    = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
+        Resource  = "arn:${local.partition}:lambda:${local.region}:${local.account}:function:${local.prefix}-context"
+        Condition = { StringEquals = { "lambda:FunctionUrlAuthType" = "AWS_IAM" } }
+      },
+    ]
+  })
+}
+
+resource "aws_bedrockagentcore_gateway" "context" {
+  name            = "${local.prefix}-context"
+  description     = "The ${var.project} context layer's lookups for the claim agent"
+  role_arn        = aws_iam_role.gateway.arn
+  authorizer_type = "AWS_IAM"
+  protocol_type   = "MCP"
+
+  protocol_configuration {
+    mcp {
+      supported_versions = ["2026-07-28", "2025-11-25"]
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.gateway]
+}
+
+# Gateway names each tool after this target: context___get_claim_rules.
+resource "aws_bedrockagentcore_gateway_target" "context" {
+  name               = "context"
+  gateway_identifier = aws_bedrockagentcore_gateway.context.gateway_id
+  description        = "The context layer's MCP server on Lambda"
+
+  credential_provider_configuration {
+    gateway_iam_role {
+      service = "lambda"
+    }
+  }
+
+  target_configuration {
+    mcp {
+      mcp_server {
+        endpoint = "${trimsuffix(data.aws_lambda_function_url.context.function_url, "/")}/mcp"
+      }
+    }
+  }
 }
 
 resource "aws_bedrockagentcore_agent_runtime" "agent" {
@@ -136,21 +211,24 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   }]
 
   environment_variables = {
-    ENVIRONMENT        = var.environment
-    APP_SECRET         = data.aws_secretsmanager_secret.app.name
-    MODEL_PROVIDER     = var.model_provider
-    CONTEXT_AWS_AUTH   = "true"
-    AGENTCORE_RUNTIME  = "true"
-    CLAIM_MODEL        = local.sonnet
-    IMPROVER_MODEL     = local.sonnet
-    SCREENING_MODEL    = local.haiku
-    SPECIALIST_MODEL   = local.haiku
-    DRAFTING_MODEL     = local.haiku
-    UNDERCOVER_API     = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
-    UNDERCOVER_CONTEXT = "${trimsuffix(data.aws_lambda_function_url.context.function_url, "/")}/mcp"
+    ENVIRONMENT      = var.environment
+    APP_SECRET       = data.aws_secretsmanager_secret.app.name
+    MODEL_PROVIDER   = var.model_provider
+    CONTEXT_AWS_AUTH = "true"
+    # The context layer through its gateway, signed for AgentCore, with Gateway's tool names.
+    CONTEXT_AWS_SERVICE = "bedrock-agentcore"
+    CONTEXT_TOOL_PREFIX = "${aws_bedrockagentcore_gateway_target.context.name}___"
+    AGENTCORE_RUNTIME   = "true"
+    CLAIM_MODEL         = local.sonnet
+    IMPROVER_MODEL      = local.sonnet
+    SCREENING_MODEL     = local.haiku
+    SPECIALIST_MODEL    = local.haiku
+    DRAFTING_MODEL      = local.haiku
+    UNDERCOVER_API      = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
+    UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
   }
 
-  depends_on = [aws_iam_role_policy.agent]
+  depends_on = [aws_iam_role_policy.agent, aws_bedrockagentcore_gateway_target.context]
 
   lifecycle {
     # Spec 26: prod sends claim data only to Bedrock in Australia.

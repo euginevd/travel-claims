@@ -1,5 +1,5 @@
-"""Signs the agent's calls to the context layer with its AWS role (tier 2), so the context's
-function URL takes only IAM-authenticated callers. botocore ships without type stubs, so its
+"""Signs the agent's calls to the context layer with its AWS role (tier 2): to AgentCore Gateway,
+or to the context's IAM-only function URL directly. botocore ships without type stubs, so its
 untyped edges stay here."""
 
 from collections.abc import Callable, Generator
@@ -15,13 +15,17 @@ def role_credentials() -> Any:
     return cast(Any, boto3).Session().get_credentials().get_frozen_credentials()
 
 
-class LambdaUrlSigner(httpx2.Auth):
-    """AWS Signature Version 4 for a Lambda function URL with AWS_IAM auth."""
+class SigV4Signer(httpx2.Auth):
+    """AWS Signature Version 4 for one service: bedrock-agentcore for Gateway, lambda for a
+    function URL with AWS_IAM auth."""
 
     requires_request_body = True
 
-    def __init__(self, region: str, credentials: Callable[[], Any] = role_credentials) -> None:
+    def __init__(
+        self, region: str, service: str, credentials: Callable[[], Any] = role_credentials
+    ) -> None:
         self._region = region
+        self._service = service
         self._credentials = credentials
 
     def auth_flow(self, request: httpx2.Request) -> Generator[httpx2.Request, httpx2.Response]:
@@ -34,7 +38,7 @@ class LambdaUrlSigner(httpx2.Auth):
         signed = cast(Any, AWSRequest)(
             method=request.method, url=str(request.url), data=request.content, headers=headers
         )
-        cast(Any, SigV4Auth)(self._credentials(), "lambda", self._region).add_auth(signed)
+        cast(Any, SigV4Auth)(self._credentials(), self._service, self._region).add_auth(signed)
         for name in ("Authorization", "X-Amz-Date", "X-Amz-Security-Token"):
             if name in signed.headers:
                 request.headers[name] = signed.headers[name]

@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     bedrock_guardrail_version: str = "1"
     # Tier 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
+    # The service the signature is for: bedrock-agentcore through Gateway, lambda to the URL.
+    context_aws_service: Literal["bedrock-agentcore", "lambda"] = "lambda"
+    # Gateway names each tool after its target (context___get_claim_rules); none locally.
+    context_tool_prefix: str = ""
     agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
     undercover_api: str = "http://127.0.0.1:8000"
