@@ -20,7 +20,10 @@ CATALOGUE = (
         "LLM01",
         "Prompt injection",
         "AML.T0051",
-        "Hidden-instruction check on a separate model before the agent reads a claim or receipt",
+        (
+            "On AWS a Bedrock guardrail on the customer's text, then the hidden-instruction check "
+            "on a separate model, before the agent reads a claim or receipt"
+        ),
         "screening",
     ),
     (

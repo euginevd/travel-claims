@@ -64,7 +64,7 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 
 | ID | Risk | STRIDE | OWASP | Rating | Controls | Enforced at |
 |:-:|------|:------:|-------|:------:|----------|-------------|
-| R1 | Instructions hidden in a claim make the agent approve or pay it | T, E | LLM01, ASI01 | High | The hidden-instruction check on a separate model before the claim agent sees the claim (spec 12), content kept apart from instructions (code-standards 18), limits in code (spec 20); CLM-1901 test | Code, Test |
+| R1 | Instructions hidden in a claim make the agent approve or pay it | T, E | LLM01, ASI01 | High | On AWS a Bedrock guardrail on the customer's text, failing closed (spec 36); the hidden-instruction check on a separate model before the claim agent sees the claim (spec 12), content kept apart from instructions (code-standards 18), limits in code (spec 20); CLM-1901 test | Code, Test |
 | R2 | The agent pays more than allowed, or pays twice | T, E | LLM06, ASI02 | High | The payments module checks the limit before reading the claim and fails closed (code-standards 7); sign-off over $1,000 (spec 14); one payment per claim enforced by the database (spec 14) | Code, Test |
 | R3 | The agent reads or acts on another customer's claim or memory | I, E | A01, API1, LLM02 | High | Tools take the claim and customer from the agent's context, not the model (spec 23); abuse-case tests (code-standards 11) | Code, Test |
 | R4 | The agent's key acts as a handler, or a handler without the right signs off | S, E | A01, API5 | High | One gate per route, deny by default (code-standards 10); the key never stands in for a handler (spec 22); per-route tests | Code, Test |
@@ -85,7 +85,7 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R19 | A senior handler's override pays without a record of why | R | A09 | Medium | Override needs a reason code and note; the record keeps the agent's decision, who overrode it and when; nothing already paid can change | Code, Test |
 | R20 | A poisoned memory: a customer's earlier claim steers a later decision | T | ASI06, LLM04 | Medium | Memory holds only the claim's facts and the agent's decision, never the customer's words; nothing from a claim the check referred or an evaluation; one namespace per customer; the claim history in the records still counts (spec 23) | Code, Test |
 | R21 | Money keeps leaving during an incident | T, E | LLM06, ASI02 | High | The payouts kill switch: a senior handler pauses every payment, the payments module refuses first and fails closed, approvals hold, and every change is audited (spec 14) | Code, Operate |
-| R22 | A new attack slips past the defences unnoticed | T | LLM01, ASI01 | Medium | The red-team suite (spec 16) runs attack claims end to end and must end with nothing paid beyond what each claim supports; the latest report is in the AI assurance console | Test |
+| R22 | A new attack slips past the defences unnoticed | T | LLM01, ASI01 | Medium | The red-team suite (spec 16) runs attack claims end to end and must end with nothing paid beyond what each claim supports; the latest report is in the AI assurance console; on AWS the console starts it in the agent, signing in as its own attacker customer through Cognito, so it tests the deployed defences | Test |
 
 ## Compliance
 
