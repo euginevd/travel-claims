@@ -7,7 +7,7 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-oIpvgrbUIYnmCg17LdcCRb7ZC6pYCz3OFRogqP7mEscdJKTlJXSF87Cj1eR8dABm" />
+    <link rel="stylesheet" href="styles.css" integrity="sha384-vGM1JKax62173mXRWz3lnVWr+8UCrDHFSgTXDcU0BSCdHFKek9IFjmkaXWgNDY9T" />
     <script src="app.js" integrity="sha384-AJuWTet9ynrMocF0xY0ysa6HV+7khm7kctU94TWxpB8BVhuXa03IF2Q+kuz4ckIT" defer></script>
   </head>
   <body>
@@ -25,13 +25,29 @@
       </div>
     </header>
 
-    <main id="main" class="wrap land">
-      <div class="land-text">
-        <p class="pill-eb rise">Working pilot</p>
-        <h1 class="rise d1">AI agents decide the routine claims. <em>Claims experts decide the rest.</em></h1>
-        <p class="lede rise d2">UnderCover is an end-to-end AI agents system for travel insurance claims. Customers claim online, each AI decision cites its sources, and a person signs off the larger payouts. Every decision is traced end to end and tested against unseen claims and attack claims.</p>
+    <main id="main">
+      <!-- What it is -->
+      <section class="hero">
+        <div class="wrap">
+          <p class="pill-eb rise">Working pilot</p>
+          <h1 class="rise d1">AI agents decide the routine claims. <em>Claims experts decide the rest.</em></h1>
+          <p class="lede rise d2">UnderCover is an end-to-end AI agents system for travel insurance claims. Customers claim online, each AI decision cites its sources, and a person signs off the larger payouts. Every decision is traced end to end and tested against unseen claims and attack claims.</p>
 
-        <section class="apps-sec" aria-labelledby="apps-title">
+          <!-- The walkthrough: a still for now, a player once app.js names the recording -->
+          <figure class="stage rise d3">
+            <div class="browser">
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <img class="screen" id="walkthrough-still" src="img/portal.jpg" alt="The customer portal" width="1280" height="800" />
+              <video class="screen" id="walkthrough" hidden playsinline preload="metadata" poster="img/portal.jpg" width="1280" height="800" aria-label="A walkthrough of the apps, end to end"></video>
+          </div>
+            <figcaption class="soon" id="walkthrough-soon">Walkthrough video coming soon</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- The three apps -->
+      <section class="apps-sec" aria-labelledby="apps-title">
+        <div class="wrap">
           <h2 class="sr-only" id="apps-title">The apps</h2>
           <div class="apps">
             <article class="app-card">
@@ -39,34 +55,25 @@
                 <h3 class="app-name">Customer portal</h3>
                 <p class="app-line">For travellers making a claim</p>
                 <a class="go-app" href="#" data-port="5173"><b>Open<span class="sr-only"> the customer portal</span></b><span class="go-host"><small data-host-port="5173">localhost:5173</small><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
-              </div>
-            </article>
-            <article class="app-card">
-              <div class="app-in wash-sage">
-                <h3 class="app-name">Handlers' dashboard</h3>
-                <p class="app-line">For claims experts</p>
-                <a class="go-app" href="#" data-port="5174"><b>Open<span class="sr-only"> the handlers' dashboard</span></b><span class="go-host"><small data-host-port="5174">localhost:5174</small><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
-              </div>
-            </article>
-            <article class="app-card">
-              <div class="app-in wash-sky">
-                <h3 class="app-name">AI assurance console</h3>
-                <p class="app-line">For AI engineers</p>
-                <a class="go-app" href="#" data-port="5175"><b>Open<span class="sr-only"> the AI assurance console</span></b><span class="go-host"><small data-host-port="5175">localhost:5175</small><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
-              </div>
-            </article>
+            </div>
+          </article>
+          <article class="app-card">
+            <div class="app-in wash-sage">
+              <h3 class="app-name">Handlers' dashboard</h3>
+              <p class="app-line">For claims experts</p>
+              <a class="go-app" href="#" data-port="5174"><b>Open<span class="sr-only"> the handlers' dashboard</span></b><span class="go-host"><small data-host-port="5174">localhost:5174</small><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
           </div>
-        </section>
-      </div>
-      <!-- The walkthrough: a still for now, a player once app.js names the recording -->
-      <figure class="stage rise d3">
-        <div class="browser">
-          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <img class="screen" id="walkthrough-still" src="img/portal.jpg" alt="The customer portal" width="1280" height="800" />
-          <video class="screen" id="walkthrough" hidden playsinline preload="metadata" poster="img/portal.jpg" width="1280" height="800" aria-label="A walkthrough of the apps, end to end"></video>
+        </article>
+        <article class="app-card">
+          <div class="app-in wash-sky">
+            <h3 class="app-name">AI assurance console</h3>
+            <p class="app-line">For AI engineers</p>
+            <a class="go-app" href="#" data-port="5175"><b>Open<span class="sr-only"> the AI assurance console</span></b><span class="go-host"><small data-host-port="5175">localhost:5175</small><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
         </div>
-        <figcaption class="soon" id="walkthrough-soon">Walkthrough video coming soon</figcaption>
-      </figure>
+      </article>
+    </div>
+        </div>
+      </section>
     </main>
   </body>
 </html>

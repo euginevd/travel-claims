@@ -291,26 +291,10 @@ main {
   color: var(--ink-3);
 }
 
-/* One screen: what it is and the way in on the left, the walkthrough on the right. */
-html,
-body {
-  min-height: 100%;
-}
-
-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-.land {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  align-items: center;
-  gap: 56px;
-  padding: 0 0 24px;
+/* Hero: one centred column, what it is in a few lines. */
+.hero {
+  padding: 44px 0 0;
+  text-align: center;
 }
 
 .pill-eb {
@@ -334,7 +318,7 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(2.1rem, 3.3vw, 3.1rem);
+  font-size: clamp(2.3rem, 4.4vw, 3.7rem);
   line-height: 1.06;
   text-wrap: balance;
 }
@@ -347,18 +331,18 @@ h1 em {
 }
 
 .lede {
-  max-width: 560px;
+  max-width: 640px;
   text-wrap: pretty;
-  margin: 18px 0 0;
-  font-size: 16.5px;
+  margin: 20px auto 0;
+  font-size: 17.5px;
   line-height: 1.6;
   color: var(--ink-2);
 }
 
 /* The walkthrough: one framed screen, a still until the recording exists. */
 .stage {
-  min-width: 0;
-  text-align: center;
+  max-width: 960px;
+  margin: 44px auto 0;
 }
 
 .browser {
@@ -405,19 +389,21 @@ h1 em {
 
 /* The three apps: a slim row of double-ring cards, each one link. */
 .apps-sec {
-  margin-top: 28px;
+  padding: 56px 0 88px;
 }
 
 .apps {
   display: grid;
-  gap: 10px;
-  max-width: 560px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .app-card {
   padding: 6px;
   border: 1px solid var(--ring);
-  border-radius: 22px;
+  border-radius: 26px;
   background: var(--bg);
   transition: box-shadow 0.3s;
 }
@@ -428,13 +414,12 @@ h1 em {
 
 .app-in {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 16px;
-  padding: 11px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 18px 20px 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 20px;
 }
 
 .wash-blush {
@@ -455,14 +440,10 @@ h1 em {
   letter-spacing: -0.01em;
 }
 
-.app-name,
 .app-line {
-  grid-column: 1;
-}
-
-.app-line {
-  margin-top: 1px;
-  font-size: 13px;
+  flex: 1;
+  margin-top: 4px;
+  font-size: 13.5px;
   line-height: 1.5;
   color: var(--ink-2);
 }
@@ -473,8 +454,7 @@ h1 em {
   align-items: center;
   justify-content: space-between;
   gap: 2px 12px;
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  margin-top: 14px;
   color: var(--ink);
   font-size: 14px;
   text-decoration: none;
@@ -485,7 +465,7 @@ h1 em {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 16px;
+  border-radius: 20px;
 }
 
 .go-app:focus-visible {
@@ -529,21 +509,7 @@ h1 em {
   transform: translateX(3px);
 }
 
-/* Narrower screens: one column, the walkthrough under the links. */
-@media (max-width: 980px) {
-  .land {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 36px;
-    padding: 20px 0 56px;
-  }
-
-  .lede,
-  .apps {
-    max-width: none;
-  }
-}
-
+/* Phones: the cards stack. */
 @media (max-width: 720px) {
   .wrap {
     width: calc(100% - 32px);
@@ -551,6 +517,18 @@ h1 em {
 
   .top-in {
     padding: 16px 0;
+  }
+
+  .hero {
+    padding-top: 26px;
+  }
+
+  .lede {
+    font-size: 16.5px;
+  }
+
+  .stage {
+    margin-top: 32px;
   }
 
   .browser {
@@ -562,8 +540,12 @@ h1 em {
     border-radius: 16px;
   }
 
-  .go-host small {
-    display: none;
+  .apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .apps-sec {
+    padding: 40px 0 64px;
   }
 }
 
