@@ -12,7 +12,7 @@ import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -28,6 +28,9 @@ from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.tools import receipt_block
+
+if TYPE_CHECKING:
+    from psycopg_pool import ConnectionPool
 
 log = logging.getLogger(__name__)
 
@@ -352,12 +355,40 @@ def start(begin: Callable[[], object]) -> JSONResponse:
     return JSONResponse({"accepted": True}, status_code=202)
 
 
+def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
+    """PostgreSQL connections for checkpoints and the store, through Supabase's pooler.
+
+    Idle connections die on the way (AWS's NAT drops idle TCP after 350 seconds; the pooler times
+    out idle clients), so TCP keepalives hold them open and the pool tests each one before lending
+    it, replacing a dead one instead of failing the claim with an SSL EOF.
+    """
+    from psycopg.rows import dict_row  # noqa: PLC0415
+    from psycopg_pool import ConnectionPool  # noqa: PLC0415
+
+    return ConnectionPool(
+        url,
+        min_size=1,
+        max_size=max_size,
+        max_idle=120,
+        open=False,
+        check=ConnectionPool.check_connection,
+        # No prepared statements, for the transaction pooler.
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": None,
+            "row_factory": dict_row,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+        },
+    )
+
+
 def build_app() -> FastAPI:
     """The service wired to the real api, Claude, the context layer and PostgreSQL."""
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
     from langgraph.store.postgres import PostgresStore  # noqa: PLC0415
-    from psycopg.rows import dict_row  # noqa: PLC0415
-    from psycopg_pool import ConnectionPool  # noqa: PLC0415
 
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
@@ -376,13 +407,8 @@ def build_app() -> FastAPI:
         signer = LambdaUrlSigner(settings.aws_region or os.environ["AWS_REGION"])
 
     def make_runner() -> Runner:
-        pool = ConnectionPool(
-            settings.checkpoint_database_url.get_secret_value(),
-            # One connection held when idle; no prepared statements, for the transaction pooler.
-            min_size=1,
-            max_size=8,
-            kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
-        )
+        pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
+        pool.open()
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
         saver.setup()
         store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]

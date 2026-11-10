@@ -8,7 +8,7 @@ import threading
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Request
 from langchain_core.runnables import RunnableConfig
@@ -19,6 +19,9 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 from undercover_copilot.graph import CopilotState, Handler
 from undercover_copilot.staff_api import ApiError, StaffApi
 from undercover_copilot.store import Conversation, Store
+
+if TYPE_CHECKING:
+    from psycopg_pool import ConnectionPool
 
 Json = dict[str, Any]
 Graph = CompiledStateGraph[CopilotState, Handler, CopilotState, CopilotState]
@@ -184,11 +187,39 @@ def config_for(conversation_id: str) -> RunnableConfig:
     return {"configurable": {"thread_id": conversation_id}, "recursion_limit": 60}
 
 
+def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
+    """PostgreSQL connections for checkpoints and the store, through Supabase's pooler.
+
+    Idle connections die on the way (AWS's NAT drops idle TCP after 350 seconds; the pooler times
+    out idle clients), so TCP keepalives hold them open and the pool tests each one before lending
+    it, replacing a dead one instead of failing the claim with an SSL EOF.
+    """
+    from psycopg.rows import dict_row  # noqa: PLC0415
+    from psycopg_pool import ConnectionPool  # noqa: PLC0415
+
+    return ConnectionPool(
+        url,
+        min_size=1,
+        max_size=max_size,
+        max_idle=120,
+        open=False,
+        check=ConnectionPool.check_connection,
+        # No prepared statements, for the transaction pooler.
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": None,
+            "row_factory": dict_row,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+        },
+    )
+
+
 def build_app() -> FastAPI:
     """The service wired to the real api, Claude and PostgreSQL."""
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
-    from psycopg.rows import dict_row  # noqa: PLC0415
-    from psycopg_pool import ConnectionPool  # noqa: PLC0415
 
     from undercover_copilot.claude import AnthropicClaude  # noqa: PLC0415
     from undercover_copilot.graph import build_graph  # noqa: PLC0415
@@ -196,14 +227,7 @@ def build_app() -> FastAPI:
     from undercover_copilot.store import PostgresStore  # noqa: PLC0415
 
     settings = get_settings()
-    pool = ConnectionPool(
-        settings.checkpoint_database_url.get_secret_value(),
-        # One connection held when idle; no prepared statements, for the transaction pooler.
-        min_size=1,
-        max_size=6,
-        open=False,
-        kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
-    )
+    pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=6)
 
     def make_graph() -> Graph:
         pool.open()
