@@ -36,7 +36,7 @@ Today the guardrail is named in headers on every Bedrock call, so it screens eac
 - [x] Screen only what comes from outside, through `ApplyGuardrail` (input only, `guardrail.py`), inside the agent's one screening step: the claim's text and every Ask UnderCover and engineers' question. Receipts' images stay with the hidden-instruction check. The Copilot's input is a signed-in handler's, so it isn't screened. The per-call headers are gone.
 - [x] A guardrail block counts as instructions found: the claim is referred (never declined) and its screening step and decision say so; a question gets the existing refusal. Its fires count with the screening check's on the Threat coverage page.
 - [x] Fail closed: if the guardrail can't be reached, the claim is referred and a question refused.
-- [ ] Set `enabled` (red team on AWS: 8 of 8 held, 2026-11-10), then check live on `dev`: the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
+- [x] Set `enabled` (#58), then checked live on `dev` (2026-11-10: tiny claims 5 of 5, CLM-1901 referred, red team 8 of 8): the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
 
 ## Phase 3: AgentCore Gateway and Identity
 
