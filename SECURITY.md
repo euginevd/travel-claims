@@ -4,23 +4,23 @@
 
 **Found a vulnerability? Report it privately, and we'll work with you to fix it before anyone else hears about it.**
 
-[Report](#-report) · [What happens next](#-what-happens-next) · [Scope](#-scope)
+[Report](#report) · [What happens next](#what-happens-next) · [Scope](#scope)
 
 </div>
 
-## 🔒 Report
+## Report
 
 1. Don't open a public issue, PR or discussion.
 2. Report it privately: the repo's **Security** tab → **Report a vulnerability**.
 3. Include what you found, how to reproduce it, and the impact you expect.
 
-## ⏳ What happens next
+## What happens next
 
 1. A reply within 5 working days, confirming whether it's a vulnerability.
 2. A fix within 30 days for a high or critical issue, or a plan with a date if it needs longer.
 3. A security advisory once it's fixed, crediting you unless you'd rather not be named.
 
-## 🎯 Scope
+## Scope
 
 1. **In scope:** the `main` branch only: the code, workflows, scripts and infrastructure as code.
 2. **Out of scope:** findings already accepted in [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md), the fictional course data in `data/`, and anything that needs a compromised GitHub or AWS account to begin with.

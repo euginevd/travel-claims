@@ -55,12 +55,14 @@ env:
 jobs:
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       units: ${{ steps.units.outputs.units }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Manual run: the chosen unit, or every unit for all. Workflow change: every unit. Otherwise: units with changed files.
       - id: units
@@ -90,6 +92,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.units != '[]' && vars.PROJECT_NAME != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: aws-${{ inputs.target || 'dev' }}-plan
     permissions:
       contents: read
@@ -103,6 +106,8 @@ jobs:
         working-directory: aws/${{ matrix.unit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -214,8 +219,10 @@ jobs:
   apply:
     needs: [detect, plan]
     # Runs even when some plans failed: a unit without a saved plan skips, so ready units still apply.
-    if: always() && !cancelled() && needs.detect.result == 'success' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && vars.PROJECT_NAME != ''
+    # Only from main, so a manual run can't apply a branch nobody reviewed.
+    if: always() && !cancelled() && needs.detect.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.PROJECT_NAME != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: aws-${{ inputs.target || 'dev' }}-apply
     permissions:
       contents: read
@@ -229,6 +236,8 @@ jobs:
         working-directory: aws/${{ matrix.unit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
