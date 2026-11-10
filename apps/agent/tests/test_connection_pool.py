@@ -16,3 +16,4 @@ def test_the_pool_keeps_connections_alive_and_tests_each_before_lending_it() -> 
     kwargs = cast(dict[str, Any], pool.kwargs)
     assert kwargs["prepare_threshold"] is None  # the transaction pooler can't keep them
     assert (kwargs["keepalives"], kwargs["keepalives_idle"]) == (1, 30)
+    assert (kwargs["connect_timeout"], kwargs["tcp_user_timeout"]) == (10, 10_000)

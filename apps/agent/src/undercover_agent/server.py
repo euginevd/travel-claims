@@ -372,10 +372,12 @@ def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
         max_idle=120,
         open=False,
         check=ConnectionPool.check_connection,
-        # No prepared statements, for the transaction pooler.
         kwargs={
             "autocommit": True,
-            "prepare_threshold": None,
+            "prepare_threshold": None,  # no prepared statements, for the transaction pooler
+            # A connection dropped without a reset fails in seconds, not a minute.
+            "connect_timeout": 10,
+            "tcp_user_timeout": 10_000,
             "row_factory": dict_row,
             "keepalives": 1,
             "keepalives_idle": 30,
