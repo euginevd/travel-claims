@@ -481,7 +481,7 @@ Resources:
               - xray:PutTelemetryRecords
               - xray:PutTraceSegments
             Resource: '*'
-          # The api starts the agent's work; the agent gets its workload identity.
+          # The api starts the agent's work; the agent gets its workload identity and calls its gateway.
           - Sid: AgentCore
             Effect: Allow
             Action:
@@ -489,8 +489,9 @@ Resources:
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId
               - bedrock-agentcore:InvokeAgentRuntime
+              - bedrock-agentcore:InvokeGateway
             Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
-          # The agent calls the context's IAM-only function URL.
+          # The context layer's gateway calls the context's IAM-only function URL.
           - Sid: LambdaUrls
             Effect: Allow
             Action:

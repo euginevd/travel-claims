@@ -38,12 +38,14 @@ Today the guardrail is named in headers on every Bedrock call, so it screens eac
 - [x] Fail closed: if the guardrail can't be reached, the claim is referred and a question refused.
 - [x] Set `enabled` (#58), then checked live on `dev` (2026-11-10: tiny claims 5 of 5, CLM-1901 referred, red team 8 of 8): the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
 
-## Phase 3: AgentCore Gateway and Identity
+## Phase 3: AgentCore Gateway in front of the context layer
 
-- [ ] New unit `gateway`: an AgentCore Gateway with two MCP targets: the context layer (its seven lookups) and the api's agent routes for one claim. The agent reaches both as MCP tools through the Gateway, signed with its Runtime role (IAM, inbound); Identity holds the outbound credential to the api (the agent's key), so it leaves the agent's environment. Free through Runtime and Gateway.
-- [ ] The context layer's function URL becomes reachable only by the Gateway's role (known mistake 26).
-- [ ] `GATEWAY_URL` set: tools through the Gateway; unset: the direct path as now. Tests: the tool list is the same either way; a claim id from the model can't reach another claim (R3).
-- [ ] A claim worked end to end on `dev` through the Gateway.
+Revised 2026-11-10. Only the context layer goes through Gateway now. The api's agent routes are scoped to one claim, and today the agent's code fills in the claim, never the model (R3); as Gateway tools the model would choose the claim, so they wait for phase 5, which needs a claim-scoped design anyway (a Gateway interceptor or a per-claim token). With nothing for the agent to hold, Identity waits too: inbound is the Runtime's role, outbound Gateway's own.
+
+- [ ] In the `agent` unit (units apply in parallel, and the gateway serves only the agent): an AgentCore Gateway (MCP, `AWS_IAM` inbound) and one MCP server target, `context`, at the context's function URL, which Gateway signs with its own role for the `lambda` service; the role has the project boundary and may call only the context.
+- [ ] The context's function URL then answers only Gateway's role: the agent's role loses `lambda:InvokeFunctionUrl` on it and gains `bedrock-agentcore:InvokeGateway` on this gateway alone (known mistake 26).
+- [ ] The agent reaches the context through the gateway's URL, signing for `bedrock-agentcore`, and names its tools as Gateway does (`context___get_claim_rules`) through a setting; it takes results whether Gateway passes structured content or text. Tier 1 is unchanged: no prefix, the context's own URL.
+- [ ] Tests: the signer's service, the tool prefix, both result forms; a claim worked on `dev` through the gateway, and the red team again.
 
 ## Phase 4: AgentCore Memory and a Knowledge Base
 
@@ -73,8 +75,8 @@ AWS list prices, November 2026; monthly, at demo volume (about 100 claims, 200 c
 | Red team on AWS | Claude tokens and Runtime time for 8 attacks, about $0.30 a run | about $1.20 |
 | Guardrail, screening only outside text | $0.15 per 1,000 text units (1,000 characters), a few units a claim | under $0.10 |
 | *Guardrail as wired now, every call* | *the whole context every turn, about 120 units a claim* | *about $2–3* |
-| Gateway | $0.005 per 1,000 tool calls; tool indexing $0.02 per 100 tools | under $0.05 |
-| Identity | free through Runtime and Gateway | $0 |
+| Gateway | $0.005 per 1,000 tool calls (each lookup is a few: initialize, list, call) | under $0.05 |
+| Identity | not needed until phase 5 | $0 |
 | Memory | $0.75 per 1,000 long-term records a month, $0.50 per 1,000 retrievals, short-term by the GB | about $0.40 |
 | Knowledge Base on S3 Vectors | vectors $0.06/GB-month, queries $2.50 a million, embeddings fractions of a cent; KB retrieval up to $1 per 1,000 | under $0.50 |
 | Code Interpreter | $0.0895 per vCPU-hour while code runs, seconds a claim | under $0.10, less Claude tokens saved |
@@ -86,6 +88,6 @@ AWS list prices, November 2026; monthly, at demo volume (about 100 claims, 200 c
 
 0. Phase 0: the switch and the database fix.
 1. Phases 1 and 2: red team on AWS and the guardrail.
-2. Phase 3: Gateway and Identity.
+2. Phase 3: Gateway in front of the context layer.
 3. Phase 4: Memory and the Knowledge Base.
 4. Phase 5: code execution.
