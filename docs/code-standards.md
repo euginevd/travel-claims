@@ -28,13 +28,13 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Terraform
 
-13. One root per unit in `aws/<unit>/`, copied from sdlc-template's `aws/api`: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
+13. One root per unit in `aws/<unit>/`, copied from an existing unit: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
 14. No hardcoded IDs, regions, ARNs, project names or environments. Name resources `${var.project}-<unit>-<what>-${var.environment}`, give every IAM role the `${var.project}-boundary` boundary, and tag through `default_tags`.
 
 ## Languages
 
 15. Python: the newest version the deploy runtime supports, `uv run` for everything, `ruff` to lint and format, `pyright` in strict mode; one workspace member per app in the root `pyproject.toml`.
-16. TypeScript: strict mode, never `any`; ESLint with `jsx-a11y` and Prettier; `save-exact` and a `before=` date a week back in the app's `.npmrc`. Web pages meet WCAG 2.2 AA, and their server sends a strict CSP with `frame-ancestors 'none'`, `nosniff` and `no-referrer`.
+16. TypeScript: strict mode, never `any`; ESLint with `jsx-a11y` and Prettier; `save-exact` and a `before=` date a week back in the app's `.npmrc`. The server for web pages sends a strict CSP with `frame-ancestors 'none'`, `nosniff` and `no-referrer`.
 
 ## AI and agents
 
@@ -52,3 +52,11 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 23. Each fact lives in one place; everywhere else links to it. Keep docs short, and write what's true now; mark future work *(planned)*.
 24. Root files are uppercase (`README.md`, `AGENTS.md`); everything in `docs/` and `guides/` is lowercase kebab-case.
+
+## Web UI
+
+25. WCAG 2.2 AA: text 4.5:1, controls and focus rings 3:1, targets at least 24×24px, a visible focus ring that sticky parts never hide, a file picker beside every drop zone, and sign-in that allows paste and password managers.
+26. Status is a word plus an icon, never colour alone. Under `prefers-reduced-motion`, motion becomes a fade or nothing, and nothing is shown only through animation.
+27. Styles use `design-system.md`'s tokens as CSS variables, never raw values. Fonts and images are served with the app, never from a third-party CDN; images have explicit dimensions and alt text (empty when decorative).
+28. Every screen has a loading state in its own layout, an empty state that says what to do, and an error state with a retry.
+29. AI output is labelled: show what the agent decided, its reasons and sources, and how to ask for a person to review it.

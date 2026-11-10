@@ -17,3 +17,4 @@ uv.lock linguist-generated=true
 **/package-lock.json linguist-generated=true
 # The knowledge base's files are hashed for ingestion; a line-ending change would re-ingest them.
 data/knowledge/** text eol=lf
+*.gif binary

@@ -26,7 +26,7 @@ export function kilobytes(size: number): string {
     : `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-// A drop zone with a file picker beside it (design-system 7), previews of what's chosen, and
+// A drop zone with a file picker beside it (code-standards 25), previews of what's chosen, and
 // the type, size and count checks before anything is sent.
 export function ReceiptPicker({ files, onChange, already = 0 }: ReceiptPickerProps) {
   const ids = useId();

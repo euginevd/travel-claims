@@ -59,7 +59,7 @@ gh api "${target[@]}" --input - >/dev/null <<'JSON' || { echo "Could not set the
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           { "context": "python" }, { "context": "api-on-postgres" }, { "context": "portal" },
-          { "context": "dashboard" }, { "context": "secrets" }, { "context": "packages-and-iac" },
+          { "context": "dashboard" }, { "context": "console" }, { "context": "secrets" }, { "context": "packages-and-iac" },
           { "context": "terraform" }, { "context": "code" }
         ]
       }
