@@ -1,8 +1,9 @@
-# Deploy as stack <ProjectName>-database-url after the secrets unit applies; update it to change the URL.
+# Deploy as stack <ProjectName>-database-url after the secrets unit applies; update it to change a value.
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   Writes the Supabase pooler URL, as the transaction pooler's, into the app secret's DATABASE_URL and
-  CHECKPOINT_DATABASE_URL, leaving its other keys as they are. Deleting the stack leaves the secret.
+  CHECKPOINT_DATABASE_URL, and in dev an optional Anthropic API key and workspace (decision 15), leaving
+  its other keys as they are. Deleting the stack leaves the secret.
 
 Parameters:
   ProjectName:
@@ -20,6 +21,27 @@ Parameters:
     AllowedPattern: 'postgres(ql)?://.+'
     ConstraintDescription: The session pooler URL from Supabase, starting postgresql://
     Description: Supabase's session pooler URL (Connect > Session pooler), with the password in it
+  ApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    AllowedPattern: '(sk-ant-[A-Za-z0-9_-]+)?'
+    ConstraintDescription: Empty, or an Anthropic API key starting sk-ant-
+    Description: For MODEL_PROVIDER=anthropic in dev, an Anthropic API key (Console > API keys); empty leaves it as it is
+  WorkspaceId:
+    Type: String
+    Default: ''
+    AllowedPattern: '(wrkspc_[A-Za-z0-9]+)?'
+    ConstraintDescription: Empty, or a workspace ID starting wrkspc_
+    Description: The key's workspace ID (Console > Settings > Workspaces); empty leaves it as it is
+
+Rules:
+  # Spec 26: prod sends claim data only to Bedrock, so its secret never holds an Anthropic key.
+  NoAnthropicKeyInProd:
+    RuleCondition: !Equals [!Ref Target, prod]
+    Assertions:
+      - Assert: !And [!Equals [!Ref ApiKey, ''], !Equals [!Ref WorkspaceId, '']]
+        AssertDescription: prod uses Bedrock only (spec 26), so leave ApiKey and WorkspaceId empty
 
 Resources:
   # The function's only grant: read and write this one secret.
@@ -83,7 +105,7 @@ Resources:
             comment: Inline code reviewed in this template, so no code signing
     Properties:
       FunctionName: !Sub '${ProjectName}-${Target}-database-url'
-      Description: Writes the database URLs into the app secret
+      Description: Writes the database URLs, and in dev the Anthropic key, into the app secret
       Runtime: python3.13
       Handler: index.handler
       Timeout: 30
@@ -116,8 +138,12 @@ Resources:
                       except client.exceptions.ResourceNotFoundException:
                           values = {}
                       values["DATABASE_URL"], values["CHECKPOINT_DATABASE_URL"] = urls(props["PoolerUrl"])
+                      # Each Anthropic value only when given, so an empty one leaves what's there.
+                      for key, prop in (("ANTHROPIC_API_KEY", "ApiKey"), ("ANTHROPIC_WORKSPACE_ID", "WorkspaceId")):
+                          if props.get(prop):
+                              values[key] = props[prop]
                       client.put_secret_value(SecretId=props["SecretId"], SecretString=json.dumps(values))
-                  print("database URLs written" if event["RequestType"] != "Delete" else "left the secret as it is")
+                  print("values written" if event["RequestType"] != "Delete" else "left the secret as it is")
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, "database-url")
               except Exception as error:  # report the type only, never a value
                   print(f"failed: {type(error).__name__}")
@@ -132,5 +158,7 @@ Resources:
       ServiceToken: !GetAtt FillFunction.Arn
       SecretId: !Sub '${ProjectName}/${Target}/app'
       PoolerUrl: !Ref PoolerUrl
+      ApiKey: !Ref ApiKey
+      WorkspaceId: !Ref WorkspaceId
       # Changed when the URLs' form changes, so an update rewrites them.
       Form: transaction-pooler
