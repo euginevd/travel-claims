@@ -75,13 +75,22 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
   }
 
   return (
-    <section aria-labelledby="my-claim-heading" className="narrow">
-      <p>
-        <a href={MY_CLAIMS_HREF}>Back to my claims</a>
-      </p>
-      <h1 id="my-claim-heading" ref={heading} tabIndex={-1}>
-        Claim {claimId}
-      </h1>
+    <section aria-labelledby="my-claim-heading" className="claim-detail">
+      <a className="back-link" href={MY_CLAIMS_HREF}>
+        <span aria-hidden="true">←</span> Back to my claims
+      </a>
+      <div className="claim-head">
+        <div>
+          <p className="eyebrow">
+            Claim {claimId}
+            {claim && ` · ${CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}`}
+          </p>
+          <h1 id="my-claim-heading" ref={heading} tabIndex={-1} dir="auto">
+            {claim ? claim.summary : `Claim ${claimId}`}
+          </h1>
+        </div>
+        {claim && <CustomerStatusChip status={claim.status} />}
+      </div>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -112,118 +121,118 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
               </p>
             </section>
           )}
-          <div className="panel outcome-card">
-            <div className="claim-card-head">
+          <div className="claim-pair">
+            <div className="panel outcome-card">
               <h2>Where it stands</h2>
-              <CustomerStatusChip status={claim.status} />
+              <p>{claim.status_text}</p>
+              {claim.paid !== null && (
+                <p className="payout">
+                  {dollars(claim.paid)}
+                  {claim.paid_at && (
+                    <span className="small muted">
+                      {" "}
+                      {claim.paid_to ? `sent to your ${claim.paid_to}` : "paid"}{" "}
+                      {when(claim.paid_at)}
+                    </span>
+                  )}
+                </p>
+              )}
+              {claim.reason && (
+                <>
+                  <h3>Why</h3>
+                  <p dir="auto">{claim.reason}</p>
+                </>
+              )}
+              {claim.outcome && claim.outcome !== "refer" && (
+                <p className="ai-mark">
+                  <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                  Decided with help from our AI claims agent
+                </p>
+              )}
+              {claim.review_requested && (
+                <p className="notice" role="status">
+                  <UserRound size={16} strokeWidth={2} aria-hidden="true" /> A claims handler will
+                  review your claim personally and contact you.
+                </p>
+              )}
+              {claim.can_request_review && (
+                <div className="ask-person">
+                  <label htmlFor="ask-note">
+                    Want a person to look at this? Tell us why (optional)
+                  </label>
+                  <textarea
+                    id="ask-note"
+                    rows={2}
+                    maxLength={1000}
+                    value={askNote}
+                    onChange={(event) => {
+                      setAskNote(event.target.value);
+                    }}
+                  />
+                  {askError && (
+                    <p className="error" role="alert">
+                      {askError}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={asking}
+                    onClick={() => {
+                      void askForPerson();
+                    }}
+                  >
+                    <UserRound size={16} strokeWidth={2} aria-hidden="true" />
+                    {asking ? "Sending…" : "Ask a person to review"}
+                  </button>
+                </div>
+              )}
             </div>
-            <p>{claim.status_text}</p>
-            {claim.paid !== null && (
-              <p className="payout">
-                {dollars(claim.paid)}
-                {claim.paid_at && (
-                  <span className="small muted">
-                    {" "}
-                    {claim.paid_to ? `sent to your ${claim.paid_to}` : "paid"} {when(claim.paid_at)}
-                  </span>
-                )}
-              </p>
-            )}
-            {claim.reason && (
-              <>
-                <h3>Why</h3>
-                <p dir="auto">{claim.reason}</p>
-              </>
-            )}
-            {claim.outcome && claim.outcome !== "refer" && (
-              <p className="ai-mark">
-                <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
-                Decided with help from our AI claims agent
-              </p>
-            )}
-            {claim.review_requested && (
-              <p className="notice" role="status">
-                <UserRound size={16} strokeWidth={2} aria-hidden="true" /> A claims handler will
-                review your claim personally and contact you.
-              </p>
-            )}
-            {claim.can_request_review && (
-              <div className="ask-person">
-                <label htmlFor="ask-note">
-                  Want a person to look at this? Tell us why (optional)
-                </label>
-                <textarea
-                  id="ask-note"
-                  rows={2}
-                  maxLength={1000}
-                  value={askNote}
-                  onChange={(event) => {
-                    setAskNote(event.target.value);
-                  }}
-                />
-                {askError && (
-                  <p className="error" role="alert">
-                    {askError}
-                  </p>
-                )}
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={asking}
-                  onClick={() => {
-                    void askForPerson();
-                  }}
-                >
-                  <UserRound size={16} strokeWidth={2} aria-hidden="true" />
-                  {asking ? "Sending…" : "Ask a person to review"}
-                </button>
-              </div>
-            )}
-          </div>
 
-          <div className="panel">
-            <h2>Your claim</h2>
-            <dl className="facts">
-              <dt>What happened</dt>
-              <dd dir="auto">{claim.summary}</dd>
-              <dt>Type</dt>
-              <dd>{CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}</dd>
-              <dt>When</dt>
-              <dd className="nowrap">{date(claim.incident_date)}</dd>
-              <dt>Where</dt>
-              <dd dir="auto">{claim.incident_location}</dd>
-              <dt>Policy</dt>
-              <dd className="nowrap">{claim.policy_id}</dd>
-            </dl>
-            <h3>In your words</h3>
-            <p className="story" dir="auto">
-              {claim.story}
-            </p>
-            <table className="items">
-              <caption>What you&apos;re claiming</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Item</th>
-                  <th scope="col" className="number">
-                    Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {claim.items.map((item, index) => (
-                  <tr key={String(index)}>
-                    <td dir="auto">{item.description}</td>
-                    <td className="number">{dollars(item.amount)}</td>
+            <div className="panel wash-sage">
+              <h2>Your claim</h2>
+              <dl className="facts">
+                <dt>What happened</dt>
+                <dd dir="auto">{claim.summary}</dd>
+                <dt>Type</dt>
+                <dd>{CLAIM_TYPES[claim.claim_type] ?? claim.claim_type}</dd>
+                <dt>When</dt>
+                <dd className="nowrap">{date(claim.incident_date)}</dd>
+                <dt>Where</dt>
+                <dd dir="auto">{claim.incident_location}</dd>
+                <dt>Policy</dt>
+                <dd className="nowrap">{claim.policy_id}</dd>
+              </dl>
+              <h3>In your words</h3>
+              <p className="story" dir="auto">
+                {claim.story}
+              </p>
+              <table className="items">
+                <caption>What you&apos;re claiming</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Item</th>
+                    <th scope="col" className="number">
+                      Amount
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th scope="row">Total</th>
-                  <td className="number">{dollars(claim.amount_claimed)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {claim.items.map((item, index) => (
+                    <tr key={String(index)}>
+                      <td dir="auto">{item.description}</td>
+                      <td className="number">{dollars(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Total</th>
+                    <td className="number">{dollars(claim.amount_claimed)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           <div className="panel">

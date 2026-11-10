@@ -34,7 +34,7 @@ export function WattleButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-const PROJECT_URL: string =
+export const PROJECT_URL: string =
   // `||`, not `??`: the images build passes an empty string when it's unset.
   import.meta.env.VITE_PROJECT_URL ||
   `${window.location.protocol}//${window.location.hostname}:5172/`;
