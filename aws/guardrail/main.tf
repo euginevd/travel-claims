@@ -1,4 +1,4 @@
-# A Bedrock guardrail for Claude's calls (spec 36), named to the apps through the app secret when enabled.
+# A Bedrock guardrail on customer text (spec 36), named to the agent through the app secret when enabled.
 locals {
   prefix = "${var.project}-${var.environment}"
 }
@@ -9,11 +9,11 @@ data "aws_secretsmanager_secret" "app" {
 
 resource "aws_bedrock_guardrail" "claims" {
   name                      = "${local.prefix}-claims"
-  description               = "Screens model calls for the ${var.project} agent and copilot"
+  description               = "Screens customer text for the ${var.project} agent before any model reads it"
   blocked_input_messaging   = "This request can't be processed."
   blocked_outputs_messaging = "This answer can't be shown."
 
-  # Harmful content in or out; prompt attacks on the way in, beside the app's own hidden-instruction check.
+  # Harmful content and prompt attacks in the customer's text, ahead of the app's own hidden-instruction check.
   content_policy_config {
     dynamic "filters_config" {
       for_each = toset(["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT"])
