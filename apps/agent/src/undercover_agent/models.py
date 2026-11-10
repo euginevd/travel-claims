@@ -3,7 +3,7 @@ turns, each with its tokens and cost."""
 
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal, Protocol
 
 import anthropic
@@ -11,6 +11,7 @@ from anthropic.lib.bedrock import AnthropicBedrock
 from anthropic.types import Message, Usage
 from pydantic import BaseModel, Field
 
+from undercover_agent.guardrail import Screen, guardrail_for
 from undercover_agent.settings import Settings
 
 Json = dict[str, Any]
@@ -265,18 +266,8 @@ def provider_model(model: str, settings: Settings) -> str:
 def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
     """Claude through the Anthropic API in the user's workspace, or through Bedrock (tier 2)."""
     if settings.model_provider == "bedrock":
-        # Bedrock applies the guardrail to the call when these headers name it.
-        guardrail = (
-            {
-                "X-Amzn-Bedrock-GuardrailIdentifier": settings.bedrock_guardrail_id,
-                "X-Amzn-Bedrock-GuardrailVersion": settings.bedrock_guardrail_version,
-            }
-            if settings.bedrock_guardrail_id
-            else {}
-        )
         return AnthropicBedrock(
             aws_region=settings.aws_region,
-            default_headers=guardrail,
             timeout=settings.model_timeout_seconds,
             max_retries=settings.model_retries,
         )
@@ -292,13 +283,23 @@ def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
 class AnthropicClaude:
     """Claude through the Anthropic API or Bedrock, as the settings say."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, guardrail: Screen | None = None) -> None:
         self._settings = settings
         self._client = claude_client(settings)
+        # Either Claude: the guardrail screens customer text, not Claude's calls.
+        self._guardrail = guardrail or guardrail_for(
+            settings.bedrock_guardrail_id, settings.bedrock_guardrail_version, settings.aws_region
+        )
 
     def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
-        """Ask the check model whether the claim or its receipts try to instruct whoever
-        handles it."""
+        """The guardrail on the customer's text, then the check model on everything: whether the
+        claim, question or receipts try to instruct whoever handles them. A block counts as
+        instructions found, so the claim goes to a person and a question is refused."""
+        text = "\n".join(str(b["text"]) for b in content if b.get("type") == "text")
+        verdict = self._guardrail.check(text)
+        if verdict.blocked:
+            found = Screening(instructions_found=True, reason=verdict.reason)
+            return found, Call("bedrock-guardrail", 0, 0, verdict.cost)
         model = self._settings.screening_model
         started = time.monotonic()
         reply = self._client.messages.parse(
@@ -310,7 +311,8 @@ class AnthropicClaude:
             output_config={"effort": "low"},
         )
         found = reply.parsed_output if reply.stop_reason == "end_turn" else None
-        return found, call_of(model, reply.usage, started)
+        call = call_of(model, reply.usage, started)
+        return found, replace(call, cost=call.cost + verdict.cost)
 
     def specialist(
         self, kind: SpecialistKind, content: list[Json]

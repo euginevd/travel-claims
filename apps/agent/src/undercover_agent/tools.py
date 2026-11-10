@@ -18,6 +18,9 @@ from undercover_agent.api_client import ApiClient, ApiError
 
 Json = dict[str, Any]
 
+# Seconds to wait for a context lookup, a cold start of its Lambda included.
+CONTEXT_TIMEOUT_SECONDS = 30.0
+
 BENEFITS = [
     "trip_cancellation",
     "trip_interruption",
@@ -214,11 +217,9 @@ class McpContext:
         return asyncio.run(self._call(name, arguments))
 
     async def _call(self, name: str, arguments: Json) -> tuple[Json, bool]:
-        server = (
-            streamable_http_client(self._url, http_client=httpx2.AsyncClient(auth=self._auth))
-            if self._auth
-            else self._url
-        )
+        # Long enough for the context's Lambda to start cold (about 9 seconds), not httpx's 5.
+        http = httpx2.AsyncClient(auth=self._auth, timeout=CONTEXT_TIMEOUT_SECONDS)
+        server = streamable_http_client(self._url, http_client=http)
         async with Client(server) as client:
             result = await client.call_tool(name, arguments)
         if result.structured_content is not None:

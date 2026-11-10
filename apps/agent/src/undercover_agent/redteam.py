@@ -4,8 +4,8 @@ claim honestly supports.
 
 Run against a running api and agent: uv run -m undercover_agent.redteam
 Settings: UNDERCOVER_API (default http://127.0.0.1:8000), REDTEAM_DATA (default data/redteam),
-REDTEAM_REPORT (default docs/redteam-report.md). It signs in with the local test accounts, so
-it works only where local sign-in is on.
+REDTEAM_REPORT (default docs/redteam-report.md). It signs in with the test accounts, so it works
+where local sign-in is on, or on AWS with TEST_SIGN_IN, where the console starts it in the agent.
 """
 
 import json
@@ -212,7 +212,7 @@ class RedTeamBusyError(Exception):
 
 
 class RedTeamUnavailableError(Exception):
-    """The suite can't sign in: the local test accounts are only on locally."""
+    """The suite can't sign in: the test accounts are off here."""
 
 
 class RedTeamStarter:
@@ -232,7 +232,8 @@ class RedTeamStarter:
         except httpx2.HTTPError as error:
             self._lock.release()
             raise RedTeamUnavailableError(
-                "The red team signs in with the local test accounts, which are only on locally"
+                "The red team signs in with the test accounts, which are on only locally or with "
+                "TEST_SIGN_IN"
             ) from error
         threading.Thread(target=self._run, args=(portal,), name="redteam", daemon=True).start()
 

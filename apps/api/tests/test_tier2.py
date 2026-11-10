@@ -197,9 +197,12 @@ def test_a_test_account_signs_in_with_a_fresh_password_in_its_own_pool(database_
     assert cognito.clients == ["customer-client"] * 2
     assert cognito.passwords["oliver.grant@example.com"] != first
     assert client.post(path, json={"account": "x"}).status_code == 404  # noqa: PLR2004
-    # The red team's account and the password sign-in stay local.
-    redteam = {"account": "attacker"}
-    assert client.post("/api/customer/dev/redteam-sign-in", json=redteam).status_code == 404  # noqa: PLR2004
+    # The red team signs in as its own attacker customer in the same pool; never as Oliver.
+    redteam = "/api/customer/dev/redteam-sign-in"
+    assert client.post(redteam, json={"account": "attacker"}).status_code == 200  # noqa: PLR2004
+    assert "derek.vance@example.com" in cognito.passwords
+    assert client.post(redteam, json={"account": "customer"}).status_code == 404  # noqa: PLR2004
+    # The password sign-in stays local.
     login = {"email": "a@b.c", "password": "p"}
     assert client.post("/api/customer/dev/sign-in", json=login).status_code == 404  # noqa: PLR2004
 
@@ -226,6 +229,8 @@ def test_without_test_sign_in_there_are_no_demo_routes(database_url: str) -> Non
     client = TestClient(create_app(settings))
     body = {"account": "customer"}
     assert client.post("/api/customer/dev/test-sign-in", json=body).status_code == 404  # noqa: PLR2004
+    redteam = {"account": "attacker"}
+    assert client.post("/api/customer/dev/redteam-sign-in", json=redteam).status_code == 404  # noqa: PLR2004
     assert client.get("/api/demo/stats").status_code == 404  # noqa: PLR2004
 
 

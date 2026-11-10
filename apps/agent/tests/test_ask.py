@@ -5,7 +5,7 @@ from stubs import FakeClaude, tool_use
 
 from undercover_agent.ask import SCREENED, Asker, AskRequest
 from undercover_agent.explain import Explainer, ExplainRequest
-from undercover_agent.models import Json
+from undercover_agent.models import Call, Json, Screening
 
 REQUEST = AskRequest(
     first_name="Maya",
@@ -105,3 +105,23 @@ def test_the_engineers_assistant_reads_the_snapshot_and_traces_only_named_claims
     assert answer.sources == ["Trace CLM-1001"]
     assert "error" in explainer.run("claim_trace", {"claim_id": "CLM-9999"}, request)
     assert "run_id" in explainer.run("evaluation_runs", {}, request)
+
+
+class UnreadableCheck(FakeClaude):
+    """A check model whose reply couldn't be read."""
+
+    def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
+        self.screened.append(content)
+        return None, Call("claude-haiku-5-5", 10, 0, 0.0)
+
+
+def test_a_question_the_check_couldnt_read_is_refused_not_answered() -> None:
+    claude = UnreadableCheck([tool_use("reply", {"answer": "x", "sources": []}, 1)])
+    answer = Asker(claude, ManualAndWording(), "claude-haiku-5-5").ask(REQUEST)
+    assert (answer.screened, answer.answer) == (True, SCREENED)
+    request = ExplainRequest(
+        first_name="Sam", question="Why?", runs=[], rounds=[], redteam={}, threats={}, traces={}
+    )
+    explained = Explainer(claude, "claude-haiku-5-5").explain(request)
+    assert explained.screened is True
+    assert claude.turns_taken == 0

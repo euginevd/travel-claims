@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
-    # Tier 2: a Bedrock guardrail on every model call, when its ID is set.
+    # Tier 2: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str = "1"
     # Tier 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.

@@ -770,6 +770,14 @@ def demo_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
     return demo_sign_in(request, CUSTOMER_TEST_ACCOUNTS, body.account, issuer, audience)
 
 
+@customer_demo_router.post("/redteam-sign-in", operation_id="demo_redteam_sign_in_customer")
+def demo_redteam_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
+    """Sign in as the red team's attacker customer, through Cognito; never offered in the portal."""
+    settings = request.app.state.settings
+    issuer, audience = settings.customer_token_issuer, settings.customer_token_audience
+    return demo_sign_in(request, REDTEAM_TEST_ACCOUNTS, body.account, issuer, audience)
+
+
 @engineering_demo_router.post("/test-sign-in", operation_id="demo_sign_in_engineer")
 def demo_sign_in_engineer(request: Request, body: TestSignInRequest) -> SignIn:
     """Sign in as the fixed AI engineer test account, through Cognito."""
