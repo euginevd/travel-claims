@@ -117,7 +117,11 @@ jobs:
           else
             pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
             client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
-            docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" --build-arg VITE_TEST_SIGN_IN=true -f "apps/$APP/Dockerfile" -t "web-$APP" .
+            # The header's back link goes to the project page's own site, not port 5172.
+            home="$(site home DomainName)"
+            case "$home" in ""|None) echo "::error::No project page site: apply the web unit first."; exit 1 ;; esac
+            project="https://$home/"
+            docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" --build-arg VITE_TEST_SIGN_IN=true --build-arg VITE_PROJECT_URL="$project" -f "apps/$APP/Dockerfile" -t "web-$APP" .
             id="$(docker create "web-$APP")"
             docker cp "$id:/web/dist" ./dist
           fi
