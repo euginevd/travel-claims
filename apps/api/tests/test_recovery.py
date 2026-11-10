@@ -169,7 +169,7 @@ def test_the_agent_carries_its_own_stalled_claims_on_twice_at_most(
     assert "needs a handler" in capped.json()["detail"]
     assert retry(client, dana).status_code == 200  # a handler can still carry it on
     steps = staff_steps(client, dana)
-    assert sum(s["content"].startswith("The agent carried") for s in steps) == 2
+    assert sum(s["content"].startswith("The agent's watchdog carried") for s in steps) == 2
 
 
 def test_the_agents_recovery_routes_need_its_key(client: TestClient, dana: dict[str, str]) -> None:

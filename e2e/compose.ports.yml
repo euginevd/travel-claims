@@ -1,0 +1,19 @@
+# A second tier 1 stack for the browser tests, beside the usual one: every port plus 100, and
+# its own database and receipts (the project name keeps the volumes apart).
+services:
+  postgres:
+    ports: !override ["127.0.0.1:5532:5432"]
+  api:
+    ports: !override ["127.0.0.1:8100:8000"]
+  context:
+    ports: !override ["127.0.0.1:8106:8006"]
+  agent:
+    ports: !override ["127.0.0.1:8180:8080"]
+  portal:
+    ports: !override ["127.0.0.1:5273:8080"]
+  dashboard:
+    ports: !override ["127.0.0.1:5274:8080"]
+  console:
+    ports: !override ["127.0.0.1:5275:8080"]
+  home:
+    ports: !override ["127.0.0.1:5272:8080"]

@@ -22,6 +22,7 @@ Three deployment tiers of the same apps (decision 14). Tier 1 (local, Docker) is
 12. Run everything: `docker compose up --build`, then open the portal at http://127.0.0.1:5173 (customers) or the dashboard at http://127.0.0.1:5174 (staff).
 13. Run without Docker: with `DATABASE_URL` set, `uv run -m undercover_api.migrate`, `uv run -m undercover_api.seed` and `uv run uvicorn undercover_api.main:create_app --factory --reload`, `uv run -m undercover_context` and `npm run dev` in `apps/portal` (port 5173) and `apps/dashboard` (port 5174).
 14. Check: `uv run ruff format --check && uv run ruff check && uv run pyright && uv run pytest`, and in `apps/portal` and `apps/dashboard` `npm run lint && npm run typecheck && npm test`.
+14a. Browser tests, in `e2e/`: `npm ci`, `npx playwright install chromium`, then `npm run stack` (a second stack, `undercover-e2e`, every port plus 100, its own database), `npm test`, and `npm run stack:down`. The retry test has the agent work a claim for real, about 3 cents of Claude; run it on a fresh stack.
 
 ## Testing it in the browser
 
@@ -65,9 +66,9 @@ Three deployment tiers of the same apps (decision 14). Tier 1 (local, Docker) is
 ## Known gaps
 
 24. Packages resolve as of seven days ago (`exclude-newer` in `pyproject.toml`, `before` in each web app's `.npmrc`); move the npm date forward when updating.
-25. A claim whose agent crashes mid-work stays `in_progress`: its saved progress isn't picked up again automatically, and a handler can't retry it from the dashboard yet.
+25. Closed 2026-11-10: claim recovery. While the agent works a claim it sends a heartbeat every 20 seconds (`POST /api/agent/claims/{id}/heartbeat`, on the claim's own thread only); a claim in progress with none for 90 seconds is **stalled** (`recovery.py`, migration `0011`). The dashboard shows a **Stalled** chip, puts it under **Needs me**, and **Retry** on the claim (`POST /api/staff/claims/{id}/retry`) asks the agent's `/carry-on` to pick it up from the last step saved on its thread; a send-back whose resume was lost is decided again. In tier 1 the agent's watchdog does the same by itself every 30 seconds, twice a claim at most, then leaves it to a handler, and Compose restarts a crashed agent. Taking a stalled claim is a compare-and-set on its heartbeat, so two retries start the work once (threat model R23). Tier 2 has the handler's Retry; an automatic sweep there is *(planned)*.
 26. Not yet tested: a send-back through the real agent, a restart mid-claim, refusal fallbacks on Claude Sonnet 5.5.
-27. The whole branch still needs its review before it merges to `main`; phases 4 and 5 and the integration pass weren't reviewed separately. No automated accessibility check or Playwright test yet.
+27. The whole branch still needs its review before it merges to `main`; phases 4 and 5 and the integration pass weren't reviewed separately. No automated accessibility check yet. Browser tests (Playwright, `e2e/`) cover each app's sign-in and a handler retrying a stalled claim; they run against a second local stack, not yet in CI *(planned)*.
 28. LangGraph is only partly typed: three files switch off pyright's unknown-member checks for it.
 
 ## Next

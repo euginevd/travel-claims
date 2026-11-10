@@ -1,0 +1,13 @@
+{
+  "name": "undercover-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "stack": "docker compose -p undercover-e2e -f ../docker-compose.yml -f compose.ports.yml up --build -d --wait",
+    "stack:down": "docker compose -p undercover-e2e -f ../docker-compose.yml -f compose.ports.yml down -v",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

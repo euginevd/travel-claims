@@ -84,7 +84,7 @@ def note_recovery(db: Connection, claim_id: str, recovery: Recovery, by: str) ->
         NewStep(
             thread_id=recovery.thread_id,
             kind="message",
-            content=f"{by} carried the claim on after the agent stopped working it.",
+            content=f"{by} carried the claim on after the agent stopped.",
             sources=[],
         ),
     )
@@ -113,7 +113,7 @@ def record_heartbeat(claim_id: ClaimId, request: HeartbeatRequest, db: Database)
 def recover_claim(claim_id: ClaimId, db: Database) -> Claim:
     """Take one of the agent's stalled claims to carry it on, up to AUTOMATIC_RECOVERIES."""
     recovery = take_stalled(db, claim_id, cap=AUTOMATIC_RECOVERIES)
-    note_recovery(db, claim_id, recovery, "The agent")
+    note_recovery(db, claim_id, recovery, "The agent's watchdog")
     return claim_in_full(db, claim_id)
 
 

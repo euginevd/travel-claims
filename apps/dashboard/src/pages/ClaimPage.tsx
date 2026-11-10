@@ -145,6 +145,21 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     }
   }
 
+  async function retryClaim() {
+    setStarting(true);
+    setActionError(null);
+    try {
+      await act(
+        () => api.retryClaim(claimId),
+        () => "The agent is carrying this claim on from where it stopped.",
+      );
+    } catch (caught) {
+      setActionError(messageOf(caught));
+    } finally {
+      setStarting(false);
+    }
+  }
+
   async function workClaim() {
     setStarting(true);
     setActionError(null);
@@ -235,6 +250,27 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
         </p>
         <StageTracker claim={claim} />
         <NeedsYouBanner claim={claim} />
+        {claim.stalled && (
+          <div className="action-bar">
+            <p>
+              <strong>The agent stopped working on this claim.</strong>{" "}
+              <span className="muted">
+                Retry carries it on from the last step it saved; nothing is decided or paid twice.
+              </span>
+            </p>
+            <button
+              type="button"
+              className="button"
+              disabled={starting}
+              onClick={() => {
+                void retryClaim();
+              }}
+            >
+              <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+              {starting ? "Retrying…" : "Retry"}
+            </button>
+          </div>
+        )}
         {WORKABLE.has(claim.status) && (
           <div className="action-bar">
             <p>

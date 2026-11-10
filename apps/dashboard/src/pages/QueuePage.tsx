@@ -48,9 +48,11 @@ const VIEW_LABELS: Record<View, string> = {
   all: "All",
 };
 
-/** Whether a claim needs a handler: a held payout, a referral, or a customer asking for review. */
+/** Whether a claim needs a handler: a held payout, a referral, a customer asking for review, or
+ * a claim the agent stopped working. */
 export function needsMe(claim: ClaimSummary): boolean {
   return (
+    claim.stalled === true ||
     claim.status === "waiting_for_sign_off" ||
     claim.status === "left_for_handler" ||
     claim.review_requested ||
@@ -279,6 +281,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
                   </td>
                   <td className="nowrap">
                     <StatusChip status={claim.status} decision={claim.decision} />
+                    {claim.stalled && <span className="chip chip-bad">Stalled</span>}
                     {claim.review_requested && <span className="chip chip-warn">Review asked</span>}
                     {claim.documents_in && <span className="chip chip-good">Documents in</span>}
                   </td>
