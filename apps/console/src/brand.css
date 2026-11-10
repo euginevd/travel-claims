@@ -2230,3 +2230,23 @@ main.gate {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+
+/* A calmer bar: the two groups are told apart by the hairline alone; each page names its
+   group above its title. */
+.nav-group-label {
+  display: none;
+}
+
+.nav-group {
+  gap: 0;
+}
+
+.nav-group + .nav-group {
+  margin-left: 12px;
+  padding-left: 12px;
+}
+
+.topnav a {
+  padding: 0 10px;
+  font-size: 0.88rem;
+}
