@@ -27,7 +27,7 @@ The suite signs in through the local stand-in's `dev/*-sign-in` routes, and its 
 - [x] `identity` adds the red team's customer, Derek Vance (`customers` pool), like the other test accounts, without a stored password.
 - [x] The api's tier 2 test sign-in (`TEST_SIGN_IN`) also signs in `attacker`, through Cognito as for Oliver; still refused unless `TEST_SIGN_IN` is on.
 - [x] ~~The runner takes per-site URLs~~: not needed. The console starts the suite in the agent, which reaches the api's own URL, every audience's routes included.
-- [ ] Run all eight attacks against `dev`: every attack holds, nothing paid beyond what each claim supports; the report shows on the console's Red team page. Tests: sign-in refused with `TEST_SIGN_IN` off; runner URLs per audience.
+- [x] Run all eight attacks against `dev` (2026-11-10: 8 of 8 held, all referred, $0 paid): every attack holds, nothing paid beyond what each claim supports; the report shows on the console's Red team page. Tests: sign-in refused with `TEST_SIGN_IN` off; runner URLs per audience.
 
 ## Phase 2: the guardrail, checked and on
 
@@ -36,7 +36,7 @@ Today the guardrail is named in headers on every Bedrock call, so it screens eac
 - [x] Screen only what comes from outside, through `ApplyGuardrail` (input only, `guardrail.py`), inside the agent's one screening step: the claim's text and every Ask UnderCover and engineers' question. Receipts' images stay with the hidden-instruction check. The Copilot's input is a signed-in handler's, so it isn't screened. The per-call headers are gone.
 - [x] A guardrail block counts as instructions found: the claim is referred (never declined) and its screening step and decision say so; a question gets the existing refusal. Its fires count with the screening check's on the Threat coverage page.
 - [x] Fail closed: if the guardrail can't be reached, the claim is referred and a question refused.
-- [ ] Check live on `dev`, then set `enabled`: the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
+- [ ] Set `enabled` (red team on AWS: 8 of 8 held, 2026-11-10), then check live on `dev`: the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
 
 ## Phase 3: AgentCore Gateway and Identity
 

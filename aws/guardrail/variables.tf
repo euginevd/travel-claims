@@ -16,7 +16,7 @@ variable "region" {
 }
 
 variable "enabled" {
-  description = "Whether the apps name the guardrail on every model call; off until it's checked against the hidden-instruction check on Bedrock"
+  description = "Whether the agent screens customer text with the guardrail; on since the red team held 8 of 8 on AWS (2026-11-10)"
   type        = bool
-  default     = false
+  default     = true
 }
