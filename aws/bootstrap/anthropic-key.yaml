@@ -1,0 +1,148 @@
+# Deploy as stack <ProjectName>-anthropic-key after the secrets unit applies; update it to change the key.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Writes an Anthropic API key and its workspace ID into the app secret's ANTHROPIC_API_KEY and
+  ANTHROPIC_WORKSPACE_ID, for MODEL_PROVIDER=anthropic in dev (decision 15), leaving its other keys
+  as they are. Deleting the stack puts the SET-ME placeholders back.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: travel-claims
+    AllowedPattern: '[a-z][a-z0-9-]{1,30}'
+    Description: Lowercase kebab-case, as in the bootstrap stack
+  Target:
+    Type: String
+    Default: dev
+    # Spec 26: prod sends claim data only to Bedrock, so it never holds an Anthropic key.
+    AllowedValues: [dev]
+    Description: The environment whose secret to fill; dev only
+  ApiKey:
+    Type: String
+    NoEcho: true
+    AllowedPattern: 'sk-ant-[A-Za-z0-9_-]+'
+    ConstraintDescription: An Anthropic API key, starting sk-ant-
+    Description: An Anthropic API key (Console > API keys); best a key of its own with a spend limit
+  WorkspaceId:
+    Type: String
+    AllowedPattern: 'wrkspc_[A-Za-z0-9]+'
+    ConstraintDescription: A workspace ID, starting wrkspc_
+    Description: The key's workspace ID (Console > Settings > Workspaces)
+
+Resources:
+  # The function's only grant: read and write this one secret.
+  FillRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Target}-anthropic-key'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/${Target}/app-*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt FillLogs.Arn
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  FillLogs:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_158
+            comment: AWS-managed encryption is enough; the function logs no values
+          - id: CKV_AWS_66
+            comment: Retention is set; the function logs only success or the error's type
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-${Target}-anthropic-key'
+      RetentionInDays: 7
+
+  FillFunction:
+    Type: AWS::Lambda::Function
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_117
+            comment: Only Secrets Manager's public endpoint is reached, so no VPC
+          - id: CKV_AWS_116
+            comment: CloudFormation calls it synchronously and reports failures itself
+          - id: CKV_AWS_115
+            comment: Runs once per stack change, so no reserved concurrency
+          - id: CKV_AWS_173
+            comment: No environment variables
+          - id: CKV_AWS_50
+            comment: A one-off function, so no tracing
+          - id: CKV_AWS_272
+            comment: Inline code reviewed in this template, so no code signing
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${Target}-anthropic-key'
+      Description: Writes the Anthropic key and workspace into the app secret
+      Runtime: python3.13
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt FillRole.Arn
+      LoggingConfig:
+        LogGroup: !Ref FillLogs
+      Code:
+        ZipFile: |
+          import json
+
+          import boto3
+          import cfnresponse
+
+          # As scripts/fill-secret.py writes them, so the apps refuse to start on them.
+          PLACEHOLDERS = {
+              "ANTHROPIC_API_KEY": "SET-ME: an Anthropic API key, when MODEL_PROVIDER is anthropic",
+              "ANTHROPIC_WORKSPACE_ID": "SET-ME: that key's workspace ID",
+          }
+
+
+          def handler(event, context):
+              try:
+                  props = event["ResourceProperties"]
+                  client = boto3.client("secretsmanager")
+                  found = True
+                  try:
+                      values = json.loads(client.get_secret_value(SecretId=props["SecretId"])["SecretString"])
+                  except client.exceptions.ResourceNotFoundException:
+                      found, values = False, {}
+                  if event["RequestType"] == "Delete":
+                      values.update(PLACEHOLDERS)
+                  else:
+                      values["ANTHROPIC_API_KEY"] = props["ApiKey"]
+                      values["ANTHROPIC_WORKSPACE_ID"] = props["WorkspaceId"]
+                  # A secret already deleted has nothing to put back, so the stack still deletes.
+                  if found or event["RequestType"] != "Delete":
+                      client.put_secret_value(SecretId=props["SecretId"], SecretString=json.dumps(values))
+                  print("placeholders put back" if event["RequestType"] == "Delete" else "key written")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {}, "anthropic-key")
+              except Exception as error:  # report the type only, never a value
+                  print(f"failed: {type(error).__name__}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {}, "anthropic-key", reason=type(error).__name__)
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+
+  # Changing ApiKey or WorkspaceId updates this resource, which writes the new values.
+  AnthropicKey:
+    Type: Custom::AnthropicKey
+    Properties:
+      ServiceToken: !GetAtt FillFunction.Arn
+      SecretId: !Sub '${ProjectName}/${Target}/app'
+      ApiKey: !Ref ApiKey
+      WorkspaceId: !Ref WorkspaceId
