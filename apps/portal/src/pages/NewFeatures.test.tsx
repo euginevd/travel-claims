@@ -295,3 +295,19 @@ test("updates that fail to load can be tried again", async () => {
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByText("Claim CLM-1001 paid")).toBeInTheDocument();
 });
+
+test("changing a PayID and leaving the field empty puts the saved one back", async () => {
+  const user = userEvent.setup();
+  const { api } = apiFor({ "GET /api/customer/payid": () => [200, { payid: "o***@example.com" }] });
+  render(
+    <>
+      <PayoutCard api={api} />
+      <button type="button">Elsewhere</button>
+    </>,
+  );
+  await user.click(await screen.findByRole("button", { name: "Change" }));
+  expect(screen.getByRole("textbox")).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Elsewhere" }));
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.getByText("o***@example.com")).toBeInTheDocument();
+});

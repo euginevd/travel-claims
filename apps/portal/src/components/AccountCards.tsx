@@ -1,5 +1,5 @@
 import { FilePen, Plane, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type DelayOffer, type SavedDraft } from "../api";
 import { date, dollars, when } from "../format";
 import { goTo, myClaimHref, NEW_CLAIM_HREF } from "../useHashRoute";
@@ -86,6 +86,20 @@ export function DelayOffers({ api }: { api: Api }) {
 export function PayoutCard({ api }: { api: Api }) {
   const [payid, setPayid] = useState<string | null | undefined>(undefined);
   const [editing, setEditing] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+
+  // Changing a PayID puts the cursor in the field, so leaving it empty can close it again.
+  useEffect(() => {
+    if (editing) field.current?.focus();
+  }, [editing]);
+
+  /** Leaving the change form with nothing typed puts the saved PayID back. */
+  function closeIfEmpty() {
+    if (payid && !value.trim()) {
+      setEditing(false);
+      setError(null);
+    }
+  }
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +169,9 @@ export function PayoutCard({ api }: { api: Api }) {
               event.preventDefault();
               void save();
             }}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) closeIfEmpty();
+            }}
           >
             <label htmlFor="payid" className="small muted">
               Add a PayID (your email, mobile number or ABN) and approved claims are paid straight
@@ -163,6 +180,14 @@ export function PayoutCard({ api }: { api: Api }) {
             <div className="payid-row">
               <input
                 id="payid"
+                ref={field}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && payid) {
+                    setValue("");
+                    setEditing(false);
+                    setError(null);
+                  }
+                }}
                 autoComplete="email"
                 maxLength={320}
                 value={value}
