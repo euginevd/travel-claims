@@ -135,5 +135,6 @@ Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free 
 
 1. [Findings](guides/01-findings.md): what the build found, and what was fixed.
 2. [Security trade-offs](guides/02-security-trade-offs.md): the risks this project accepts, and the fix for production.
+3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, and prove it.
 
 Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).
