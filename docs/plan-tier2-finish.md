@@ -49,9 +49,12 @@ Revised 2026-11-10. Only the context layer goes through Gateway now. The api's a
 
 ## Phase 4: AgentCore Memory and a Knowledge Base
 
-- [ ] New unit `memory`: an AgentCore Memory with one namespace per customer, for the agent's `search_memory` (instead of the Postgres store) and Wattle AI's conversations. Same rules as R20: only claim facts and decisions, never the customer's words, nothing from a referred claim or an evaluation. `MEMORY_ID` set: AgentCore; unset: Postgres.
-- [ ] New unit `knowledge`: a Bedrock Knowledge Base on an S3 Vectors index over the policy wording only (never the claims manual), Titan Text Embeddings V2, synced by the apply. Ask UnderCover and the agent's policy checks retrieve from it when `KNOWLEDGE_BASE_ID` is set; the context layer's lookup otherwise. Each answer still names its source.
-- [ ] Tests: one customer's memory never comes back for another; a retrieval cites the wording section it came from.
+Built 2026-11-10, in the `agent` unit beside the gateway (units apply in parallel). Wattle AI's conversations stay in Postgres: they're per handler and short-lived, and moving them adds no control.
+
+- [x] `aws_bedrockagentcore_memory` with no strategy: the agent writes one record per decided claim itself (`BatchCreateMemoryRecords`) under `customers/<id>/` (ended with `/`, and only records in exactly that namespace kept, in case the filter matches by prefix) with the claim ID as metadata, and lists one customer's (`ListMemoryRecords`), keeping the latest per claim and leaving out the current one. Same rules as R20; no model extracts anything. `MEMORY_ID` set: AgentCore; unset: Postgres. Memory only informs, so if it can't be reached it recalls nothing and a decision goes on.
+- [x] A Bedrock Knowledge Base on S3 Vectors (Titan Text Embeddings V2, 1024 dimensions) over the policy wording only, one document per section with its number and title as metadata (`data/knowledge`, made by `uv run -m undercover_context.knowledge`, checked by a test), no chunking, ingested by the apply when a file changes (the `aws` workflow plans the `agent` unit for a change in `data/knowledge/`; the apply starts the ingestion and doesn't wait for it). Ask UnderCover's wording search uses it when `KNOWLEDGE_BASE_ID` is set, citing sections as before, and falls back to the context layer's word search if it can't be reached. The claim agent keeps the context layer's search, which also covers the claims manual.
+- [x] Bootstrap: the boundary gains Memory's two record actions, `bedrock:Retrieve`, Titan's embedding and the knowledge stores; the deploy role creates knowledge bases, S3 Vectors and passes the knowledge role to Bedrock; the plan role reads them.
+- [ ] Live on `dev` after the bootstrap update: a claim remembered and recalled for a returning customer, an Ask UnderCover answer citing a section from the Knowledge Base, and the red team.
 
 ## Phase 5: code execution with MCP
 
@@ -89,5 +92,5 @@ AWS list prices, November 2026; monthly, at demo volume (about 100 claims, 200 c
 0. Phase 0: the switch and the database fix.
 1. Phases 1 and 2: red team on AWS and the guardrail.
 2. Phase 3: Gateway in front of the context layer.
-3. Phase 4: Memory and the Knowledge Base.
+3. Phase 4: Memory and the Knowledge Base, with one bootstrap update.
 4. Phase 5: code execution.

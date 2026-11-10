@@ -15,3 +15,5 @@ apps/home/media/** binary
 uv.lock linguist-generated=true
 .terraform.lock.hcl linguist-generated=true
 **/package-lock.json linguist-generated=true
+# The knowledge base's files are hashed for ingestion; a line-ending change would re-ingest them.
+data/knowledge/** text eol=lf

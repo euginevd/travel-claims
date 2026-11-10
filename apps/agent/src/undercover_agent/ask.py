@@ -10,6 +10,7 @@ from typing import Annotated, Literal, Protocol, cast
 from anthropic.types import Message
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent.knowledge import WordingSearch
 from undercover_agent.models import Call, Json, Screening
 from undercover_agent.tools import Context, as_text, tool
 
@@ -123,17 +124,27 @@ def question_for(request: AskRequest) -> str:
 class Asker:
     """Answers one customer question with a short tool loop."""
 
-    def __init__(self, claude: AskClaude, context: Context, model: str) -> None:
+    def __init__(
+        self,
+        claude: AskClaude,
+        context: Context,
+        model: str,
+        wording: WordingSearch | None = None,
+    ) -> None:
         self._claude = claude
         self._context = context
         self._model = model
+        # The Knowledge Base's search by meaning on AWS; the context layer's by word otherwise.
+        self._wording = wording
 
     def run(self, name: str, args: Json, request: AskRequest) -> str:
         match name:
             case "search_policy_wording":
-                found, failed = self._context.call(
-                    "search_documents", {"query": str(args.get("query", ""))[:100]}
-                )
+                query = str(args.get("query", ""))[:100]
+                meant = self._wording.search(query) if self._wording else None
+                if meant is not None and meant["sections"]:
+                    return as_text(meant)
+                found, failed = self._context.call("search_documents", {"query": query})
                 return as_text({"error": "The search failed"} if failed else policy_only(found))
             case "read_policy_section":
                 found, failed = self._context.call(

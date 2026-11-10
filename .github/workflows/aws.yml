@@ -9,10 +9,10 @@ name: aws
 # Cost comment: secret INFRACOST_API_KEY; optional variables MONTHLY_COST_LIMIT (warns above it) and COST_CURRENCY (default USD).
 on:
   pull_request:
-    paths: [aws/**, '!aws/bootstrap/**', .github/workflows/aws.yml]
+    paths: [aws/**, '!aws/bootstrap/**', data/knowledge/**, .github/workflows/aws.yml]
   push:
     branches: [main]
-    paths: [aws/**, '!aws/bootstrap/**', .github/workflows/aws.yml]
+    paths: [aws/**, '!aws/bootstrap/**', data/knowledge/**, .github/workflows/aws.yml]
   workflow_dispatch:
     inputs:
       target:
@@ -77,7 +77,8 @@ jobs:
             if echo "$changed" | grep -qx .github/workflows/aws.yml; then
               units="$all"
             else
-              units=$(echo "$changed" | sed -n 's|^aws/\([^/]*\)/.*|\1|p' | sort -u | grep -Fx "$all" || true)
+              # The knowledge base's files live in data/knowledge; the agent unit ingests them.
+              units=$( { echo "$changed" | sed -n 's|^aws/\([^/]*\)/.*|\1|p'; echo "$changed" | grep -q '^data/knowledge/' && echo agent; } | sort -u | grep -Fx "$all" || true)
             fi
           fi
           echo "units=$(echo "$units" | jq -R . | jq -sc 'map(select(length > 0))')" >> "$GITHUB_OUTPUT"
