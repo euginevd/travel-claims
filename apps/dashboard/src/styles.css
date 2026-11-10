@@ -3025,3 +3025,50 @@ button.payouts-status.is-live:hover {
   font-size: 0.74rem;
   text-align: center;
 }
+
+/* The queue's dispatch card (docs/mockups/queue-dispatch.html). */
+.dispatch {
+  margin-bottom: var(--space-3, 24px);
+}
+.dispatch h2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.dispatch-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+.dispatch-form input[type="number"] {
+  width: 96px;
+}
+.dispatch-confirm {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg-3);
+}
+.dispatch-confirm h3 {
+  margin: 0 0 4px;
+}
+.dispatch-bar {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--sky);
+}
+.dispatch-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.dispatch-claims summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 24px;
+}

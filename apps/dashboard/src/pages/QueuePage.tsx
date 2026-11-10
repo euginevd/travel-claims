@@ -1,6 +1,7 @@
 import { CircleCheck, Clock, Hourglass, Wallet, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Api, ClaimSummary } from "../api";
+import type { Api, ClaimSummary, Handler } from "../api";
+import { DispatchCard } from "../components/DispatchCard";
 import { StatusChip, type Tone } from "../components/StatusChip";
 import { useFocusHeading } from "../useFocusHeading";
 import { date, dollars } from "../format";
@@ -107,7 +108,7 @@ function Skeleton() {
   );
 }
 
-export function QueuePage({ api }: { api: Api }) {
+export function QueuePage({ api, handler }: { api: Api; handler: Handler }) {
   const [claims, setClaims] = useState<ClaimSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -160,6 +161,7 @@ export function QueuePage({ api }: { api: Api }) {
       <h1 id="queue-heading" ref={heading} tabIndex={-1}>
         Claims queue
       </h1>
+      <DispatchCard api={api} handler={handler} onProgress={retry} />
       {error && (
         <p className="error" role="alert">
           {error}

@@ -199,5 +199,5 @@ function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
       />
     );
   }
-  return <QueuePage api={api} />;
+  return <QueuePage api={api} handler={handler} />;
 }
