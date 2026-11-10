@@ -19,6 +19,9 @@ import tempfile
 DEFAULTS = {
     "DATABASE_URL": "SET-ME: Supabase session pooler URL as postgresql+psycopg://",
     "CHECKPOINT_DATABASE_URL": "SET-ME: the same URL as postgresql://",
+    # Read only when the MODEL_PROVIDER repository variable is anthropic.
+    "ANTHROPIC_API_KEY": "SET-ME: an Anthropic API key, when MODEL_PROVIDER is anthropic",
+    "ANTHROPIC_WORKSPACE_ID": "SET-ME: that key's workspace ID",
 }
 
 

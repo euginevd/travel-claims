@@ -47,6 +47,8 @@ env:
   # Optional: Bedrock IDs for Claude; the agent and functions units find Australia's profiles when unset.
   TF_VAR_sonnet_model: ${{ vars.SONNET_MODEL }}
   TF_VAR_haiku_model: ${{ vars.HAIKU_MODEL }}
+  # Which Claude the apps call on AWS: anthropic (the key in the app secret) or bedrock, the default.
+  TF_VAR_model_provider: ${{ vars.MODEL_PROVIDER || 'bedrock' }}
 
 jobs:
   detect:

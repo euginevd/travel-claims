@@ -26,3 +26,14 @@ variable "haiku_model" {
   type        = string
   default     = ""
 }
+
+variable "model_provider" {
+  description = "Which Claude the apps call: anthropic (the API key in the app secret) or bedrock (Australia's profiles)"
+  type        = string
+  default     = "bedrock"
+
+  validation {
+    condition     = contains(["anthropic", "bedrock"], var.model_provider)
+    error_message = "model_provider is anthropic or bedrock."
+  }
+}

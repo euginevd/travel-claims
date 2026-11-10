@@ -44,7 +44,7 @@
 23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations.
 24. The agent and the improver never see the held-out set's answers.
 25. Every decision is logged with its reasons; personal data is redacted.
-26. Tier 1 sends only made-up data to the Anthropic API; from tier 2, claim data goes only to Bedrock in Australia.
+26. Tier 1, and tier 2's `dev` while `MODEL_PROVIDER` is `anthropic`, send only made-up data to the Anthropic API; `prod` sends claim data only to Bedrock in Australia.
 27. A payout held for sign-off is never paid without a handler.
 28. Amounts are in US dollars. Security baseline: OWASP ASVS 5.0 Level 2.
 
@@ -62,7 +62,7 @@ Every tier 2 piece is switched on by a setting and off by default, so `docker co
 33. **Database:** PostgreSQL on Supabase (`ap-southeast-1`, decision 13) through its transaction pooler (port 6543, shared by Lambda's many short clients; no prepared statements), as `DATABASE_URL` and `CHECKPOINT_DATABASE_URL`; the Data API stays on with row-level security on every `public` table and no policies, so it serves nothing.
 34. **Receipts:** a private, encrypted S3 bucket when `RECEIPTS_BUCKET` is set, under the same random names; the Docker volume otherwise.
 35. **Sign-in:** three Cognito user pools (customers, staff, engineers), email and password only, each with its own app client and groups; the apps' existing issuer and audience settings point at them, and the web apps sign in to Cognito when `VITE_COGNITO_CLIENT_ID` is set. Test accounts are created by Terraform; in the demo, **Use test account** has the api sign one in through Cognito with a fresh random password it never stores (`TEST_SIGN_IN`). The project page is a fourth CloudFront site, linking to the three apps.
-36. **Models:** Claude on Bedrock when `MODEL_PROVIDER=bedrock` (model ids from settings, Australian inference profile), through the same Anthropic SDK; the Anthropic API otherwise. A Bedrock guardrail screens model calls.
+36. **Models:** Claude on Bedrock when `MODEL_PROVIDER=bedrock` (model ids from settings, Australian inference profile), through the same Anthropic SDK; the Anthropic API otherwise. On AWS the `MODEL_PROVIDER` repository variable chooses (Bedrock by default), and the API's key and workspace come from the app secret; configurations hold plain model names, which the agent names as its provider does. A Bedrock guardrail screens model calls.
 37. **Secrets:** one JSON secret per environment under `travel-claims/`, read at start. Everything that can be is code: the apply generates the agent's key, records the agent's runtime ARN and leaves `SET-ME` placeholders for the two database URLs, which a person enters once; the model IDs are Terraform settings, not secrets. No secret value is in Terraform variables, images or state.
 38. **Units** under `aws/`, applied in order by the pipeline: `registry` (ECR), `secrets`, `storage` (receipts), `identity` (Cognito and test accounts), `guardrail` (Bedrock), `functions` (the three Lambda functions), `agent` (Runtime), `web` (buckets and CloudFront). The bootstrap's deploy role grants only what these use.
 39. **Images:** a workflow builds the `api`, `context`, `copilot` and `agent` images on merge and pushes them to ECR, tagged by commit; each unit deploys the tag it's given.

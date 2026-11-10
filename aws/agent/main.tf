@@ -10,8 +10,10 @@ data "aws_bedrock_inference_profiles" "system" {
 
 locals {
   profiles = data.aws_bedrock_inference_profiles.system.inference_profile_summaries[*].inference_profile_id
-  sonnet   = coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none"))
-  haiku    = coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none"))
+  bedrock  = var.model_provider == "bedrock"
+  # The API takes plain names; Bedrock takes the Australian profiles.
+  sonnet = local.bedrock ? coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none")) : "claude-sonnet-5-5"
+  haiku  = local.bedrock ? coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none")) : "claude-haiku-5-5"
 }
 
 locals {
@@ -136,7 +138,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   environment_variables = {
     ENVIRONMENT        = var.environment
     APP_SECRET         = data.aws_secretsmanager_secret.app.name
-    MODEL_PROVIDER     = "bedrock"
+    MODEL_PROVIDER     = var.model_provider
     CONTEXT_AWS_AUTH   = "true"
     AGENTCORE_RUNTIME  = "true"
     CLAIM_MODEL        = local.sonnet
@@ -151,8 +153,13 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   depends_on = [aws_iam_role_policy.agent]
 
   lifecycle {
+    # Spec 26: prod sends claim data only to Bedrock in Australia.
     precondition {
-      condition     = local.sonnet != "none" && local.haiku != "none"
+      condition     = var.environment != "prod" || local.bedrock
+      error_message = "prod uses Bedrock only (spec 26): set the MODEL_PROVIDER variable to bedrock."
+    }
+    precondition {
+      condition     = !local.bedrock || (local.sonnet != "none" && local.haiku != "none")
       error_message = "No Australian inference profile for Claude Sonnet 5.5 or Haiku 5.5 here: turn on model access in the Bedrock console, or set sonnet_model and haiku_model."
     }
   }
