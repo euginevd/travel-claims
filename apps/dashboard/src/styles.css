@@ -2360,3 +2360,114 @@ h3.sub-head {
     flex-wrap: wrap;
   }
 }
+
+/* ---------- Settings ---------- */
+
+.settings-page {
+  display: grid;
+  gap: 22px;
+  max-width: 920px;
+}
+
+.settings-page .page-head,
+.settings-page .error {
+  margin: 0;
+}
+
+.settings-card {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-card .panel-head {
+  margin-bottom: 0;
+}
+
+.settings-note,
+.settings-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.settings-note {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.settings-note svg {
+  flex: none;
+}
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 18px 28px;
+}
+
+.settings-field label,
+.settings-reason label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.settings-field input {
+  max-width: 200px;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-field p {
+  margin: 6px 0 0;
+}
+
+.settings-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-reason {
+  flex: 1 1 280px;
+}
+
+.settings-saved {
+  min-height: 0;
+  margin: 0;
+}
+
+.settings-saved:empty {
+  display: none;
+}
+
+.settings-changes {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-changes li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.settings-changes li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-changes li:last-child {
+  padding-bottom: 0;
+}
+
+.settings-changes p {
+  margin: 0;
+}

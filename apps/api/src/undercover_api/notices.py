@@ -156,5 +156,6 @@ def announce_requests(db: Connection, row: RowMapping, texts: list[str]) -> None
         SMS,
         f"Claim {claim_id} needs something",
         f"UnderCover: we need {len(texts)} {'thing' if len(texts) == 1 else 'things'} from you "
-        f"to finish claim {claim_id}. Open My claims to send {'it' if len(texts) == 1 else 'them'}.",
+        f"to finish claim {claim_id}. "
+        f"Open My claims to send {'it' if len(texts) == 1 else 'them'}.",
     )

@@ -210,6 +210,36 @@ export const ThreatCoverageSchema = z.object({
   }),
 });
 
+export const SuccessCriteriaSchema = z.object({
+  met: z.boolean(),
+  criteria: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      unit: z.enum(["share", "count"]),
+      target: z.number(),
+      actual: z.number().nullable(),
+      // Null when there is nothing yet to measure.
+      met: z.boolean().nullable(),
+      detail: z.string(),
+    }),
+  ),
+});
+
+// The handlers' settings, read-only here: the console only needs the values.
+export const SettingsSchema = z.object({
+  values: z.object({
+    approval_limit: z.number(),
+    round_spend_limit: z.number(),
+    accuracy_objective: z.number(),
+    straight_through_objective: z.number(),
+    agents_at_once: z.number(),
+  }),
+});
+
+export type SuccessCriteria = z.infer<typeof SuccessCriteriaSchema>;
+export type Criterion = SuccessCriteria["criteria"][number];
+export type Settings = z.infer<typeof SettingsSchema>;
 export type ThreatCoverage = z.infer<typeof ThreatCoverageSchema>;
 export type Engineer = z.infer<typeof EngineerSchema>;
 export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
@@ -245,6 +275,8 @@ export interface Api {
   stopRound: (roundId: number) => Promise<Round>;
   getTrace: (claimId: string) => Promise<Trace>;
   getThreats: () => Promise<ThreatCoverage>;
+  getSuccessCriteria: () => Promise<SuccessCriteria>;
+  getSettings: () => Promise<Settings>;
   ask: (question: string, history: AskTurn[]) => Promise<Answer>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -347,6 +379,8 @@ export function createApi(
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
     getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
+    getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
+    getSettings: () => call(SettingsSchema, "GET", "/settings"),
     ask: (question, history) =>
       call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
     getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),

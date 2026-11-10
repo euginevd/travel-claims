@@ -38,6 +38,7 @@ from undercover_api.auth import (
     TokenVerifier,
     require_agent,
 )
+from undercover_api.business_settings import engineer_settings_router, staff_settings_router
 from undercover_api.claims import (
     add_requests,
     add_step,
@@ -136,6 +137,7 @@ from undercover_api.redteam import redteam_router
 from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
 from undercover_api.storage import Receipts, S3ReceiptStore
+from undercover_api.success import engineer_success_router, staff_success_router
 from undercover_api.threats import threats_router
 
 log = logging.getLogger(__name__)
@@ -912,6 +914,10 @@ def create_app(
         letters_router,
         ask_router,
         engineer_ask_router,
+        staff_settings_router,
+        engineer_settings_router,
+        staff_success_router,
+        engineer_success_router,
     ):
         app.include_router(router)
     return app

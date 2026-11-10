@@ -36,7 +36,8 @@ class MessageRequest(BaseModel):
 
 class ConfirmRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    answer: Literal["sign_off", "cancel"]
+    # "sign_off" confirms a sign-off card only; "confirm" confirms whichever card is waiting.
+    answer: Literal["sign_off", "confirm", "cancel"]
 
 
 class ConversationSummary(BaseModel):
@@ -48,6 +49,11 @@ class ConversationSummary(BaseModel):
 class ConversationView(ConversationSummary):
     transcript: list[Json]
     pending: Json | None
+    # The last turn: its tool steps, model calls, seconds of work and cost in US dollars.
+    steps: int
+    model_calls: int
+    seconds: float
+    cost_usd: float
 
 
 @dataclass(frozen=True)
@@ -111,6 +117,10 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             created_at=conversation.created_at,
             transcript=cast(list[Json], values.get("transcript") or []),
             pending={k: v for k, v in pending.items() if k != "tool_use_id"} or None,
+            steps=int(values.get("turn_steps") or 0),
+            model_calls=int(values.get("turn_calls") or 0),
+            seconds=round(float(values.get("turn_seconds") or 0), 1),
+            cost_usd=round(float(values.get("turn_cost") or 0), 6),
         )
 
     def run(conversation: Conversation, payload: Any, who: Caller) -> ConversationView:
@@ -121,7 +131,7 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             busy.add(key)
         try:
             graph = cast(Graph, ready["graph"])
-            graph.invoke(payload, config_for(key), context=Handler(who.api))
+            graph.invoke(payload, config_for(key), context=Handler(who.api, who.handler_id))
         finally:
             with lock:
                 busy.discard(key)
@@ -151,7 +161,7 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
         conversation = owned(conversation_id, who)
         current = view(conversation)
         if current.pending:
-            raise HTTPException(409, "Confirm or cancel the sign-off first")
+            raise HTTPException(409, "Confirm or cancel the card first")
         if not current.transcript:
             cast(Store, ready["store"]).retitle(conversation_id, request.text)
         start = {
@@ -160,6 +170,9 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             "pending": {},
             "held_results": [],
             "turn_calls": 0,
+            "turn_steps": 0,
+            "turn_cost": 0.0,
+            "turn_seconds": 0.0,
         }
         return run(conversation, start, who)
 
@@ -167,10 +180,11 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
     def confirm_sign_off(  # pyright: ignore[reportUnusedFunction]
         conversation_id: ConversationId, request: ConfirmRequest, who: Signed
     ) -> ConversationView:
-        """The handler's answer on a sign-off card: only Sign off and pay pays."""
+        """The handler's answer on a card: only their confirmation pays, dispatches or sends
+        back."""
         conversation = owned(conversation_id, who)
         if view(conversation).pending is None:
-            raise HTTPException(409, "No sign-off is waiting")
+            raise HTTPException(409, "Nothing is waiting to be confirmed")
         return run(conversation, Command(resume=request.answer), who)
 
     app.include_router(router)
@@ -224,7 +238,9 @@ def build_app() -> FastAPI:
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
 
     from undercover_copilot.claude import AnthropicClaude  # noqa: PLC0415
+    from undercover_copilot.context import McpContext  # noqa: PLC0415
     from undercover_copilot.graph import build_graph  # noqa: PLC0415
+    from undercover_copilot.memory import PostgresMemory  # noqa: PLC0415
     from undercover_copilot.settings import get_settings  # noqa: PLC0415
     from undercover_copilot.store import PostgresStore  # noqa: PLC0415
 
@@ -235,7 +251,13 @@ def build_app() -> FastAPI:
         pool.open()
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
         saver.setup()
-        return build_graph(AnthropicClaude(settings), saver, settings.max_model_calls)
+        return build_graph(
+            AnthropicClaude(settings),
+            saver,
+            settings.max_model_calls,
+            McpContext(settings.undercover_context),
+            PostgresMemory(pool),
+        )
 
     return create_app(
         make_graph,

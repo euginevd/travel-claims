@@ -257,6 +257,44 @@ export const LatestDispatchSchema = z.object({
   dispatch: DispatchSchema.nullable(),
 });
 
+export const settingKeys = [
+  "approval_limit",
+  "round_spend_limit",
+  "accuracy_objective",
+  "straight_through_objective",
+  "agents_at_once",
+] as const;
+const RangeSchema = z.object({ min: z.number(), max: z.number() });
+
+export const SettingValuesSchema = z.object({
+  approval_limit: z.number(),
+  round_spend_limit: z.number(),
+  accuracy_objective: z.number(),
+  straight_through_objective: z.number(),
+  agents_at_once: z.number(),
+});
+
+export const SettingsSchema = z.object({
+  values: SettingValuesSchema,
+  ranges: z.object({
+    approval_limit: RangeSchema,
+    round_spend_limit: RangeSchema,
+    accuracy_objective: RangeSchema,
+    straight_through_objective: RangeSchema,
+    agents_at_once: RangeSchema,
+  }),
+  changes: z.array(
+    z.object({
+      key: z.string(),
+      old: z.number().nullable(),
+      new: z.number(),
+      changed_by: z.string(),
+      changed_at: z.string(),
+      reason: z.string().nullable(),
+    }),
+  ),
+});
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export const TraceSchema = z.object({
@@ -297,6 +335,10 @@ export type Trace = z.infer<typeof TraceSchema>;
 export type PayoutSwitch = z.infer<typeof PayoutSwitchSchema>;
 export type Dispatch = z.infer<typeof DispatchSchema>;
 export type LatestDispatch = z.infer<typeof LatestDispatchSchema>;
+export type SettingKey = (typeof settingKeys)[number];
+export type SettingValues = z.infer<typeof SettingValuesSchema>;
+export type Settings = z.infer<typeof SettingsSchema>;
+export type SettingChange = Settings["changes"][number];
 
 export interface OverrideRequest {
   decision: DecisionKind;
@@ -308,6 +350,7 @@ export interface OverrideRequest {
 export type TestAccount = "senior" | "handler";
 
 export const NOTE_LIMIT = 1000;
+export const SETTING_REASON_LIMIT = 200;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -344,6 +387,9 @@ export interface Api {
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
   getLatestDispatch: (signal?: AbortSignal) => Promise<LatestDispatch>;
   startDispatch: (concurrency: number) => Promise<Dispatch>;
+  getSettings: () => Promise<Settings>;
+  /** Changes the values given, as a senior handler, with the reason kept in the audit log. */
+  saveSettings: (changes: Partial<SettingValues>, reason: string) => Promise<Settings>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -470,5 +516,10 @@ export function createApi(
       call(LatestDispatchSchema, "GET", "/dispatches/latest", { signal }),
     startDispatch: (concurrency) =>
       call(DispatchSchema, "POST", "/dispatches", { body: { concurrency } }),
+    getSettings: () => call(SettingsSchema, "GET", "/settings"),
+    saveSettings: (changes, reason) =>
+      call(SettingsSchema, "PUT", "/settings", {
+        body: reason ? { ...changes, reason } : changes,
+      }),
   };
 }

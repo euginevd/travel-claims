@@ -64,6 +64,8 @@ def test_the_dashboards_fixtures_match_the_api(client: TestClient, dana: dict[st
     keep("me", client.get("/api/staff/me", headers=dana).json())
     keep("claims", client.get("/api/staff/claims", headers=dana).json()[:3])
     keep("claim-waiting", client.get("/api/staff/claims/CLM-1001", headers=dana).json())
+    changed = {"accuracy_objective": 0.85, "reason": "Raised after the last held-out run"}
+    keep("settings", client.put("/api/staff/settings", json=changed, headers=dana).json())
 
     # Worked, with a check and a lookup recorded, then approved under the limit and paid.
     client.post("/api/staff/claims/CLM-1001/work", headers=dana)

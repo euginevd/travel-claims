@@ -368,6 +368,9 @@ setting_changes = Table(
     Column("changed_by", String(200), nullable=False),
     Column("changed_by_id", String(20), nullable=False),
     Column("changed_at", String(32), nullable=False),
+    # The value before, and why it changed; the payouts switch keeps its reason in its value.
+    Column("old_value", JSON),
+    Column("reason", String(200)),
 )
 
 # Each run of the red-team suite, newest last.

@@ -142,8 +142,26 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
+  const agentsTouched = useRef(false);
   const ids = useId();
   const senior = handler.can_approve_over_limit;
+
+  // Start from the number on the Settings page, unless the handler has already typed one.
+  useEffect(() => {
+    if (!senior) return;
+    let live = true;
+    api.getSettings().then(
+      (found) => {
+        if (live && !agentsTouched.current) setAgents(found.values.agents_at_once);
+      },
+      () => {
+        // Only a starting value: the form works without it.
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, senior]);
 
   const refresh = useCallback(() => {
     setGeneration((value) => value + 1);
@@ -274,6 +292,7 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
                   value={agents}
                   aria-describedby={`${ids}-hint`}
                   onChange={(event) => {
+                    agentsTouched.current = true;
                     setAgents(Math.min(25, Math.max(1, Number(event.target.value) || 1)));
                   }}
                 />

@@ -1,6 +1,6 @@
-import { Check, CircleMinus, FlaskConical, LoaderCircle, Play } from "lucide-react";
-import { useCallback, useEffect, useState, type SubmitEvent } from "react";
-import type { Api, Run, Scores, StartRunRequest } from "../api";
+import { Check, CircleMinus, FlaskConical, LoaderCircle, Play, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react";
+import type { Api, Criterion, Run, Scores, StartRunRequest, SuccessCriteria } from "../api";
 import { MiniBar, Sparkline } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { useFocusHeading } from "../useFocusHeading";
@@ -118,6 +118,148 @@ function Headlines({ runs }: { runs: Run[] }) {
   );
 }
 
+/** A criterion's target or actual as people read it: a share as a percentage, a count as is. */
+export function figure(criterion: Criterion, value: number | null): string {
+  if (value === null) return "–";
+  return criterion.unit === "share" ? percent(value) : String(value);
+}
+
+/** The line under the criteria: all met, or how many are and how many have nothing to go on. */
+export function overall(found: SuccessCriteria): string {
+  const total = found.criteria.length;
+  const met = found.criteria.filter((criterion) => criterion.met === true).length;
+  const noData = found.criteria.filter((criterion) => criterion.met === null).length;
+  if (found.met) return `All ${String(total)} criteria are met.`;
+  const waiting = noData > 0 ? `, ${String(noData)} with no data yet` : "";
+  return `${String(met)} of ${String(total)} criteria met${waiting}.`;
+}
+
+function Met({ met }: { met: boolean | null }) {
+  if (met === null) {
+    return (
+      <span className="chip">
+        <CircleMinus size={13} strokeWidth={1.75} aria-hidden="true" />
+        No data
+      </span>
+    );
+  }
+  return met ? (
+    <span className="chip chip-good">
+      <Check size={13} strokeWidth={1.75} aria-hidden="true" />
+      Met
+    </span>
+  ) : (
+    <span className="chip chip-bad">
+      <X size={13} strokeWidth={1.75} aria-hidden="true" />
+      Not met
+    </span>
+  );
+}
+
+/** Whether the agent meets its objectives, as the api worked it out in code. It loads again
+ * whenever `refreshKey` changes, which the page ties to its finished runs. */
+function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
+  const [found, setFound] = useState<SuccessCriteria | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let live = true;
+    api.getSuccessCriteria().then(
+      (criteria) => {
+        if (!live) return;
+        setFound(criteria);
+        setError(null);
+      },
+      (caught: unknown) => {
+        if (live) setError(caught instanceof Error ? caught.message : String(caught));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, refreshKey, attempt]);
+
+  return (
+    <section className="panel criteria" aria-labelledby="criteria-heading">
+      <div className="panel-head">
+        <h2 id="criteria-heading">Success criteria</h2>
+        <p className="panel-note">
+          Worked out in code from the latest held-out run and the payments. No model is asked.
+        </p>
+      </div>
+      {/* A quiet status, not an alert: the scoreboard below still works without this card. */}
+      {error && (
+        <p className="criteria-error" role="status">
+          The success criteria couldn&apos;t be loaded: {error}
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => {
+              setError(null);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Reload the criteria
+          </button>
+        </p>
+      )}
+      {!found && !error && (
+        <p role="status" className="loading">
+          <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
+          Loading the success criteria…
+        </p>
+      )}
+      {found && (
+        <>
+          <TableScroll label="Success criteria table">
+            <table className="table criteria-table">
+              <caption className="visually-hidden">
+                Each success criterion with its target and the latest figure
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Criterion</th>
+                  <th scope="col" className="num">
+                    Target
+                  </th>
+                  <th scope="col" className="num">
+                    Actual
+                  </th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {found.criteria.map((criterion) => (
+                  <tr key={criterion.key}>
+                    <th scope="row">
+                      {criterion.label}
+                      <span className="criteria-detail">{criterion.detail}</span>
+                    </th>
+                    <td className="num nowrap">
+                      {criterion.unit === "share" ? "At least " : ""}
+                      {figure(criterion, criterion.target)}
+                    </td>
+                    <td className="num">{figure(criterion, criterion.actual)}</td>
+                    <td>
+                      <Met met={criterion.met} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+          <p className="criteria-overall">
+            <strong>{overall(found)}</strong>
+            {found.criteria.some((criterion) => criterion.met === null) &&
+              " Run the held-out set below to measure the rest."}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function Percent({ value }: { value: number }) {
   return (
     <span className="pct">
@@ -135,6 +277,25 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const touched = useRef(false);
+
+  // Start from the number the handlers set, unless the engineer has already typed one.
+  useEffect(() => {
+    let live = true;
+    api.getSettings().then(
+      (found) => {
+        if (live && !touched.current) {
+          setRequest((current) => ({ ...current, concurrency: found.values.agents_at_once }));
+        }
+      },
+      () => {
+        // Only a starting value: the form works without it.
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api]);
 
   async function start(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -205,6 +366,7 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
             max={25}
             value={request.concurrency}
             onChange={(event) => {
+              touched.current = true;
               setRequest({ ...request, concurrency: Number(event.target.value) });
             }}
           />
@@ -251,6 +413,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
   }, [api, generation]);
 
   const running = runs?.some((run) => run.status === "running") ?? false;
+  const finished = runs?.filter((run) => run.status === "finished").length ?? 0;
   useEffect(() => {
     if (!running) return;
     const timer = window.setTimeout(refresh, POLL_MS);
@@ -269,6 +432,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
           </h1>
         </div>
       </header>
+      <SuccessCard api={api} refreshKey={finished} />
       {runs && <Headlines runs={runs} />}
       <StartRun api={api} onStarted={refresh} />
       {error && (

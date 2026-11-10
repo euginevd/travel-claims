@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
     undercover_api: str = "http://127.0.0.1:8000"
+    # The context layer's MCP url, for the policy wording and the claims manual.
+    undercover_context: str = "http://127.0.0.1:8006/mcp"
     # psycopg's own form (postgresql://...), where conversations and their progress are kept.
     checkpoint_database_url: SecretStr
 

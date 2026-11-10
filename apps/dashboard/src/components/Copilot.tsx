@@ -1,6 +1,13 @@
 import { AlertCircle, CheckCircle2, Plus, Search, Send, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Conversation, ConversationSummary, CopilotApi, Entry, Pending } from "../copilot";
+import type {
+  Answer,
+  Conversation,
+  ConversationSummary,
+  CopilotApi,
+  Entry,
+  Pending,
+} from "../copilot";
 import { dollars } from "../format";
 import { WATTLE_FOOTER, WattleMark } from "./Wattle";
 
@@ -12,13 +19,14 @@ interface CopilotProps {
 
 const SUGGESTIONS = [
   "What needs me today?",
-  "Which claims are waiting for sign-off?",
-  "Which claims are most urgent?",
+  "Are we meeting our success criteria?",
+  "What does the policy say about delayed bags?",
 ];
 const MESSAGE_LIMIT = 2000;
 
 // Wattle AI for claims experts: a chat in a sidebar that acts as the signed-in handler. Each step it
-// takes shows as a card, and a sign-off waits on a card until the handler confirms it.
+// takes shows as a card, and anything that pays, spends or sends a decision back waits on a card
+// until the handler confirms it.
 export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotProps) {
   const [past, setPast] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<Conversation | null>(null);
@@ -107,8 +115,8 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
             <WattleMark size={64} />
             <h3>Ask Wattle AI anything</h3>
             <p>
-              Ask about the queue, a claim or a customer. It works with your access, and nothing is
-              paid until you confirm.
+              Ask about the queue, a claim, a customer or the policy. It works with your access, and
+              nothing is paid, sent back or dispatched until you confirm.
             </p>
             <ul className="wattle-chips">
               {starters.map((suggestion) => (
@@ -152,6 +160,9 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
             }}
           />
         )}
+        {current && !busy && !current.pending && current.model_calls > 0 && (
+          <p className="copilot-turn">{turnLine(current)}</p>
+        )}
         {busy && (
           <p className="copilot-thinking" role="status">
             <WattleMark size={16} working /> Working on it…
@@ -181,7 +192,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           maxLength={MESSAGE_LIMIT}
           value={text}
           disabled={busy || Boolean(current?.pending)}
-          placeholder={current?.pending ? "Confirm or cancel the sign-off first" : "Ask anything…"}
+          placeholder={current?.pending ? "Confirm or cancel the card first" : "Ask anything…"}
           onChange={(event) => {
             setText(event.target.value);
           }}
@@ -244,6 +255,64 @@ function Bubble({ entry }: { entry: Entry }) {
   );
 }
 
+/** What the last answer took, in a quiet line: "3 steps · 4.2 s · $0.012". */
+export function turnLine(turn: Pick<Conversation, "steps" | "seconds" | "cost_usd">): string {
+  const steps = `${String(turn.steps)} ${turn.steps === 1 ? "step" : "steps"}`;
+  return `${steps} · ${turn.seconds.toFixed(1)} s · $${turn.cost_usd.toFixed(3)}`;
+}
+
+/** What a card asks, what going ahead does, and the answer its button sends. */
+function confirmText(pending: Pending): {
+  title: string;
+  body: ReactNode;
+  button: string;
+  answer: Answer;
+} {
+  const claim = pending.claim_id ?? "the claim";
+  if (pending.action === "dispatch") {
+    const agents = pending.agents ?? 0;
+    const waiting = pending.waiting ?? 0;
+    return {
+      title: "Start a dispatch?",
+      body: (
+        <>
+          This sends{" "}
+          <strong>
+            {agents} claim {agents === 1 ? "agent" : "agents"}
+          </strong>{" "}
+          through the {waiting} {waiting === 1 ? "claim" : "claims"} waiting now. Each claim worked
+          costs money.
+        </>
+      ),
+      button: "Start the dispatch",
+      answer: "confirm",
+    };
+  }
+  if (pending.action === "send_back") {
+    return {
+      title: `Send ${claim} back?`,
+      body: (
+        <>
+          This sends {pending.customer ? `${pending.customer}’s` : "the"} held decision back to the
+          agent to decide again. Nothing is paid.
+        </>
+      ),
+      button: "Send back",
+      answer: "confirm",
+    };
+  }
+  return {
+    title: `Sign off ${claim}?`,
+    body: (
+      <>
+        This pays <strong>{dollars(pending.amount ?? 0)}</strong> to {pending.customer}.
+      </>
+    ),
+    button: "Sign off and pay",
+    answer: "sign_off",
+  };
+}
+
 function ConfirmCard({
   pending,
   busy,
@@ -251,25 +320,29 @@ function ConfirmCard({
 }: {
   pending: Pending;
   busy: boolean;
-  onAnswer: (answer: "sign_off" | "cancel") => void;
+  onAnswer: (answer: Answer) => void;
 }) {
+  const text = confirmText(pending);
   return (
     <section className="copilot-confirm" aria-labelledby="confirm-title">
-      <h3 id="confirm-title">Sign off {pending.claim_id}?</h3>
-      <p>
-        This pays <strong>{dollars(pending.amount)}</strong> to {pending.customer}.
-      </p>
-      {pending.detail && <p className="muted">Agent&apos;s reason: {pending.detail}</p>}
+      <h3 id="confirm-title">{text.title}</h3>
+      <p>{text.body}</p>
+      {pending.action === "sign_off" && pending.detail && (
+        <p className="muted">Agent&apos;s reason: {pending.detail}</p>
+      )}
+      {pending.action === "send_back" && pending.note && (
+        <p className="muted">Your note: {pending.note}</p>
+      )}
       <div className="actions">
         <button
           type="button"
           className="button"
           disabled={busy}
           onClick={() => {
-            onAnswer("sign_off");
+            onAnswer(text.answer);
           }}
         >
-          Sign off and pay
+          {text.button}
         </button>
         <button
           type="button"

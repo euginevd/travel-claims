@@ -56,6 +56,35 @@ class StaffApi:
                 return None
             raise
 
+    def _optional(self, path: str) -> Json | None:
+        """A route's answer, or None while the api doesn't have the route."""
+        try:
+            return cast(Json, self._call("GET", path))
+        except ApiError as error:
+            if error.status == NOT_FOUND:
+                return None
+            raise
+
+    def latest_dispatch(self) -> Json:
+        return cast(Json, self._call("GET", "/api/staff/dispatches/latest"))
+
+    def start_dispatch(self, agents: int) -> Json:
+        body = {"concurrency": agents}
+        return cast(Json, self._call("POST", "/api/staff/dispatches", json=body))
+
+    def payout_switch(self) -> Json:
+        return cast(Json, self._call("GET", "/api/staff/payouts"))
+
+    def settings(self) -> Json | None:
+        return self._optional("/api/staff/settings")
+
+    def success_criteria(self) -> Json | None:
+        return self._optional("/api/staff/success-criteria")
+
+    def send_back(self, claim_id: str, note: str) -> Json:
+        path = f"/api/staff/claims/{claim_id}/send-back"
+        return cast(Json, self._call("POST", path, json={"note": note}))
+
     def work(self, claim_id: str) -> Json:
         return cast(Json, self._call("POST", f"/api/staff/claims/{claim_id}/work"))
 

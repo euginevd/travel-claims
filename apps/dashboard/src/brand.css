@@ -1753,3 +1753,10 @@ main.landing p {
   align-items: center;
   gap: 8px;
 }
+
+/* What the last answer took: a quiet line under it. */
+.copilot-turn {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.74rem;
+}

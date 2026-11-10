@@ -1,4 +1,4 @@
-import { ListChecks } from "lucide-react";
+import { ListChecks, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Handler } from "./api";
 import { CommandPalette } from "./components/CommandPalette";
@@ -9,9 +9,10 @@ import { Header } from "./components/Header";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./components/PayoutsSwitch";
 import { ClaimPage } from "./pages/ClaimPage";
 import { QueuePage } from "./pages/QueuePage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { loadToken, saveToken } from "./session";
-import { QUEUE_HREF, useHashRoute, type Route } from "./useHashRoute";
+import { QUEUE_HREF, SETTINGS_HREF, useHashRoute, type Route } from "./useHashRoute";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -134,6 +135,12 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
             Icon: ListChecks,
             current: route.page === "queue",
           },
+          {
+            href: SETTINGS_HREF,
+            label: "Settings",
+            Icon: SlidersHorizontal,
+            current: route.page === "settings",
+          },
         ]}
         onSignOut={signOut}
         onSearch={() => {
@@ -206,5 +213,6 @@ function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
       />
     );
   }
+  if (route.page === "settings") return <SettingsPage api={api} handler={handler} />;
   return <QueuePage api={api} handler={handler} />;
 }
