@@ -106,7 +106,8 @@ class Explainer:
                 }
             ]
         )
-        if screening is not None and screening.instructions_found:
+        # Fail closed: a check that couldn't read the question refuses it, as it refers a claim.
+        if screening is None or screening.instructions_found:
             return Explanation(answer=SCREENED, sources=[], screened=True)
         messages: list[Json] = [{"role": t.role, "content": t.text} for t in request.history]
         # nosemgrep: raw-html-format - markers around data for the model, not HTML

@@ -3,7 +3,9 @@ model reads it, so the guardrail never sees the agent's own instructions or tool
 
 import logging
 import math
+import os
 from dataclasses import dataclass
+from functools import cache
 from typing import Any, Protocol, cast
 
 log = logging.getLogger(__name__)
@@ -43,14 +45,19 @@ class BedrockGuardrail:
     ) -> None:
         self._id = guardrail_id
         self._version = version
-        if client is None:
-            import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
-
-            client = cast(Any, boto3).client("bedrock-runtime", region_name=region)
-        self._client = client
+        self._client = client or bedrock_runtime(region or os.environ["AWS_REGION"])
 
     def check(self, text: str) -> Verdict:
-        text = text[:MAX_CHARACTERS]
+        """Every part of the text, in pieces of the request limit, so none goes unscreened."""
+        cost = 0.0
+        for start in range(0, len(text), MAX_CHARACTERS):
+            verdict = self._check_piece(text[start : start + MAX_CHARACTERS])
+            cost += verdict.cost
+            if verdict.blocked:
+                return Verdict(blocked=True, reason=verdict.reason, cost=cost)
+        return Verdict(blocked=False, reason="", cost=cost)
+
+    def _check_piece(self, text: str) -> Verdict:
         if not text.strip():
             return Verdict(blocked=False, reason="", cost=0.0)
         cost = math.ceil(len(text) / 1000) * PRICE_PER_TEXT_UNIT
@@ -73,6 +80,14 @@ class BedrockGuardrail:
         return Verdict(blocked=False, reason="", cost=cost)
 
 
+@cache
+def bedrock_runtime(region: str) -> Any:
+    """One Bedrock runtime client per process and region."""
+    import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    return cast(Any, boto3).client("bedrock-runtime", region_name=region)
+
+
 def blocked_reason(reply: dict[str, Any]) -> str:
     """Which filters fired, in plain words, never the text itself."""
     fired: list[str] = []
@@ -88,5 +103,5 @@ def guardrail_for(guardrail_id: str | None, version: str, region: str | None) ->
     """The guardrail the settings name, or none."""
     if not guardrail_id:
         return NoGuardrail()
-    # No region given: boto3 takes the one the runtime sets (AWS_REGION).
+    # No region given: the one the runtime sets in AWS_REGION.
     return BedrockGuardrail(guardrail_id, version, region)
