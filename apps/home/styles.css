@@ -293,7 +293,7 @@ main {
 
 /* Hero: one centred column, what it is in a few lines. */
 .hero {
-  padding: 44px 0 0;
+  padding: 20px 0 0;
   text-align: center;
 }
 
@@ -340,9 +340,10 @@ h1 em {
 }
 
 /* The walkthrough: one framed screen, a still until the recording exists. */
+/* The frame shrinks on shorter screens so the whole page fits without scrolling. */
 .stage {
-  max-width: 960px;
-  margin: 44px auto 0;
+  max-width: clamp(480px, (100vh - 716px) * 1.6, 960px);
+  margin: 36px auto 0;
 }
 
 .browser {
@@ -382,14 +383,14 @@ h1 em {
 }
 
 .soon {
-  margin-top: 16px;
+  margin-top: 12px;
   font-size: 13px;
   color: var(--ink-2);
 }
 
 /* The three apps: a slim row of double-ring cards, each one link. */
 .apps-sec {
-  padding: 56px 0 88px;
+  padding: 32px 0 40px;
 }
 
 .apps {
