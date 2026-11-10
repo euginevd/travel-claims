@@ -49,6 +49,8 @@ env:
   TF_VAR_haiku_model: ${{ vars.HAIKU_MODEL }}
   # Which Claude the apps call on AWS: anthropic (the key in the app secret) or bedrock, the default.
   TF_VAR_model_provider: ${{ vars.MODEL_PROVIDER || 'bedrock' }}
+  # Lookup programs on AgentCore Code Interpreter (plan phase 5): true to switch them on.
+  TF_VAR_code_execution: ${{ vars.CODE_EXECUTION || 'false' }}
 
 jobs:
   detect:

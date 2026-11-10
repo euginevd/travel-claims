@@ -417,6 +417,7 @@ def build_app() -> FastAPI:
     from undercover_agent.knowledge import KnowledgeBase  # noqa: PLC0415
     from undercover_agent.memory import AgentCoreMemory, Memory, StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude, plain_name  # noqa: PLC0415
+    from undercover_agent.programs import CodeInterpreterRunner  # noqa: PLC0415
     from undercover_agent.redteam import RedTeamStarter  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
     from undercover_agent.tools import McpContext  # noqa: PLC0415
@@ -461,6 +462,14 @@ def build_app() -> FastAPI:
             saver,
             max_model_calls=settings.max_model_calls,
             memory=memory,
+            programs=CodeInterpreterRunner(
+                settings.code_interpreter_id,
+                settings.undercover_context,
+                settings.context_tool_prefix,
+                region,
+            )
+            if settings.code_interpreter_id
+            else None,
         )
         return Runner(graph, api)
 

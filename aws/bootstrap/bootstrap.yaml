@@ -534,12 +534,15 @@ Resources:
               - xray:PutTraceSegments
             Resource: '*'
           # The api starts the agent's work; the agent gets its workload identity, calls its gateway
-          # and keeps its customers' memory.
+          # keeps its customers' memory and runs lookup programs.
           - Sid: AgentCore
             Effect: Allow
             Action:
               - bedrock-agentcore:BatchCreateMemoryRecords
+              - bedrock-agentcore:InvokeCodeInterpreter
               - bedrock-agentcore:ListMemoryRecords
+              - bedrock-agentcore:StartCodeInterpreterSession
+              - bedrock-agentcore:StopCodeInterpreterSession
               - bedrock-agentcore:GetWorkloadAccessToken
               - bedrock-agentcore:GetWorkloadAccessTokenForJWT
               - bedrock-agentcore:GetWorkloadAccessTokenForUserId

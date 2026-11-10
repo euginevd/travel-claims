@@ -21,6 +21,7 @@ from langgraph.types import interrupt
 from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.memory import Memory, memory_of, uses_memory
 from undercover_agent.models import Call, Claude, SpecialistKind
+from undercover_agent.programs import PROGRAM_TOOL, ProgramRunner
 from undercover_agent.tools import (
     TOOLS,
     Context,
@@ -65,9 +66,11 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
     *,
     max_model_calls: int,
     memory: Memory | None = None,
+    programs: ProgramRunner | None = None,
 ) -> CompiledStateGraph[ClaimState, None, ClaimState, ClaimState]:
     """The claim graph, wired to the api, Claude, the context layer, a checkpointer and,
-    when there is one, the memory of each customer."""
+    when there are, the memory of each customer and a sandbox for lookup programs."""
+    tools = [*TOOLS, PROGRAM_TOOL] if programs else TOOLS
 
     def recall(claim_id: str) -> str:
         claim = api.claim(claim_id)
@@ -150,7 +153,7 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
         chosen = state.get("configuration") or {}
         reply, call = claude.turn(
             str(chosen.get("instructions") or INSTRUCTIONS),
-            TOOLS,
+            tools,
             state["messages"],
             chosen.get("model"),
             chosen.get("effort"),
@@ -191,6 +194,9 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             api.record_step(claim_id, thread_id, "tool_call", f"{name} {as_text(args)}")
             if name == "search_memory":
                 result = Result(recall(claim_id))
+            elif name == "run_lookup_program" and programs is not None:
+                ran = programs.run(str(args.get("program", "")))
+                result = Result(ran.text, is_error=ran.is_error)
             else:
                 result = run_tool(
                     api, context, claim_id, name, args, lambda k: consult(claim_id, thread_id, k)
