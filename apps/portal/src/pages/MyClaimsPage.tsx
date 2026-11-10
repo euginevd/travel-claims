@@ -1,6 +1,6 @@
 import { FilePlus2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Api, CustomerClaimSummary } from "../api";
+import type { Api, CustomerClaimSummary, CustomerStatus } from "../api";
 import { DelayOffers, PayoutCard, ResumeDraft } from "../components/AccountCards";
 import { ClaimTracker } from "../components/ClaimTracker";
 import { CoverCards } from "../components/CoverCards";
@@ -10,6 +10,17 @@ import { CLAIM_TYPES } from "./NewClaimPage";
 import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { myClaimHref, NEW_CLAIM_HREF } from "../useHashRoute";
+
+/** How long the stage a claim is at usually takes, so the customer knows when to expect news. */
+export const STAGE_TIME: Record<CustomerStatus, string> = {
+  received: "Most claims start being assessed within a few minutes.",
+  assessing: "Most claims are decided within a few minutes.",
+  reviewing: "Final checks usually take less than a business day.",
+  with_a_handler: "Most decisions at this stage take 1 to 2 business days.",
+  approved: "Payments to a PayID usually land within seconds.",
+  paid: "",
+  declined: "",
+};
 
 // Paid and declined claims are finished; everything else, a person's review included, is in progress.
 const COMPLETED = new Set(["paid", "declined"]);
@@ -131,6 +142,12 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
                               ? "one thing"
                               : `${String(claim.open_requests)} things`}{" "}
                             from you to finish this claim.
+                            <a
+                              className="button soft small-button"
+                              href={myClaimHref(claim.claim_id)}
+                            >
+                              Send it<span className="visually-hidden"> for {claim.claim_id}</span>
+                            </a>
                           </p>
                         ) : (
                           <p className="claim-card-line">
@@ -139,13 +156,19 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
                           </p>
                         )}
                         <ClaimTracker status={claim.status} mini />
+                        {STAGE_TIME[claim.status] && (
+                          <p className="claim-eta">{STAGE_TIME[claim.status]}</p>
+                        )}
                       </li>
                     ))}
                   </ul>
                 </section>
               )}
               {done.length > 0 && (
-                <section aria-labelledby="completed-heading" className="claims-group">
+                <section
+                  aria-labelledby="completed-heading"
+                  className="claims-group done-group panel"
+                >
                   {/* Finished claims stay tucked away until the customer opens them. */}
                   <details>
                     <summary>
@@ -179,8 +202,10 @@ export function MyClaimsPage({ api, name = "" }: { api: Api; name?: string }) {
           )}
         </div>
         <aside className="home-side" aria-label="Your cover and payouts">
-          <CoverCards api={api} />
-          <PayoutCard api={api} />
+          <div className="side-ring">
+            <CoverCards api={api} />
+            <PayoutCard api={api} />
+          </div>
         </aside>
       </div>
     </section>

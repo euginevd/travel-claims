@@ -120,6 +120,11 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
 
   return (
     <>
+      <div className="page-glow" aria-hidden="true">
+        <span className="blob b1" />
+        <span className="blob b3" />
+        <span className="blob b2" />
+      </div>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -132,13 +137,13 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
           { href: NEW_CLAIM_HREF, label: "Make a claim", Icon: FilePlus2 },
           { href: UPDATES_HREF, label: "Updates", Icon: Bell },
         ]}
+        current={currentHref(route)}
         onSignOut={signOut}
         onAssistant={() => {
           setAssistantOpen((now) => !now);
         }}
       />
-      <div className="sky-band" aria-hidden="true" />
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} className="page-in" key={routeKey(route)}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api, customer.name)}</ErrorBoundary>
       </main>
       {assistantOpen && (
@@ -152,6 +157,12 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
       )}
     </>
   );
+}
+
+function currentHref(route: Route): string {
+  if (route.page === "new-claim") return NEW_CLAIM_HREF;
+  if (route.page === "updates") return UPDATES_HREF;
+  return MY_CLAIMS_HREF;
 }
 
 function routeKey(route: Route): string {

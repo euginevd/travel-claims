@@ -20,6 +20,7 @@ import { date, dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { myClaimHref } from "../useHashRoute";
 import { PlaceInput } from "../components/PlaceInput";
+import { WattleMark } from "../components/Wattle";
 
 export const CLAIM_TYPES: Record<string, string> = {
   trip_cancellation: "Trip cancelled",
@@ -191,6 +192,7 @@ export function NewClaimPage({ api }: { api: Api }) {
   const [ready, setReady] = useState(false);
   const [resumed, setResumed] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [told, setTold] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -300,15 +302,15 @@ export function NewClaimPage({ api }: { api: Api }) {
   // "Something else" needs the customer's own sentence, since no tile says what happened.
   const needsWords = chip === "other" && words.trim().length === 0;
 
-  async function goToCheck() {
-    if (!chip) return;
+  async function goToCheck(useChip: CaseChip | "" = chip, useWords: string = words) {
+    if (!useChip) return;
     setStep("check");
     setDraftNote(null);
     let draft: Draft | null = null;
-    if (hasSomethingToRead) {
+    if (files.length > 0 || useWords.trim().length > 0) {
       setDrafting(true);
       try {
-        draft = await api.draft(policyId, words, chip, files);
+        draft = await api.draft(policyId, useWords, useChip, files);
       } catch (caught) {
         setDraftNote(
           caught instanceof ApiError
@@ -317,8 +319,8 @@ export function NewClaimPage({ api }: { api: Api }) {
         );
       }
     }
-    const filled = fromDraft(draft, chip, words);
-    setSummary(filled.summary || CHIPS[chip].label);
+    const filled = fromDraft(draft, useChip, useWords);
+    setSummary(filled.summary || CHIPS[useChip].label);
     setStory(filled.story);
     setIncidentDate(filled.incidentDate);
     setLocation(filled.location);
@@ -328,6 +330,18 @@ export function NewClaimPage({ api }: { api: Api }) {
     setClaimType(filled.claimType);
     setDrafted(draft !== null);
     setDrafting(false);
+  }
+
+  // "Rather just tell us?": the customer's sentence goes straight to the drafting assistant,
+  // which fills in the claim for them to check before it's sent.
+  function tellUs() {
+    const said = told.trim();
+    if (!said || !policy) return;
+    const useChip = chip || "other";
+    setChip(useChip);
+    setWords(said);
+    setTold("");
+    void goToCheck(useChip, said);
   }
 
   function answerQuestion(skip: boolean) {
@@ -403,12 +417,17 @@ export function NewClaimPage({ api }: { api: Api }) {
 
   return (
     <section aria-labelledby="new-claim-heading" className="form-page">
-      <ol className="step-dots" aria-label={`Step ${String(stepNumber)} of 3`}>
-        {[1, 2, 3].map((n) => (
-          <li key={n} className={n <= stepNumber ? "on" : ""} aria-hidden="true" />
+      <ol className="step-pills" aria-label={`Step ${String(stepNumber)} of 3`}>
+        {STEP_NAMES.map((name, index) => (
+          <li
+            key={name}
+            className={index + 1 === stepNumber ? "on" : index + 1 < stepNumber ? "done" : ""}
+            aria-current={index + 1 === stepNumber ? "step" : undefined}
+          >
+            {index + 1} · {name}
+          </li>
         ))}
       </ol>
-      <p className="eyebrow">Make a claim · step {stepNumber} of 3</p>
       <h1 id="new-claim-heading" ref={heading} tabIndex={-1}>
         {step === "what"
           ? "What happened?"
@@ -436,397 +455,504 @@ export function NewClaimPage({ api }: { api: Api }) {
         </p>
       )}
 
-      {step === "what" && (
-        <div className="flow-step">
-          {policies && policies.length > 1 && (
-            <fieldset className="trip-cards">
-              <legend>Which trip?</legend>
-              {policies.map((p) => (
-                <label
-                  key={p.policy_id}
-                  className={`trip-card${p.policy_id === policyId ? " chosen" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name={`${ids}-policy`}
-                    value={p.policy_id}
-                    checked={p.policy_id === policyId}
-                    onChange={() => {
-                      setPolicyId(p.policy_id);
-                    }}
-                  />
-                  <span className="trip-name">{p.trip.destination}</span>
-                  <span className="trip-dates">
-                    {date(p.trip.departs_on)} – {date(p.trip.returns_on)}
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-          )}
-          {policies?.length === 1 && policy && (
-            <p className="trip-line">
-              Your trip to <strong>{policy.trip.destination}</strong>,{" "}
-              {date(policy.trip.departs_on)} – {date(policy.trip.returns_on)}
-            </p>
-          )}
-          <fieldset className="tiles">
-            <legend>Tap the closest one</legend>
-            {TILE_ORDER.map((name) => {
-              const { label, hint, Icon } = CHIPS[name];
-              return (
-                <label key={name} className={`tile${chip === name ? " chosen" : ""}`}>
-                  <input
-                    type="radio"
-                    name={`${ids}-chip`}
-                    value={name}
-                    checked={chip === name}
-                    onChange={() => {
-                      setChip(name);
-                    }}
-                  />
-                  <span className="tile-icon" aria-hidden="true">
-                    <Icon size={22} strokeWidth={2} />
-                  </span>
-                  <span className="tile-label">{label}</span>
-                  <span className="tile-hint">{hint}</span>
-                </label>
-              );
-            })}
-          </fieldset>
-          <div className="flow-actions">
-            <button
-              type="button"
-              className="button wide"
-              disabled={!policy || !chip}
-              onClick={() => {
-                setStep("receipts");
-              }}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "receipts" && (
-        <div className="flow-step">
-          <p className="muted">
-            Snap a photo or add a PDF of each receipt. Our assistant reads them, so there&apos;s
-            less for you to type.
-          </p>
-          <ReceiptPicker files={files} onChange={setFiles} />
-          <label htmlFor={`${ids}-words`}>
-            {chip === "other"
-              ? "What happened? A sentence is enough"
-              : "Anything to add? (optional)"}
-          </label>
-          <textarea
-            id={`${ids}-words`}
-            rows={3}
-            maxLength={1000}
-            placeholder="For example: bag didn't arrive in Rome, bought clothes and a charger"
-            value={words}
-            onChange={(event) => {
-              setWords(event.target.value);
-            }}
-          />
-          <div className="flow-actions">
-            <button
-              type="button"
-              className="button wide"
-              disabled={needsWords}
-              onClick={() => {
-                void goToCheck();
-              }}
-            >
-              {hasSomethingToRead ? (
-                <>
-                  <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
-                  Draft my claim
-                </>
-              ) : (
-                "Continue without receipts"
+      <div className={`claim-layout${step === "check" ? " single" : ""}`}>
+        <div className="panel claim-form">
+          {step === "what" && (
+            <div className="flow-step">
+              {policies && policies.length > 1 && (
+                <fieldset className="trip-cards">
+                  <legend>Which trip?</legend>
+                  {policies.map((p) => (
+                    <label
+                      key={p.policy_id}
+                      className={`trip-card${p.policy_id === policyId ? " chosen" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name={`${ids}-policy`}
+                        value={p.policy_id}
+                        checked={p.policy_id === policyId}
+                        onChange={() => {
+                          setPolicyId(p.policy_id);
+                        }}
+                      />
+                      <span className="trip-name">{p.trip.destination}</span>
+                      <span className="trip-dates">
+                        {date(p.trip.departs_on)} – {date(p.trip.returns_on)}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
               )}
-            </button>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => {
-                setStep("what");
-              }}
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "check" && drafting && (
-        <div className="flow-step">
-          <p role="status" className="ai-mark live-draft">
-            <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
-            Reading your receipts and drafting your claim…
-          </p>
-          <div aria-hidden="true">
-            <span className="skeleton skeleton-line" />
-            <span className="skeleton skeleton-line" />
-            <span className="skeleton skeleton-card" />
-          </div>
-        </div>
-      )}
-
-      {step === "check" && !drafting && chip && (
-        <div className="flow-step">
-          {draftNote && (
-            <p className="notice" role="status">
-              {draftNote}
-            </p>
-          )}
-          {drafted && !draftNote && (
-            <p className="ai-mark">
-              <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
-              Drafted by our AI assistant. Check it and fix anything that&apos;s wrong.
-            </p>
-          )}
-
-          <div className="chosen-line">
-            <span className="tile-icon" aria-hidden="true">
-              {(() => {
-                const { Icon } = CHIPS[chip];
-                return <Icon size={18} strokeWidth={2} />;
-              })()}
-            </span>
-            <span>
-              <strong>{CHIPS[chip].label}</strong>
-              {policy && <span className="muted small"> · {policy.trip.destination}</span>}
-            </span>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => {
-                setStep("what");
-              }}
-            >
-              Change
-            </button>
-          </div>
-
-          {chip === "other" && (
-            <>
-              <label htmlFor={`${ids}-type`}>Type of claim</label>
-              <select
-                id={`${ids}-type`}
-                value={claimType}
-                className={claimType ? undefined : "unsure"}
-                onChange={(event) => {
-                  setClaimType(event.target.value);
-                }}
-              >
-                <option value="">Choose the closest</option>
-                {Object.entries(CLAIM_TYPES).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </>
+              {policies?.length === 1 && policy && (
+                <p className="trip-line">
+                  Your trip to <strong>{policy.trip.destination}</strong>,{" "}
+                  {date(policy.trip.departs_on)} – {date(policy.trip.returns_on)}
+                </p>
+              )}
+              <fieldset className="tiles">
+                <legend>Tap the closest one</legend>
+                {TILE_ORDER.map((name) => {
+                  const { label, hint, Icon } = CHIPS[name];
+                  return (
+                    <label key={name} className={`tile${chip === name ? " chosen" : ""}`}>
+                      <input
+                        type="radio"
+                        name={`${ids}-chip`}
+                        value={name}
+                        checked={chip === name}
+                        onChange={() => {
+                          setChip(name);
+                        }}
+                      />
+                      <span className="tile-icon" aria-hidden="true">
+                        <Icon size={22} strokeWidth={2} />
+                      </span>
+                      <span className="tile-label">{label}</span>
+                      <span className="tile-hint">{hint}</span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+              <div className="flow-actions">
+                <button
+                  type="button"
+                  className="button wide"
+                  disabled={!policy || !chip}
+                  onClick={() => {
+                    setStep("receipts");
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           )}
 
-          {questions[0] && (
-            <div className="question-card panel">
-              <p className="question">
-                <Sparkle size={14} strokeWidth={2} aria-hidden="true" /> {questions[0]}
+          {step === "receipts" && (
+            <div className="flow-step">
+              <p className="muted">
+                Snap a photo or add a PDF of each receipt. Our assistant reads them, so there&apos;s
+                less for you to type.
               </p>
-              <label htmlFor={`${ids}-answer`} className="visually-hidden">
-                Your answer
+              <ReceiptPicker files={files} onChange={setFiles} />
+              <label htmlFor={`${ids}-words`}>
+                {chip === "other"
+                  ? "What happened? A sentence is enough"
+                  : "Anything to add? (optional)"}
               </label>
-              <input
-                id={`${ids}-answer`}
-                value={answer}
+              <textarea
+                id={`${ids}-words`}
+                rows={3}
+                maxLength={1000}
+                placeholder="For example: bag didn't arrive in Rome, bought clothes and a charger"
+                value={words}
                 onChange={(event) => {
-                  setAnswer(event.target.value);
+                  setWords(event.target.value);
                 }}
               />
               <div className="flow-actions">
                 <button
                   type="button"
-                  className="button small-button"
+                  className="button wide"
+                  disabled={needsWords}
                   onClick={() => {
-                    answerQuestion(false);
+                    void goToCheck();
                   }}
                 >
-                  Answer
+                  {hasSomethingToRead ? (
+                    <>
+                      <Sparkle size={16} strokeWidth={2} aria-hidden="true" />
+                      Draft my claim
+                    </>
+                  ) : (
+                    "Continue without receipts"
+                  )}
                 </button>
                 <button
                   type="button"
                   className="link-button"
                   onClick={() => {
-                    answerQuestion(true);
+                    setStep("what");
                   }}
                 >
-                  Skip
+                  Back
                 </button>
               </div>
             </div>
           )}
 
-          <label htmlFor={`${ids}-summary`}>In one line</label>
-          <input
-            id={`${ids}-summary`}
-            className={flag("summary")}
-            maxLength={200}
-            value={summary}
-            onChange={(event) => {
-              setSummary(event.target.value);
-            }}
-          />
-          {policy && (
-            <DayPicker
-              label="When did it happen?"
-              from={policy.trip.departs_on}
-              to={policy.trip.returns_on}
-              value={incidentDate}
-              unsure={unsure.has("incident_date")}
-              onChange={setIncidentDate}
-            />
-          )}
-          <label htmlFor={`${ids}-where`}>Where?</label>
-          <PlaceInput
-            id={`${ids}-where`}
-            className={flag("incident_location")}
-            value={location}
-            destination={policy?.trip.destination ?? ""}
-            onChange={setLocation}
-          />
-          {unsure.size > 0 && (
-            <p className="small muted">
-              Highlighted fields are ones our assistant wasn&apos;t sure of.
-            </p>
+          {step === "check" && drafting && (
+            <div className="flow-step">
+              <p role="status" className="ai-mark live-draft">
+                <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                Reading your receipts and drafting your claim…
+              </p>
+              <div aria-hidden="true">
+                <span className="skeleton skeleton-line" />
+                <span className="skeleton skeleton-line" />
+                <span className="skeleton skeleton-card" />
+              </div>
+            </div>
           )}
 
-          <h2 className="h3">What you&apos;re claiming</h2>
-          {lines.length === 0 && (
-            <p className="muted small">Add each thing you paid for, with what it cost.</p>
-          )}
-          {lines.map((line, index) => (
-            <div key={String(index)} className="item-row">
-              <div className="item-head">
-                <label htmlFor={`${ids}-item-${String(index)}`}>Item {index + 1}</label>
-                {line.source && <span className="source-tag">{line.source}</span>}
+          {step === "check" && !drafting && chip && (
+            <div className="flow-step">
+              {draftNote && (
+                <p className="notice" role="status">
+                  {draftNote}
+                </p>
+              )}
+              {drafted && !draftNote && (
+                <p className="ai-mark">
+                  <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+                  Drafted by our AI assistant. Check it and fix anything that&apos;s wrong.
+                </p>
+              )}
+
+              <div className="chosen-line">
+                <span className="tile-icon" aria-hidden="true">
+                  {(() => {
+                    const { Icon } = CHIPS[chip];
+                    return <Icon size={18} strokeWidth={2} />;
+                  })()}
+                </span>
+                <span>
+                  <strong>{CHIPS[chip].label}</strong>
+                  {policy && <span className="muted small"> · {policy.trip.destination}</span>}
+                </span>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => {
+                    setStep("what");
+                  }}
+                >
+                  Change
+                </button>
               </div>
-              <input
-                id={`${ids}-item-${String(index)}`}
-                maxLength={200}
-                value={line.description}
-                onChange={(event) => {
-                  setLine(index, { description: event.target.value });
-                }}
-              />
-              <div className="item-row-pair">
-                <div>
-                  <label htmlFor={`${ids}-cat-${String(index)}`}>Kind</label>
+
+              {chip === "other" && (
+                <>
+                  <label htmlFor={`${ids}-type`}>Type of claim</label>
                   <select
-                    id={`${ids}-cat-${String(index)}`}
-                    value={line.category}
+                    id={`${ids}-type`}
+                    value={claimType}
+                    className={claimType ? undefined : "unsure"}
                     onChange={(event) => {
-                      setLine(index, { category: event.target.value });
+                      setClaimType(event.target.value);
                     }}
                   >
-                    {Object.entries(CATEGORIES).map(([value, label]) => (
+                    <option value="">Choose the closest</option>
+                    {Object.entries(CLAIM_TYPES).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label htmlFor={`${ids}-amount-${String(index)}`}>Amount (US$)</label>
+                </>
+              )}
+
+              {questions[0] && (
+                <div className="question-card panel">
+                  <p className="question">
+                    <Sparkle size={14} strokeWidth={2} aria-hidden="true" /> {questions[0]}
+                  </p>
+                  <label htmlFor={`${ids}-answer`} className="visually-hidden">
+                    Your answer
+                  </label>
                   <input
-                    id={`${ids}-amount-${String(index)}`}
-                    inputMode="decimal"
-                    value={line.amount}
+                    id={`${ids}-answer`}
+                    value={answer}
                     onChange={(event) => {
-                      setLine(index, { amount: event.target.value });
+                      setAnswer(event.target.value);
                     }}
                   />
+                  <div className="flow-actions">
+                    <button
+                      type="button"
+                      className="button small-button"
+                      onClick={() => {
+                        answerQuestion(false);
+                      }}
+                    >
+                      Answer
+                    </button>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        answerQuestion(true);
+                      }}
+                    >
+                      Skip
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                className="link-button small"
-                onClick={() => {
-                  setLines(lines.filter((_, i) => i !== index));
+              )}
+
+              <label htmlFor={`${ids}-summary`}>In one line</label>
+              <input
+                id={`${ids}-summary`}
+                className={flag("summary")}
+                maxLength={200}
+                value={summary}
+                onChange={(event) => {
+                  setSummary(event.target.value);
                 }}
-              >
-                <Trash2 size={14} strokeWidth={2} aria-hidden="true" /> Remove item {index + 1}
-              </button>
+              />
+              {policy && (
+                <DayPicker
+                  label="When did it happen?"
+                  from={policy.trip.departs_on}
+                  to={policy.trip.returns_on}
+                  value={incidentDate}
+                  unsure={unsure.has("incident_date")}
+                  onChange={setIncidentDate}
+                />
+              )}
+              <label htmlFor={`${ids}-where`}>Where?</label>
+              <PlaceInput
+                id={`${ids}-where`}
+                className={flag("incident_location")}
+                value={location}
+                destination={policy?.trip.destination ?? ""}
+                onChange={setLocation}
+              />
+              {unsure.size > 0 && (
+                <p className="small muted">
+                  Highlighted fields are ones our assistant wasn&apos;t sure of.
+                </p>
+              )}
+
+              <h2 className="h3">What you&apos;re claiming</h2>
+              {lines.length === 0 && (
+                <p className="muted small">Add each thing you paid for, with what it cost.</p>
+              )}
+              {lines.map((line, index) => (
+                <div key={String(index)} className="item-row">
+                  <div className="item-head">
+                    <label htmlFor={`${ids}-item-${String(index)}`}>Item {index + 1}</label>
+                    {line.source && <span className="source-tag">{line.source}</span>}
+                  </div>
+                  <input
+                    id={`${ids}-item-${String(index)}`}
+                    maxLength={200}
+                    value={line.description}
+                    onChange={(event) => {
+                      setLine(index, { description: event.target.value });
+                    }}
+                  />
+                  <div className="item-row-pair">
+                    <div>
+                      <label htmlFor={`${ids}-cat-${String(index)}`}>Kind</label>
+                      <select
+                        id={`${ids}-cat-${String(index)}`}
+                        value={line.category}
+                        onChange={(event) => {
+                          setLine(index, { category: event.target.value });
+                        }}
+                      >
+                        {Object.entries(CATEGORIES).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor={`${ids}-amount-${String(index)}`}>Amount (US$)</label>
+                      <input
+                        id={`${ids}-amount-${String(index)}`}
+                        inputMode="decimal"
+                        value={line.amount}
+                        onChange={(event) => {
+                          setLine(index, { amount: event.target.value });
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="link-button small"
+                    onClick={() => {
+                      setLines(lines.filter((_, i) => i !== index));
+                    }}
+                  >
+                    <Trash2 size={14} strokeWidth={2} aria-hidden="true" /> Remove item {index + 1}
+                  </button>
+                </div>
+              ))}
+              {lines.length < 20 && (
+                <button
+                  type="button"
+                  className="button secondary add-item"
+                  onClick={() => {
+                    setLines([...lines, { ...BLANK }]);
+                  }}
+                >
+                  <Plus size={16} strokeWidth={2} aria-hidden="true" /> Add an item
+                </button>
+              )}
+              {lines.length > 0 && (
+                <p className="total">
+                  Total claimed <span className="number">{dollars(total)}</span>
+                </p>
+              )}
+
+              <details className="your-words">
+                <summary>What happened, in your words</summary>
+                <label htmlFor={`${ids}-story`} className="visually-hidden">
+                  What happened
+                </label>
+                <textarea
+                  id={`${ids}-story`}
+                  rows={5}
+                  maxLength={4000}
+                  value={story}
+                  onChange={(event) => {
+                    setStory(event.target.value);
+                  }}
+                />
+              </details>
+
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="flow-actions">
+                <button
+                  type="button"
+                  className="button wide"
+                  disabled={busy}
+                  onClick={() => {
+                    void send();
+                  }}
+                >
+                  {busy ? "Sending your claim…" : "Send my claim"}
+                </button>
+                <button
+                  type="button"
+                  className="link-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setStep("receipts");
+                  }}
+                >
+                  Back
+                </button>
+              </div>
             </div>
-          ))}
-          {lines.length < 20 && (
-            <button
-              type="button"
-              className="button secondary add-item"
-              onClick={() => {
-                setLines([...lines, { ...BLANK }]);
-              }}
-            >
-              <Plus size={16} strokeWidth={2} aria-hidden="true" /> Add an item
-            </button>
           )}
-          {lines.length > 0 && (
-            <p className="total">
-              Total claimed <span className="number">{dollars(total)}</span>
-            </p>
-          )}
-
-          <details className="your-words">
-            <summary>What happened, in your words</summary>
-            <label htmlFor={`${ids}-story`} className="visually-hidden">
-              What happened
-            </label>
-            <textarea
-              id={`${ids}-story`}
-              rows={5}
-              maxLength={4000}
-              value={story}
-              onChange={(event) => {
-                setStory(event.target.value);
-              }}
-            />
-          </details>
-
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="flow-actions">
-            <button
-              type="button"
-              className="button wide"
-              disabled={busy}
-              onClick={() => {
-                void send();
-              }}
-            >
-              {busy ? "Sending your claim…" : "Send my claim"}
-            </button>
-            <button
-              type="button"
-              className="link-button"
-              disabled={busy}
-              onClick={() => {
-                setStep("receipts");
-              }}
-            >
-              Back
-            </button>
-          </div>
         </div>
-      )}
+        {step !== "check" && (
+          <aside className="claim-aside" aria-label="Help with your claim">
+            {step === "what" && (
+              <section className="panel wash-blush tell-us" aria-labelledby={`${ids}-tell`}>
+                <div className="aside-head">
+                  <WattleMark size={28} />
+                  <h2 id={`${ids}-tell`}>Rather just tell us?</h2>
+                </div>
+                <p className="muted small">
+                  Describe it in a sentence and Wattle fills in the claim for you. You check it
+                  before it&apos;s sent.
+                </p>
+                <form
+                  className="tell-row"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    tellUs();
+                  }}
+                >
+                  <label htmlFor={`${ids}-told`} className="visually-hidden">
+                    What happened, in a sentence
+                  </label>
+                  <input
+                    id={`${ids}-told`}
+                    maxLength={1000}
+                    placeholder="My bag didn't arrive in Rome…"
+                    value={told}
+                    onChange={(event) => {
+                      setTold(event.target.value);
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="button small-button"
+                    disabled={!policy || !told.trim()}
+                  >
+                    Go
+                  </button>
+                </form>
+              </section>
+            )}
+            <section className="panel wash-sage" aria-labelledby={`${ids}-needs`}>
+              <h2 id={`${ids}-needs`}>
+                {chip ? `For ${NEEDS_NAME[chip]} we'll need` : "What we'll ask for"}
+              </h2>
+              <ul className="checklist">
+                {(chip ? NEEDS[chip] : NEEDS_ANY).map((need) => (
+                  <li key={need}>{need}</li>
+                ))}
+              </ul>
+              <p className="aside-note">
+                Don&apos;t have them all yet? Send the claim now and add the rest later.
+              </p>
+            </section>
+          </aside>
+        )}
+      </div>
     </section>
   );
 }
+
+const STEP_NAMES = ["What happened", "Receipts", "Check and send"];
+
+/** What a claim of each kind usually needs, so the customer can gather it up front. */
+const NEEDS: Record<CaseChip, string[]> = {
+  lost_bag: [
+    "The airline's lost bag report (PIR)",
+    "Receipts for what you had to buy",
+    "The airline's reply about compensation",
+  ],
+  delayed_bag: [
+    "The airline's report that your bag was late",
+    "Receipts for essentials you bought",
+    "When the bag reached you",
+  ],
+  flight_delay: [
+    "Your booking or boarding pass",
+    "The airline's note on why it was late",
+    "Receipts for meals, transport or a hotel",
+  ],
+  trip_cancelled: [
+    "Your booking and what you paid",
+    "Why you couldn't go, such as a doctor's letter",
+    "Any refund you've had",
+  ],
+  medical: [
+    "The doctor's or hospital's report",
+    "Invoices and receipts for treatment",
+    "Receipts for medicine",
+  ],
+  stolen: ["A police report of the theft", "Receipts or proof you owned each item"],
+  passport: ["A police report of the loss", "Receipts for the replacement and travel to get it"],
+  other: ["Anything that shows what happened", "Receipts for what you paid"],
+};
+
+const NEEDS_NAME: Record<CaseChip, string> = {
+  lost_bag: "a lost bag",
+  delayed_bag: "a late bag",
+  flight_delay: "a delayed flight",
+  trip_cancelled: "a cancelled trip",
+  medical: "a medical claim",
+  stolen: "something stolen",
+  passport: "a lost passport",
+  other: "your claim",
+};
+
+const NEEDS_ANY = ["Receipts for what you paid", "Anything that shows what happened"];
 
 function isChip(value: string): value is CaseChip {
   return (caseChips as readonly string[]).includes(value);
