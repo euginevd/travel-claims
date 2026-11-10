@@ -42,10 +42,10 @@ Today the guardrail is named in headers on every Bedrock call, so it screens eac
 
 Revised 2026-11-10. Only the context layer goes through Gateway now. The api's agent routes are scoped to one claim, and today the agent's code fills in the claim, never the model (R3); as Gateway tools the model would choose the claim, so they wait for phase 5, which needs a claim-scoped design anyway (a Gateway interceptor or a per-claim token). With nothing for the agent to hold, Identity waits too: inbound is the Runtime's role, outbound Gateway's own.
 
-- [ ] In the `agent` unit (units apply in parallel, and the gateway serves only the agent): an AgentCore Gateway (MCP, `AWS_IAM` inbound) and one MCP server target, `context`, at the context's function URL, which Gateway signs with its own role for the `lambda` service; the role has the project boundary and may call only the context.
-- [ ] The context's function URL then answers only Gateway's role: the agent's role loses `lambda:InvokeFunctionUrl` on it and gains `bedrock-agentcore:InvokeGateway` on this gateway alone (known mistake 26).
-- [ ] The agent reaches the context through the gateway's URL, signing for `bedrock-agentcore`, and names its tools as Gateway does (`context___get_claim_rules`) through a setting; it takes results whether Gateway passes structured content or text. Tier 1 is unchanged: no prefix, the context's own URL.
-- [ ] Tests: the signer's service, the tool prefix, both result forms; a claim worked on `dev` through the gateway, and the red team again.
+- [x] In the `agent` unit (units apply in parallel, and the gateway serves only the agent): an AgentCore Gateway (MCP, `AWS_IAM` inbound) and one MCP server target, `context`, at the context's function URL, which Gateway signs with its own role for the `lambda` service; the role has the project boundary and may call only the context.
+- [x] The context's function URL then answers only Gateway's role: the agent's role loses `lambda:InvokeFunctionUrl` on it and gains `bedrock-agentcore:InvokeGateway` on this gateway alone (known mistake 26).
+- [x] The agent reaches the context through the gateway's URL, signing for `bedrock-agentcore`, and names its tools as Gateway does (`context___get_claim_rules`) through a setting; it takes results whether Gateway passes structured content or text. Tier 1 is unchanged: no prefix, the context's own URL.
+- [x] Tests: the signer's service, the tool prefix, both result forms; a claim worked on `dev` through the gateway, and the red team again.
 
 ## Phase 4: AgentCore Memory and a Knowledge Base
 
