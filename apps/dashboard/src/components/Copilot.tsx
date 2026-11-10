@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Plus, Search, Send, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Conversation, ConversationSummary, CopilotApi, Entry, Pending } from "../copilot";
 import { dollars } from "../format";
 import { WATTLE_FOOTER, WattleMark } from "./Wattle";
@@ -208,9 +208,27 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
   );
 }
 
+/** Wattle's answers mark what matters with **asterisks**; show those words in bold. Anything
+    else stays plain text, so nothing in an answer is ever read as markup. */
+export function emphasised(text: string): ReactNode[] {
+  return text
+    .split(/(\*\*[^*\n]+\*\*)/)
+    .map((part, index) =>
+      part.length > 4 && part.startsWith("**") && part.endsWith("**") ? (
+        <strong key={String(index)}>{part.slice(2, -2)}</strong>
+      ) : (
+        part
+      ),
+    );
+}
+
 function Bubble({ entry }: { entry: Entry }) {
   if (entry.role) {
-    return <p className={`bubble ${entry.role}`}>{entry.text}</p>;
+    return (
+      <p className={`bubble ${entry.role}`}>
+        {entry.role === "assistant" ? emphasised(entry.text ?? "") : entry.text}
+      </p>
+    );
   }
   if (entry.kind === "confirm") return null;
   const Icon =

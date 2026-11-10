@@ -3,7 +3,7 @@
 // THE WALKTHROUGH VIDEO. null shows the still and "coming soon". Once the end-to-end recording
 // exists, set this to its path, for example "media/walkthrough.mp4", and the frame becomes a
 // player with the browser's own controls. (Then recompute app.js's integrity hash in index.html.)
-const WALKTHROUGH = null;
+const WALKTHROUGH = "media/walkthrough.mp4";
 
 // Each app's address: on AWS from links.json, which the deploy writes; locally this host and its port.
 const PORT_APP = { 5173: "portal", 5174: "dashboard", 5175: "console" };

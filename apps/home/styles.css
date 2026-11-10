@@ -378,6 +378,11 @@ h1 em {
   background: var(--soft);
 }
 
+video.screen {
+  aspect-ratio: 16 / 9;
+  background: var(--ink);
+}
+
 .screen[hidden] {
   display: none;
 }
