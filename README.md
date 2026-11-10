@@ -17,7 +17,9 @@
 
 <br>
 
-<img src="docs/assets/undercover-tour.gif" width="880" alt="A tour of the three apps: a customer makes a claim in the portal, a handler reads the agent's case brief and recommendation in the dashboard, and an AI engineer checks the agent in the assurance console.">
+<img src="docs/assets/undercover-tour.gif" width="880" alt="The walkthrough, sped up: a customer asks Wattle AI about their cover and makes a claim from a receipt, a handler watches the claim agent work it and signs off a larger payout, and an AI engineer checks the agent in the assurance console.">
+
+The full walkthrough, three minutes with captions, plays on the project page ([the video](apps/home/media/walkthrough.mp4)).
 
 </div>
 
@@ -27,13 +29,13 @@
 
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), then clone the repo and run `bash scripts/setup.sh`.
 2. Copy `.env.example` to `.env`, and add an Anthropic API key with its workspace ID.
-3. `docker compose up --build -d`, then open the project page at http://127.0.0.1:5172: a card for each app, live numbers, a five-minute script and the architecture. **Use test account** signs you in on each app:
+3. `docker compose up --build -d`, then open the project page at http://127.0.0.1:5172: a short brief, the walkthrough video and a link to each app. Each app's sign-in page has a test account:
 
-   | App | Address | Test account |
-   |-----|---------|--------------|
-   | Customer portal | http://127.0.0.1:5173 | Oliver Grant |
-   | Handlers' workspace | http://127.0.0.1:5174 | Dana Whitfield, senior handler |
-   | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer |
+   | App | Address | Test account | Sign in with |
+   |-----|---------|--------------|--------------|
+   | Customer portal | http://127.0.0.1:5173 | Oliver Grant | **Use test account** |
+   | Handlers' dashboard | http://127.0.0.1:5174 | Dana Whitfield, senior handler, or Marcus Oyelaran, who can't sign off | **Continue as Dana** |
+   | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer | **Continue as Sam** |
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
 5. Browser tests: in [e2e](e2e), `npm run stack`, then `npm test` ([status.md](docs/status.md) 14a).
 
@@ -48,7 +50,7 @@ Each claim costs 2 to 4 cents of Claude. On AWS, the pipeline deploys the same a
 | **AI engineers** | A separate assurance console: evaluations against handlers' decisions, the improver's proposals kept only if they score better and the red team holds, and the red team's eight attacks mapped to the OWASP Top 10 for LLMs |
 | **Security** | A hidden-instruction check and a Bedrock guardrail before any model reads a claim; payments and limits in code, never in a prompt; separate sign-ins and token audiences per app; a [threat model](docs/threat-model.md) with every control |
 
-<img src="docs/assets/dashboard-claim.webp" width="880" alt="A claim in the handlers' dashboard: the stage tracker, the agent's referral with its reason, the evidence, and the recommendation citing the policy wording and claims manual.">
+<img src="docs/assets/dashboard-claim.webp" width="880" alt="A claim in the handlers' dashboard: the stage tracker, the agent's referral with its reason, the customer's words and items, and what the agent checked with the source of each check.">
 
 ```mermaid
 flowchart LR
