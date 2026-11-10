@@ -67,10 +67,11 @@ resource "aws_cognito_user_group" "audience" {
   description  = local.audiences[each.key].description
 }
 
-# The test accounts the local sign-in offers (STAFF_, CUSTOMER_ and ENGINEERING_TEST_ACCOUNTS in the api's main.py).
+# The test accounts the local sign-in offers (STAFF_, CUSTOMER_, REDTEAM_ and ENGINEERING_TEST_ACCOUNTS in the api's main.py).
 locals {
   test_accounts = {
     "oliver.grant@example.com"           = "customers"
+    "derek.vance@example.com"            = "customers" # the red team's attacker (REDTEAM_TEST_ACCOUNTS)
     "dana.whitfield@undercover.example"  = "staff"
     "marcus.oyelaran@undercover.example" = "staff"
     "sam.carter@undercover.example"      = "engineering"

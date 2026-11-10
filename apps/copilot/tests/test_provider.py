@@ -51,21 +51,13 @@ def test_without_app_secret_nothing_is_fetched(monkeypatch: pytest.MonkeyPatch) 
     load_app_secret(lambda name: pytest.fail(f"fetched {name}"))
 
 
-def test_a_guardrail_is_named_on_every_bedrock_call() -> None:
+def test_no_guardrail_header_rides_on_claudes_calls() -> None:
+    # The guardrail screens customer text only (the agent's screen), never a whole context.
     settings = Settings(
         model_provider="bedrock",
         aws_region="ap-southeast-2",
-        bedrock_guardrail_id="gr-1",
-        bedrock_guardrail_version="2",
         **BASE,  # pyright: ignore[reportArgumentType]
     )
-    headers = claude_client(settings).default_headers
-    assert headers["X-Amzn-Bedrock-GuardrailIdentifier"] == "gr-1"
-    assert headers["X-Amzn-Bedrock-GuardrailVersion"] == "2"
-
-
-def test_without_a_guardrail_no_header_is_sent() -> None:
-    settings = Settings(model_provider="bedrock", aws_region="ap-southeast-2", **BASE)  # pyright: ignore[reportArgumentType]
     assert "X-Amzn-Bedrock-GuardrailIdentifier" not in claude_client(settings).default_headers
 
 

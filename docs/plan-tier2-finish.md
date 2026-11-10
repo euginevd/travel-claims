@@ -24,18 +24,18 @@ The first claim worked on AWS (CLM-1001, 2026-11-10) stopped with `OperationalEr
 
 The suite signs in through the local stand-in's `dev/*-sign-in` routes, and its one `UNDERCOVER_API` reaches every audience; on AWS each audience is its own CloudFront site.
 
-- [ ] `identity` adds the red team's customer, Derek Vance (`customers` pool), like the other test accounts, without a stored password.
-- [ ] The api's tier 2 test sign-in (`TEST_SIGN_IN`) also signs in `attacker`, through Cognito as for Oliver; still refused unless `TEST_SIGN_IN` is on.
-- [ ] The runner takes `PORTAL_URL`, `DASHBOARD_URL` and `CONSOLE_URL` (each falling back to `UNDERCOVER_API`), so it reaches each audience through its own site.
+- [x] `identity` adds the red team's customer, Derek Vance (`customers` pool), like the other test accounts, without a stored password.
+- [x] The api's tier 2 test sign-in (`TEST_SIGN_IN`) also signs in `attacker`, through Cognito as for Oliver; still refused unless `TEST_SIGN_IN` is on.
+- [x] ~~The runner takes per-site URLs~~: not needed. The console starts the suite in the agent, which reaches the api's own URL, every audience's routes included.
 - [ ] Run all eight attacks against `dev`: every attack holds, nothing paid beyond what each claim supports; the report shows on the console's Red team page. Tests: sign-in refused with `TEST_SIGN_IN` off; runner URLs per audience.
 
 ## Phase 2: the guardrail, checked and on
 
 Today the guardrail is named in headers on every Bedrock call, so it screens each turn's whole context: the agent's own tool results and, worse, the receipts the hidden-instruction check must read in order to flag them. That risks blocking the check (spec 36) and bills every turn (see Costs).
 
-- [ ] Screen only what comes from outside: the claim's text and receipts' text before the hidden-instruction check, and each Ask UnderCover, Copilot and Wattle question, through `ApplyGuardrail` (input only) in each app's one model module. Drop the per-call headers.
-- [ ] A guardrail block refers the claim for a handler (never declines it) and is recorded as a step; a blocked chat question gets a plain refusal. Its fires feed the Threat coverage page's guardrail counts.
-- [ ] Fail closed: if the guardrail can't be reached, refer the claim.
+- [x] Screen only what comes from outside, through `ApplyGuardrail` (input only, `guardrail.py`), inside the agent's one screening step: the claim's text and every Ask UnderCover and engineers' question. Receipts' images stay with the hidden-instruction check. The Copilot's input is a signed-in handler's, so it isn't screened. The per-call headers are gone.
+- [x] A guardrail block counts as instructions found: the claim is referred (never declined) and its screening step and decision say so; a question gets the existing refusal. Its fires count with the screening check's on the Threat coverage page.
+- [x] Fail closed: if the guardrail can't be reached, the claim is referred and a question refused.
 - [ ] Check live on `dev`, then set `enabled`: the eight red-team attacks still end referred or declined with nothing paid, CLM-1901 is still caught, and the five tiny claims still match the handlers.
 
 ## Phase 3: AgentCore Gateway and Identity

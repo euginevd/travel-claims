@@ -158,7 +158,8 @@ class Asker:
                 }
             ]
         )
-        if screening is not None and screening.instructions_found:
+        # Fail closed: a check that couldn't read the question refuses it, as it refers a claim.
+        if screening is None or screening.instructions_found:
             return Answer(answer=SCREENED, sources=[], suggest="ask_person", screened=True)
         messages: list[Json] = [
             {"role": turn.role, "content": turn.text} for turn in request.history

@@ -1466,6 +1466,7 @@ version = "0.1.0"
 source = { editable = "apps/agent" }
 dependencies = [
     { name = "anthropic", extra = ["bedrock"] },
+    { name = "boto3" },
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "langgraph" },
@@ -1480,6 +1481,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", extras = ["bedrock"], specifier = "==2.3.0" },
+    { name = "boto3", specifier = "==1.43.123" },
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx2", specifier = "==2.16.0" },
     { name = "langgraph", specifier = "==1.2.19" },
