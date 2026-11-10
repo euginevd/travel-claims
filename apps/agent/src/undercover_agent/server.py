@@ -133,6 +133,7 @@ class DispatchRequest(BaseModel):
     run_id: int = Field(ge=1)
     claim_ids: list[ClaimId] = Field(min_length=1, max_length=50)
     concurrency: int = Field(ge=1, le=25)
+    kind: Literal["run", "dispatch"] = "run"
 
 
 class ImproveRequest(BaseModel):
@@ -311,10 +312,13 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
 
     @app.post("/dispatch", operation_id="dispatch", dependencies=[Depends(agents_key)])
     def dispatch(request: DispatchRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
-        """Work an evaluation run's copies, up to its concurrency at once."""
+        """Work an evaluation run's copies, or a dispatch of the queue's waiting claims, up to
+        its concurrency at once."""
         if "runs" not in dispatcher:
             return JSONResponse({"refused": "The dispatcher isn't set up"}, status_code=409)
-        dispatcher["runs"].dispatch(request.run_id, request.claim_ids, request.concurrency)
+        dispatcher["runs"].dispatch(
+            request.run_id, request.claim_ids, request.concurrency, request.kind
+        )
         return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/improve", operation_id="improve", dependencies=[Depends(agents_key)])

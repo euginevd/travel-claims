@@ -143,8 +143,10 @@ class FakeAgent:
     def carry_on(self, claim_id: str, thread_id: str) -> None:
         self._take(("carry_on", claim_id, thread_id))
 
-    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
-        self._take(("dispatch", str(run_id), ",".join(claim_ids)))
+    def dispatch(
+        self, run_id: int, claim_ids: list[str], concurrency: int, kind: str = "run"
+    ) -> None:
+        self._take(("dispatch" if kind == "run" else kind, str(run_id), ",".join(claim_ids)))
 
     def improve(self, round_id: int) -> None:
         self._take(("improve", str(round_id), None))

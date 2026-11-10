@@ -21,6 +21,7 @@ from undercover_api.claims import claim_trace, find_claim, find_decision
 from undercover_api.db import (
     claims,
     configurations,
+    dispatches,
     grades,
     labelled_claims,
     model_calls,
@@ -292,6 +293,10 @@ def create_run(
     db: Connection, body: StartRunRequest, version: int, by: str, round_id: int | None = None
 ) -> tuple[int, list[str]]:
     """A new run with its copies, waiting for the dispatcher."""
+    if db.execute(select(dispatches.c.dispatch_id).where(dispatches.c.status == "running")).first():
+        raise HTTPException(
+            409, "A dispatch of the queue is running. Start the run when it finishes"
+        )
     chosen = labelled(db, body.label_set, body.size)
     if not chosen:
         raise HTTPException(409, f"No labelled claims in the {body.label_set} set")
