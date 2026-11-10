@@ -8,7 +8,7 @@ reads (improvement.py); the held-out set's never leave the api.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -21,6 +21,8 @@ from undercover_api.claims import claim_trace, find_claim, find_decision
 from undercover_api.db import (
     claims,
     configurations,
+    dispatches,
+    grades,
     labelled_claims,
     model_calls,
     now,
@@ -28,7 +30,15 @@ from undercover_api.db import (
     settings,
     steps,
 )
-from undercover_api.models import ClaimId, DecisionKind, Engineer, Status, Strict, Trace
+from undercover_api.models import (
+    MAX_COST,
+    ClaimId,
+    DecisionKind,
+    Engineer,
+    Status,
+    Strict,
+    Trace,
+)
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +52,9 @@ EFFORTS = ("low", "medium", "high")
 Model = Literal["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"]
 Effort = Literal["low", "medium", "high"]
 Instructions = Annotated[str, StringConstraints(min_length=50, max_length=20_000)]
+# A run still shows as grading for this long after the judge took it, then stops waiting.
+JUDGE_WAIT = timedelta(minutes=10)
+ClaimIdText = Annotated[str, StringConstraints(pattern=r"^CLM-\d{1,10}$")]
 
 AGENT = [Depends(require_agent)]
 staff_eval_router = APIRouter(prefix="/api/engineering")
@@ -87,6 +100,11 @@ class Scores(BaseModel):
     cost_per_claim: float
     seconds_per_claim: float
     total_cost: float
+    grade: float | None = Field(
+        default=None, description="The judge's mean grade of the graded copies, 0 to 3"
+    )
+    graded: int = Field(default=0, description="How many copies the judge graded")
+    judge_cost: float = 0.0
 
 
 class RunClaim(BaseModel):
@@ -103,6 +121,11 @@ class RunClaim(BaseModel):
     matched: bool
     payout_matched: bool
     cost: float
+    judged: bool = Field(default=False, description="Whether the judge answered for this copy")
+    grade: int | None = None
+    same_grounds: bool | None = None
+    same_section: bool | None = None
+    grade_note: str | None = None
 
 
 class Run(BaseModel):
@@ -117,6 +140,22 @@ class Run(BaseModel):
     started_at: str
     finished_at: str | None
     scores: Scores | None
+    grading: bool = Field(default=False, description="Whether the judge is still grading it")
+
+
+class GradeIn(Strict):
+    """The judge's grade of one copy; a null score means it couldn't grade it."""
+
+    claim_id: ClaimIdText
+    score: int | None = Field(ge=0, le=3)
+    same_grounds: bool | None
+    same_section: bool | None
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+    cost: float = Field(ge=0, le=MAX_COST)
+
+
+class GradesIn(Strict):
+    grades: list[GradeIn] = Field(min_length=1, max_length=50)
 
 
 class RunInFull(Run):
@@ -254,6 +293,10 @@ def create_run(
     db: Connection, body: StartRunRequest, version: int, by: str, round_id: int | None = None
 ) -> tuple[int, list[str]]:
     """A new run with its copies, waiting for the dispatcher."""
+    if db.execute(select(dispatches.c.dispatch_id).where(dispatches.c.status == "running")).first():
+        raise HTTPException(
+            409, "A dispatch of the queue is running. Start the run when it finishes"
+        )
     chosen = labelled(db, body.label_set, body.size)
     if not chosen:
         raise HTTPException(409, f"No labelled claims in the {body.label_set} set")
@@ -317,7 +360,7 @@ def start_run(
     """Start an evaluation of the current configuration on a labelled set."""
     run_id, ids = create_run(db, body, need_current(db), engineer.name)
     dispatch(db, service, run_id, ids, body.concurrency)
-    return run_of(run_row(db, run_id))
+    return run_of(db, run_row(db, run_id))
 
 
 @staff_eval_router.post("/runs/{run_id}/resume", operation_id="resume_run")
@@ -330,7 +373,7 @@ def resume_run(run_id: int, _: SignedInEngineer, db: Database, service: AgentCal
         raise HTTPException(409, f"Run {run_id} has nothing left to work")
     db.execute(update(runs).where(runs.c.run_id == run_id).values(status="running"))
     dispatch(db, service, run_id, left, row["concurrency"])
-    return run_of(run_row(db, run_id))
+    return run_of(db, run_row(db, run_id))
 
 
 def run_row(db: Connection, run_id: int) -> RowMapping:
@@ -340,8 +383,41 @@ def run_row(db: Connection, run_id: int) -> RowMapping:
     return row
 
 
-def run_of(row: RowMapping) -> Run:
-    return Run.model_validate(dict(row))
+def run_of(db: Connection, row: RowMapping) -> Run:
+    """A run, with the judge's grades added to its scores once it has some."""
+    stored = Scores.model_validate(row["scores"]) if row["scores"] else None
+    scores, grading = judged(db, row, stored)
+    return Run.model_validate(dict(row) | {"scores": scores, "grading": grading})
+
+
+def judged(db: Connection, row: RowMapping, scores: Scores | None) -> tuple[Scores | None, bool]:
+    """A run's scores with the judge's mean grade, graded count and cost, and whether the judge
+    is still grading: it took the run within JUDGE_WAIT and hasn't answered for every copy."""
+    answered, graded, mean, cost = db.execute(
+        select(
+            func.count(grades.c.claim_id),
+            func.count(grades.c.score),
+            func.avg(grades.c.score),
+            func.sum(grades.c.cost),
+        ).where(grades.c.run_id == row["run_id"])
+    ).one()
+    since = row["grading_since"]
+    grading = (
+        since is not None
+        and scores is not None
+        and answered < scores.decided
+        and datetime.now(UTC) - datetime.fromisoformat(since) < JUDGE_WAIT
+    )
+    if scores is None:
+        return None, grading
+    with_grade = scores.model_copy(
+        update={
+            "grade": round(float(mean), 2) if mean is not None else None,
+            "graded": graded,
+            "judge_cost": round(float(cost or 0), 6),
+        }
+    )
+    return with_grade, grading
 
 
 def labels_of(db: Connection, original_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -383,6 +459,10 @@ def run_claims(db: Connection, run_id: int) -> tuple[list[RunClaim], list[float]
     )
     labels = labels_of(db, [r["original_claim_id"] for r in rows])
     costs = costs_of(db, [r["claim_id"] for r in rows])
+    graded = {
+        g["claim_id"]: g
+        for g in db.execute(select(grades).where(grades.c.run_id == run_id)).mappings()
+    }
     found: list[RunClaim] = []
     times: list[float] = []
     for row in rows:
@@ -412,9 +492,23 @@ def run_claims(db: Connection, run_id: int) -> tuple[list[RunClaim], list[float]
                 matched=matched,
                 payout_matched=payout_matched,
                 cost=round(costs.get(row["claim_id"], 0.0), 6),
+                **grade_of(graded.get(row["claim_id"])),
             )
         )
     return found, times
+
+
+def grade_of(row: RowMapping | None) -> dict[str, Any]:
+    """A copy's grade fields, empty until the judge answers for it."""
+    if row is None:
+        return {}
+    return {
+        "judged": True,
+        "grade": row["score"],
+        "same_grounds": row["same_grounds"],
+        "same_section": row["same_section"],
+        "grade_note": row["note"],
+    }
 
 
 def score(found: list[RunClaim], times: list[float]) -> Scores:
@@ -450,8 +544,8 @@ def run_cost(db: Connection, run_id: int | None) -> float:
 @staff_eval_router.get("/runs", operation_id="list_runs")
 def list_runs(_: SignedInEngineer, db: Database) -> list[Run]:
     """Every run, newest first, with its scores once finished."""
-    rows = db.execute(select(runs).order_by(runs.c.run_id.desc())).mappings()
-    return [run_of(r) for r in rows]
+    rows = db.execute(select(runs).order_by(runs.c.run_id.desc())).mappings().all()
+    return [run_of(db, r) for r in rows]
 
 
 @staff_eval_router.get("/runs/{run_id}", operation_id="get_run")
@@ -459,8 +553,11 @@ def get_run(run_id: int, _: SignedInEngineer, db: Database) -> RunInFull:
     """A run with each copy beside the handler's decision, and live scores."""
     row = run_row(db, run_id)
     found, times = run_claims(db, run_id)
-    scores = Scores.model_validate(row["scores"]) if row["scores"] else score(found, times)
-    return RunInFull.model_validate(dict(row) | {"scores": scores, "claims": found})
+    stored = Scores.model_validate(row["scores"]) if row["scores"] else score(found, times)
+    scores, grading = judged(db, row, stored)
+    return RunInFull.model_validate(
+        dict(row) | {"scores": scores, "grading": grading, "claims": found}
+    )
 
 
 def finish(db: Connection, run_id: int) -> Run:
@@ -477,7 +574,7 @@ def finish(db: Connection, run_id: int) -> Run:
                 scores=score(found, times).model_dump(),
             )
         )
-    return run_of(run_row(db, run_id))
+    return run_of(db, run_row(db, run_id))
 
 
 @agent_eval_router.post("/runs/{run_id}/finish", operation_id="finish_run")
@@ -487,9 +584,90 @@ def finish_run(run_id: int, db: Database, service: AgentCalls) -> Run:
     from undercover_api.improvement import after_run  # noqa: PLC0415 - improvement imports this
 
     run = finish(db, run_id)
+    ask_the_judge(db, service, run_id)
     if run.round_id is not None:
         after_run(db, run.round_id, service)
-    return run
+    return run_of(db, run_row(db, run_id))
+
+
+def pairs_for(db: Connection, run_id: int) -> list[dict[str, object]]:
+    """Each decided copy's explanation beside its handler's, for the judge: the decisions,
+    sections and reasons only, never the claim the customer wrote."""
+    rows = db.execute(
+        select(claims.c.claim_id, claims.c.original_claim_id)
+        .where(claims.c.run_id == run_id)
+        .order_by(claims.c.claim_id)
+    ).all()
+    labels = labels_of(db, [original for _, original in rows])
+    pairs: list[dict[str, object]] = []
+    for claim_id, original in rows:
+        decision = find_decision(db, claim_id)
+        label = labels.get(original)
+        if decision is None or label is None:
+            continue
+        pairs.append(
+            {
+                "claim_id": claim_id,
+                "agent_decision": str(decision.decision),
+                "agent_payout": decision.payout,
+                "agent_section": decision.section,
+                "agent_reason": decision.reason,
+                "handler_decision": str(label.get("decision", "")),
+                "handler_payout": float(label.get("payout") or 0),
+                "handler_section": str(label.get("reference", "")),
+                "handler_reason": str(label.get("reason", "")),
+            }
+        )
+    return pairs
+
+
+def ask_the_judge(db: Connection, service: AgentService, run_id: int) -> None:
+    """Hand a finished run's explanations to the judge, once. The run is already scored, so a
+    judge that can't be reached only means no grades."""
+    if run_row(db, run_id)["grading_since"] is not None:
+        return
+    pairs = pairs_for(db, run_id)
+    if not pairs:
+        return
+    db.execute(update(runs).where(runs.c.run_id == run_id).values(grading_since=now()))
+    db.commit()
+    try:
+        service.judge(run_id, pairs)
+    except AgentUnavailableError as error:
+        log.warning("run %s: the judge couldn't be asked: %s", run_id, error)
+        db.execute(update(runs).where(runs.c.run_id == run_id).values(grading_since=None))
+        db.commit()
+
+
+@agent_eval_router.post("/runs/{run_id}/grades", operation_id="record_grades")
+def record_grades(run_id: int, body: GradesIn, db: Database) -> Run:
+    """Keep the judge's grades for a run's copies. A copy already graded keeps its first grade;
+    a grade for a claim outside the run is refused."""
+    row = run_row(db, run_id)
+    ids = set(db.execute(select(claims.c.claim_id).where(claims.c.run_id == run_id)).scalars())
+    outside = [g.claim_id for g in body.grades if g.claim_id not in ids]
+    if outside:
+        raise HTTPException(422, f"Not copies in run {run_id}: {', '.join(outside[:5])}")
+    known = set(db.execute(select(grades.c.claim_id).where(grades.c.run_id == run_id)).scalars())
+    fresh = {g.claim_id: g for g in body.grades if g.claim_id not in known}
+    if fresh:
+        db.execute(
+            insert(grades),
+            [
+                {
+                    "claim_id": g.claim_id,
+                    "run_id": run_id,
+                    "score": g.score,
+                    "same_grounds": g.same_grounds if g.score is not None else None,
+                    "same_section": g.same_section if g.score is not None else None,
+                    "note": g.note,
+                    "cost": round(g.cost, 6),
+                    "graded_at": now(),
+                }
+                for g in fresh.values()
+            ],
+        )
+    return run_of(db, row)
 
 
 def unfinished(db: Connection, run_id: int) -> list[str]:

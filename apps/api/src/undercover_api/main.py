@@ -74,6 +74,7 @@ from undercover_api.db import (
 )
 from undercover_api.demo import demo_router
 from undercover_api.demo_sign_in import CognitoTestSignIn
+from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_router
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
@@ -903,6 +904,8 @@ def create_app(
         customer_router,
         account_router,
         *EVALUATION_ROUTERS,
+        staff_dispatch_router,
+        agent_dispatch_router,
         redteam_router,
         threats_router,
         risk_router,

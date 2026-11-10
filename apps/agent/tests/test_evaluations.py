@@ -60,6 +60,22 @@ def test_the_dispatcher_starts_waiting_copies_carries_on_others_and_finishes() -
     assert api.finished == [7]
 
 
+def test_a_dispatch_of_the_queue_tells_the_api_the_dispatch_is_done() -> None:
+    class DispatchApi(RunApi):
+        def __init__(self) -> None:
+            super().__init__()
+            self.dispatched: list[int] = []
+
+        def finish_dispatch(self, dispatch_id: int) -> Json:
+            self.dispatched.append(dispatch_id)
+            return {}
+
+    api, runner = DispatchApi(), RecordingRunner()
+    Dispatcher(runner, api).dispatch(2, ["CLM-1", "CLM-3"], 3, "dispatch").join(timeout=5)
+    assert api.started == ["CLM-1"]
+    assert (api.dispatched, api.finished) == ([2], [])
+
+
 def test_carrying_on_a_decided_claim_does_nothing() -> None:
     api = FakeApi()
     claude = FakeClaude([decide("decline", 0.0, 1)])

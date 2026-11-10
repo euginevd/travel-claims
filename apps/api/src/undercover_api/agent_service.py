@@ -16,7 +16,8 @@ never calls /start or /take for work the api handed it.
 /carry-on picks a stalled claim up from the last step the agent saved on its thread, or starts
 it afresh when nothing was saved; the api has already taken the claim for it (recovery.py).
 
-    POST {AGENT_URL}/dispatch {"run_id": 1, "claim_ids": [...], "concurrency": 5}
+    POST {AGENT_URL}/dispatch {"run_id": 1, "claim_ids": [...], "concurrency": 5,
+                               "kind": "run" | "dispatch"}
     POST {AGENT_URL}/improve  {"round_id": 1}
 
 On AgentCore Runtime (tier 2, AGENT_RUNTIME_ARN set) the same requests go through
@@ -25,8 +26,16 @@ IAM role first. The agent's /invocations answers {"status": 202, "body": {...}}.
 
 /dispatch works an evaluation's copies, up to `concurrency` at once, starting each waiting
 copy itself (/start) or carrying on one already in progress, then tells the api the run is
-done (/api/agent/runs/{run_id}/finish). /improve asks the improver for a proposal, which it
-posts to /api/agent/rounds/{round_id}/proposal. Both answer 202 at once, like /work.
+done (/api/agent/runs/{run_id}/finish). With "kind": "dispatch", run_id is a dispatch of the
+queue's waiting claims, and it tells /api/agent/dispatches/{run_id}/finish instead.
+/improve asks the improver for a proposal, which it posts to
+/api/agent/rounds/{round_id}/proposal. Both answer 202 at once, like /work.
+
+    POST {AGENT_URL}/judge {"run_id": 1, "pairs": [{"claim_id": ..., "agent_...": ...,
+                                                    "handler_...": ...}, ...]}
+
+/judge grades each finished copy's explanation against the handler's, in the background, and
+posts the grades to /api/agent/runs/{run_id}/grades. It keeps and logs none of what it is sent.
 """
 
 import json
@@ -67,9 +76,13 @@ class AgentService(Protocol):
 
     def carry_on(self, claim_id: str, thread_id: str) -> None: ...
 
-    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None: ...
+    def dispatch(
+        self, run_id: int, claim_ids: list[str], concurrency: int, kind: str = "run"
+    ) -> None: ...
 
     def improve(self, round_id: int) -> None: ...
+
+    def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None: ...
 
     def redteam(self) -> None: ...
 
@@ -110,16 +123,23 @@ class HttpAgentService:
     def carry_on(self, claim_id: str, thread_id: str) -> None:
         self._send("/carry-on", {"claim_id": claim_id, "thread_id": thread_id})
 
-    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
+    def dispatch(
+        self, run_id: int, claim_ids: list[str], concurrency: int, kind: str = "run"
+    ) -> None:
         body: dict[str, object] = {
             "run_id": run_id,
             "claim_ids": claim_ids,
             "concurrency": concurrency,
+            "kind": kind,
         }
         self._accepted(self._post("/dispatch", body, TIMEOUT_SECONDS))
 
     def improve(self, round_id: int) -> None:
         self._accepted(self._post("/improve", {"round_id": round_id}, TIMEOUT_SECONDS))
+
+    def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None:
+        body: dict[str, object] = {"run_id": run_id, "pairs": pairs}
+        self._accepted(self._post("/judge", body, TIMEOUT_SECONDS))
 
     def redteam(self) -> None:
         self._accepted(self._post("/redteam", {}, TIMEOUT_SECONDS))

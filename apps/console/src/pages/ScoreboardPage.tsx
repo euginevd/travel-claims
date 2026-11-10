@@ -19,12 +19,18 @@ export function cost(value: number): string {
   return `$${value.toFixed(value < 0.1 ? 3 : 2)}`;
 }
 
+/** The judge's mean grade out of 3, or why there isn't one. */
+export function gradeOf(scores: Scores): string {
+  return scores.grade === null ? "Not graded" : `${scores.grade.toFixed(2)} of 3`;
+}
+
 /** The measures shown for a run, in the order the scoreboard shows them. */
 export function measures(scores: Scores): { label: string; value: string }[] {
   return [
     { label: "Accuracy", value: percent(scores.accuracy) },
     { label: "Payout accuracy", value: percent(scores.payout_accuracy) },
     { label: "Straight through", value: percent(scores.straight_through) },
+    { label: "Judge's grade", value: gradeOf(scores) },
     { label: "Cost per claim", value: cost(scores.cost_per_claim) },
     { label: "Time per claim", value: `${scores.seconds_per_claim.toFixed(0)}s` },
   ];
@@ -182,6 +188,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
                 <th scope="col">Accuracy</th>
                 <th scope="col">Payout accuracy</th>
                 <th scope="col">Straight through</th>
+                <th scope="col">Grade</th>
                 <th scope="col">Cost per claim</th>
                 <th scope="col">Started</th>
                 <th scope="col">Status</th>
@@ -200,6 +207,9 @@ export function ScoreboardPage({ api }: { api: Api }) {
                   <td className="num">{run.scores ? percent(run.scores.accuracy) : "–"}</td>
                   <td className="num">{run.scores ? percent(run.scores.payout_accuracy) : "–"}</td>
                   <td className="num">{run.scores ? percent(run.scores.straight_through) : "–"}</td>
+                  <td className="num">
+                    {run.grading ? "Grading…" : run.scores ? gradeOf(run.scores) : "–"}
+                  </td>
                   <td className="num">{run.scores ? cost(run.scores.cost_per_claim) : "–"}</td>
                   <td className="nowrap">{when(run.started_at)}</td>
                   <td>{run.status === "running" ? "Running…" : run.status}</td>

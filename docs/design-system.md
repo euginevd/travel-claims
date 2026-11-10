@@ -66,3 +66,5 @@ UnderCover's own brand, "Sky and sunset" (decision 11): bright, reassuring and m
 26. **Portal:** the full warm look. Sky main actions, a greeting ("Hi Oliver"), travel illustrations, roomy single-column flows that work at 360px.
 27. **Dashboard:** the same tokens, calmer and denser. Navy main actions, tighter tables, sky row hover, the trace in monospace.
 28. **Console:** the dashboard's density, for AI engineers: runs, rounds, the red team and threat coverage.
+29. **Grade chip (console):** the judge's score as a letter with an award icon, A (3) good, B (2) info, C (1) warn, F (0) bad, followed by "Same grounds" and "Same section" as Yes or No; "Not graded" in a plain chip.
+30. **Dispatch card (dashboard):** a panel above the queue: for a senior handler the agents-at-once field and **Work the waiting claims**, confirmed inline with the count and a cost range; while it runs, a progress bar, "n of m worked", count chips (decided, waiting for sign-off, referred, not started) and the claims in a collapsed table.

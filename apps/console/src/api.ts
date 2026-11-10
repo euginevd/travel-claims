@@ -71,6 +71,9 @@ export const ScoresSchema = z.object({
   cost_per_claim: z.number(),
   seconds_per_claim: z.number(),
   total_cost: z.number(),
+  grade: z.number().nullable().default(null),
+  graded: z.number().default(0),
+  judge_cost: z.number().default(0),
 });
 
 export const RunSchema = z.object({
@@ -85,6 +88,7 @@ export const RunSchema = z.object({
   started_at: z.string(),
   finished_at: z.string().nullable(),
   scores: ScoresSchema.nullable(),
+  grading: z.boolean().default(false),
 });
 
 export const RunClaimSchema = z.object({
@@ -101,6 +105,11 @@ export const RunClaimSchema = z.object({
   matched: z.boolean(),
   payout_matched: z.boolean(),
   cost: z.number(),
+  judged: z.boolean().default(false),
+  grade: z.number().int().min(0).max(3).nullable().default(null),
+  same_grounds: z.boolean().nullable().default(null),
+  same_section: z.boolean().nullable().default(null),
+  grade_note: z.string().nullable().default(null),
 });
 
 export const RunInFullSchema = RunSchema.extend({ claims: z.array(RunClaimSchema) });

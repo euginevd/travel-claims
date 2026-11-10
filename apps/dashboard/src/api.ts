@@ -226,6 +226,37 @@ export const PayoutSwitchSchema = z.object({
   reason: z.string().nullable(),
 });
 
+const DispatchClaimSchema = z.object({
+  claim_id: z.string(),
+  summary: z.string(),
+  status: StatusSchema,
+  decision: DecisionKindSchema.nullable(),
+  payout: z.number().nullable(),
+  cost: z.number(),
+});
+
+export const DispatchSchema = z.object({
+  dispatch_id: z.number(),
+  concurrency: z.number(),
+  status: z.enum(["running", "finished", "stopped"]),
+  started_by: z.string(),
+  started_at: z.string(),
+  finished_at: z.string().nullable(),
+  stopped_reason: z.string().nullable(),
+  claims: z.array(DispatchClaimSchema),
+  worked: z.number(),
+  decided: z.number(),
+  waiting_for_sign_off: z.number(),
+  referred: z.number(),
+  not_started: z.number(),
+  total_cost: z.number(),
+});
+
+export const LatestDispatchSchema = z.object({
+  waiting: z.number(),
+  dispatch: DispatchSchema.nullable(),
+});
+
 export const SignInSchema = z.object({ id_token: z.string(), expires_in: z.number() });
 
 export const TraceSchema = z.object({
@@ -264,6 +295,8 @@ export type ReasonCode = z.infer<typeof ReasonCodeSchema>;
 export type Stages = z.infer<typeof StagesSchema>;
 export type Trace = z.infer<typeof TraceSchema>;
 export type PayoutSwitch = z.infer<typeof PayoutSwitchSchema>;
+export type Dispatch = z.infer<typeof DispatchSchema>;
+export type LatestDispatch = z.infer<typeof LatestDispatchSchema>;
 
 export interface OverrideRequest {
   decision: DecisionKind;
@@ -309,6 +342,8 @@ export interface Api {
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
   getPayouts: () => Promise<PayoutSwitch>;
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
+  getLatestDispatch: (signal?: AbortSignal) => Promise<LatestDispatch>;
+  startDispatch: (concurrency: number) => Promise<Dispatch>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -431,5 +466,9 @@ export function createApi(
     getPayouts: () => call(PayoutSwitchSchema, "GET", "/payouts"),
     setPayouts: (paused, reason) =>
       call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),
+    getLatestDispatch: (signal) =>
+      call(LatestDispatchSchema, "GET", "/dispatches/latest", { signal }),
+    startDispatch: (concurrency) =>
+      call(DispatchSchema, "POST", "/dispatches", { body: { concurrency } }),
   };
 }

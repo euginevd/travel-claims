@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     specialist_max_tokens: int = 3_000
     drafting_model: str = "claude-haiku-5-5"
     drafting_max_tokens: int = 2_000
+    judge_max_tokens: int = 1_000
     improver_model: str = "claude-sonnet-5-5"
     improver_max_tokens: int = 16_000
     model_timeout_seconds: float = 60.0

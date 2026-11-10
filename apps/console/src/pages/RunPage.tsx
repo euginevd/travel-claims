@@ -1,12 +1,62 @@
-import { CircleCheck, CircleX, RotateCw } from "lucide-react";
+import { Award, CircleCheck, CircleMinus, CircleX, LoaderCircle, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { Api, RunInFull } from "../api";
+import type { Api, RunClaim, RunInFull } from "../api";
 import { dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { SCOREBOARD_HREF } from "../useHashRoute";
 import { measures } from "./ScoreboardPage";
 
 const POLL_MS = 3000;
+
+// The judge's score as a letter grade, each with its status tone.
+const GRADES = [
+  { letter: "F", tone: "chip-bad" },
+  { letter: "C", tone: "chip-warn" },
+  { letter: "B", tone: "chip-info" },
+  { letter: "A", tone: "chip-good" },
+] as const;
+
+function yesNo(value: boolean | null): string {
+  return value ? "Yes" : "No";
+}
+
+function Judge({ claim, grading }: { claim: RunClaim; grading: boolean }) {
+  if (!claim.decision) return <span className="muted">–</span>;
+  if (!claim.judged) {
+    return grading ? (
+      <span className="chip chip-info">
+        <LoaderCircle size={14} strokeWidth={2} aria-hidden="true" />
+        Grading…
+      </span>
+    ) : (
+      <span className="muted">Not graded</span>
+    );
+  }
+  if (claim.grade === null) {
+    return (
+      <>
+        <span className="chip">
+          <CircleMinus size={14} strokeWidth={2} aria-hidden="true" />
+          Not graded
+        </span>
+        {claim.grade_note && <p className="muted small">{claim.grade_note}</p>}
+      </>
+    );
+  }
+  const { letter, tone } = GRADES[Math.min(Math.max(claim.grade, 0), 3)] ?? GRADES[0];
+  return (
+    <>
+      <span className={`chip ${tone}`}>
+        <Award size={14} strokeWidth={2} aria-hidden="true" />
+        {letter} · {String(claim.grade)}
+      </span>
+      <p className="muted small">
+        Same grounds: {yesNo(claim.same_grounds)} · Same section: {yesNo(claim.same_section)}
+      </p>
+      {claim.grade_note && <p className="muted small">{claim.grade_note}</p>}
+    </>
+  );
+}
 
 function outcome(decision: string | null, payout: number | null): string {
   if (!decision) return "Not decided";
@@ -41,13 +91,14 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
   }, [api, runId, generation]);
 
   const running = run?.status === "running";
+  const grading = run?.grading === true;
   useEffect(() => {
-    if (!running) return;
+    if (!running && !grading) return;
     const timer = window.setTimeout(refresh, POLL_MS);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [running, refresh, run]);
+  }, [running, grading, refresh, run]);
 
   async function resume() {
     try {
@@ -83,7 +134,7 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
           <p className="muted">
             {run.label_set === "evaluation" ? "Evaluation set" : "Held-out set"}, {run.size} ·
             configuration v{run.config_version} · {run.concurrency} at once ·{" "}
-            {running ? "running…" : run.status}
+            {running ? "running…" : grading ? "grading…" : run.status}
             {run.scores && ` · ${String(misses)} missed of ${String(run.scores.claims)}`}
           </p>
           {run.scores && (
@@ -114,6 +165,7 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                   <th scope="col">Agent</th>
                   <th scope="col">Handler</th>
                   <th scope="col">Match</th>
+                  <th scope="col">Judge</th>
                   <th scope="col">Cost</th>
                 </tr>
               </thead>
@@ -148,6 +200,9 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                             {claim.matched ? "Payout differs" : "Miss"}
                           </span>
                         )}
+                      </td>
+                      <td>
+                        <Judge claim={claim} grading={grading} />
                       </td>
                       <td className="num">${claim.cost.toFixed(3)}</td>
                     </tr>

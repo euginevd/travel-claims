@@ -12,6 +12,7 @@ beforeEach(() => {
 const signedInRoutes: Routes = {
   "POST /api/staff/dev/sign-in": () => [200, { id_token: "token-1", expires_in: 3600 }],
   "GET /api/staff/me": () => [200, DANA],
+  "GET /api/staff/dispatches/latest": () => [200, { waiting: 0, dispatch: null }],
   "GET /api/staff/claims": () => [
     200,
     [SUMMARY, { ...SUMMARY, claim_id: "CLM-1002", status: "waiting_for_sign_off" }],

@@ -115,6 +115,7 @@ class FakeAgent:
         self.letters: list[dict[str, object]] = []
         self.questions: list[dict[str, object]] = []
         self.explained: list[dict[str, object]] = []
+        self.judged: list[list[dict[str, object]]] = []
         self.draft_answer: dict[str, object] = {
             "claim_type": "baggage",
             "summary": "Bag lost on the flight to Rome",
@@ -142,11 +143,17 @@ class FakeAgent:
     def carry_on(self, claim_id: str, thread_id: str) -> None:
         self._take(("carry_on", claim_id, thread_id))
 
-    def dispatch(self, run_id: int, claim_ids: list[str], concurrency: int) -> None:
-        self._take(("dispatch", str(run_id), ",".join(claim_ids)))
+    def dispatch(
+        self, run_id: int, claim_ids: list[str], concurrency: int, kind: str = "run"
+    ) -> None:
+        self._take(("dispatch" if kind == "run" else kind, str(run_id), ",".join(claim_ids)))
 
     def improve(self, round_id: int) -> None:
         self._take(("improve", str(round_id), None))
+
+    def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None:
+        self._take(("judge", str(run_id), None))
+        self.judged.append(pairs)
 
     def redteam(self) -> None:
         self._take(("redteam", "", None))
