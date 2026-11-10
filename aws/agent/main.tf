@@ -106,8 +106,226 @@ resource "aws_iam_role_policy" "agent" {
       { Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = data.aws_secretsmanager_secret.app.arn },
       # The context layer only through its gateway, which alone may call the context's URL.
       { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
+      # The customers' memory: write a decided claim's record, list one customer's.
+      { Effect = "Allow", Action = ["bedrock-agentcore:BatchCreateMemoryRecords", "bedrock-agentcore:ListMemoryRecords"], Resource = aws_bedrockagentcore_memory.customers.arn },
+      # Ask UnderCover searches the policy wording in its knowledge base.
+      { Effect = "Allow", Action = "bedrock:Retrieve", Resource = aws_bedrockagent_knowledge_base.wording.arn },
     ]
   })
+}
+
+# The agent's memory of each customer (plan phase 4, R20): records the agent writes itself, one
+# namespace per customer, with no strategy, so no model extracts anything from customers' words.
+resource "aws_bedrockagentcore_memory" "customers" {
+  # Memory names allow letters, digits and underscores only.
+  name                  = "${replace(local.prefix, "-", "_")}_customers"
+  description           = "What the ${var.project} claim agent remembers of each customer's claims"
+  event_expiry_duration = 7
+}
+
+# The policy wording in a Bedrock Knowledge Base on S3 Vectors (plan phase 4), one document per
+# section (data/knowledge, made by undercover_context.knowledge), for Ask UnderCover's search.
+locals {
+  knowledge_dir   = "${path.module}/../../data/knowledge/policy_wording"
+  knowledge_files = fileset(local.knowledge_dir, "*")
+  embedding_model = "arn:${local.partition}:bedrock:${local.region}::foundation-model/amazon.titan-embed-text-v2:0"
+}
+
+resource "aws_s3_bucket" "knowledge" {
+  #checkov:skip=CKV_AWS_18: access logs need a second bucket; the files are the public policy wording
+  #checkov:skip=CKV_AWS_144: one region is enough; the files are rebuilt from the repo
+  #checkov:skip=CKV_AWS_145: S3-managed encryption is enough for the public policy wording
+  #checkov:skip=CKV2_AWS_62: the apply starts ingestion itself; nothing reacts to new objects
+  bucket        = "${var.project}-knowledge-${var.environment}-${local.account}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "knowledge" {
+  bucket                  = aws_s3_bucket.knowledge.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "knowledge" {
+  bucket = aws_s3_bucket.knowledge.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+# trivy:ignore:AWS-0132 S3-managed encryption is enough for the public policy wording
+resource "aws_s3_bucket_server_side_encryption_configuration" "knowledge" {
+  bucket = aws_s3_bucket.knowledge.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "knowledge" {
+  bucket = aws_s3_bucket.knowledge.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "knowledge" {
+  bucket = aws_s3_bucket.knowledge.id
+
+  rule {
+    id     = "expire-old-versions"
+    status = "Enabled"
+    filter {}
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.knowledge]
+}
+
+resource "aws_s3_bucket_policy" "knowledge" {
+  bucket = aws_s3_bucket.knowledge.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.knowledge.arn, "${aws_s3_bucket.knowledge.arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.knowledge]
+}
+
+resource "aws_s3_object" "knowledge" {
+  for_each = local.knowledge_files
+
+  bucket       = aws_s3_bucket.knowledge.id
+  key          = "policy_wording/${each.value}"
+  source       = "${local.knowledge_dir}/${each.value}"
+  etag         = filemd5("${local.knowledge_dir}/${each.value}")
+  content_type = endswith(each.value, ".json") ? "application/json" : "text/markdown"
+}
+
+resource "aws_s3vectors_vector_bucket" "knowledge" {
+  vector_bucket_name = "${local.prefix}-knowledge"
+  force_destroy      = true
+}
+
+# Titan Text Embeddings V2 gives 1024 dimensions; the text and Bedrock's own metadata are not filters.
+resource "aws_s3vectors_index" "wording" {
+  vector_bucket_name = aws_s3vectors_vector_bucket.knowledge.vector_bucket_name
+  index_name         = "policy-wording"
+  data_type          = "float32"
+  dimension          = 1024
+  distance_metric    = "cosine"
+
+  metadata_configuration {
+    non_filterable_metadata_keys = ["AMAZON_BEDROCK_TEXT", "AMAZON_BEDROCK_METADATA"]
+  }
+}
+
+resource "aws_iam_role" "knowledge" {
+  name                 = "${local.prefix}-knowledge"
+  description          = "Embeds the ${var.project} policy wording into its knowledge base"
+  permissions_boundary = local.boundary
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "bedrock.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account }
+        ArnLike      = { "aws:SourceArn" = "arn:${local.partition}:bedrock:${local.region}:${local.account}:knowledge-base/*" }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "knowledge" {
+  name = "knowledge"
+  role = aws_iam_role.knowledge.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = "bedrock:InvokeModel", Resource = local.embedding_model },
+      { Effect = "Allow", Action = "s3:ListBucket", Resource = aws_s3_bucket.knowledge.arn },
+      { Effect = "Allow", Action = "s3:GetObject", Resource = "${aws_s3_bucket.knowledge.arn}/*" },
+      {
+        Effect   = "Allow"
+        Action   = ["s3vectors:PutVectors", "s3vectors:GetVectors", "s3vectors:DeleteVectors", "s3vectors:QueryVectors", "s3vectors:GetIndex"]
+        Resource = aws_s3vectors_index.wording.index_arn
+      },
+    ]
+  })
+}
+
+resource "aws_bedrockagent_knowledge_base" "wording" {
+  name        = "${local.prefix}-wording"
+  description = "The ${var.project} policy wording, one document per section"
+  role_arn    = aws_iam_role.knowledge.arn
+
+  knowledge_base_configuration {
+    type = "VECTOR"
+    vector_knowledge_base_configuration {
+      embedding_model_arn = local.embedding_model
+    }
+  }
+
+  storage_configuration {
+    type = "S3_VECTORS"
+    s3_vectors_configuration {
+      index_arn = aws_s3vectors_index.wording.index_arn
+    }
+  }
+
+  depends_on = [aws_iam_role_policy.knowledge]
+}
+
+resource "aws_bedrockagent_data_source" "wording" {
+  name              = "policy-wording"
+  knowledge_base_id = aws_bedrockagent_knowledge_base.wording.id
+
+  data_source_configuration {
+    type = "S3"
+    s3_configuration {
+      bucket_arn         = aws_s3_bucket.knowledge.arn
+      inclusion_prefixes = ["policy_wording/"]
+    }
+  }
+
+  # Each file is one section already, so no further chunking.
+  vector_ingestion_configuration {
+    chunking_configuration {
+      chunking_strategy = "NONE"
+    }
+  }
+}
+
+# Ingest again whenever a section's file changes.
+resource "terraform_data" "ingest" {
+  triggers_replace = [
+    aws_bedrockagent_data_source.wording.data_source_id,
+    sha256(join("", [for f in local.knowledge_files : filemd5("${local.knowledge_dir}/${f}")])),
+  ]
+
+  provisioner "local-exec" {
+    command = "aws bedrock-agent start-ingestion-job --knowledge-base-id ${aws_bedrockagent_knowledge_base.wording.id} --data-source-id ${aws_bedrockagent_data_source.wording.data_source_id} --query ingestionJob.status --output text"
+  }
+
+  depends_on = [aws_s3_object.knowledge]
 }
 
 # AgentCore Gateway in front of the context layer (plan phase 3): the agent reaches its lookups as
@@ -226,6 +444,8 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     DRAFTING_MODEL      = local.haiku
     UNDERCOVER_API      = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
+    MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
+    KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
   }
 
   depends_on = [aws_iam_role_policy.agent, aws_bedrockagentcore_gateway_target.context]

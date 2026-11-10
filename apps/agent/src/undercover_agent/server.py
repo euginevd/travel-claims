@@ -414,7 +414,8 @@ def build_app() -> FastAPI:
 
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
-    from undercover_agent.memory import StoreMemory  # noqa: PLC0415
+    from undercover_agent.knowledge import KnowledgeBase  # noqa: PLC0415
+    from undercover_agent.memory import AgentCoreMemory, Memory, StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude, plain_name  # noqa: PLC0415
     from undercover_agent.redteam import RedTeamStarter  # noqa: PLC0415
     from undercover_agent.settings import get_settings  # noqa: PLC0415
@@ -423,11 +424,11 @@ def build_app() -> FastAPI:
     settings = get_settings()
 
     signer = None
+    region = settings.aws_region or os.environ.get("AWS_REGION")
     if settings.context_aws_auth:
         from undercover_agent.aws_auth import SigV4Signer  # noqa: PLC0415
 
-        region = settings.aws_region or os.environ["AWS_REGION"]
-        signer = SigV4Signer(region, settings.context_aws_service)
+        signer = SigV4Signer(region or os.environ["AWS_REGION"], settings.context_aws_service)
 
     def make_runner() -> Runner:
         pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
@@ -447,13 +448,19 @@ def build_app() -> FastAPI:
             api.register_configuration(first)
         except ApiError:
             log.warning("couldn't register the first configuration; using the built-in one")
+        # AgentCore Memory on AWS when named; the Postgres store otherwise (tier 1).
+        memory: Memory = (
+            AgentCoreMemory(settings.memory_id, region)
+            if settings.memory_id
+            else StoreMemory(store)
+        )
         graph = build_graph(
             api,
             AnthropicClaude(settings),
             McpContext(settings.undercover_context, signer, settings.context_tool_prefix),
             saver,
             max_model_calls=settings.max_model_calls,
-            memory=StoreMemory(store),
+            memory=memory,
         )
         return Runner(graph, api)
 
@@ -470,6 +477,9 @@ def build_app() -> FastAPI:
             AnthropicClaude(settings),
             McpContext(settings.undercover_context, signer, settings.context_tool_prefix),
             settings.drafting_model,
+            KnowledgeBase(settings.knowledge_base_id, region)
+            if settings.knowledge_base_id
+            else None,
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
         # On Runtime no agent lives long enough to watch; a handler retries a stalled claim.

@@ -3,13 +3,17 @@ store under that customer alone. It holds what was claimed and decided, never th
 documents, nothing from a claim the hidden-instruction check referred, and nothing from an
 evaluation. The claim history in the records still counts for repeat claims."""
 
-from typing import Any, Protocol
+import logging
+import uuid
+from datetime import UTC, datetime
+from typing import Any, Protocol, cast
 
 from langgraph.store.base import BaseStore
 
 Json = dict[str, Any]
 NAMESPACE = "customers"
 RECALL_LIMIT = 10
+log = logging.getLogger(__name__)
 
 
 class Memory(Protocol):
@@ -36,6 +40,62 @@ class StoreMemory:
 
     def remember(self, customer_id: str, claim_id: str, text: str) -> None:
         self._store.put((NAMESPACE, customer_id), claim_id, {"text": text}, index=False)
+
+
+class AgentCoreMemory:
+    """Memory on AgentCore Memory (tier 2): one long-term record per decided claim, written as
+    is under the customer's own namespace, so no model extracts anything from their words.
+    Memory only informs the agent, so a failure to reach it is logged and recalls nothing."""
+
+    def __init__(self, memory_id: str, region: str | None, client: Any = None) -> None:
+        self._id = memory_id
+        if client is None:
+            import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+            client = cast(Any, boto3).client("bedrock-agentcore", region_name=region)
+        self._client = client
+
+    def recall(self, customer_id: str, current_claim: str) -> list[str]:
+        try:
+            found = self._client.list_memory_records(
+                memoryId=self._id, namespace=namespace_of(customer_id), maxResults=100
+            )
+        except Exception as error:  # noqa: BLE001 - memory informs; it never decides
+            log.warning("memory unavailable: %s", type(error).__name__)
+            return []
+        latest: dict[str, tuple[str, str]] = {}
+        own = namespace_of(customer_id)
+        for record in found.get("memoryRecordSummaries", []):
+            # A namespace filter may match by prefix; keep only this customer's own records.
+            if own not in record.get("namespaces", []):
+                continue
+            claim_id = str(record.get("metadata", {}).get("claim_id", {}).get("stringValue", ""))
+            text = record.get("content", {}).get("text")
+            when = str(record.get("timestamp") or record.get("createdAt") or "")
+            if not claim_id or claim_id == current_claim or not isinstance(text, str):
+                continue
+            if claim_id not in latest or when > latest[claim_id][0]:
+                latest[claim_id] = (when, text)
+        newest = sorted(latest.values(), reverse=True)
+        return [text for _, text in newest][:RECALL_LIMIT]
+
+    def remember(self, customer_id: str, claim_id: str, text: str) -> None:
+        record = {
+            "requestIdentifier": f"{claim_id}-{uuid.uuid4().hex[:12]}",
+            "namespaces": [namespace_of(customer_id)],
+            "content": {"text": text},
+            "timestamp": datetime.now(UTC),
+            "metadata": {"claim_id": {"stringValue": claim_id}},
+        }
+        try:
+            self._client.batch_create_memory_records(memoryId=self._id, records=[record])
+        except Exception as error:  # noqa: BLE001 - a lost memory never stops a decision
+            log.warning("couldn't remember claim %s: %s", claim_id, type(error).__name__)
+
+
+def namespace_of(customer_id: str) -> str:
+    """The customer's own namespace, ended with "/" so no customer's is the start of another's."""
+    return f"{NAMESPACE}/{customer_id}/"
 
 
 def uses_memory(claim: Json) -> bool:

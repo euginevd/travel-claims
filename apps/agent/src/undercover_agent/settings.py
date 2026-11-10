@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     context_aws_service: Literal["bedrock-agentcore", "lambda"] = "lambda"
     # Gateway names each tool after its target (context___get_claim_rules); none locally.
     context_tool_prefix: str = ""
+    # Tier 2: the customers' memory on AgentCore Memory when set; the Postgres store otherwise.
+    memory_id: str | None = None
+    # Tier 2: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
+    knowledge_base_id: str | None = None
     agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
     undercover_api: str = "http://127.0.0.1:8000"
