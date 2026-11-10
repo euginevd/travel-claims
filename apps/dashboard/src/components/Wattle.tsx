@@ -37,7 +37,8 @@ export function WattleButton({ onClick }: { onClick: () => void }) {
 }
 
 const PROJECT_URL: string =
-  import.meta.env.VITE_PROJECT_URL ??
+  // `||`, not `??`: the images build passes an empty string when it's unset.
+  import.meta.env.VITE_PROJECT_URL ||
   `${window.location.protocol}//${window.location.hostname}:5172/`;
 
 /** Back to the UnderCover project page. */
