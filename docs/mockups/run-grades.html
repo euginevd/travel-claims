@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup: the judge's grades on a run</title>
+<style>
+  :root {
+    --navy: #0b2545; --sky: #1e6fd9; --coral: #ff6b4a;
+    --bg: #f4f7fb; --bg-2: #ffffff; --bg-3: #eef3f9; --ink: #0b2545; --ink-2: #4a5b73; --ink-3: #8a9ab0;
+    --line: #dce5f0; --good: #1b7f4c; --good-tint: #e6f4ec; --info: #1e6fd9; --info-tint: #e8f3fb;
+    --refer: #6941c6; --refer-tint: #f1ecfb; --warn: #b45309; --warn-tint: #fef3e2; --bad: #b42318; --bad-tint: #fdecea;
+    --shadow: 0 1px 2px rgb(11 37 69 / 6%), 0 4px 16px rgb(11 37 69 / 6%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink-2); font: 400 15px/1.5 "Plus Jakarta Sans", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  header { background: var(--navy); color: #fff; padding: 12px 24px; border-bottom: 3px solid var(--coral); font-weight: 700; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1, h2 { color: var(--ink); margin: 0 0 8px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 40px 0 8px; }
+  .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin: 0; }
+  .note { background: var(--bg-3); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 12px; font-size: 13px; margin: 8px 0 16px; }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 16px 0; }
+  .figure { background: var(--bg-2); border: 1px solid var(--line); border-top: 3px solid var(--sky); border-radius: 18px; padding: 12px 16px; box-shadow: var(--shadow); }
+  .figure.new { border-top-color: var(--refer); }
+  .figure-value { color: var(--ink); font-size: 24px; font-weight: 700; margin: 4px 0 0; }
+  .wrap { overflow-x: auto; background: var(--bg-2); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; background: var(--bg-3); color: var(--ink); font-weight: 600; padding: 8px 12px; white-space: nowrap; }
+  td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  tr.miss td:first-child { box-shadow: inset 3px 0 var(--bad); }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 13px; }
+  .small { font-size: 13px; margin: 4px 0 0; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .chip svg { width: 14px; height: 14px; }
+  .good { background: var(--good-tint); } .good svg { color: var(--good); }
+  .info { background: var(--info-tint); } .info svg { color: var(--info); }
+  .warn { background: var(--warn-tint); } .warn svg { color: var(--warn); }
+  .bad { background: var(--bad-tint); } .bad svg { color: var(--bad); }
+  .plain { background: var(--bg-3); }
+  .judge dl { display: grid; grid-template-columns: auto auto; gap: 0 8px; margin: 6px 0 0; font-size: 13px; }
+  .judge dt { color: var(--ink-2); } .judge dd { margin: 0; color: var(--ink); font-weight: 600; }
+  .num { text-align: right; white-space: nowrap; }
+  .error { background: var(--bad-tint); border-radius: 12px; padding: 12px 16px; color: var(--ink); display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+  button { font: 600 14px/1 inherit; font-family: inherit; border-radius: 999px; padding: 10px 18px; min-height: 40px; background: var(--bg-2); color: var(--ink); border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+  <symbol id="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></symbol>
+  <symbol id="minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></symbol>
+</svg>
+
+<header>UnderCover · AI assurance console</header>
+<main>
+  <p class="eyebrow"><a href="#">Scoreboard</a></p>
+  <h1>Run 12</h1>
+  <p class="note">Mockup for <code>docs/plan-judge-and-dispatch.md</code>, phase 2. New: the Grade figure and the Judge column. The grade is shown only; it never decides what a round keeps.</p>
+  <p>Evaluation set, tiny · configuration v3 · 5 at once · finished · 1 missed of 5</p>
+
+  <ul class="figures" aria-label="The run's measures">
+    <li class="figure"><p class="eyebrow">Accuracy</p><p class="figure-value">80%</p></li>
+    <li class="figure"><p class="eyebrow">Payout accuracy</p><p class="figure-value">80%</p></li>
+    <li class="figure"><p class="eyebrow">Straight through</p><p class="figure-value">60%</p></li>
+    <li class="figure new"><p class="eyebrow">Judge's grade</p><p class="figure-value">2.25 <span style="font-size:14px;font-weight:600;color:var(--ink-2)">of 3 · 4 graded</span></p></li>
+    <li class="figure"><p class="eyebrow">Cost per claim</p><p class="figure-value">$0.031</p></li>
+  </ul>
+
+  <div class="wrap">
+    <table>
+      <caption class="eyebrow" style="text-align:left;padding:12px">Each claim beside the handler's decision; misses first</caption>
+      <thead><tr><th scope="col">Claim</th><th scope="col">Agent</th><th scope="col">Handler</th><th scope="col">Match</th><th scope="col">Judge</th><th scope="col" class="num">Cost</th></tr></thead>
+      <tbody>
+        <tr class="miss">
+          <td><span class="mono">CLM-1017</span></td>
+          <td><strong>Approve $310.00</strong><p class="small">The bag was delayed 14 hours…</p></td>
+          <td><strong>refer</strong><p class="small">No airline report for the delay…</p></td>
+          <td><span class="chip bad"><svg aria-hidden="true"><use href="#x"/></svg>Miss</span></td>
+          <td class="judge"><span class="chip bad"><svg aria-hidden="true"><use href="#award"/></svg>F · 0</span>
+            <dl><dt>Same grounds</dt><dd>No</dd><dt>Same section</dt><dd>No</dd></dl>
+            <p class="small">Missed that the airline's report is required.</p></td>
+          <td class="num">$0.034</td>
+        </tr>
+        <tr>
+          <td><span class="mono">CLM-1007</span></td>
+          <td><strong>Approve $50.00</strong><p class="small">Delay past 6 hours on Economy…</p></td>
+          <td><strong>Approve $50.00</strong><p class="small">Flight delayed 8 hours…</p></td>
+          <td><span class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>Match</span></td>
+          <td class="judge"><span class="chip good"><svg aria-hidden="true"><use href="#award"/></svg>A · 3</span>
+            <dl><dt>Same grounds</dt><dd>Yes</dd><dt>Same section</dt><dd>Yes</dd></dl></td>
+          <td class="num">$0.029</td>
+        </tr>
+        <tr>
+          <td><span class="mono">CLM-1020</span></td>
+          <td><strong>Approve $240.00</strong><p class="small">Receipts cover the meals…</p></td>
+          <td><strong>Approve $240.00</strong><p class="small">Reasonable costs with receipts…</p></td>
+          <td><span class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>Match</span></td>
+          <td class="judge"><span class="chip info"><svg aria-hidden="true"><use href="#award"/></svg>B · 2</span>
+            <dl><dt>Same grounds</dt><dd>Yes</dd><dt>Same section</dt><dd>No</dd></dl>
+            <p class="small">Cited section 4; the handler cited section 3.</p></td>
+          <td class="num">$0.030</td>
+        </tr>
+        <tr>
+          <td><span class="mono">CLM-1015</span></td>
+          <td><strong>decline</strong><p class="small">Pre-existing condition…</p></td>
+          <td><strong>decline</strong><p class="small">Excluded condition…</p></td>
+          <td><span class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>Match</span></td>
+          <td class="judge"><span class="chip warn"><svg aria-hidden="true"><use href="#award"/></svg>C · 1</span>
+            <dl><dt>Same grounds</dt><dd>No</dd><dt>Same section</dt><dd>Yes</dd></dl></td>
+          <td class="num">$0.028</td>
+        </tr>
+        <tr>
+          <td><span class="mono">CLM-1021</span></td>
+          <td><strong>Approve $825.00</strong></td>
+          <td><strong>Approve $825.00</strong></td>
+          <td><span class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>Match</span></td>
+          <td class="judge"><span class="chip plain"><svg aria-hidden="true"><use href="#minus"/></svg>Not graded</span><p class="small">The judge couldn't grade this one.</p></td>
+          <td class="num">$0.031</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>While grading</h3>
+  <p>Evaluation set, tiny · configuration v3 · 5 at once · <span class="chip info"><svg aria-hidden="true"><use href="#spin"/></svg>Grading…</span></p>
+  <p class="small">The Judge column shows "Grading…" on each decided claim until its grade arrives; the Grade figure shows "—".</p>
+
+  <h3>Scoreboard: runs table gets a Grade column</h3>
+  <div class="wrap"><table>
+    <thead><tr><th scope="col">Run</th><th scope="col">Set</th><th scope="col">Accuracy</th><th scope="col">Grade</th><th scope="col" class="num">Cost per claim</th></tr></thead>
+    <tbody>
+      <tr><td>12</td><td>Evaluation, tiny</td><td>80%</td><td>2.25</td><td class="num">$0.031</td></tr>
+      <tr><td>11</td><td>Held-out, tiny</td><td>100%</td><td>Not graded</td><td class="num">$0.002</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Loading and error (unchanged from today's run page)</h3>
+  <p role="status">Loading the run…</p>
+  <p class="error" role="alert">The run couldn't load. <button type="button">Try again</button></p>
+</main>
+</body>
+</html>

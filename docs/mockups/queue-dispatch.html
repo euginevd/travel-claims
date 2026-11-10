@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup: the dispatch card on the queue</title>
+<style>
+  :root {
+    --navy: #0b2545; --sky: #1e6fd9; --sky-tint: #e8f3fb; --coral: #ff6b4a;
+    --bg: #f4f7fb; --bg-2: #ffffff; --bg-3: #eef3f9; --ink: #0b2545; --ink-2: #4a5b73; --ink-3: #8a9ab0;
+    --line: #dce5f0; --good: #1b7f4c; --good-tint: #e6f4ec; --info: #1e6fd9; --info-tint: #e8f3fb;
+    --refer: #6941c6; --refer-tint: #f1ecfb; --warn: #b45309; --warn-tint: #fef3e2; --bad: #b42318; --bad-tint: #fdecea;
+    --shadow: 0 1px 2px rgb(11 37 69 / 6%), 0 4px 16px rgb(11 37 69 / 6%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink-2); font: 400 15px/1.5 "Plus Jakarta Sans", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  header { background: var(--navy); color: #fff; padding: 12px 24px; border-bottom: 3px solid var(--coral); font-weight: 700; display: flex; gap: 24px; align-items: center; }
+  header nav a { color: #fff; text-decoration: none; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 14px; }
+  header nav a[aria-current] { background: rgb(255 255 255 / 14%); }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1, h2, h3 { color: var(--ink); margin: 0 0 8px; }
+  h1 { font-size: 26px; } h2 { font-size: 18px; } h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-top: 40px; }
+  .note { background: var(--bg-3); border: 1px dashed var(--line); border-radius: 12px; padding: 8px 12px; font-size: 13px; margin: 8px 0 16px; }
+  .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 20px 24px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; }
+  label { display: block; font-weight: 600; color: var(--ink); font-size: 14px; margin-bottom: 4px; }
+  input[type=number] { width: 96px; padding: 8px 12px; border: 1px solid var(--ink-3); border-radius: 12px; font: inherit; color: var(--ink); }
+  .hint { font-size: 13px; margin: 4px 0 0; }
+  button { font: 600 14px/1 inherit; font-family: inherit; border-radius: 999px; padding: 10px 18px; min-height: 40px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .primary { background: var(--navy); color: #fff; border: 1px solid var(--navy); }
+  .secondary { background: var(--bg-2); color: var(--ink); border: 1px solid var(--line); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+  .chip { display: inline-flex; gap: 6px; align-items: center; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 600; color: var(--ink); }
+  .chip svg { width: 14px; height: 14px; }
+  .good { background: var(--good-tint); } .good svg { color: var(--good); }
+  .info { background: var(--info-tint); } .info svg { color: var(--info); }
+  .warn { background: var(--warn-tint); } .warn svg { color: var(--warn); }
+  .refer { background: var(--refer-tint); } .refer svg { color: var(--refer); }
+  .bad { background: var(--bad-tint); } .bad svg { color: var(--bad); }
+  .bar { height: 8px; background: var(--bg-3); border-radius: 999px; overflow: hidden; margin: 12px 0 8px; }
+  .bar span { display: block; height: 100%; background: var(--sky); border-radius: 999px; }
+  .counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .meta { font-size: 13px; margin: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+  th { text-align: left; background: var(--bg-3); color: var(--ink); font-weight: 600; padding: 8px 12px; }
+  td { padding: 8px 12px; border-top: 1px solid var(--line); }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-size: 13px; }
+  .num { text-align: right; white-space: nowrap; }
+  a { color: var(--sky); }
+  .skeleton { background: var(--bg-3); border-radius: 8px; height: 14px; margin: 8px 0; }
+  .error { background: var(--bad-tint); border-radius: 12px; padding: 12px 16px; color: var(--ink); display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  dialog { position: static; display: block; border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 24px; max-width: 460px; background: var(--bg-2); color: var(--ink-2); }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="hour" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="hand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9z"/></symbol>
+  <symbol id="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></symbol>
+</svg>
+
+<header>UnderCover <nav aria-label="Main"><a href="#" aria-current="page">Queue</a><a href="#">Copilot</a></nav></header>
+
+<main>
+  <h1>Queue</h1>
+  <p class="note">Mockup for <code>docs/plan-judge-and-dispatch.md</code>, phase 4. The card sits between the four figures and the queue's views. Each state below is how the card looks in that state.</p>
+
+  <h3>Senior handler, nothing running (Dana Whitfield)</h3>
+  <section class="card" aria-labelledby="d1">
+    <div class="row">
+      <div>
+        <h2 id="d1">Dispatch</h2>
+        <p class="meta">14 claims are waiting. Claim agents work them oldest first; approvals over $1,000 still wait for you.</p>
+      </div>
+      <form class="row" onsubmit="return false">
+        <div>
+          <label for="n1">Claim agents at once</label>
+          <input id="n1" type="number" min="1" max="25" value="3" aria-describedby="n1h">
+          <p id="n1h" class="hint">1 to 25</p>
+        </div>
+        <button class="primary" type="submit"><svg width="16" height="16" aria-hidden="true"><use href="#play"/></svg>Work the waiting claims</button>
+      </form>
+    </div>
+    <p class="meta">Last dispatch: #3, finished 10 Nov 2026 by Dana Whitfield · 9 claims · $0.27</p>
+  </section>
+
+  <h3>Confirm dialog</h3>
+  <dialog open aria-labelledby="c1">
+    <h2 id="c1">Work 14 waiting claims?</h2>
+    <p>3 claim agents at once. About $0.30 to $0.60 of Claude. Payouts over $1,000 will wait for your sign-off.</p>
+    <div class="actions"><button class="secondary" type="button">Cancel</button><button class="primary" type="button">Start the dispatch</button></div>
+  </dialog>
+
+  <h3>Running (every handler sees this; polled every 3 seconds)</h3>
+  <section class="card" aria-labelledby="d2">
+    <div class="row">
+      <h2 id="d2">Dispatch #4 <span class="chip info"><svg aria-hidden="true"><use href="#spin"/></svg>Running</span></h2>
+      <p class="meta">Started 2:41 pm by Dana Whitfield · 3 at once · $0.21 so far</p>
+    </div>
+    <div class="bar" role="progressbar" aria-label="Claims worked" aria-valuemin="0" aria-valuemax="14" aria-valuenow="6"><span style="width:43%"></span></div>
+    <p class="meta"><strong>6 of 14</strong> worked</p>
+    <ul class="counts" aria-label="Where the dispatch's claims are">
+      <li class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>4 decided</li>
+      <li class="chip warn"><svg aria-hidden="true"><use href="#hour"/></svg>1 waiting for sign-off</li>
+      <li class="chip refer"><svg aria-hidden="true"><use href="#hand"/></svg>1 referred</li>
+      <li class="chip info"><svg aria-hidden="true"><use href="#clock"/></svg>8 not started</li>
+    </ul>
+    <table>
+      <caption class="meta" style="text-align:left;margin-top:12px">This dispatch's claims, oldest first</caption>
+      <thead><tr><th scope="col">Claim</th><th scope="col">Where it is</th><th scope="col">Decision</th><th scope="col" class="num">Cost</th></tr></thead>
+      <tbody>
+        <tr><td><a class="mono" href="#">CLM-1001</a></td><td><span class="chip good"><svg aria-hidden="true"><use href="#check"/></svg>Decided</span></td><td>Approve $420.00</td><td class="num">$0.031</td></tr>
+        <tr><td><a class="mono" href="#">CLM-1003</a></td><td><span class="chip warn"><svg aria-hidden="true"><use href="#hour"/></svg>Waiting for sign-off</span></td><td>Approve $3,750.00</td><td class="num">$0.042</td></tr>
+        <tr><td><a class="mono" href="#">CLM-1005</a></td><td><span class="chip info"><svg aria-hidden="true"><use href="#spin"/></svg>In progress</span></td><td>—</td><td class="num">$0.012</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <h3>Handler who isn't senior (Marcus Oyelaran), nothing running</h3>
+  <section class="card" aria-labelledby="d3">
+    <h2 id="d3">Dispatch</h2>
+    <p class="meta">A senior handler can have claim agents work the waiting claims. Last dispatch: #3, finished 10 Nov 2026 · 9 claims · $0.27</p>
+  </section>
+
+  <h3>Empty: nothing waiting</h3>
+  <section class="card" aria-labelledby="d4">
+    <h2 id="d4">Dispatch</h2>
+    <p class="meta">Nothing is waiting, so there's nothing to dispatch. New claims from the portal land here.</p>
+  </section>
+
+  <h3>Loading</h3>
+  <section class="card" aria-busy="true" aria-labelledby="d5">
+    <h2 id="d5">Dispatch</h2>
+    <p role="status" class="meta">Loading the latest dispatch…</p>
+    <div class="skeleton" style="width:60%"></div><div class="skeleton" style="width:35%"></div>
+  </section>
+
+  <h3>Error: the start was refused</h3>
+  <section class="card" aria-labelledby="d6">
+    <h2 id="d6">Dispatch</h2>
+    <p class="error" role="alert">An evaluation run is going. Start the dispatch when it finishes. <button class="secondary" type="button">Try again</button></p>
+  </section>
+</main>
+</body>
+</html>
