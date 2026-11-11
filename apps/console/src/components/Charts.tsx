@@ -66,6 +66,61 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
   );
 }
 
+const BARS_WIDTH = 300;
+const BARS_HEIGHT = 56;
+const BAR_GAP = 2;
+
+/** One bar a value, oldest first, on a shared baseline. Each bar names its value on hover; the
+ * label says the whole series for a screen reader. */
+export function BarSeries({
+  values,
+  label,
+}: {
+  values: { name: string; value: number }[];
+  label: string;
+}) {
+  if (values.length === 0) return null;
+  const high = Math.max(...values.map((v) => v.value), 1);
+  const slot = BARS_WIDTH / values.length;
+  return (
+    <svg
+      className="barseries"
+      viewBox={`0 0 ${String(BARS_WIDTH)} ${String(BARS_HEIGHT + 1)}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+    >
+      <line
+        className="bar-base"
+        x1="0"
+        x2={BARS_WIDTH}
+        y1={BARS_HEIGHT + 0.5}
+        y2={BARS_HEIGHT + 0.5}
+      />
+      {values.map(({ name, value }, index) => {
+        const height = Math.round((value / high) * (BARS_HEIGHT - 2) * 10) / 10;
+        return (
+          <g key={name}>
+            <title>{`${name}: ${String(value)}`}</title>
+            {/* The whole column answers the pointer, so an empty day can be read too. */}
+            <rect className="bar-hit" x={index * slot} y="0" width={slot} height={BARS_HEIGHT} />
+            {value > 0 && (
+              <rect
+                className="bar-day"
+                x={Math.round((index * slot + BAR_GAP / 2) * 10) / 10}
+                y={BARS_HEIGHT - height}
+                width={Math.round((slot - BAR_GAP) * 10) / 10}
+                height={height}
+                rx="2"
+              />
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 const RING = 2 * Math.PI * 15.5;
 
 /** A ring showing a part of a whole, with "part/whole" in the middle. */

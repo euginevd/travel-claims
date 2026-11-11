@@ -15,6 +15,7 @@ import { useFocusHeading } from "../useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
 import { AskedPanel } from "../components/AskedPanel";
 import { RiskPanel } from "../components/RiskPanel";
+import { SimilarPanel } from "../components/SimilarPanel";
 import { LetterPanel } from "../components/LetterPanel";
 
 interface ClaimPageProps {
@@ -445,6 +446,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
             </section>
 
             <RiskPanel api={api} claimId={claim.claim_id} />
+            <SimilarPanel api={api} claimId={claim.claim_id} />
             <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
             {claim.status === "decided" &&
               claim.decision &&

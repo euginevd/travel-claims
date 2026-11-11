@@ -2471,3 +2471,43 @@ h3.sub-head {
 .settings-changes p {
   margin: 0;
 }
+
+/* Similar past claims: a guide beside the risk signals, never a decision. */
+.similar-summary {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.similar-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.similar-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.9rem;
+}
+
+.similar-list a {
+  font-weight: 600;
+}
+
+.similar-reason {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.8125rem;
+}
+
+.similar-section {
+  color: var(--ink-soft);
+  font-weight: 500;
+}

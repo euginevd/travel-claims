@@ -88,7 +88,8 @@ interface WattleProps {
   starters: string[];
   placeholder?: string;
   onClose: () => void;
-  extra?: (answer: WattleAnswer) => ReactNode;
+  /** What to show under an answer, given the question it answered. */
+  extra?: (answer: WattleAnswer, question: string) => ReactNode;
 }
 
 interface Message extends WattleTurn {
@@ -200,7 +201,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
                 ))}
               </ul>
             )}
-            {message.answer && extra?.(message.answer)}
+            {message.answer && extra?.(message.answer, messages[index - 1]?.text ?? "")}
           </div>
         ))}
         {busy && (

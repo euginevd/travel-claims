@@ -211,6 +211,28 @@ export const RiskSchema = z.object({
 
 export type Risk = z.infer<typeof RiskSchema>;
 
+export const SimilarClaimsSchema = z.object({
+  claim_id: z.string(),
+  claim_type: z.string(),
+  summary: z.string(),
+  similar: z.array(
+    z.object({
+      claim_id: z.string(),
+      decided_at: z.string(),
+      amount_claimed: z.number(),
+      outcome: z.enum(["approve", "decline"]),
+      payout: z.number(),
+      section: z.string(),
+      reason: z.string(),
+      overridden: z.boolean(),
+      same_plan: z.boolean(),
+      same_destination: z.boolean(),
+    }),
+  ),
+});
+
+export type SimilarClaims = z.infer<typeof SimilarClaimsSchema>;
+
 export const StepSchema = z.object({
   step_id: z.number(),
   kind: StepKindSchema,
@@ -375,6 +397,7 @@ export interface Api {
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
   getRisk: (claimId: string) => Promise<Risk>;
+  getSimilar: (claimId: string) => Promise<SimilarClaims>;
   draftLetter: (claimId: string) => Promise<{ subject: string; body: string }>;
   sendLetter: (
     claimId: string,
@@ -490,6 +513,7 @@ export function createApi(
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
     getRisk: (claimId) => call(RiskSchema, "GET", `${claimPath(claimId)}/risk`),
+    getSimilar: (claimId) => call(SimilarClaimsSchema, "GET", `${claimPath(claimId)}/similar`),
     draftLetter: (claimId) =>
       call(
         z.object({ subject: z.string(), body: z.string() }),

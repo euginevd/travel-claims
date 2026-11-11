@@ -77,6 +77,7 @@ from undercover_api.demo import demo_router
 from undercover_api.demo_sign_in import CognitoTestSignIn
 from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_router
 from undercover_api.evaluations import EVALUATION, version_for_attempt
+from undercover_api.feedback import feedback_router
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.kill_switch import (
     PAUSED_REASON,
@@ -86,6 +87,7 @@ from undercover_api.kill_switch import (
     set_payouts,
 )
 from undercover_api.letters import letters_router
+from undercover_api.live import live_router
 from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
@@ -136,6 +138,7 @@ from undercover_api.recovery import (
 from undercover_api.redteam import redteam_router
 from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
+from undercover_api.similar import similar_router
 from undercover_api.storage import Receipts, S3ReceiptStore
 from undercover_api.success import engineer_success_router, staff_success_router
 from undercover_api.threats import threats_router
@@ -918,6 +921,9 @@ def create_app(
         engineer_settings_router,
         staff_success_router,
         engineer_success_router,
+        feedback_router,
+        similar_router,
+        live_router,
     ):
         app.include_router(router)
     return app

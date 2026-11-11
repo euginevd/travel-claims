@@ -2,6 +2,7 @@ import { FileText, Image as ImageIcon, UserRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, type Api, type CustomerClaim } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
+import { Feedback } from "../components/Feedback";
 import { NeedsPanel } from "../components/NeedsPanel";
 import { kilobytes, ReceiptPicker } from "../components/ReceiptPicker";
 import { CustomerStatusChip } from "../components/StatusChip";
@@ -143,6 +144,12 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
                 <>
                   <h3>Why</h3>
                   <p dir="auto">{claim.reason}</p>
+                  <Feedback
+                    api={api}
+                    subject="decision"
+                    claimId={claimId}
+                    prompt="Was this explanation clear?"
+                  />
                 </>
               )}
               {claim.outcome && claim.outcome !== "refer" && (

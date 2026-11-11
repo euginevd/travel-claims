@@ -3197,3 +3197,73 @@ select.unsure {
   font-weight: 600;
   letter-spacing: 0.04em;
 }
+
+/* Feedback: quiet thumbs under an answer or a decision's reason */
+.feedback {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.feedback-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+.feedback-prompt {
+  margin-right: 2px;
+}
+
+.feedback-vote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.feedback-vote:hover:not(:disabled) {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.feedback-vote[aria-pressed="true"] {
+  border-color: var(--acc-edge);
+  background: var(--acc-tint);
+  color: var(--acc-d);
+}
+
+.feedback-thanks {
+  color: var(--good);
+  font-weight: 500;
+}
+
+.feedback-comment {
+  display: flex;
+  gap: 6px;
+}
+
+.feedback-comment input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+}

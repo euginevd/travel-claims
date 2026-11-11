@@ -11,12 +11,13 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
-from api_helpers import AGENT, DANA, PASSWORD, decide, line, payout
+from api_helpers import AGENT, DANA, PASSWORD, decide, line, payout, start
 from fastapi.testclient import TestClient
 
 APPS = Path(__file__).resolve().parents[2]
 DASHBOARD = APPS / "dashboard" / "src" / "fixtures"
 PORTAL = APPS / "portal" / "src" / "fixtures"
+CONSOLE = APPS / "console" / "src" / "fixtures"
 UPDATE = os.environ.get("UPDATE_WEB_FIXTURES") == "1"
 SOURCE = {
     "file": "policy_wording.md",
@@ -140,3 +141,42 @@ def test_the_portals_fixtures_match_the_api(client: TestClient) -> None:
     ).json()
     keep("my-claim", with_receipt, PORTAL)
     keep("my-claims", client.get("/api/customer/claims", headers=maya).json(), PORTAL)
+
+
+def test_the_feedback_loops_fixtures_match_the_api(
+    client: TestClient, dana: dict[str, str], sam: dict[str, str]
+) -> None:
+    """A customer's vote, the handler's similar claims and the engineers' live page."""
+    body = {"email": "maya.patel@example.com", "password": PASSWORD}
+    signed_in = client.post("/api/customer/dev/sign-in", json=body).json()
+    maya = {"Authorization": f"Bearer {signed_in['id_token']}"}
+    start(client, "CLM-1001")
+    client.post(
+        "/api/agent/claims/CLM-1001/model-calls",
+        json={
+            "thread_id": "thread-1",
+            "model": "claude-haiku-5-5",
+            "input_tokens": 100,
+            "output_tokens": 20,
+            "cost": 0.02,
+            "latency_ms": 900,
+        },
+        headers=AGENT,
+    )
+    decide(client, "CLM-1001", "decline")
+    override = {"decision": "approve", "payout": 150, "reason_code": "evidence", "note": "Receipt"}
+    client.post("/api/staff/claims/CLM-1001/override", json=override, headers=dana)
+    vote = {
+        "subject": "decision",
+        "claim_id": "CLM-1001",
+        "helpful": False,
+        "comment": "It doesn't say which receipt was missing.",
+    }
+    keep("feedback", client.post("/api/customer/feedback", json=vote, headers=maya).json(), PORTAL)
+    similar = client.get("/api/staff/claims/CLM-1019/similar", headers=dana).json()
+    keep("similar-claims", similar)
+    keep("live", client.get("/api/engineering/live?days=7", headers=sam).json(), CONSOLE)
+    added = client.post(
+        "/api/engineering/live/disagreements/CLM-1001/add-to-evaluation", headers=sam
+    ).json()
+    keep("added-to-evaluation", added, CONSOLE)

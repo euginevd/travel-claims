@@ -5,6 +5,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header, type NavGroup } from "./components/Header";
 import { Logo } from "./components/Logo";
 import { ImprovementPage } from "./pages/ImprovementPage";
+import { LivePage } from "./pages/LivePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
@@ -14,6 +15,7 @@ import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
   IMPROVEMENT_HREF,
+  LIVE_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
   THREATS_HREF,
@@ -159,6 +161,7 @@ const NAV: NavGroup[] = [
     label: "Quality",
     links: [
       { href: SCOREBOARD_HREF, label: "Scoreboard" },
+      { href: LIVE_HREF, label: "Live" },
       { href: IMPROVEMENT_HREF, label: "Improvement" },
       { href: TRACE_HREF, label: "Claim trace" },
     ],
@@ -174,6 +177,7 @@ const NAV: NavGroup[] = [
 
 /** The navigation link for a route; a run belongs to the scoreboard. */
 function currentHref(route: Route): string {
+  if (route.page === "live") return LIVE_HREF;
   if (route.page === "improvement") return IMPROVEMENT_HREF;
   if (route.page === "redteam") return REDTEAM_HREF;
   if (route.page === "trace") return TRACE_HREF;
@@ -187,6 +191,7 @@ function routeKey(route: Route): string {
 
 function page(route: Route, api: Api) {
   if (route.page === "run") return <RunPage key={route.runId} api={api} runId={route.runId} />;
+  if (route.page === "live") return <LivePage api={api} />;
   if (route.page === "improvement") return <ImprovementPage api={api} />;
   if (route.page === "redteam") return <RedTeamPage api={api} />;
   if (route.page === "trace") return <TracePage api={api} />;

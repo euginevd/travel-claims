@@ -1014,3 +1014,126 @@ main.page {
   color: var(--acc-d);
   font-size: 0.92rem;
 }
+
+/* ---------- Live ---------- */
+
+.live-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.live-charts .panel {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.live-charts .spark {
+  max-width: none;
+  height: 57px;
+  margin-top: 0;
+}
+
+.barseries {
+  display: block;
+  width: 100%;
+  height: 57px;
+}
+
+.bar-day {
+  fill: var(--ink-2);
+}
+
+.bar-hit {
+  fill: transparent;
+}
+
+.barseries g:hover .bar-day {
+  fill: var(--ink);
+}
+
+.barseries g:hover .bar-hit {
+  fill: var(--soft);
+}
+
+.bar-base {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.live-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+}
+
+.live-confirm p {
+  flex-basis: 100%;
+}
+
+.live-votes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 0 0 18px;
+}
+
+.live-votes dt {
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.live-votes dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+.live-sub {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.live-comments {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-comments li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.live-comments li > svg {
+  margin-top: 4px;
+  color: var(--ink-3);
+}
+
+.live-comments p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .live-charts,
+  .live-votes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.small-button {
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+}

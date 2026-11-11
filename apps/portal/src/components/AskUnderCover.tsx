@@ -1,5 +1,6 @@
 import type { Api } from "../api";
 import { MY_CLAIMS_HREF, NEW_CLAIM_HREF, type Route } from "../useHashRoute";
+import { Feedback } from "./Feedback";
 import { WattlePanel } from "./Wattle";
 
 /** Questions that fit the page the customer is on. */
@@ -46,17 +47,20 @@ export function AskUnderCover({
       starters={startersFor(route)}
       placeholder="Ask about your policy or claims"
       onClose={onClose}
-      extra={(answer) =>
-        answer.suggest === "start_claim" ? (
-          <a className="button small-button wattle-next" href={NEW_CLAIM_HREF}>
-            Start a claim
-          </a>
-        ) : answer.suggest === "ask_person" ? (
-          <a className="button secondary small-button wattle-next" href={MY_CLAIMS_HREF}>
-            Ask a person from your claim
-          </a>
-        ) : null
-      }
+      extra={(answer, question) => (
+        <>
+          {answer.suggest === "start_claim" ? (
+            <a className="button small-button wattle-next" href={NEW_CLAIM_HREF}>
+              Start a claim
+            </a>
+          ) : answer.suggest === "ask_person" ? (
+            <a className="button secondary small-button wattle-next" href={MY_CLAIMS_HREF}>
+              Ask a person from your claim
+            </a>
+          ) : null}
+          {!answer.screened && <Feedback api={api} subject="answer" question={question} />}
+        </>
+      )}
     />
   );
 }
