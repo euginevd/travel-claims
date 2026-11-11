@@ -4,7 +4,6 @@
 token; the Copilot checks it with the api and acts with it, one turn at a time per
 conversation."""
 
-import threading
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -87,8 +86,6 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
 ) -> FastAPI:
     """The service, with how to build its graph and store and an api client for a token."""
     ready: dict[str, Any] = {}
-    busy: set[str] = set()
-    lock = threading.Lock()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -123,18 +120,20 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             cost_usd=round(float(values.get("turn_cost") or 0), 6),
         )
 
-    def run(conversation: Conversation, payload: Any, who: Caller) -> ConversationView:
+    def run(
+        conversation: Conversation, payload: Callable[[], Any], who: Caller
+    ) -> ConversationView:
+        """One turn, holding the conversation in the database first so no other instance runs
+        it; the payload is built after that, so its check of the pending card can't race."""
         key = conversation.conversation_id
-        with lock:
-            if key in busy:
-                raise HTTPException(409, "The Copilot is still answering in this conversation")
-            busy.add(key)
+        store = cast(Store, ready["store"])
+        if not store.take(key):
+            raise HTTPException(409, "The Copilot is still answering in this conversation")
         try:
             graph = cast(Graph, ready["graph"])
-            graph.invoke(payload, config_for(key), context=Handler(who.api, who.handler_id))
+            graph.invoke(payload(), config_for(key), context=Handler(who.api, who.handler_id))
         finally:
-            with lock:
-                busy.discard(key)
+            store.free(key)
         return view(conversation)
 
     @router.get("/conversations", operation_id="list_conversations")
@@ -159,21 +158,24 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
     ) -> ConversationView:
         """The handler's message, and the Copilot's turn in answer."""
         conversation = owned(conversation_id, who)
-        current = view(conversation)
-        if current.pending:
-            raise HTTPException(409, "Confirm or cancel the card first")
-        if not current.transcript:
-            cast(Store, ready["store"]).retitle(conversation_id, request.text)
-        start = {
-            "messages": [{"role": "user", "content": request.text}],
-            "transcript": [{"role": "user", "text": request.text}],
-            "pending": {},
-            "held_results": [],
-            "turn_calls": 0,
-            "turn_steps": 0,
-            "turn_cost": 0.0,
-            "turn_seconds": 0.0,
-        }
+
+        def start() -> Json:
+            current = view(conversation)
+            if current.pending:
+                raise HTTPException(409, "Confirm or cancel the card first")
+            if not current.transcript:
+                cast(Store, ready["store"]).retitle(conversation_id, request.text)
+            return {
+                "messages": [{"role": "user", "content": request.text}],
+                "transcript": [{"role": "user", "text": request.text}],
+                "pending": {},
+                "held_results": [],
+                "turn_calls": 0,
+                "turn_steps": 0,
+                "turn_cost": 0.0,
+                "turn_seconds": 0.0,
+            }
+
         return run(conversation, start, who)
 
     @router.post("/conversations/{conversation_id}/confirm", operation_id="confirm_sign_off")
@@ -183,9 +185,13 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
         """The handler's answer on a card: only their confirmation pays, dispatches or sends
         back."""
         conversation = owned(conversation_id, who)
-        if view(conversation).pending is None:
-            raise HTTPException(409, "Nothing is waiting to be confirmed")
-        return run(conversation, Command(resume=request.answer), who)
+
+        def answer() -> Command[Any]:
+            if view(conversation).pending is None:
+                raise HTTPException(409, "Nothing is waiting to be confirmed")
+            return Command(resume=request.answer)
+
+        return run(conversation, answer, who)
 
     app.include_router(router)
 

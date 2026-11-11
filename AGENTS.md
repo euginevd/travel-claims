@@ -4,7 +4,7 @@ These rules are the same for every project. The business and the project are des
 
 ## Read
 
-1. Always: [docs/business-context.md](docs/business-context.md), [docs/spec.md](docs/spec.md), [docs/status.md](docs/status.md), [docs/features.md](docs/features.md) and the current `docs/plan-<name>.md`, if there is one.
+1. Always: [docs/business-context.md](docs/business-context.md), [docs/spec.md](docs/spec.md), [docs/features.md](docs/features.md), [TODO.md](TODO.md) and the current `docs/plan-<name>.md`, if there is one.
 2. Writing or reviewing code: [docs/code-standards.md](docs/code-standards.md), and [docs/design-system.md](docs/design-system.md) for UI work, if it exists.
 3. Changing an approach: [docs/decisions.md](docs/decisions.md), and for a security finding [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md). Don't reopen what's settled unasked.
 4. Users, data, auth or endpoints: [docs/threat-model.md](docs/threat-model.md), if it exists.
@@ -27,8 +27,9 @@ Read rule 24 first: the project's profile changes rules 11 to 17 for a prototype
     - A new or changed screen: mock it up in `docs/mockups/<name>.html` from `design-system.md` (drafting that first if missing), with loading, empty and error states. A screen already in `mvp.html` needs only those states added.
     - Then stop: no code until the user approves the plan.
     - No plan for a change of a few dozen lines that touches no users, data, auth, endpoints, infrastructure or screens: it goes straight to a PR, with the same checks.
-12. Each phase: build with tests, run the checks, have a fresh subagent review the diff (a fresh session, where the tool has no subagents) against `code-standards.md` and the threat model's top risks, and for UI its mockup, the plan's or `mvp.html`, and `design-system.md`. Fix what it blocks, update `docs/status.md`, commit locally.
+12. Each phase: build with tests, run the checks, have a fresh subagent review the diff (a fresh session, where the tool has no subagents) against `code-standards.md` and the threat model's top risks, and for UI its mockup, the plan's or `mvp.html`, and `design-system.md`. Fix what it blocks, update `docs/features.md` and `TODO.md`, commit locally.
 13. Each PR group: push, and open one PR with a Security line (threat model changes, new skips, packages or permissions).
+    - Few commits, few pushes: while a PR is open, add new small changes, docs and follow-ups to it rather than opening another. Commit only when a piece of work is finished, and push only once the user agrees the group is ready, not after each commit. If the user says they'll commit or push with you, wait for them.
     - Findings: when its checks finish, list them with `bash scripts/pr-findings.sh <pr>` and fix each at its cause: always critical and high, medium and low when real. Answer the rest with the reason and resolve the thread (`bash scripts/pr-findings.sh resolve <thread-id> "<reply>"`). A skip is a last resort, with a one-line reason.
     - Merge: ask for review only when checks pass, update the branch if `main` has moved (`gh pr update-branch`) and let the checks rerun, squash-merge once approved, then delete the branch locally and on GitHub. Only `main` remains.
 14. After the last phase: review the whole branch, report what was built and what the reviews found, update `docs/decisions.md`, move settled UI choices into `design-system.md`, delete the plan and its mockups, and `mvp.html` once every screen in it is built.

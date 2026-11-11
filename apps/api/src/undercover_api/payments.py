@@ -2,15 +2,23 @@
 the payments table's key means a claim is paid once at most."""
 
 from fastapi import HTTPException
-from sqlalchemy import Connection, insert, select
+from sqlalchemy import Connection, insert, select, update
 from sqlalchemy.exc import IntegrityError
 
-from undercover_api.claims import approval_limit, find_claim, find_decision, find_payment
-from undercover_api.db import customers, now, payments
+from undercover_api.claims import (
+    approval_limit,
+    find_claim,
+    find_decision,
+    find_payment,
+    move_claim,
+)
+from undercover_api.db import customers, decisions, now, payments
 from undercover_api.kill_switch import refuse_while_paused
 from undercover_api.models import DecisionKind, Status
 from undercover_api.notices import announce
 from undercover_api.payout import dollars, needs_sign_off
+
+LIMIT_LOWERED_REASON = "The approval limit was lowered after this claim was approved"
 
 
 def mask_payid(payid: str) -> str:
@@ -65,10 +73,12 @@ def record_payment(
 
 def pay(db: Connection, claim_id: str, amount: float) -> bool:
     """Pay an approved claim its payout, the agent's way: never over the limit. Says whether it
-    paid now (False when the same payment was already made)."""
+    paid now (False when the same payment was already made, or it's held for a sign-off)."""
     refuse_while_paused(db)
     limit = approval_limit(db)
     if needs_sign_off(amount, limit):
+        if hold_after_limit_lowered(db, claim_id, amount):
+            return False
         raise over_the_limit(limit)
     claim = find_claim(db, claim_id)
     if claim["source"] == "evaluation":
@@ -92,4 +102,25 @@ def pay(db: Connection, claim_id: str, amount: float) -> bool:
             422, f"The amount must be the approved payout of {dollars(decision.payout)}"
         )
     record_payment(db, claim_id, amount)
+    return True
+
+
+def hold_after_limit_lowered(db: Connection, claim_id: str, amount: float) -> bool:
+    """An approval made under a higher limit that a senior handler has since lowered waits for
+    a sign-off, instead of staying in progress, unpaid, where no handler sees it."""
+    decision = find_decision(db, claim_id)
+    if (
+        decision is None
+        or decision.decision != DecisionKind.APPROVE
+        or decision.payout != amount
+        or needs_sign_off(amount, decision.approval_limit)
+    ):
+        return False
+    if not move_claim(db, claim_id, Status.IN_PROGRESS, Status.WAITING_FOR_SIGN_OFF):
+        return False
+    db.execute(
+        update(decisions)
+        .where(decisions.c.claim_id == claim_id)
+        .values(hold_reason=LIMIT_LOWERED_REASON)
+    )
     return True

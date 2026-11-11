@@ -125,7 +125,7 @@ def pay(client: TestClient, amount: float) -> int:
     ).status_code
 
 
-def test_with_no_limit_set_nothing_is_paid_without_a_sign_off(
+def test_with_no_limit_set_nothing_is_paid_and_it_waits_for_a_sign_off(
     client: TestClient, database_url: str
 ) -> None:
     amount = approve_under_the_limit(client)
@@ -133,10 +133,16 @@ def test_with_no_limit_set_nothing_is_paid_without_a_sign_off(
     with engine.begin() as db:
         db.execute(delete(settings).where(settings.c.key == "approval_limit"))
     engine.dispose()
-    assert pay(client, amount) == 403
+    response = client.post(
+        "/api/agent/claims/CLM-1001/payment", json={"amount": amount}, headers=AGENT
+    )
+    assert response.status_code == 200
+    claim = response.json()
+    assert claim["status"] == "waiting_for_sign_off"
+    assert claim["payment"] is None
 
 
-def test_a_limit_lowered_after_the_decision_still_stops_the_payment(
+def test_a_limit_lowered_after_the_decision_holds_the_payment_for_a_sign_off(
     client: TestClient, database_url: str
 ) -> None:
     amount = approve_under_the_limit(client)
@@ -144,7 +150,13 @@ def test_a_limit_lowered_after_the_decision_still_stops_the_payment(
     with engine.begin() as db:
         db.execute(update(settings).where(settings.c.key == "approval_limit").values(value=100))
     engine.dispose()
-    assert pay(client, amount) == 403
+    response = client.post(
+        "/api/agent/claims/CLM-1001/payment", json={"amount": amount}, headers=AGENT
+    )
+    assert response.status_code == 200
+    claim = response.json()
+    assert claim["status"] == "waiting_for_sign_off"
+    assert claim["payment"] is None
 
 
 def no_decision(*_: object) -> None:

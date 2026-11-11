@@ -15,6 +15,6 @@ Approximate monthly figures, by tier.
 5. `dev` budget: under $20 a month, watched by the account's AWS Budgets.
 6. Each PR that changes `infra/aws/` gets a cost comment: the monthly estimate, the change and the top drivers, each with a saving where one applies. It warns above the `MONTHLY_COST_LIMIT` variable and excludes usage, such as model tokens and data transfer.
 
-## Tier 3, AWS enterprise (EKS, private network) *(designed, not built)*
+## Tier 3, AWS enterprise (EKS, private network) *(planned)*
 
 7. EKS (decision 13): the control plane, nodes in two zones, NAT gateways, a load balancer with WAF and Multi-AZ PostgreSQL run all the time, so about $400 a month before Claude, whether used or not.

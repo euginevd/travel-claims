@@ -1,6 +1,6 @@
 # Features
 
-The agreed features, by app and audience; the agent adds a row when you approve one and updates its status with the work. Ideas go in [TODO.md](../TODO.md). What each does is in [spec.md](spec.md); how it was built, in [status.md](status.md). Numbered across the file so reviews can cite them (features 12); the last column is the pull request that first built it.
+The agreed features, by app and audience; the agent adds a row when you approve one and updates its status with the work. Ideas go in [TODO.md](../TODO.md). What each does is in [spec.md](spec.md); how to run it, in the [README](../README.md#quick-start); what's missing, in [TODO.md](../TODO.md). Numbered across the file so reviews can cite them (features 12); the last column is the pull request that first built it.
 
 | App | For | Link (tier 1) |
 |---|---|---|
@@ -65,6 +65,6 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 28 | The hidden-instruction check reads every claim and receipt first, on a separate model; a flagged claim goes to a handler unseen by the claim agent (spec 12) | Done | #2 |
 | 29 | The claim agent with the context layer, specialists (document checker, duplicate receipts, medical reviewer), the customer's earlier claims and claim recovery (heartbeats, retry, a watchdog) (spec 13) | Done | #2 |
 | 30 | Tier 2: the same apps serverless on AWS (spec 5) | Done, torn down to save cost | #46 |
-| 31 | Tier 3: the same apps on EKS in a private network (spec 5) | Next: designed, not built | |
+| 31 | Tier 3: the same apps on EKS in a private network (spec 5) | Planned | |
 
-Status: Next, Building, Done or Dropped (with the reason).
+Status: Planned, Next, Building, Done or Dropped (with the reason).

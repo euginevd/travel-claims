@@ -1,6 +1,6 @@
 # Cleaning up AWS
 
-Removes everything travel-claims puts in AWS, so nothing is charged, then proves it. The code, the GitHub repo and Supabase stay, so you can redeploy ([status.md](../docs/status.md) 48). Done once on 2026-11-10; about 20 minutes. Run the AWS commands in **AWS CloudShell** in Sydney (`ap-southeast-2`).
+Removes everything travel-claims puts in AWS, so nothing is charged, then proves it. The code, the GitHub repo and Supabase stay, so you can redeploy ([Redeploying](#redeploying)). Done once on 2026-11-10; about 20 minutes. Run the AWS commands in **AWS CloudShell** in Sydney (`ap-southeast-2`).
 
 ## 1. Destroy the Terraform units
 
@@ -77,4 +77,12 @@ aws logs describe-log-groups --region $R --query "logGroups[?contains(logGroupNa
 2. **CloudFront** takes up to 15 minutes; a distribution shown as `Disabled` is still deleting.
 3. **Paste commands one at a time** in CloudShell: a multi-line paste can run a later line as part of an earlier one.
 4. **The OIDC provider** is one per account. If other repos' roles trust it, deploy the bootstrap with `CreateOidcProvider=false` next time, or remove the provider from the stack before deleting it.
-5. **Redeploy:** set `PROJECT_NAME` to `travel-claims`, then follow [status.md](../docs/status.md) 48.
+5. **Redeploy:** follow [Redeploying](#redeploying).
+
+## Redeploying
+
+1. Set the `PROJECT_NAME` repository variable to `travel-claims`.
+2. Deploy `infra/aws/bootstrap/bootstrap.yaml` as `travel-claims-bootstrap` and copy its outputs into `AWS_DEPLOY_ROLE_ARN`, `AWS_PLAN_ROLE_ARN` and `TF_STATE_BUCKET`.
+3. `gh workflow run aws.yml -f target=dev -f unit=all -f action=apply`, and approve it.
+4. Deploy `infra/aws/bootstrap/database-url.yaml` as `travel-claims-database-url` with Supabase's transaction pooler URL (port 6543), the Anthropic key and workspace.
+5. Run `images` and approve its builds and its `aws` apply, then run `images` once more so the web apps upload. `MODEL_PROVIDER` stays `anthropic`.
