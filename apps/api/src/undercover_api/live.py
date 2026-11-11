@@ -43,6 +43,9 @@ MOST_COMMENTS = 10
 CLAIM_FIELDS = ("claim_id", *COPIED)
 LIVE = (claims.c.source != EVALUATION, claims.c.customer_id != REDTEAM_CUSTOMER)
 Days = Annotated[int, Query(ge=1, le=90)]
+# How far before the period a decision may have been made and still be reviewed in it; older
+# decisions aren't read, so the page stays fast as decisions pile up.
+LOOKBACK_DAYS = 90
 
 
 class LiveTotals(BaseModel):
@@ -206,8 +209,8 @@ def live_feedback(db: Connection, since: str) -> LiveFeedback:
     )
 
 
-def decision_rows(db: Connection) -> list[RowMapping]:
-    """Every live claim's current decision."""
+def decision_rows(db: Connection, since: str) -> list[RowMapping]:
+    """Each live claim's current decision, made since a day."""
     return list(
         db.execute(
             select(
@@ -224,13 +227,13 @@ def decision_rows(db: Connection) -> list[RowMapping]:
                 decisions.c.override,
             )
             .join(decisions, decisions.c.claim_id == claims.c.claim_id)
-            .where(*LIVE)
+            .where(*LIVE, decisions.c.decided_at >= since)
         ).mappings()
     )
 
 
-def sent_back_rows(db: Connection) -> list[RowMapping]:
-    """Every decision a handler sent back on a live claim, oldest first."""
+def sent_back_rows(db: Connection, since: str) -> list[RowMapping]:
+    """Each decision a handler sent back on a live claim since a day, oldest first."""
     return list(
         db.execute(
             select(
@@ -240,7 +243,7 @@ def sent_back_rows(db: Connection) -> list[RowMapping]:
                 claims.c.status,
             )
             .join(claims, claims.c.claim_id == sent_back.c.claim_id)
-            .where(*LIVE)
+            .where(*LIVE, sent_back.c.sent_back_at >= since)
             .order_by(sent_back.c.sent_back_id)
         ).mappings()
     )
@@ -354,8 +357,9 @@ def live(db: Connection, days: int) -> Live:
         """The period's day a time falls on, if any."""
         return series.get(stamp[:10]) if stamp else None
 
-    decided = decision_rows(db)
-    returned = sent_back_rows(db)
+    lookback = (today - timedelta(days=days - 1 + LOOKBACK_DAYS)).isoformat()
+    decided = decision_rows(db, lookback)
+    returned = sent_back_rows(db, lookback)
     sent_back_ids = {r["claim_id"] for r in returned}
     in_period = [r for r in decided if on(r["decided_at"]) is not None]
     ids = [r["claim_id"] for r in in_period]

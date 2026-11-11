@@ -12,7 +12,7 @@ locals {
     portal    = { "/api/customer/*" = "api" }
     dashboard = { "/api/staff/*" = "api", "/api/copilot/*" = "copilot" }
     console   = { "/api/engineering/*" = "api" }
-    home      = { "/api/demo/*" = "api" }
+    home      = {} # the project page calls no api
   }
 
   # The apps reach only themselves and Cognito; the project page pings the three apps' sites.

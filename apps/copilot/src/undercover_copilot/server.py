@@ -4,6 +4,7 @@
 token; the Copilot checks it with the api and acts with it, one turn at a time per
 conversation."""
 
+import os
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -257,6 +258,15 @@ def build_app() -> FastAPI:
     from undercover_copilot.store import PostgresStore  # noqa: PLC0415
 
     settings = get_settings()
+    context = McpContext(settings.undercover_context)
+    if settings.context_gateway:
+        # Tier 2: the context layer only through its gateway, signed as this function's role.
+        from undercover_copilot.aws_auth import SigV4Signer  # noqa: PLC0415
+
+        region = settings.aws_region or os.environ["AWS_REGION"]
+        context = McpContext(
+            settings.context_gateway, SigV4Signer(region, "bedrock-agentcore"), "context___"
+        )
     pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=6)
 
     def make_graph() -> Graph:
@@ -267,7 +277,7 @@ def build_app() -> FastAPI:
             AnthropicClaude(settings),
             saver,
             settings.max_model_calls,
-            McpContext(settings.undercover_context),
+            context,
             PostgresMemory(pool),
         )
 

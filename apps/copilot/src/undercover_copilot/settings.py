@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     undercover_api: str = "http://127.0.0.1:8000"
     # The context layer's MCP url, for the policy wording and the claims manual.
     undercover_context: str = "http://127.0.0.1:8006/mcp"
+    # Tier 2: the context gateway's URL, from the app secret the agent unit fills; calls to it are
+    # signed with the function's role and its tools are named context___<lookup>. Unset locally.
+    context_gateway: str | None = None
     # psycopg's own form (postgresql://...), where conversations and their progress are kept.
     checkpoint_database_url: SecretStr
 

@@ -16,6 +16,7 @@ from undercover_api.redteam import REDTEAM_CUSTOMER
 
 similar_router = APIRouter(prefix="/api/staff")
 MOST = 5
+CANDIDATES = 500
 REASON_LENGTH = 160
 NONE_YET = "No similar decided claims yet"
 
@@ -88,6 +89,9 @@ def similar_claims(claim_id: ClaimId, _: SignedIn, db: Database) -> SimilarClaim
             claims.c.status == Status.DECIDED,
             decisions.c.decision.in_([DecisionKind.APPROVE, DecisionKind.DECLINE]),
         )
+        # Only the newest decisions are weighed, so the page stays fast as decisions pile up.
+        .order_by(decisions.c.decided_at.desc())
+        .limit(CANDIDATES)
     ).mappings()
     found = [
         SimilarClaim(
