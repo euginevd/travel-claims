@@ -81,7 +81,7 @@ Everything in [By layer](#by-layer): its sites and WAF rules, sign-in pools, app
 
 ### What this repo builds that the platform would own
 
-Each is built here only because this account has no platform team, and each is left to one with a setting (decision 35):
+In a real organization this code sits in the platform team's own landing-zone repo, such as one built on Landing Zone Accelerator on AWS or Account Factory for Terraform, deployed through their pipeline to every account. It's shown in this repo only for simplicity, so one repo deploys the whole picture to an account with no platform team. Each piece is kept apart from the workload's and switched off with a setting (decision 35):
 
 - **The bootstrap:** the workflows read only `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` and `TF_STATE_BUCKET`, so the platform's own pipeline roles and state bucket replace `bootstrap.yaml`.
 - **The `platform` unit** (budget alert, Access Analyzer): `PLATFORM_MANAGED=true` skips it.
