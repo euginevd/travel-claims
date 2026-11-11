@@ -37,9 +37,10 @@ The full walkthrough, three minutes with captions, plays on the project page ([t
    | Handlers' dashboard | http://127.0.0.1:5174 | Dana Whitfield, senior handler, or Marcus Oyelaran, who can't sign off | **Continue as Dana** |
    | AI assurance console | http://127.0.0.1:5175 | Sam Carter, AI engineer | **Continue as Sam** |
 4. Make a claim with the sample receipts in [data/sample-receipts](data/sample-receipts): a delayed bag and a taxi in Nairobi, a clinic invoice in Sri Lanka, and `04-injection-test-mara-lodge.png`, which hides an instruction to the AI that the hidden-instruction check should catch.
-5. Browser tests: in [e2e](e2e), `npm run stack`, then `npm test` ([status.md](docs/status.md) 14a).
+5. Browser tests: in [e2e](e2e), `npm ci` and `npx playwright install chromium` once, then `npm run stack` (a second stack on every port plus 100), `npm test` and `npm run stack:down`. The other checks are in [AGENTS.md](AGENTS.md) → Commands.
+6. Start over from a clean queue: `docker compose down -v`, then `up` again (this deletes the local database).
 
-Each claim costs 2 to 4 cents of Claude. On AWS, the pipeline deploys the same apps ([status.md](docs/status.md), tier 2); what was added on 2026-11-11 (status 54 and 55) runs locally and isn't deployed yet.
+Each claim costs 2 to 4 cents of Claude. On AWS, the pipeline deploys the same apps (tiers below); what was added on 2026-11-11 runs locally and isn't deployed yet.
 
 ## What you get
 
@@ -109,7 +110,7 @@ The same apps run three ways (decision 14). Rough monthly cost in USD:
 |------|---------|--------|-------------:|
 | 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
 | 2 · AWS serverless, cost-optimised | Serverless: S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
-| 3 · AWS enterprise (EKS, private network) | EKS in private subnets, WAF, Multi-AZ PostgreSQL in Australia, admission control, Bedrock | Designed, not built | ≈ $400 before Claude |
+| 3 · AWS enterprise (EKS, private network) | EKS in private subnets, WAF, Multi-AZ PostgreSQL in Australia, admission control, Bedrock | Planned | ≈ $400 before Claude |
 
 Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
 
@@ -138,6 +139,6 @@ Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tie
 
 1. [Findings](guides/01-findings.md): what the build found, and what was fixed.
 2. [Security trade-offs](guides/02-security-trade-offs.md): the risks this project accepts, and the fix for production.
-3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, and prove it.
+3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, prove it, and redeploy.
 
 Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).

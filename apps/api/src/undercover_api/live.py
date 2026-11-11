@@ -504,7 +504,8 @@ def add_to_evaluation(claim_id: ClaimId, engineer: SignedInEngineer, db: Databas
             for line in (decision.calculation.lines if decision.calculation else [])
         ],
     }
-    # Two engineers pressing at once: the first one's row stands.
+    # Two engineers pressing at once: the first one's row stands, and only it says "added".
+    inserted = False
     with suppress(IntegrityError), db.begin_nested():
         db.execute(
             insert(labelled_claims).values(
@@ -517,10 +518,11 @@ def add_to_evaluation(claim_id: ClaimId, engineer: SignedInEngineer, db: Databas
                 added_at=now(),
             )
         )
+        inserted = True
     row = labelled_row(db, claim_id)
     if row is None or row["label_set"] != EVALUATION:
         raise HTTPException(409, f"Claim {claim_id} can't be added to the evaluation set")
     log.warning(
         "claim %s added to the evaluation set by engineer %s", claim_id, engineer.engineer_id
     )
-    return added(row, "added" if row["added_by"] == engineer.name else "already_added")
+    return added(row, "added" if inserted else "already_added")

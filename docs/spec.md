@@ -13,7 +13,7 @@ Profile: `prototype` (no real users, customer data or payments; every record is 
 ## Tiers
 
 4. **Tier 1, local (Docker), built:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Tier 2, AWS serverless, cost-optimised, built (deployed and checked 2026-11-10, then torn down to save cost):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Tier 3, AWS enterprise (EKS, private network), designed, not built:** the same apps on EKS in private subnets with Aurora PostgreSQL in Australia, GitOps and admission control (decision 6); it adds control, not scale.
+5. **Tier 2, AWS serverless, cost-optimised, built (deployed and checked 2026-11-10, then torn down to save cost):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Tier 3, AWS enterprise (EKS, private network), planned:** the same apps on EKS in private subnets with Aurora PostgreSQL in Australia, GitOps and admission control (decision 6); it adds control, not scale.
 
 ## Apps
 
@@ -35,7 +35,7 @@ Profile: `prototype` (no real users, customer data or payments; every record is 
 
 ## Done when
 
-18. **Tier 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; `status.md` documents the stack.
+18. **Tier 1:** `docker compose up` runs 10 to 17 end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; the README documents the stack.
 19. **Tier 2:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
 
 ## Rules
