@@ -9,5 +9,4 @@ Ideas and tasks, numbered. The agent confirms with you before starting one and r
 5. A unique index on decision feedback (status 61).
 6. Close the Copilot's HTTP clients on shutdown (status 61).
 7. Re-record the walkthrough video with Settings, Live, similar claims and feedback.
-8. Add `/e2e` to Dependabot's npm updates.
-9. Redeploy tier 2 with the 2026-11-11 additions: set `PROJECT_NAME` first (status 48).
+8. Redeploy tier 2 with the 2026-11-11 additions: set `PROJECT_NAME` first (status 48).
