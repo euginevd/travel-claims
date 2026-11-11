@@ -10,8 +10,8 @@
 
 ## Tiers
 
-4. **Tier 1, local (Docker), complete:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Tier 2, AWS cost-optimised (serverless), in progress:** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Tier 3, enterprise (later, at work):** the same apps on EKS with Aurora PostgreSQL, GitOps and admission control (decision 6).
+4. **Tier 1, local (Docker), built:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
+5. **Tier 2, AWS serverless, cost-optimised, built (deployed and checked 2026-11-10, then torn down to save cost):** serverless in `ap-southeast-2` (decision 13): the front ends on S3 and CloudFront, `api`, `context` and `copilot` on Lambda, `agent` on AgentCore Runtime, PostgreSQL on Supabase in Singapore (made-up data only; real data needs Australia), with Cognito, Claude on Bedrock (Australian inference profile), Bedrock Guardrails and Secrets Manager; the pipeline deploys `dev` on merge and `prod` by hand. Planned in detail in 30–40. **Tier 3, AWS enterprise (EKS, private network), designed, not built:** the same apps on EKS in private subnets with Aurora PostgreSQL in Australia, GitOps and admission control (decision 6); it adds control, not scale.
 
 ## Apps
 

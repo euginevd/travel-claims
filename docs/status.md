@@ -1,6 +1,14 @@
 # Status
 
-Three deployment tiers of the same apps (decision 14). Tier 1 (local, Docker) is complete, and gained the Canopy redesign and a feature pass on 2026-11-11 (52 to 56, on the `canopy-redesign` branch, not yet pushed, reviewed or deployed). Tier 2 (AWS cost-optimised, serverless, decision 13) was deployed and checked, then torn down to stop charges (48). Tier 3 (AWS enterprise pattern, EKS) comes later, at work.
+Three deployment tiers of the same apps (decisions 14 and 27):
+
+| Tier | Runs on | Status |
+|------|---------|--------|
+| 1 · Local (Docker) | Docker Compose on a laptop | Built. Feature-complete after the Canopy redesign and the feature pass of 2026-11-11 (52 to 56), on the `canopy-redesign` branch: not yet pushed or reviewed |
+| 2 · AWS serverless, cost-optimised | S3 and CloudFront, Lambda, AgentCore, Bedrock, Cognito, Supabase (decision 13) | Built, deployed and checked 2026-11-10, then torn down to save cost (48). The 2026-11-11 additions aren't deployed |
+| 3 · AWS enterprise (EKS, private network) | EKS in private subnets, WAF, Multi-AZ PostgreSQL in Australia, admission control | Designed, not built; later, at work |
+
+**Left for tier 1:** try live what 26 lists (the feedback thumbs, the Copilot's dispatch and send-back cards and memory, saving a setting, **Add to evaluation set**, a receipt in another currency); review and merge the branch; re-record the walkthrough video once features stop changing.
 
 ## Built
 
@@ -140,3 +148,4 @@ Serverless with Supabase (decision 13). The bootstrap stack is deployed and the 
 54. Done 2026-11-11, on `canopy-redesign`, checked in the browser but not reviewed: an audit against the course's `week3day5-end` found three gaps, now built. **Settings** (dashboard, `#/settings`): the approval limit, the round's spending limit, the accuracy and straight-through objectives and agents at once; senior handlers only, every change kept (`business_settings.py`, migration `0014`, threat model R27). **Success criteria** in code (`success.py`): straight through and held-out accuracy against their objectives on the latest held-out run, and no payment over the limit without a person; a card on the console's Scoreboard. **The Copilot** gains what needs me, the latest dispatch, the payouts switch, settings, the success criteria, policy wording and claims manual lookups over the context layer, a dispatch and a send-back behind confirm cards, a memory of each handler's preferences (`copilot.memories`) and each turn's steps, time and cost (R28). Not on AWS yet: the Copilot's context lookups don't sign for the gateway.
 55. Done 2026-11-11, same branch: three additions from what insurers and evaluation tools ship. **Customer feedback**: thumbs on Wattle's answers and on a decision's explanation (`feedback.py`, migration `0015`). **Similar claims** on the handler's claim page: up to five decided claims of the same type nearest in amount, in code (`similar.py`). **Live** in the console (`live.py`): straight through, handler disagreement, referrals, flags, cost and time on live claims by day, customer feedback, and each override or send-back with **Add to evaluation set** (R29). Open: an added claim isn't in the tiny sets, so improvement rounds don't see it, and its receipts don't follow it. The drafting assistant now converts a receipt in another currency instead of reading its figure as dollars (not yet tried on a real receipt).
 56. Done 2026-11-11: the docs brought up to date with 52 to 55: the README's tables and diagram, spec 11 and 14 to 17 with rules 21, 23 and 28, decisions 21 to 26, the threat model's data flow (the console and the Copilot), data D7 to D9, boundaries TB1c and TB6 and risks R27 to R29, costs 3a, and `design-system.md` rewritten for Canopy.
+57. Done 2026-11-11: tier names settled (decision 27) in the README, spec 4 and 5, costs and the table at the top of this file.

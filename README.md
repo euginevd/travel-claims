@@ -107,11 +107,11 @@ The same apps run three ways (decision 14). Rough monthly cost in USD:
 
 | Tier | Runs on | Status | Cost a month |
 |------|---------|--------|-------------:|
-| 1 · Local | Docker Compose on a laptop, Claude through the Anthropic API | Complete | Tokens only |
-| 2 · AWS cost-optimised | Serverless: S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Complete | ≈ $10 (≈ $2 idle) |
-| 3 · AWS enterprise pattern | EKS in private subnets, WAF, Multi-AZ PostgreSQL, Bedrock | Planned | ≈ $400 before Claude |
+| 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
+| 2 · AWS serverless, cost-optimised | Serverless: S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
+| 3 · AWS enterprise (EKS, private network) | EKS in private subnets, WAF, Multi-AZ PostgreSQL in Australia, admission control, Bedrock | Designed, not built | ≈ $400 before Claude |
 
-Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
 
 ## Built with
 
