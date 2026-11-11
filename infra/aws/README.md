@@ -1,5 +1,9 @@
 # Tier 2 design
 
+Tier 2 has two shapes: **as built** (1 to 11), cost-optimised and checked on AWS with made-up data, and the **secure target** (12 to 19), AWS-native with Claude on Bedrock only, for real data: planned, to build and then test on AWS (decision 29).
+
+## As built
+
 How tier 2 runs the apps on AWS: serverless in `ap-southeast-2` (decision 13). Every tier 2 piece is switched on by a setting and off by default, so `docker compose up` keeps running tier 1 unchanged (decision 13). Numbered so code and reviews can cite them (tier 2 design 6). Running and removing it: [guides/03-aws-cleanup.md](../../guides/03-aws-cleanup.md).
 
 1. **Front ends:** each web app is built by Vite into a private S3 bucket behind its own CloudFront distribution, which forwards only that app's api prefix (`/api/customer/`, `/api/staff/` and `/api/copilot/`, `/api/engineering/`) and adds the same security headers as its nginx today.
@@ -13,3 +17,16 @@ How tier 2 runs the apps on AWS: serverless in `ap-southeast-2` (decision 13). E
 9. **Units** under `infra/aws/`, applied in order by the pipeline: `registry` (ECR), `secrets`, `storage` (receipts), `identity` (Cognito and test accounts), `guardrail` (Bedrock), `functions` (the three Lambda functions), `agent` (Runtime), `web` (buckets and CloudFront). The bootstrap's deploy role grants only what these use.
 10. **Images:** a workflow builds the `api`, `context`, `copilot` and `agent` images on merge and pushes them to ECR, tagged by commit; each unit deploys the tag it's given.
 11. **Done when** each unit's PR shows its plan and cost comment, applies after approval, and spec 19 holds: every app answers its health check through CloudFront, and a claim is worked end to end on Bedrock.
+
+## Secure target *(planned: to build, then test)*
+
+What changes before real customers, payments or claim data: everything inside AWS and in Australia, the same apps and units, hardened. Built on the as-built units, not beside them.
+
+12. **Accounts:** a multi-account landing zone (AWS Control Tower): separate `dev` and `prod` accounts under AWS Organizations, with service control policies that keep resources in `ap-southeast-2` and stop anyone switching off logging.
+13. **Database:** Aurora Serverless v2 PostgreSQL in `ap-southeast-2`, across two availability zones, encrypted with a customer-managed KMS key, reached only from the private subnets and through RDS Proxy for Lambda's many short connections. It replaces Supabase.
+14. **Claude:** Bedrock only (`MODEL_PROVIDER=bedrock`, the Australian inference profile), reached through a PrivateLink endpoint; the Anthropic API key and workspace leave the app secret. No claim data leaves AWS (spec 26).
+15. **Network:** `api`, `context` and `copilot` Lambdas in private subnets; AWS services (Bedrock, Secrets Manager, S3, AgentCore, Cognito, CloudWatch) through VPC endpoints, and one NAT gateway only for the function URLs, which have no private endpoint; the agent on AgentCore Runtime in VPC mode. Function URLs stay IAM-only behind CloudFront.
+16. **Front door:** AWS WAF on each CloudFront distribution: AWS managed rules (common, known bad inputs, IP reputation), a rate limit per IP and a size limit on uploads.
+17. **Detection and audit:** an organisation-wide CloudTrail to a locked log archive account, GuardDuty and Security Hub across accounts, and CloudWatch alarms on errors, throttles and the payout switch.
+18. **Deploys:** the same pipeline, with `production` profile gates: a second reviewer on `main` and on the `prod` apply environment (trade-off 1).
+19. **Done when** the go-live checklist's production rows are clear, the threat model is re-approved, and a claim is worked end to end in `prod` on Bedrock with no route out of AWS.

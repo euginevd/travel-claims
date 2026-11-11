@@ -15,7 +15,7 @@ from undercover_api.evaluations import EVALUATION, Scores, current_version
 from undercover_api.payout import needs_sign_off
 
 HELD_OUT = "held_out"
-NO_RUN = "No held-out run yet"
+NO_RUN = "No held-out run of the version in use yet"
 
 staff_success_router = APIRouter(prefix="/api/staff/success-criteria")
 engineer_success_router = APIRouter(prefix="/api/engineering/success-criteria")
@@ -37,17 +37,13 @@ class SuccessCriteria(BaseModel):
 
 
 def latest_held_out_run(db: Connection) -> RowMapping | None:
-    """The newest finished run on the held-out set that has its scores."""
-    row = (
-        db.execute(
-            select(runs)
-            .where(runs.c.label_set == HELD_OUT, runs.c.status == "finished")
-            .order_by(runs.c.run_id.desc())
-            .limit(1)
-        )
-        .mappings()
-        .first()
-    )
+    """The newest finished run on the held-out set that has its scores, of the version in use,
+    so a candidate tried but not kept never grades the agent that's working claims."""
+    query = select(runs).where(runs.c.label_set == HELD_OUT, runs.c.status == "finished")
+    current = current_version(db)
+    if current is not None:
+        query = query.where(runs.c.config_version == current)
+    row = db.execute(query.order_by(runs.c.run_id.desc()).limit(1)).mappings().first()
     return row if row is not None and row["scores"] else None
 
 

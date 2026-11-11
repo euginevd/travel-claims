@@ -208,9 +208,8 @@ test("the scoreboard shows the latest scored run's measures and starts the chose
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   const headlines = await screen.findByRole("list", { name: "Run 2's headline measures" });
   expect(within(headlines).getByText("100%")).toBeInTheDocument();
-  expect(
-    within(headlines).getByRole("img", { name: /Accuracy over the last 2 scored runs.*80%, 100%/ }),
-  ).toBeInTheDocument();
+  // Run 1 is on the evaluation set, so it stays off the held-out run's trend: one point, no line.
+  expect(within(headlines).queryByRole("img", { name: /^Accuracy over/ })).toBeNull();
   expect(screen.getByText("Running…")).toBeInTheDocument();
   expect(screen.getByText("Stopped")).toBeInTheDocument();
   expect(screen.getAllByText("Finished")).toHaveLength(2);

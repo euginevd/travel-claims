@@ -523,11 +523,28 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   }
 }
 
-# Tells the api where the agent runs, through the app secret it reads at start.
+# Tells the api where the agent runs, and the Copilot where the context gateway is, through the
+# app secret they read at start.
 resource "terraform_data" "runtime_arn" {
-  triggers_replace = [aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn]
+  triggers_replace = [
+    aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn,
+    aws_bedrockagentcore_gateway.context.gateway_url,
+  ]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn} CONTEXT_GATEWAY=${aws_bedrockagentcore_gateway.context.gateway_url}"
   }
+}
+
+# The Copilot's role (made by the functions unit) may call the context gateway, and nothing else
+# here: its policy and wording lookups go through the gateway, as the agent's do.
+resource "aws_iam_role_policy" "copilot_gateway" {
+  name = "context-gateway"
+  role = "${local.prefix}-copilot"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
+    ]
+  })
 }

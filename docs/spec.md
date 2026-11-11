@@ -28,7 +28,7 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 ## Tiers
 
 4. **Tier 1, local (Docker), built:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Tier 2, AWS serverless, cost-optimised, built, then torn down to save cost:** S3 and CloudFront, Lambda, AgentCore Runtime, Supabase, Cognito and Bedrock in `ap-southeast-2` (decision 13); the design is in [infra/aws/README.md](../infra/aws/README.md). **Tier 3, AWS enterprise (EKS, private network), planned:** the same apps on EKS in private subnets with PostgreSQL in Australia and admission control (decision 6); it adds control, not scale.
+5. **Tier 2, AWS serverless:** built cost-optimised (S3 and CloudFront, Lambda, AgentCore Runtime, Cognito and Bedrock in `ap-southeast-2`, with Supabase and the Anthropic API outside AWS), checked with made-up data, then torn down to save cost; and a planned secure target, AWS-native with Claude on Bedrock only, for real data (decisions 13 and 29). Both are in [infra/aws/README.md](../infra/aws/README.md).
 
 ## Apps
 

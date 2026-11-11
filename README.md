@@ -104,15 +104,15 @@ flowchart LR
 | `copilot` | The handlers' chat agent, with confirm cards, a memory of each handler's preferences and each turn's cost | Lambda |
 | `context` | Policy wording, claims manual and reference data as an MCP server | Lambda, behind AgentCore Gateway |
 
-The same apps run three ways (decision 14). Rough monthly cost in USD:
+The same apps run two ways (decisions 14 and 29). Rough monthly cost in USD:
 
 | Tier | Runs on | Status | Cost a month |
 |------|---------|--------|-------------:|
 | 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
-| 2 · AWS serverless, cost-optimised | Serverless: S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
-| 3 · AWS enterprise (EKS, private network) | EKS in private subnets, WAF, Multi-AZ PostgreSQL in Australia, admission control, Bedrock | Planned | ≈ $400 before Claude |
+| 2 · AWS serverless, as built | S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
+| 2 · AWS serverless, secure target | The same, AWS-native: Aurora in Sydney, Claude on Bedrock only, private subnets, WAF, a multi-account landing zone | Planned: to build, then test | ≈ $100–200 before Claude |
 
-Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+The secure target adds control, not scale: tier 2 already scales ([infra/aws/README.md](infra/aws/README.md)). As built, tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
 
 ## Built with
 

@@ -86,14 +86,15 @@ const HEADLINES: { label: string; of: (scores: Scores) => number; show: (n: numb
     { label: "Cost per claim", of: (scores) => scores.cost_per_claim, show: cost },
   ];
 
-/** The latest scored run's four headline measures, each with its trend over the scored runs. */
+/** The latest scored run's four headline measures, each with its trend over the scored runs on
+ * the same set: the evaluation and held-out sets score differently, so they never share a line. */
 function Headlines({ runs }: { runs: Run[] }) {
-  const scored = runs
+  const all = runs
     .filter((run): run is Scored => run.scores !== null)
-    .sort((a, b) => a.run_id - b.run_id)
-    .slice(-TREND_RUNS);
-  const latest = scored[scored.length - 1];
+    .sort((a, b) => a.run_id - b.run_id);
+  const latest = all[all.length - 1];
   if (!latest) return null;
+  const scored = all.filter((run) => run.label_set === latest.label_set).slice(-TREND_RUNS);
   return (
     <ul className="kpis" aria-label={`Run ${String(latest.run_id)}'s headline measures`}>
       {HEADLINES.map(({ label, of, show }) => (
@@ -108,7 +109,7 @@ function Headlines({ runs }: { runs: Run[] }) {
           </p>
           <Sparkline
             values={scored.map((run) => of(run.scores))}
-            label={`${label} over the last ${String(scored.length)} scored runs, oldest first: ${scored
+            label={`${label} over the last ${String(scored.length)} scored runs on the ${SET_LABELS[latest.label_set].toLowerCase()}, oldest first: ${scored
               .map((run) => show(of(run.scores)))
               .join(", ")}`}
           />
