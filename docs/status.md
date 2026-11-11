@@ -1,6 +1,6 @@
 # Status
 
-Three deployment tiers of the same apps (decisions 14 and 27):
+Profile: `prototype` (decision 28). Three deployment tiers of the same apps (decisions 14 and 27):
 
 | Tier | Runs on | Status |
 |------|---------|--------|
@@ -150,3 +150,4 @@ Serverless with Supabase (decision 13). The bootstrap stack is deployed and the 
 56. Done 2026-11-11: the docs brought up to date with 52 to 55: the README's tables and diagram, spec 11 and 14 to 17 with rules 21, 23 and 28, decisions 21 to 26, the threat model's data flow (the console and the Copilot), data D7 to D9, boundaries TB1c and TB6 and risks R27 to R29, costs 3a, and `design-system.md` rewritten for Canopy.
 57. Done 2026-11-11: tier names settled (decision 27) in the README, spec 4 and 5, costs and the table at the top of this file.
 58. Checked by hand 2026-11-11 (the owner, on the local stack): the portal's feedback thumbs, a receipt in another currency through the drafting assistant, the Copilot's memory and its send-back and dispatch cards, saving a setting, **Add to evaluation set** and the success criteria card. The portal's tab icon is now the Canopy logo.
+59. Done 2026-11-11: synced with sdlc-template's latest (1762c9b), docs and two scripts only. Taken: the `prototype` profile (`Profile` in spec.md, AGENTS.md rule 24, decision 28; known mistakes renumbered 25 to 29), rules 11, 12, 14, 15, 18 and 20 as the template words them, `docs/skeleton-plan.md`, code standards 12 and 22, CONTRIBUTING's profile lines, six more trade-offs (8 to 13), and `pr-findings.sh` and `security-report.py` (failed checks and the security summary in the findings list; a tick for a clean run). Not taken, each needing its own PR: `setup.sh --check`, `protect-main.sh production`, the `ci.yml` and `aws.yml` workflow changes, npm's `min-release-age`, `aws/` to `infra/aws/`, a licence, and the template's guides 01 and 02, which describe the template itself.

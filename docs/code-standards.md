@@ -24,7 +24,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 ## Tests
 
 11. Add tests with each change, including the abuse cases in `threat-model.md`. Stub models, cloud and paid services.
-12. Keep test coverage at 80% or more for new code.
+12. Keep test coverage at 80% or more; the checks fail below it. A prototype's tests, in place of 11's abuse cases: `AGENTS.md` rule 24.
 
 ## Terraform
 
@@ -46,7 +46,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Containers
 
-22. Images are multi-stage, pinned by digest, run as a non-root user and have a `HEALTHCHECK`; local ports bind to `127.0.0.1`; a missing setting fails at start (`${VAR:?}`), and `.env.example` lists each one.
+22. Images are multi-stage, pinned by digest, run as a non-root user and have a `HEALTHCHECK`; local ports bind to `127.0.0.1`; a missing setting fails at start (`${VAR:?}`), and `.env.example` lists each one. A `.dockerignore` keeps `.env*` and `.git` out of every image.
 
 ## Docs
 

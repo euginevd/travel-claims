@@ -2,6 +2,8 @@
 
 `travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from the UnderCover project in Ed Donner's AI FDE course ([`week3day5-end`](https://github.com/ed-donner/undercover) is the reference for behaviour and data; the code is written fresh, with credit).
 
+Profile: `prototype` (no real users, customer data or payments; every record is made up). What that changes is in [AGENTS.md](../AGENTS.md) rule 24, and the path to `production` in decision 28.
+
 ## Project
 
 1. Problem: handlers work through a queue of travel claims by hand, so simple claims wait days to be paid (`business-context.md`).
