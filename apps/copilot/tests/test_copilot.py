@@ -194,6 +194,17 @@ def test_cancel_pays_nothing() -> None:
     assert FakeApi.paid == []
 
 
+def test_a_confirm_meant_for_another_card_never_pays_a_sign_off() -> None:
+    claude = FakeClaude(
+        [call("request_sign_off", {"claim_id": "CLM-1003"}, 1), say("Cancelled.", 2)]
+    )
+    with make_client(claude) as client:
+        conversation = start(client, DANA)
+        ask(client, conversation, "Sign off CLM-1003", DANA)
+        confirm(client, conversation, "confirm", DANA)
+    assert FakeApi.paid == []
+
+
 def test_a_handler_without_the_right_is_refused_by_the_api() -> None:
     claude = FakeClaude(
         [call("request_sign_off", {"claim_id": "CLM-1003"}, 1), say("I couldn't.", 2)]

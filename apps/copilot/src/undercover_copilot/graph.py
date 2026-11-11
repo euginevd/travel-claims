@@ -49,8 +49,10 @@ CONFIRMED = {
     "send_back_claim": "send_back",
 }
 # The handler's answers that go ahead with each action; anything else cancels.
+# Each card has its own answer, so a "confirm" meant for a send-back or dispatch card can never
+# pay a sign-off that became pending behind it.
 GO_AHEAD = {
-    "sign_off": ("sign_off", "confirm"),
+    "sign_off": ("sign_off",),
     "dispatch": ("confirm",),
     "send_back": ("confirm",),
 }
