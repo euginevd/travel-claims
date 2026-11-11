@@ -57,7 +57,7 @@ report() {
   local missing=0 tool have want need
   line() { printf '  %-10s %s\n' "$1" "$2"; }
   # The oldest Terraform the units accept, from their versions.tf.
-  need=$(grep -ho '>= [0-9]*\.[0-9]*' aws/*/versions.tf 2>/dev/null | head -1 | cut -c4-)
+  need=$(grep -ho '>= [0-9]*\.[0-9]*' infra/aws/*/versions.tf 2>/dev/null | head -1 | cut -c4-)
   for tool in git gh gitleaks trivy lefthook uv terraform node npm docker; do
     if ! command -v "$tool" >/dev/null; then
       case "$tool" in

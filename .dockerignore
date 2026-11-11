@@ -13,6 +13,6 @@
 **/.ruff_cache
 **/.coverage
 **/*.tsbuildinfo
-aws
+infra
 docs
 guides

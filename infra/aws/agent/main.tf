@@ -132,7 +132,7 @@ resource "aws_bedrockagentcore_memory" "customers" {
 # The policy wording in a Bedrock Knowledge Base on S3 Vectors (plan phase 4), one document per
 # section (data/knowledge, made by undercover_context.knowledge), for Ask UnderCover's search.
 locals {
-  knowledge_dir   = "${path.module}/../../data/knowledge/policy_wording"
+  knowledge_dir   = "${path.module}/../../../data/knowledge/policy_wording"
   knowledge_files = fileset(local.knowledge_dir, "*")
   embedding_model = "arn:${local.partition}:bedrock:${local.region}::foundation-model/amazon.titan-embed-text-v2:0"
 }
@@ -528,6 +528,6 @@ resource "terraform_data" "runtime_arn" {
   triggers_replace = [aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn}"
   }
 }

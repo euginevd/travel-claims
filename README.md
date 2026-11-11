@@ -122,9 +122,9 @@ Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tie
 | MCP | The context layer's seven lookups, used by the claim agent and the Copilot | [apps/context](apps/context/) |
 | FastAPI, PostgreSQL | The api, its rules and payments; Supabase on AWS | [apps/api](apps/api/) |
 | React, Vite | The portal, dashboard and console | [apps/](apps/) |
-| AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [aws/agent](aws/agent/) |
-| Bedrock | The guardrail, the Knowledge Base on S3 Vectors, and Claude when `MODEL_PROVIDER` is `bedrock` | [aws/agent](aws/agent/), [aws/guardrail](aws/guardrail/) |
-| Terraform | AWS infrastructure, one root per unit | [aws/](aws/) |
+| AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [infra/aws/agent](infra/aws/agent/) |
+| Bedrock | The guardrail, the Knowledge Base on S3 Vectors, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
+| Terraform | AWS infrastructure, one root per unit | [infra/aws/](infra/aws/) |
 | GitHub Actions | App checks, security scans, images, Terraform plan and apply | [.github/workflows/](.github/workflows/) |
 | Python, uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
 | Semgrep, CodeQL | Static analysis | [security.yml](.github/workflows/security.yml), [codeql.yml](.github/workflows/codeql.yml) |
