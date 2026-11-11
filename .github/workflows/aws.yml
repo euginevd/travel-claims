@@ -1,8 +1,9 @@
 name: aws
 
-# One Terraform root per deployable unit in aws/<unit>/. Plans each changed unit with a read-only
-# role; applies after approval in the apply environment.
-# dev: planned on every PR, applied on merge to main. prod: a manual run with target prod promotes main.
+# One Terraform root per deployable unit in aws/<unit>/: plan with a read-only role, apply after approval
+# in the apply environment.
+# dev: a PR plans the units it changes, a merge to main plans every unit and applies the ones with
+# changes; prod: a manual run with target prod promotes main.
 # Repository variables: PROJECT_NAME, and optionally AWS_REGION (default ap-southeast-2).
 # Environment variables, set on each aws-<target>-plan and aws-<target>-apply environment from that
 # account's bootstrap stack: AWS_PLAN_ROLE_ARN (plan), AWS_DEPLOY_ROLE_ARN (apply), TF_STATE_BUCKET (both).
@@ -33,10 +34,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: aws-${{ inputs.target || 'dev' }}
+  group: aws-${{ github.event_name == 'pull_request' && github.ref || inputs.target || 'dev' }}
   cancel-in-progress: false
 
 env:
+  # The same version as the Terraform image in security.yml's terraform job.
   TF_VERSION: 1.17.1
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-southeast-2' }}
   TARGET: ${{ inputs.target || 'dev' }}
@@ -55,7 +57,7 @@ env:
 jobs:
   detect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     outputs:
       units: ${{ steps.units.outputs.units }}
     steps:
@@ -64,21 +66,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Manual run: the chosen unit, or every unit for all. Workflow change: every unit. Otherwise: units with changed files.
+      # Manual run: the chosen unit, or all. Merge to main: every unit, so one an earlier run failed, or left
+      # unapproved, is planned again; a unit with no changes uploads no plan and its apply skips.
+      # PR: every unit when the workflow changed, otherwise the units with changed files.
       - id: units
         env:
           EVENT: ${{ github.event_name }}
           INPUT_UNIT: ${{ inputs.unit }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           all=$(find aws -mindepth 1 -maxdepth 1 -type d ! -name bootstrap ! -name '_*' -printf '%f\n')
           if [ "$EVENT" = workflow_dispatch ] && [ "$INPUT_UNIT" = all ]; then
             units="$all"
           elif [ "$EVENT" = workflow_dispatch ]; then
             units=$(echo "$INPUT_UNIT" | grep -Fx "$all" || { echo "No unit aws/$INPUT_UNIT"; exit 1; })
+          elif [ "$EVENT" = push ]; then
+            units="$all"
           else
-            changed=$(git diff --name-only "$BASE" "$GITHUB_SHA")
-            if echo "$changed" | grep -qx .github/workflows/aws.yml; then
+            # A diff that can't be read plans every unit.
+            changed=$(git diff --name-only "$BASE" "$GITHUB_SHA" 2>/dev/null) || changed=.github/workflows/aws.yml
+            if echo "$changed" | grep -qx '\.github/workflows/aws\.yml'; then
               units="$all"
             else
               # The knowledge base's files live in data/knowledge; the agent unit ingests them.
@@ -92,7 +99,7 @@ jobs:
     needs: detect
     if: needs.detect.outputs.units != '[]' && vars.PROJECT_NAME != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     environment: aws-${{ inputs.target || 'dev' }}-plan
     permissions:
       contents: read
@@ -104,6 +111,9 @@ jobs:
     defaults:
       run:
         working-directory: aws/${{ matrix.unit }}
+    # Passed to the shell as a variable, never pasted into the script.
+    env:
+      UNIT: ${{ matrix.unit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -120,7 +130,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - run: terraform fmt -check -recursive
-      - run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION" -backend-config="key=$PROJECT_NAME/${{ matrix.unit }}.tfstate"
+      - run: terraform init -input=false -backend-config="region=$AWS_REGION" -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=$PROJECT_NAME/$UNIT.tfstate"
         env:
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
       - run: terraform validate
@@ -134,9 +144,10 @@ jobs:
           terraform plan -input=false $DESTROY -out=tfplan -detailed-exitcode || ec=$?
           [ "$ec" -eq 1 ] && exit 1
           terraform show -json tfplan > plan.json
-          [ "$ec" -eq 2 ] || rm tfplan
+          # No changes: no plan and no zip are kept, so nothing is uploaded and no approval is asked for.
+          [ "$ec" -eq 2 ] || rm -f tfplan ./*.zip
           {
-            echo "## Terraform plan: ${{ matrix.unit }} in $TARGET ${DESTROY}"
+            echo "## Terraform plan: $UNIT in $TARGET ${DESTROY}"
             if [ -f tfplan ]; then
               terraform show -no-color tfplan | grep -E '^Plan:' || true
               echo
@@ -156,7 +167,6 @@ jobs:
         env:
           INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
           INFRACOST_CURRENCY: ${{ vars.COST_CURRENCY || 'USD' }}
-          UNIT: ${{ matrix.unit }}
         run: |
           trap 'rm -f plan.json infracost.json' EXIT
           [ -n "$INFRACOST_API_KEY" ] || { echo "No INFRACOST_API_KEY secret, so no cost estimate."; exit 0; }
@@ -170,7 +180,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 1
 
-      # Only units with changes upload a plan; apply skips the rest. Zips built at plan time go with it.
+      # Only units with changes upload a plan; apply runs for those alone. Zips built at plan time go with it.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tfplan-${{ matrix.unit }}
@@ -216,11 +226,31 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
           fi
 
+  # The units whose plan has changes, read from this run's uploaded plans; no AWS role.
+  # Runs even when some plans failed, so the units that are ready still apply. A rerun also lists the
+  # earlier attempt's plans; one that no longer matches the state fails at apply.
+  ready:
+    needs: plan
+    if: always() && !cancelled() && needs.plan.result != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      units: ${{ steps.units.outputs.units }}
+    steps:
+      - id: units
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          names=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --paginate --jq '.artifacts[].name | select(startswith("tfplan-")) | sub("^tfplan-"; "")')
+          echo "units=$(echo "$names" | sort -u | jq -R . | jq -sc 'map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
   apply:
-    needs: [detect, plan]
-    # Runs even when some plans failed: a unit without a saved plan skips, so ready units still apply.
+    needs: ready
     # Only from main, so a manual run can't apply a branch nobody reviewed.
-    if: always() && !cancelled() && needs.detect.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.PROJECT_NAME != ''
+    # Approval is asked only when a unit has changes to apply.
+    if: always() && !cancelled() && needs.ready.result == 'success' && needs.ready.outputs.units != '[]' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: aws-${{ inputs.target || 'dev' }}-apply
@@ -230,10 +260,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        unit: ${{ fromJson(needs.detect.outputs.units) }}
+        unit: ${{ fromJson(needs.ready.outputs.units) }}
     defaults:
       run:
         working-directory: aws/${{ matrix.unit }}
+    # Passed to the shell as a variable, never pasted into the script.
+    env:
+      UNIT: ${{ matrix.unit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -261,7 +294,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - if: steps.has_plan.outputs.found == 'true'
-        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="region=$AWS_REGION" -backend-config="key=$PROJECT_NAME/${{ matrix.unit }}.tfstate"
+        run: terraform init -input=false -backend-config="region=$AWS_REGION" -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=$PROJECT_NAME/$UNIT.tfstate"
         env:
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
 

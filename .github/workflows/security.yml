@@ -1,7 +1,7 @@
 name: security
 
-# The pre-push scan again on every PR and main (a hook can be skipped), plus Checkov and Semgrep.
-# Tools run from pinned container images, so no third-party action code runs in the pipeline.
+# The pre-push scan again on every PR and main (a hook can be skipped), plus Checkov, Semgrep and
+# terraform validate. Tools run from pinned container images, so no third-party action code runs in the pipeline.
 # Each scan marks its findings on the PR's changed lines; the report job posts one summary comment.
 # On a PR, Gitleaks scans only the PR's commits and Semgrep reports only findings the PR adds;
 # main and the weekly run scan everything, so nothing older is missed.
@@ -60,7 +60,7 @@ jobs:
 
   terraform:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,6 +70,19 @@ jobs:
           mkdir summary; code=0
           docker run --rm -v "$PWD:/repo" bridgecrew/checkov:3.4.3@sha256:bfe9d70bb7f044aba49bd99675813445f106dee6072da583f51008cb667f3a63 -d /repo/aws --quiet --compact -o cli -o json --output-file-path console,/repo/checkov.json || code=$?
           python3 scripts/security-report.py parse checkov checkov.json summary/checkov.json
+          exit $code
+      # No AWS access and no state, so it runs on every PR, whatever it changes; the aws workflow's plan needs both.
+      # The image is the same version as TF_VERSION in aws.yml.
+      - name: Terraform, format and validate
+        if: always()
+        run: |
+          tf() { docker run --rm -v "$PWD:/repo" -w "/repo/$1" hashicorp/terraform:1.17.1@sha256:a5d5a5a892c98f60fcbfa81eac2a40fc19e7b3fa7719bccae10ff6111d22524a "${@:2}"; }
+          code=0
+          tf aws fmt -check -recursive -diff || code=1
+          for dir in aws/*/; do
+            ls "$dir"*.tf > /dev/null 2>&1 || continue
+            { tf "$dir" init -backend=false -input=false > /dev/null && tf "$dir" validate; } || code=1
+          done
           exit $code
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
