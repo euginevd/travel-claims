@@ -11,7 +11,7 @@ The guardrails in DevSecOps stage order. Clear it before real users, customer da
 | 5 | Code, agent | Agent guardrails | `AGENTS.md`, harness settings | Both | `AGENTS.md` only: no deny rules (trade-offs 8) |
 | 6 | Build | Secrets, SCA, IaC scanning | Gitleaks, Trivy, Checkov | Both | Done: the `security` workflow |
 | 7 | Build | SAST | Semgrep, CodeQL, GitHub AI Scan | Both | Done: Semgrep and CodeQL |
-| 8 | Build | Supply chain security | Pinned versions, SBOM | Both | Done: pins, a 7-day wait and an SBOM per run |
+| 8 | Build | Supply chain security | Pinned versions, SBOM | Both | Done: pins, a 7-day wait, an SBOM per run, and each image scanned with its own SBOM before it reaches ECR |
 | 9 | Test | Unit and abuse-case tests, coverage | pytest, `apps` workflow | Both | Done at 80%, with injection tests; abuse cases light (trade-offs 13) |
 | 10 | Test | DAST, unauthenticated | OWASP ZAP baseline scan | Production | Open |
 | 11 | Test | DAST, authenticated | OWASP ZAP with a test login | Production | Open |

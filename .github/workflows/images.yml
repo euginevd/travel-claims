@@ -1,6 +1,7 @@
 name: images
 
-# Spec 39: on merge, pushes the four images to ECR and the web apps to S3, then runs the aws workflow; plain docker.
+# Spec 39: on merge, builds the four images, scans each and builds its SBOM, pushes them to ECR and the web apps
+# to S3, then runs the aws workflow; plain docker.
 on:
   push:
     branches: [main]
@@ -50,7 +51,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Build and push
+      - name: Build
+        id: build
         run: |
           repo="$PROJECT_NAME/$APP"
           if ! aws ecr describe-repositories --repository-names "$repo" > /dev/null 2>&1; then
@@ -63,12 +65,45 @@ jobs:
             exit 0
           fi
           registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com"
-          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
           image="$registry/$repo:$GITHUB_SHA"
           # Lambda and Runtime take a plain single-platform image, so no attestation index.
           docker build --platform "$PLATFORM" --provenance=false -f "apps/$APP/Dockerfile" -t "$image" .
-          docker push "$image"
-          echo "Pushed \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+
+      # Build: scan the built image, OS packages included, before it reaches ECR; a fixable high or critical
+      # vulnerability stops the push. The repo scans in the security workflow can't see the image's base layers.
+      - name: Trivy, the image
+        if: steps.build.outputs.image != ''
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE"
+
+      # Build: the SBOM of what ships, from the image rather than the lock files, kept 90 days with the run.
+      - name: Trivy, SBOM of the image
+        if: steps.build.outputs.image != ''
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/out" aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image --format cyclonedx --output "/out/sbom-$APP.cdx.json" "$IMAGE"
+
+      - if: steps.build.outputs.image != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ matrix.app }}
+          path: sbom-${{ matrix.app }}.cdx.json
+          retention-days: 90
+
+      - name: Push
+        if: steps.build.outputs.image != ''
+        env:
+          IMAGE: ${{ steps.build.outputs.image }}
+          REGISTRY: ${{ steps.build.outputs.registry }}
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
+          docker push "$IMAGE"
+          echo "Pushed \`$IMAGE\`, scanned, with its SBOM" >> "$GITHUB_STEP_SUMMARY"
 
   # Each web app (its Cognito client, test buttons on) and the project page, into its bucket.
   web:
