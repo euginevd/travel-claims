@@ -1,4 +1,4 @@
-# The claim agent on AgentCore Runtime (spec 32), from the newest arm64 image; applied after the functions unit.
+# The claim agent on AgentCore Runtime (tier 2 design 3), from the newest arm64 image; applied after the functions unit.
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}

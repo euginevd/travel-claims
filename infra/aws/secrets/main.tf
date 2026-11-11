@@ -1,4 +1,4 @@
-# One JSON secret per environment (spec 37); the apply fills what code can, so no value is in state.
+# One JSON secret per environment (tier 2 design 8); the apply fills what code can, so no value is in state.
 resource "aws_secretsmanager_secret" "app" {
   #checkov:skip=CKV_AWS_149: the AWS-managed key is enough for a demo; real data would take a customer key
   #checkov:skip=CKV2_AWS_57: the values come from Supabase and are rotated there by hand

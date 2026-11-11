@@ -1,4 +1,4 @@
-# The api, context and copilot on Lambda (spec 31), each from the newest image the images workflow pushed.
+# The api, context and copilot on Lambda (tier 2 design 2), each from the newest image the images workflow pushed.
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}

@@ -30,10 +30,10 @@ class McpContext:
         return asyncio.run(self._call(name, arguments))
 
     async def _call(self, name: str, arguments: Json) -> tuple[Json, bool]:
-        http = httpx2.AsyncClient(timeout=CONTEXT_TIMEOUT_SECONDS)
-        server = streamable_http_client(self._url, http_client=http)
-        async with Client(server) as client:
-            result = await client.call_tool(name, arguments)
+        async with httpx2.AsyncClient(timeout=CONTEXT_TIMEOUT_SECONDS) as http:
+            server = streamable_http_client(self._url, http_client=http)
+            async with Client(server) as client:
+                result = await client.call_tool(name, arguments)
         return lookup_result(result.structured_content, result.content, result.is_error)
 
 

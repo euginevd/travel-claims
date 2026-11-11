@@ -8,6 +8,7 @@ from sqlalchemy import (
     Column,
     Engine,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     Numeric,
@@ -15,6 +16,7 @@ from sqlalchemy import (
     Table,
     Text,
     create_engine,
+    text,
 )
 
 # Money is held to the cent and read back as a float.
@@ -321,6 +323,15 @@ feedback = Table(
     Column("comment", String(300)),
     Column("question", String(300)),
     Column("created_at", String(32), nullable=False),
+    # One vote per customer on each decision's explanation, however two requests race.
+    Index(
+        "uq_feedback_decision_vote",
+        "customer_id",
+        "claim_id",
+        unique=True,
+        postgresql_where=text("subject = 'decision'"),
+        sqlite_where=text("subject = 'decision'"),
+    ),
 )
 
 # A customer's claim in progress, saved so they can finish it later: one at a time.

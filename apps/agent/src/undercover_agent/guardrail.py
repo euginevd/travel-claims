@@ -1,5 +1,6 @@
-"""The one place the agent reaches Bedrock Guardrails (spec 36): customer text only, before any
-model reads it, so the guardrail never sees the agent's own instructions or tool results."""
+"""The one place the agent reaches Bedrock Guardrails (tier 2 design 7): customer text only,
+before any model reads it, so the guardrail never sees the agent's own instructions or tool
+results."""
 
 import logging
 import math

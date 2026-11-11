@@ -83,15 +83,20 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
     make_graph: Callable[[], Graph],
     store: Callable[[], Store],
     make_api: Callable[[str], StaffApi],
+    close: Callable[[], None] = lambda: None,
 ) -> FastAPI:
-    """The service, with how to build its graph and store and an api client for a token."""
+    """The service, with how to build its graph and store, an api client for a token, and what
+    to close when it stops."""
     ready: dict[str, Any] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         ready["graph"] = make_graph()
         ready["store"] = store()
-        yield
+        try:
+            yield
+        finally:
+            close()
 
     app = FastAPI(title="UnderCover Copilot", lifespan=lifespan)
     app.state.make_api = make_api
@@ -241,6 +246,7 @@ def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
 
 def build_app() -> FastAPI:
     """The service wired to the real api, Claude and PostgreSQL."""
+    import httpx2  # noqa: PLC0415
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
 
     from undercover_copilot.claude import AnthropicClaude  # noqa: PLC0415
@@ -265,8 +271,17 @@ def build_app() -> FastAPI:
             PostgresMemory(pool),
         )
 
+    # One client for every handler's requests, so connections are pooled, not opened per request
+    # and left open; it and the database pool close when the service stops.
+    http = httpx2.Client(base_url=settings.undercover_api, timeout=30.0)
+
+    def close() -> None:
+        http.close()
+        pool.close()
+
     return create_app(
         make_graph,
         lambda: PostgresStore(pool),
-        lambda token: StaffApi(settings.undercover_api, token),
+        lambda token: StaffApi(settings.undercover_api, token, http),
+        close,
     )

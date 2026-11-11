@@ -1,6 +1,6 @@
 name: images
 
-# Spec 39: on merge, builds the four images, scans each and builds its SBOM, pushes them to ECR and the web apps
+# Tier 2 design 10: on merge, builds the four images, scans each and builds its SBOM, pushes them to ECR and the web apps
 # to S3, then runs the aws workflow; plain docker.
 on:
   push:

@@ -1,4 +1,4 @@
-# A Bedrock guardrail on customer text (spec 36), named to the agent through the app secret when enabled.
+# A Bedrock guardrail on customer text (tier 2 design 7), named to the agent through the app secret when enabled.
 locals {
   prefix = "${var.project}-${var.environment}"
 }

@@ -1,5 +1,5 @@
-"""The Bedrock guardrail on customer text (spec 36): blocks refer, failures fail closed, and it
-screens the customer's words only, ahead of the hidden-instruction check."""
+"""The Bedrock guardrail on customer text (tier 2 design 7): blocks refer, failures fail closed,
+and it screens the customer's words only, ahead of the hidden-instruction check."""
 
 from typing import Any
 

@@ -1,4 +1,4 @@
-# Customers' receipts (spec 34): private, encrypted, TLS-only, under the api's random names.
+# Customers' receipts (tier 2 design 5): private, encrypted, TLS-only, under the api's random names.
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "receipts" {
