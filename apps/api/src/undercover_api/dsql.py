@@ -5,6 +5,7 @@ migrations, written for PostgreSQL, don't run there. Its database starts empty, 
 is created from the tables in db.py and stamped as the newest migration instead.
 """
 
+import re
 from typing import Any, cast
 from urllib.parse import urlsplit
 
@@ -15,17 +16,23 @@ from sqlalchemy.schema import CreateIndex, CreateTable
 RECYCLE_SECONDS = 50 * 60
 # A write that lost a race with another, which DSQL reports at commit instead of waiting.
 CONFLICT = "40001"
+# A cluster's endpoint, public (<id>.dsql.<region>.on.aws) or through its PrivateLink endpoint
+# (<id>.dsql-<suffix>.<region>.on.aws); the IAM token is made for whichever host is used.
+ENDPOINT = re.compile(r"^[a-z0-9]+\.dsql(?:-[a-z0-9]+)?\.(?P<region>[a-z0-9-]+)\.on\.aws$")
 
 
 def is_dsql(url: str) -> bool:
     """Whether the url names a DSQL cluster's endpoint."""
-    host = urlsplit(url).hostname or ""
-    return ".dsql." in host and host.endswith(".on.aws")
+    return ENDPOINT.match(urlsplit(url).hostname or "") is not None
 
 
 def region_of(host: str) -> str:
-    """The region in an endpoint such as <id>.dsql.ap-southeast-2.on.aws."""
-    return host.split(".dsql.", 1)[1].split(".", 1)[0]
+    """The region in an endpoint such as <id>.dsql.ap-southeast-2.on.aws or
+    <id>.dsql-fnh4.ap-southeast-2.on.aws."""
+    found = ENDPOINT.match(host)
+    if found is None:
+        raise ValueError("Not a DSQL endpoint")
+    return found["region"]
 
 
 def sign_in_with_iam(engine: Engine) -> None:

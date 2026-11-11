@@ -58,9 +58,16 @@ env:
   # Where alarms and the budget alert are emailed, and the monthly budget in USD (monitoring and platform units).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   TF_VAR_monthly_budget: ${{ vars.MONTHLY_BUDGET || '10' }}
-  # Where the code runs (decision 36): private, the platform's private subnets and VPC endpoints, or
-  # public, no VPC, to save the network's cost (platform, functions and agent units).
-  TF_VAR_network: ${{ vars.NETWORK_MODE || 'private' }}
+  # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the
+  # platform's private subnets and VPC endpoints (platform, database, functions and agent units).
+  TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
+  # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
+  TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
+  # Staff sign in with the company's IAM Identity Center through the staff pools (decision 39); empty: off.
+  TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
+  TF_VAR_staff_sign_in_urls: ${{ vars.STAFF_SIGN_IN_URLS }}
+  # The share of the agent's live sessions AgentCore Evaluations scores online; 0, the default, turns it off (decision 38).
+  TF_VAR_evaluation_sampling: ${{ vars.EVALUATION_SAMPLING || '0' }}
   # Lookup programs on AgentCore Code Interpreter (plan phase 5): true to switch them on.
   TF_VAR_code_execution: ${{ vars.CODE_EXECUTION || 'false' }}
 
@@ -84,8 +91,9 @@ jobs:
           EVENT: ${{ github.event_name }}
           INPUT_UNIT: ${{ inputs.unit }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          # The account-wide platform unit is skipped where a platform team runs those settings (decision 35).
-          SKIP: ${{ vars.PLATFORM_MANAGED == 'true' && 'platform' || 'bootstrap' }}
+          # The platform unit is reference code for what a platform team runs; it deploys only with
+          # DEPLOY_PLATFORM=true, in an account with no platform team (decision 40).
+          SKIP: ${{ vars.DEPLOY_PLATFORM == 'true' && 'bootstrap' || 'platform' }}
         run: |
           all=$(find infra/aws -mindepth 1 -maxdepth 1 -type d ! -name bootstrap ! -name "$SKIP" ! -name '_*' -printf '%f\n')
           if [ "$EVENT" = workflow_dispatch ] && [ "$INPUT_UNIT" = all ]; then

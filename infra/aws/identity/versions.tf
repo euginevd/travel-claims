@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.72.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "2.8.1"
+    }
   }
 
   # The pipeline passes the bucket, region and key at init, so no account ID is in the code.

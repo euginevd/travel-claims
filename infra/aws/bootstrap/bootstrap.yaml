@@ -183,6 +183,7 @@ Resources:
                   StringEquals:
                     iam:PassedToService:
                       - lambda.amazonaws.com
+                      - backup.amazonaws.com
                       - bedrock-agentcore.amazonaws.com
                       - bedrock.amazonaws.com
                       - cloudtrail.amazonaws.com
@@ -474,6 +475,28 @@ Resources:
               - events:List*
               - sns:List*
             Resource: '*'
+          # The platform unit's backups (decision 38): vaults and plans have generated IDs; the vault
+          # keeps its recovery points under AWS Backup's own key.
+          - Sid: BackupRegion
+            Effect: Allow
+            Action:
+              - backup:*
+              - backup-storage:MountCapsule
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          - Sid: BackupKey
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:DescribeKey
+              - kms:GenerateDataKey
+              - kms:Decrypt
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:ViaService: !Sub 'backup.${AWS::Region}.amazonaws.com'
           # Account-wide services with generated IDs, so they're limited to this region.
           - Sid: SecurityServicesRegion
             Effect: Allow
@@ -689,6 +712,9 @@ Resources:
                   - bedrock-agentcore:List*
                   - bedrock:Get*
                   - bedrock:List*
+                  - backup:Describe*
+                  - backup:Get*
+                  - backup:List*
                   - budgets:Describe*
                   - budgets:ListTagsForResource
                   - budgets:View*
@@ -821,6 +847,31 @@ Resources:
               - xray:PutTelemetryRecords
               - xray:PutTraceSegments
             Resource: '*'
+          # AWS Backup's role backs up and restores the cluster tagged Backup=daily (decision 38).
+          - Sid: Backups
+            Effect: Allow
+            Action:
+              - backup:*
+              - dsql:*
+              - tag:GetResources
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          # Online evaluations read the agent's spans and runtime logs (decision 38).
+          - Sid: EvaluationReads
+            Effect: Allow
+            Action:
+              - logs:DescribeLogGroups
+              - logs:FilterLogEvents
+              - logs:GetLogEvents
+              - logs:GetQueryResults
+              - logs:StartQuery
+              - logs:StopQuery
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
           # Lambda's network interfaces in the platform's private subnets (decision 36); no resource ARN.
           - Sid: LambdaNetwork
             Effect: Allow

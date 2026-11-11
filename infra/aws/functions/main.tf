@@ -60,6 +60,15 @@ locals {
   app_parameter_arn = "arn:${local.partition}:ssm:${local.region}:${local.account}:parameter${local.app_parameter}"
 }
 
+# The services pool (identity unit): the agent's machine client calls the api's agent routes.
+data "aws_cognito_user_pools" "services" {
+  name = "${local.prefix}-services"
+}
+
+data "aws_cognito_user_pool_clients" "services" {
+  user_pool_id = one(data.aws_cognito_user_pools.services.ids)
+}
+
 data "aws_cognito_user_pools" "audience" {
   for_each = local.audiences
 
@@ -162,6 +171,8 @@ resource "aws_iam_role_policy" "function" {
 }
 
 locals {
+  agent_caller_issuer = "https://cognito-idp.${local.region}.amazonaws.com/${one(data.aws_cognito_user_pools.services.ids)}"
+  agent_caller_client = zipmap(data.aws_cognito_user_pool_clients.services.client_names, data.aws_cognito_user_pool_clients.services.client_ids)["${local.prefix}-agent"]
   issuers = {
     for name, prefix in local.audiences :
     "${prefix}_TOKEN_ISSUER" => "https://cognito-idp.${local.region}.amazonaws.com/${one(data.aws_cognito_user_pools.audience[name].ids)}"
@@ -181,7 +192,10 @@ locals {
       WORKLOAD_NAME        = "${local.prefix}-api"
       AGENT_TOKEN_PROVIDER = local.agent_provider
       #checkov:skip=CKV_SECRET_6: an OAuth scope name, not a secret
-      AGENT_TOKEN_SCOPE    = "undercover-agent/invoke"
+      AGENT_TOKEN_SCOPE = "undercover-agent/invoke"
+      # The agent's calls back carry its machine token, not the shared key (decision 38).
+      AGENT_CALLER_ISSUER = local.agent_caller_issuer
+      AGENT_CALLER_CLIENT = local.agent_caller_client
     })
     # No URL: AgentCore Gateway invokes it by ARN, and the adapter passes each call to /events.
     context = { CONTEXT_ALLOWED_HOSTS = "*", CONTEXT_GATEWAY_EVENTS = "true" }
@@ -248,7 +262,7 @@ resource "aws_lambda_function" "copilot" {
       APP_SECRET     = local.app_parameter
       MODEL_PROVIDER = var.model_provider
       COPILOT_MODEL  = local.sonnet
-      UNDERCOVER_API = trimsuffix(aws_lambda_function_url.service["api"].function_url, "/")
+      UNDERCOVER_API = local.api_endpoint
       # The Copilot's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
       WORKLOAD_NAME          = "${local.prefix}-copilot"
       ANTHROPIC_KEY_PROVIDER = local.key_provider
@@ -282,7 +296,8 @@ resource "aws_lambda_function" "copilot" {
 # The api checks tokens or the agent's key itself. The context has no URL: only the gateway's role may invoke it.
 resource "aws_lambda_function_url" "service" {
   #checkov:skip=CKV_AWS_258: the api authenticates every request itself
-  for_each = { for name, fn in aws_lambda_function.service : name => fn if name != "context" }
+  # None behind API Gateway (api_gateway.tf); the context server never has one.
+  for_each = { for name, fn in aws_lambda_function.service : name => fn if name != "context" && !local.gateway }
 
   function_name      = each.value.function_name
   authorization_type = "NONE"
@@ -290,6 +305,8 @@ resource "aws_lambda_function_url" "service" {
 
 resource "aws_lambda_function_url" "copilot" {
   #checkov:skip=CKV_AWS_258: the copilot checks each handler's token with the api on every request
+  count = local.gateway ? 0 : 1
+
   function_name      = aws_lambda_function.copilot.function_name
   authorization_type = "NONE"
 }

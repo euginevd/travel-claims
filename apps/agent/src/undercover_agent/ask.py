@@ -3,13 +3,16 @@
 It picks a tool for each question: the policy wording (customer-facing sources only, never the
 claims manual), the customer's own policies and claims as the api sent them, or a hand-off to
 start a claim or ask a person. Every question passes the hidden-instruction check first, and it
-explains and cites but never promises cover or payment."""
+explains and cites but never promises cover or payment. On AWS each answer must also rest on what
+the assistant read (the wording and the customer's records) and answer the question, or it isn't
+shown."""
 
 from typing import Annotated, Literal, Protocol, cast
 
 from anthropic.types import Message
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from undercover_agent.guardrail import NoOutputGuardrail, OutputScreen
 from undercover_agent.knowledge import WordingSearch
 from undercover_agent.models import Call, Json, Screening
 from undercover_agent.tools import Context, as_text, tool
@@ -66,6 +69,10 @@ SCREENED = (
     "person, you can ask our claims team."
 )
 NO_ANSWER = "Sorry, I couldn't answer that just now. You can ask our claims team instead."
+UNGROUNDED = (
+    "Sorry, I couldn't give you an answer I'm sure of from your policy wording. Our claims team "
+    "can help with this one."
+)
 
 
 class Turn(BaseModel):
@@ -130,12 +137,28 @@ class Asker:
         context: Context,
         model: str,
         wording: WordingSearch | None = None,
+        grounding: OutputScreen | None = None,
     ) -> None:
         self._claude = claude
         self._context = context
         self._model = model
         # The Knowledge Base's search by meaning on AWS; the context layer's by word otherwise.
         self._wording = wording
+        # On AWS: the answer checked against what the assistant read; nothing locally.
+        self._grounding = grounding or NoOutputGuardrail()
+
+    def checked(self, answer: Answer, read: list[str], request: AskRequest) -> Answer:
+        """The answer when it rests on what was read and answers the question; otherwise a
+        hand-off to a person, failing closed. With nothing read, the customer's own records are
+        the source."""
+        if answer.answer in (NO_ANSWER, SCREENED):
+            return answer
+        records = {"policies": request.policies, "claims": request.claims}
+        source = "\n\n".join(read) or as_text(records)
+        verdict = self._grounding.check_output(answer.answer, source, request.question)
+        if verdict.blocked:
+            return Answer(answer=UNGROUNDED, sources=[], suggest="ask_person", screened=False)
+        return answer
 
     def run(self, name: str, args: Json, request: AskRequest) -> str:
         match name:
@@ -181,6 +204,7 @@ class Asker:
                 "content": question_for(request),
             }
         )
+        read: list[str] = []
         for _ in range(MAX_TURNS):
             reply, _ = self._claude.turn(ASK_INSTRUCTIONS, ASK_TOOLS, messages, self._model, "low")
             calls = [b for b in reply.content if b.type == "tool_use"]
@@ -188,7 +212,7 @@ class Asker:
                 if block.name == "reply":
                     args = cast(Json, block.input)
                     suggest = str(args.get("suggest", ""))
-                    return Answer(
+                    answer = Answer(
                         answer=str(args.get("answer", ""))[:2000] or NO_ANSWER,
                         sources=[
                             str(s)[:200] for s in cast(list[object], args.get("sources") or [])
@@ -196,11 +220,13 @@ class Asker:
                         suggest=suggest if suggest in ("start_claim", "ask_person") else "",  # pyright: ignore[reportArgumentType]
                         screened=False,
                     )
+                    return self.checked(answer, read, request)
             if not calls:
                 text = " ".join(b.text for b in reply.content if b.type == "text").strip()
-                return Answer(
+                answer = Answer(
                     answer=text[:2000] or NO_ANSWER, sources=[], suggest="", screened=False
                 )
+                return self.checked(answer, read, request)
             messages.append(
                 {
                     "role": "assistant",
@@ -209,16 +235,14 @@ class Asker:
                     ],
                 }
             )
+            results = [self.run(block.name, cast(Json, block.input), request) for block in calls]
+            read.extend(results)
             messages.append(
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": self.run(block.name, cast(Json, block.input), request),
-                        }
-                        for block in calls
+                        {"type": "tool_result", "tool_use_id": block.id, "content": result}
+                        for block, result in zip(calls, results, strict=True)
                     ],
                 }
             )

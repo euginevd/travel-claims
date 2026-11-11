@@ -36,7 +36,7 @@ variable "access_analyzer" {
 variable "network" {
   description = "private: the workload network (network.tf); public: none, to save its cost"
   type        = string
-  default     = "private"
+  default     = "public"
   validation {
     condition     = contains(["private", "public"], var.network)
     error_message = "network is private or public."

@@ -41,8 +41,21 @@ locals {
   app_parameter_arn = "arn:${local.partition}:ssm:${local.region}:${local.account}:parameter${local.app_parameter}"
 }
 
+# Where the agent reaches the api: the functions unit's API Gateway, or the api's URL (decision 39).
 data "aws_lambda_function_url" "api" {
+  count         = var.api_gateway ? 0 : 1
   function_name = "${local.prefix}-api"
+}
+
+data "aws_apigatewayv2_apis" "api" {
+  count = var.api_gateway ? 1 : 0
+  name  = "${local.prefix}-api"
+}
+
+locals {
+  api_endpoint = (var.api_gateway
+    ? "https://${one(data.aws_apigatewayv2_apis.api[0].ids)}.execute-api.${local.region}.amazonaws.com"
+  : trimsuffix(data.aws_lambda_function_url.api[0].function_url, "/"))
 }
 
 # The context server has no URL: the gateways invoke it by ARN (Lambda targets).
@@ -62,6 +75,11 @@ data "aws_cognito_user_pool_clients" "pool" {
   for_each = data.aws_cognito_user_pools.pool
 
   user_pool_id = one(each.value.ids)
+}
+
+# The services pool's clients by name: the api's invokes the runtime; the agent's calls the api.
+locals {
+  service_clients = zipmap(data.aws_cognito_user_pool_clients.pool["services"].client_names, data.aws_cognito_user_pool_clients.pool["services"].client_ids)
 }
 
 locals {
@@ -141,6 +159,21 @@ resource "aws_iam_role_policy" "agent" {
         Effect   = "Allow"
         Action   = "secretsmanager:GetSecretValue"
         Resource = "arn:${local.partition}:secretsmanager:${local.region}:${local.account}:secret:bedrock-agentcore-identity!default/apikey/${local.prefix}-*"
+      },
+      # A machine token for the agent's calls back to the api, from the vault (decision 38).
+      {
+        Effect = "Allow"
+        Action = "bedrock-agentcore:GetResourceOauth2Token"
+        Resource = [
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/oauth2credentialprovider/${local.prefix}-api-access",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = "arn:${local.partition}:secretsmanager:${local.region}:${local.account}:secret:bedrock-agentcore-identity!default/oauth2/${local.prefix}-api-access*"
       },
       # Each claim's saved progress (database unit).
       {
@@ -705,7 +738,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url   = local.discovery.services
-      allowed_clients = data.aws_cognito_user_pool_clients.pool["services"].client_ids
+      allowed_clients = [local.service_clients["${local.prefix}-api"]]
       allowed_scopes  = ["undercover-agent/invoke"]
     }
   }
@@ -730,7 +763,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     SCREENING_MODEL     = local.haiku
     SPECIALIST_MODEL    = local.haiku
     DRAFTING_MODEL      = local.haiku
-    UNDERCOVER_API      = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
+    UNDERCOVER_API      = local.api_endpoint
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
     KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
@@ -738,6 +771,12 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     # The agent's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
     WORKLOAD_NAME          = "${local.prefix}-agent"
     ANTHROPIC_KEY_PROVIDER = local.key_provider
+    # Its machine token for the api, in place of the shared key (decision 38).
+    API_TOKEN_PROVIDER = "${local.prefix}-api-access"
+    #checkov:skip=CKV_SECRET_6: an OAuth scope name, not a secret
+    API_TOKEN_SCOPE = "undercover-api/agent"
+    # Traces with AWS Distro for OpenTelemetry; the runtime sets the exporter's settings (decision 38).
+    AGENT_OBSERVABILITY_ENABLED = "true"
   }
 
   depends_on = [aws_iam_role_policy.agent, aws_bedrockagentcore_gateway_target.context]

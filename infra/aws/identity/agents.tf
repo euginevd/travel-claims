@@ -79,3 +79,51 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "agent" {
 
   depends_on = [aws_cognito_user_pool_domain.services]
 }
+
+# The agent's calls back to the api (decision 38): the same pattern the other way, so no shared key
+# is left on AWS. The api accepts only access tokens from this client with this scope.
+resource "aws_cognito_resource_server" "api" {
+  identifier   = "undercover-api"
+  name         = "The api's agent routes"
+  user_pool_id = aws_cognito_user_pool.services.id
+
+  scope {
+    scope_name        = "agent"
+    scope_description = "Read and record the claim agent's work"
+  }
+}
+
+resource "aws_cognito_user_pool_client" "agent" {
+  name                                 = "${local.prefix}-agent"
+  user_pool_id                         = aws_cognito_user_pool.services.id
+  generate_secret                      = true
+  allowed_oauth_flows                  = ["client_credentials"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = aws_cognito_resource_server.api.scope_identifiers
+  supported_identity_providers         = ["COGNITO"]
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  access_token_validity                = 1
+
+  token_validity_units {
+    access_token = "hours"
+  }
+}
+
+resource "aws_bedrockagentcore_oauth2_credential_provider" "api" {
+  name                       = "${local.prefix}-api-access"
+  credential_provider_vendor = "CustomOauth2"
+
+  oauth2_provider_config {
+    custom_oauth2_provider_config {
+      client_id     = aws_cognito_user_pool_client.agent.id
+      client_secret = aws_cognito_user_pool_client.agent.client_secret
+
+      oauth_discovery {
+        discovery_url = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.services.id}/.well-known/openid-configuration"
+      }
+    }
+  }
+
+  depends_on = [aws_cognito_user_pool_domain.services]
+}

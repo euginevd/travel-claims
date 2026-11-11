@@ -4,6 +4,7 @@ import { ApiError, type Api } from "../api";
 import { initials } from "../components/Header";
 import { Logo } from "../components/Logo";
 import { prefersStill, SignInRun } from "../components/SignInRun";
+import { authorizeUrl, finishSignIn, ssoConfig, tabStore } from "../sso";
 
 // The test accounts: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
 // or the AWS demo built with VITE_TEST_SIGN_IN=true. The api signs in a fixed test account.
@@ -27,20 +28,33 @@ const POINTS = [
   { Icon: Check, text: "Changes need approval" },
 ];
 
+// On AWS with company sign-in: the hosted page through IAM Identity Center.
+const SSO = ssoConfig();
+
+// Why a company sign-in didn't finish, in words for the person.
+class SsoError extends Error {}
+
 interface SignInPageProps {
   api: Api;
   onSignedIn: (token: string) => void;
+  fetchFn?: (input: string, init?: RequestInit) => Promise<Response>;
   checking: boolean;
 }
 
 function problem(caught: unknown): string {
+  if (caught instanceof SsoError) return caught.message;
   if (caught instanceof ApiError && caught.status === 401) {
     return "That email and password don't match an AI engineer's account.";
   }
   return caught instanceof ApiError ? caught.message : "We couldn't reach the server.";
 }
 
-export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
+export function SignInPage({
+  api,
+  onSignedIn,
+  checking,
+  fetchFn = (input, init) => fetch(input, init),
+}: SignInPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +70,26 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     },
     [],
   );
+
+  // Back from the hosted page: the address is cleaned first, so the code is used once.
+  useEffect(() => {
+    if (!SSO) return;
+    const search = window.location.search;
+    if (!new URLSearchParams(search).has("state")) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.hash}`);
+    void attempt(async () => {
+      const found = await finishSignIn(fetchFn, SSO, search, tabStore());
+      if (found === null) throw new SsoError("Company sign-in failed.");
+      if ("token" in found) return found.token;
+      throw new SsoError(found.message);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
+
+  async function companySignIn(config: NonNullable<typeof SSO>) {
+    setBusy(true);
+    window.location.assign(await authorizeUrl(config, tabStore()));
+  }
 
   async function attempt(signIn: () => Promise<string>) {
     setBusy(true);
@@ -229,6 +263,18 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
                   </span>
                 )}
               </button>
+              {SSO && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    void companySignIn(SSO);
+                  }}
+                >
+                  Sign in with your company account
+                </button>
+              )}
               {LOCAL_SIGN_IN && (
                 <fieldset className="accounts">
                   <legend>

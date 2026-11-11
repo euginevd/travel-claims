@@ -32,6 +32,7 @@ from undercover_api.auth import (
     CUSTOMERS_GROUP,
     ENGINEERS_GROUP,
     HANDLERS_GROUP,
+    AgentTokenVerifier,
     Database,
     LocalKeys,
     RemoteKeys,
@@ -839,7 +840,6 @@ def load_names_to_redact(engine: Engine) -> None:
 def make_agent_service(settings: Settings) -> AgentService:
     """The agent on AgentCore Runtime when its ARN is set (AWS), with the api's machine token
     when its identity is set, else over HTTP."""
-    key = settings.undercover_api_key.get_secret_value()
     if settings.agent_runtime_arn and settings.workload_name and settings.agent_token_provider:
         from undercover_api.agent_identity import bearer_runtime  # noqa: PLC0415 - AWS only
 
@@ -852,7 +852,9 @@ def make_agent_service(settings: Settings) -> AgentService:
         return RuntimeAgentService(settings.agent_runtime_arn, runtime)
     if settings.agent_runtime_arn:
         return RuntimeAgentService(settings.agent_runtime_arn, runtime_client())
-    return HttpAgentService(settings.agent_url, key)
+    if settings.undercover_api_key is None:
+        raise RuntimeError("The agent over HTTP needs UNDERCOVER_API_KEY")
+    return HttpAgentService(settings.agent_url, settings.undercover_api_key.get_secret_value())
 
 
 def make_receipts(settings: Settings) -> Receipts | None:
@@ -899,6 +901,16 @@ def create_app(
     staff = (settings.staff_token_issuer, settings.staff_token_audience)
     customer = (settings.customer_token_issuer, settings.customer_token_audience)
     engineering = (settings.engineering_token_issuer, settings.engineering_token_audience)
+    # On AWS the agent's routes take its machine token; locally, its key.
+    app.state.agent_verifier = (
+        AgentTokenVerifier(
+            RemoteKeys(settings.agent_caller_issuer),
+            settings.agent_caller_issuer,
+            settings.agent_caller_client or "",
+        )
+        if settings.agent_caller_issuer
+        else None
+    )
     if settings.local_sign_in:
         app.state.staff_issuer = LocalIssuer(*staff)
         app.state.customer_issuer = LocalIssuer(*customer)

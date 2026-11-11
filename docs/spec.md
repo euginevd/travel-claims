@@ -30,7 +30,7 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 One design, on AWS (decision 37); Docker only tests it locally.
 
 4. **Locally, to test:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only, before a change is deployed.
-5. **On AWS, the design:** S3 and CloudFront, Lambda, AgentCore, Cognito, Aurora DSQL, DynamoDB and Claude on Bedrock only, all in `ap-southeast-2`, in private subnets behind VPC endpoints, with a regulated insurer's platform controls assumed in place; deployed to `dev`, tested with made-up data, then torn down (decisions 30, 36 and 37). `NETWORK_MODE=public` drops the private network to save its cost. Design: [the AWS architecture](../guides/03-aws-architecture.md).
+5. **On AWS, the design:** S3 and CloudFront, Lambda, AgentCore, Cognito, Aurora DSQL, DynamoDB and Claude on Bedrock only, all in `ap-southeast-2`, in private subnets behind VPC endpoints, with a regulated insurer's platform controls assumed in place; deployed to `dev`, tested with made-up data, then torn down (decisions 30, 36 and 37). Every piece is in the code, and settings decide what's deployed: the default is cost-optimized, and the recommended settings deploy the whole design (decision 39). Design: [the AWS architecture](../guides/03-aws-architecture.md).
 
 ## Apps
 

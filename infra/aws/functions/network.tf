@@ -4,7 +4,7 @@
 variable "network" {
   description = "private: the platform's private subnets; public: no VPC"
   type        = string
-  default     = "private"
+  default     = "public"
   validation {
     condition     = contains(["private", "public"], var.network)
     error_message = "network is private or public."
@@ -21,12 +21,17 @@ data "aws_ssm_parameter" "subnets" {
   name  = "/platform/network/private-subnet-ids"
 }
 
+data "aws_vpc" "platform" {
+  count = var.network == "private" ? 1 : 0
+  id    = data.aws_ssm_parameter.vpc[0].insecure_value
+}
+
 locals {
   private = var.network == "private"
   subnets = local.private ? split(",", data.aws_ssm_parameter.subnets[0].insecure_value) : []
 }
 
-# Nothing comes in; out, only HTTPS and DSQL's PostgreSQL port, through the endpoints or the egress.
+# Nothing comes in; out, only HTTPS (through the endpoints or the egress) and PostgreSQL to DSQL's endpoint.
 # trivy:ignore:AWS-0104 out through the platform's egress, which an enterprise inspects centrally
 resource "aws_security_group" "workload" {
   #checkov:skip=CKV2_AWS_5: attached to the functions through a dynamic block the check can't follow
@@ -45,10 +50,10 @@ resource "aws_security_group" "workload" {
   }
 
   egress {
-    description = "PostgreSQL to Aurora DSQL"
+    description = "PostgreSQL to the Aurora DSQL endpoint"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.aws_vpc.platform[0].cidr_block]
   }
 }

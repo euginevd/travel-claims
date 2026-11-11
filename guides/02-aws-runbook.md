@@ -2,7 +2,7 @@
 
 The AWS build from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
-**Cost:** the private network is about $150 to $200 a month while it's up, or nothing with `NETWORK_MODE=public` (cents idle); about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
+**Cost:** cents idle with the default, cost-optimized settings; the recommended ones (the [architecture guide's settings](03-aws-architecture.md#settings)) add about $165 to $220 a month while up, mostly the private network; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
 ## How it fits together
 
@@ -22,6 +22,7 @@ The workflows deploy only from `main`, and only once step 4 switches deploys on.
 Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Sydney (under $0.001). It checks:
 
 - the account plan is `PAID ACTIVE`;
+- no CloudFront Free plans are in use yet, since the build takes all three an account can have (otherwise set `CLOUDFRONT_FREE_PLAN=false`);
 - Titan Text Embeddings V2 answers (needed now);
 - Claude Haiku and Sonnet 5.5 answer (needed only for [Bedrock](#switching-to-claude-on-bedrock));
 - after step 3, the bootstrap's IAM policies, with IAM Access Analyzer: an `ERROR` or unknown action needs fixing; a `SECURITY_WARNING` on the wide statements is expected (decision 32).
@@ -36,7 +37,7 @@ Put these in `.env` (git-ignored):
 
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for testing locally.
 - `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs** (not needed if the AWS CLI is signed in). The names are fixed, so they survive a redeploy: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
-- Optional: `ALERT_EMAIL`, `MONTHLY_BUDGET` (default 10), `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `PLATFORM_MANAGED=true` if a platform team already runs the account-wide settings and the network and publishes its `/platform/network/*` parameters (the `platform` unit is then skipped), and `NETWORK_MODE=public` to run without the private network and its cost.
+- Optional: `ALERT_EMAIL`, `MONTHLY_BUDGET` (default 10), `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `DEPLOY_PLATFORM=true` in an account with no platform team, such as a personal demo account, to deploy the `platform` unit's reference code (needed for the budget alert, backups, Transaction Search and `NETWORK_MODE=private`), `NETWORK_MODE=private` for the private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), `API_GATEWAY=true` to put the api and Copilot behind API Gateway, and `STAFF_SAML_METADATA_URL` with `STAFF_SIGN_IN_URLS` for staff sign-in through IAM Identity Center (decision 39).
 
 Then run `bash scripts/use-anthropic.sh`. It prints no value, and sets, under the repo's **Settings**:
 
@@ -58,10 +59,10 @@ It runs each workflow in turn and waits for it, in this order, because each unit
 
 | # | Run | Makes |
 |---|---|---|
-| 1 | `platform` | What a landing zone provides: the private network (a VPC with private subnets in two availability zones, VPC endpoints and a NAT gateway, published as `/platform/network/*`; none with `NETWORK_MODE=public`), an AWS Budgets alert and IAM Access Analyzer; skipped with `PLATFORM_MANAGED=true` |
+| 1 | `platform` | What a landing zone provides: the private network (a VPC with private subnets in two availability zones, VPC endpoints and a NAT gateway, published as `/platform/network/*`; only with `NETWORK_MODE=private`), AWS Backup for anything tagged `Backup=daily`, CloudWatch Transaction Search for traces, an AWS Budgets alert and IAM Access Analyzer; deployed only with `DEPLOY_PLATFORM=true` |
 | 2 | `registry` | Amazon ECR repositories for the four app images |
 | 3 | `secrets` | An AWS Systems Manager Parameter Store SecureString for the apps' settings; the Anthropic key in AgentCore Identity's token vault |
-| 4 | `database` | Amazon Aurora DSQL for the records; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
+| 4 | `database` | Amazon Aurora DSQL for the records, through its own endpoint on the private network and tagged for backup; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
 | 5 | `storage` | An Amazon S3 bucket for customers' receipts |
 | 6 | `identity` | Amazon Cognito user pools for customers, handlers and AI engineers, with test accounts, and a services pool for the api's machine sign-in; AgentCore Identity's workload identities and token vault |
 | 7 | `guardrail` | An Amazon Bedrock Guardrail on customers' text |
@@ -86,7 +87,7 @@ If a run fails, the script stops: fix it, run that unit alone, then the rest. If
 3. Make a claim in the portal, and watch the agent work it in the dashboard.
 4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start.
 
-Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); on the private network, every function and the agent reach their services through the endpoints and the NAT gateway, including the agent's gateway endpoint and Cognito's signing keys (decision 36); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
+Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); the agent's calls back carry its machine token and the output guardrail answers (decision 38); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
 
 ## 7. Tear down (about 45 minutes)
 

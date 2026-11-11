@@ -61,7 +61,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 | D7 | Customers' feedback: a vote, and up to 300 characters each of comment and question | Sensitive in production (free text); made up here | PostgreSQL (`feedback`); engineers see it without a name or customer id; never sent to a model |
 | D8 | The Copilot's conversations and each handler's remembered preferences | Internal | PostgreSQL (`copilot` schema), one handler's only |
 | D9 | Settings and their change history: the approval limit, spending limit and objectives | Confidential | PostgreSQL (`settings`, `setting_changes`) |
-| D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged |
+| D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged; on AWS the Anthropic key and both machine clients' secrets stay in AgentCore Identity's token vault, and the agent's key is refused (decision 38) |
 
 ## Trust boundaries
 
@@ -72,7 +72,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 - **TB2** Agent and `api`: model output is untrusted; the `api` checks every decision against claims manual section 14 and the payout calculation before it can drive a payment.
 - **TB3** App to Claude: claim text leaves the laptop. Only made-up data is sent (spec 26); on Bedrock it stays in Australia.
 - **TB5** The judge: after an evaluation, the api sends the agent service's judge (Claude Haiku) one copy at a time: the agent's decision, reason and section beside the handler's. The agent's reason is untrusted model output; the judge's grade comes back to the api, which validates and stores it. The claim agent and the improver never receive the pairs (spec 24).
-- **TB4** The drafting assistant: a customer's words and receipts go to Claude Haiku through the agent service, and its draft comes back to the customer's browser. The draft is untrusted model output: the `api` validates it, the customer confirms or fixes every field, it is never submitted for them, and the claim agent reads the customer's own words as the record (features 3).
+- **TB4** The drafting assistant: a customer's words and receipts go to Claude Haiku through the agent service, and its draft comes back to the customer's browser. The draft is untrusted model output: the `api` validates it, the customer confirms or fixes every field, it is never submitted for them, and the claim agent reads the customer's own words as the record (features 3). On AWS an output guardrail also filters personal data from letters and checks Ask UnderCover's answers are grounded in the wording, failing closed (decision 38).
 
 ## Top risks
 
@@ -83,7 +83,7 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R1 | Instructions hidden in a claim make the agent approve or pay it | T, E | LLM01, ASI01 | High | On AWS a Bedrock guardrail on the customer's text, failing closed, so an outage refers every claim; the hidden-instruction check on a separate model before the claim agent sees the claim (features 28), content kept apart from instructions (code-standards 18), limits in code (spec 20); CLM-1901 test | Code, Test |
 | R2 | The agent pays more than allowed, or pays twice | T, E | LLM06, ASI02 | High | The payments module checks the limit before reading the claim and fails closed (code-standards 7); sign-off over $1,000 (features 13); one payment per claim enforced by the database (features 13) | Code, Test |
 | R3 | The agent reads or acts on another customer's claim or memory | I, E | A01, API1, LLM02 | High | Tools take the claim and customer from the agent's context, not the model (spec 23); abuse-case tests (code-standards 11) | Code, Test |
-| R4 | The agent's key acts as a handler, or a handler without the right signs off | S, E | A01, API5 | High | One gate per route, deny by default (code-standards 10); the key never stands in for a handler (spec 22); per-route tests | Code, Test |
+| R4 | The agent's key acts as a handler, or a handler without the right signs off | S, E | A01, API5 | High | One gate per route, deny by default (code-standards 10); the key never stands in for a handler (spec 22); per-route tests; on AWS the agent calls the api with its own machine token, never the shared key (decision 38) | Code, Test |
 | R5 | The local sign-in stand-in runs outside the laptop | S | A07 | High | The `api` refuses to start with it on unless `ENVIRONMENT=local`; tokens need `email_verified` | Code, Deploy |
 | R6 | A decision can't be traced to who or what made it | R | A09 | Medium | The server records the maker, the time and the manual's version on every decision (features 29) | Code |
 | R7 | Personal data leaks into logs | I | A09, LLM02 | Medium | Redaction at the source, SQL parameters hidden, every logger through one formatter (code-standards 8, spec 25) | Code, Test |

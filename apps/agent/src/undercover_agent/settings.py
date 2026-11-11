@@ -4,7 +4,7 @@ import json
 import os
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self, cast
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # On AWS: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str = "1"
+    # On AWS: Ask UnderCover's answers checked against what it read, and letters and drafts
+    # checked for card, bank, tax and identity numbers, before anyone sees them, when set.
+    bedrock_answer_guardrail_id: str | None = None
+    bedrock_answer_guardrail_version: str = "1"
+    bedrock_letter_guardrail_id: str | None = None
+    bedrock_letter_guardrail_version: str = "1"
     # On AWS: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
     # The service the signature is for: bedrock-agentcore through Gateway, lambda to the URL.
@@ -36,7 +42,14 @@ class Settings(BaseSettings):
     # On AWS: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
     code_interpreter_id: str | None = None
     agentcore_runtime: bool = False
-    undercover_api_key: SecretStr = Field(min_length=32)
+    # The key the api and the agent share locally. On Runtime with the machine token there's none:
+    # the api calls through Runtime's token check, and the agent calls the api with its token.
+    undercover_api_key: Annotated[SecretStr, Field(min_length=32)] | None = None
+    # On AWS: the agent calls the api with a machine token, which AgentCore Identity fetches from
+    # its vault through this workload identity; with the key above when unset (locally).
+    workload_name: str | None = None
+    api_token_provider: str | None = None
+    api_token_scope: str = "undercover-api/agent"  # noqa: S105 - a scope, not a secret
     undercover_api: str = "http://127.0.0.1:8000"
     undercover_context: str = "http://127.0.0.1:8006/mcp"
     # Where the agent saves each claim's progress: DynamoDB on AWS (decision 30), else PostgreSQL
@@ -75,6 +88,12 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "MODEL_PROVIDER=anthropic needs ANTHROPIC_API_KEY and ANTHROPIC_WORKSPACE_ID"
+            )
+        machine_token = self.workload_name and self.api_token_provider
+        if self.undercover_api_key is None and not (self.agentcore_runtime and machine_token):
+            raise ValueError(
+                "UNDERCOVER_API_KEY is needed unless on Runtime with WORKLOAD_NAME and "
+                "API_TOKEN_PROVIDER"
             )
         return self
 

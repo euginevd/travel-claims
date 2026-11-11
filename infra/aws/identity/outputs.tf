@@ -8,3 +8,8 @@ output "client_ids" {
   value       = { for name, client in aws_cognito_user_pool_client.web : name => client.id }
 }
 
+
+output "staff_sso_domains" {
+  description = "The hosted sign-in domain of each pool with company sign-in: the web app's VITE_STAFF_SSO_DOMAIN"
+  value       = { for name, domain in aws_cognito_user_pool_domain.sso : name => "${domain.domain}.auth.${var.region}.amazoncognito.com" }
+}

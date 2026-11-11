@@ -20,3 +20,9 @@ variable "free_plan" {
   type        = bool
   default     = true
 }
+
+variable "api_gateway" {
+  description = "true: the api and Copilot are behind the functions unit's API Gateway; false: their function URLs"
+  type        = bool
+  default     = false
+}

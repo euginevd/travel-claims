@@ -28,12 +28,12 @@ run() {
   gh run watch "$id" --exit-status >/dev/null
 }
 
-# A platform team runs the account-wide settings and the network instead (decisions 35 and 36).
-platform_managed=$(gh variable get PLATFORM_MANAGED 2>/dev/null || true)
+# The platform unit is reference code for what a platform team runs: deployed only with DEPLOY_PLATFORM=true (decision 40).
+deploy_platform=$(gh variable get DEPLOY_PLATFORM 2>/dev/null || true)
 
 for unit in "${order[@]}"; do
-  if [ "$unit" = platform ] && [ "$platform_managed" = true ]; then
-    echo "== platform: skipped (PLATFORM_MANAGED=true)"
+  if [ "$unit" = platform ] && [ "$deploy_platform" != true ]; then
+    echo "== platform: skipped (the platform team's; DEPLOY_PLATFORM=true deploys this repo's reference)"
     continue
   fi
   echo "== $unit"

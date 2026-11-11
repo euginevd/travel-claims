@@ -1,5 +1,7 @@
-"""The one client the agent uses to reach the api, always with the agent's key."""
+"""The one client the agent uses to reach the api: with its machine token on AWS, with the
+agent's key locally."""
 
+from collections.abc import Callable
 from typing import Any, cast
 
 import httpx2
@@ -23,12 +25,25 @@ class ApiError(Exception):
 class ApiClient:
     """The api's agent routes for one claim at a time."""
 
-    def __init__(self, base_url: str, key: str, http: httpx2.Client | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        key: str,
+        http: httpx2.Client | None = None,
+        token: Callable[[], str] | None = None,
+    ) -> None:
         self._http = http or httpx2.Client(base_url=base_url, timeout=30.0)
         self._key = key
+        self._token = token
+
+    def _headers(self) -> dict[str, str]:
+        """The machine token when there is one (AWS), and then never the key; the key otherwise."""
+        if self._token is not None:
+            return {"Authorization": f"Bearer {self._token()}"}
+        return {"X-API-Key": self._key}
 
     def _call(self, method: str, path: str, body: Json | None = None) -> Any:
-        response = self._http.request(method, path, json=body, headers={"X-API-Key": self._key})
+        response = self._http.request(method, path, json=body, headers=self._headers())
         if response.status_code >= FIRST_ERROR_STATUS:
             raise ApiError(response.status_code, detail_of(response))
         return response.json()

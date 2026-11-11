@@ -1,6 +1,7 @@
-# What a platform team's landing zone gives every account (decisions 35 and 36), here in one unit for
-# simplicity: the budget alert, IAM Access Analyzer and the workload network (network.tf). With
-# PLATFORM_MANAGED=true the pipeline skips this unit, and the platform's own settings stay untouched.
+# What a platform team's landing zone gives every account (decisions 35, 36 and 38), here in one unit for
+# reference: the budget alert, IAM Access Analyzer, the workload network (network.tf), backups
+# (backup.tf) and Transaction Search for traces (observability.tf). A platform team already runs these,
+# so the pipeline skips this unit unless DEPLOY_PLATFORM=true, for an account with no platform team (decision 40).
 
 locals {
   prefix = "${var.project}-${var.environment}"

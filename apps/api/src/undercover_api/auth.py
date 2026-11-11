@@ -1,17 +1,18 @@
-"""Who is calling: the agent with its API key, a handler or a customer with an ID token. Every
-route but the health check and sign-in has exactly one of these gates, and anything else is
-refused. Handlers' and customers' tokens come from separate issuers with separate keys and
-audiences, so each audience's routes verify only their own; the token's Cognito group is
-checked too, as defence in depth."""
+"""Who is calling: the agent with its API key (locally) or its machine token (on AWS), a handler
+or a customer with an ID token. Every route but the health check and sign-in has exactly one of
+these gates, and anything else is refused. Handlers' and customers' tokens come from separate
+issuers with separate keys and audiences, so each audience's routes verify only their own; the
+token's Cognito group is checked too, as defence in depth."""
 
 import logging
 import secrets
 from collections.abc import Iterator
-from typing import Annotated, Any, Protocol
+from typing import Annotated, Any, Protocol, cast
 
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import SecretStr
 from sqlalchemy import Connection, Engine, func, select
 
 from undercover_api.db import customers, engineers, handlers
@@ -30,6 +31,11 @@ HANDLERS_GROUP = "handlers"
 CUSTOMERS_GROUP = "customers"
 ENGINEERS_GROUP = "engineers"
 KEY_IS_NOT_AN_ENGINEER = HTTPException(403, "The agent's key can't act as an engineer")
+# The scope the agent's machine token must carry to use the agent's routes.
+AGENT_SCOPE = "undercover-api/agent"
+NOT_THE_AGENT = HTTPException(
+    401, "The agent's machine token is needed", headers={"WWW-Authenticate": "Bearer"}
+)
 OVER_THE_LIMIT_ONLY = HTTPException(
     403, "Only a handler who can sign off over the approval limit may do this"
 )
@@ -59,6 +65,19 @@ class RemoteKeys:
         return self._client.get_signing_key_from_jwt(token).key
 
 
+def from_saml(claims: dict[str, Any]) -> bool:
+    """Whether Cognito signed the person in through a SAML provider (IAM Identity Center), which
+    vouches for the email itself; Cognito marks such emails unverified."""
+    identities = claims.get("identities")
+    if not isinstance(identities, list):
+        return False
+    return any(
+        cast(dict[str, Any], identity).get("providerType") == "SAML"
+        for identity in cast(list[object], identities)
+        if isinstance(identity, dict)
+    )
+
+
 class TokenVerifier:
     """Checks an ID token's signature, issuer, audience, expiry and use."""
 
@@ -85,13 +104,48 @@ class TokenVerifier:
         if (
             claims.get("token_use") != "id"
             or not isinstance(claims.get("email"), str)
-            or claims.get("email_verified") is not True
+            or not (claims.get("email_verified") is True or from_saml(claims))
         ):
             raise NOT_SIGNED_IN
         groups = claims.get("cognito:groups")
         if not isinstance(groups, list):
             raise NOT_SIGNED_IN
         return claims["email"], [str(group) for group in groups]  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+
+
+class AgentTokenVerifier:
+    """Checks the agent's machine token: a Cognito access token from the agent's own app client,
+    with the agent's scope, signed by the issuer's keys and not expired."""
+
+    def __init__(self, keys: KeySource, issuer: str, client_id: str) -> None:
+        self._keys = keys
+        self._issuer = issuer
+        self._client_id = client_id
+
+    def verify(self, token: str) -> None:
+        """Nothing when the token is the agent's; a 401 otherwise."""
+        try:
+            claims = jwt.decode(
+                token,
+                self._keys.signing_key(token),
+                algorithms=["RS256"],
+                issuer=self._issuer,
+                # Cognito's access tokens carry client_id, not aud: that's checked below.
+                options={
+                    "require": ["exp", "iat", "iss", "sub", "client_id", "token_use", "scope"],
+                    "verify_aud": False,
+                },
+            )
+        except jwt.PyJWTError as error:
+            # nosemgrep: python-logger-credential-disclosure - logs the error class name only
+            log.info("agent token refused: %s", type(error).__name__)
+            raise NOT_THE_AGENT from error
+        if (
+            claims.get("token_use") != "access"
+            or claims.get("client_id") != self._client_id
+            or AGENT_SCOPE not in str(claims.get("scope", "")).split()
+        ):
+            raise NOT_THE_AGENT
 
 
 def get_db(request: Request) -> Iterator[Connection]:
@@ -114,16 +168,33 @@ def is_the_agent(request: Request, key: str | None) -> bool:
     """Whether the request carries the agent's key. A wrong key is refused outright."""
     if key is None:
         return False
-    expected: str = request.app.state.settings.undercover_api_key.get_secret_value()
+    shared: SecretStr | None = request.app.state.settings.undercover_api_key
+    # No shared key set (AWS): no key is the agent's.
+    if shared is None:
+        raise HTTPException(401, "The API key is wrong")
+    expected = shared.get_secret_value()
     if not secrets.compare_digest(key.encode(), expected.encode()):
         raise HTTPException(401, "The API key is wrong")
     return True
 
 
-def require_agent(request: Request, key: Annotated[str | None, Depends(AGENT_KEY_HEADER)]) -> None:
-    """Only the agent, with its key."""
-    if not is_the_agent(request, key):
-        raise HTTPException(401, "The agent's API key is missing")
+def require_agent(
+    request: Request,
+    key: Annotated[str | None, Depends(AGENT_KEY_HEADER)],
+    bearer: Annotated[HTTPAuthorizationCredentials | None, Depends(BEARER)],
+) -> None:
+    """Only the agent: with its machine token when the api knows the agent's issuer (AWS), and
+    then never the shared key; with its key otherwise (locally)."""
+    verifier: AgentTokenVerifier | None = request.app.state.agent_verifier
+    if verifier is None:
+        if not is_the_agent(request, key):
+            raise HTTPException(401, "The agent's API key is missing")
+        return
+    if key is not None:
+        raise HTTPException(401, "The agent's key isn't accepted here; send its machine token")
+    if bearer is None:
+        raise NOT_THE_AGENT
+    verifier.verify(bearer.credentials)
 
 
 def signed_in_handler(

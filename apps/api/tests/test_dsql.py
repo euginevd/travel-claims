@@ -22,6 +22,17 @@ def test_dsql_endpoints_are_recognised() -> None:
     assert dsql.region_of(ENDPOINT) == "ap-southeast-2"
 
 
+def test_a_privatelink_endpoint_is_recognised_with_its_region() -> None:
+    private = "abc123.dsql-fnh4.ap-southeast-2.on.aws"
+    assert dsql.is_dsql(f"postgresql+psycopg://admin@{private}:5432/postgres")
+    assert dsql.region_of(private) == "ap-southeast-2"
+    assert dsql.region_of("abc123.dsql.us-east-1.on.aws") == "us-east-1"
+    assert not dsql.is_dsql("postgresql+psycopg://admin@abc123.dsqlx.ap-southeast-2.on.aws/p")
+    assert not dsql.is_dsql("postgresql+psycopg://admin@abc123.dsql.ap-southeast-2.on.aws.evil/p")
+    with pytest.raises(ValueError, match="DSQL"):
+        dsql.region_of("db.example.com")
+
+
 def test_every_table_and_index_compiles_for_dsql() -> None:
     dialect = postgresql.dialect()  # pyright: ignore[reportUnknownMemberType]
     for table in metadata.sorted_tables:

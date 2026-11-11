@@ -1,113 +1,117 @@
 # AWS architecture
 
-UnderCover's design end to end: what a regulated insurer would run, deployed here to `dev` on made-up data (decisions 31 and 37). Docker runs the same apps on a laptop only to test them before deploying. How to deploy it and tear it down: [the AWS runbook](02-aws-runbook.md). Why each choice: decisions 30 to 37. Cost: [costs.md](../docs/costs.md). Risks: [threat-model.md](../docs/threat-model.md).
+UnderCover as a regulated insurer would run it on AWS, deployed here to `dev` on made-up data (decisions 31 and 37). Docker runs the same apps on a laptop only to test a change before it's deployed.
 
-## Scope
+Deploy and tear down: [the runbook](02-aws-runbook.md). Why: decisions 30 to 39. Cost: [costs.md](../docs/costs.md). Risks: [threat-model.md](../docs/threat-model.md) and [the security trade-offs](04-security-trade-offs.md).
 
-- **The workload:** everything in `infra/aws/` and the four apps, in one account in Sydney (`ap-southeast-2`): managed and serverless, in private subnets that reach AWS through VPC endpoints.
-- **The platform:** the organization-level controls a platform team runs for every workload are in place ([Platform boundary](#platform-boundary)); a gap there is fixed at that layer, not in this repo. The network it provides is built here by a stand-in, the `platform` unit.
-- **Cost:** the design is what's described; cheaper deploys are settings, not other designs ([Cost switches](#cost-switches)).
-- **Next:** the items in [TODO.md](../TODO.md), such as Guardrails on the model's output ([Known gaps](#known-gaps)).
+## At a glance
+
+- **One account, one region:** Sydney (`ap-southeast-2`); every service managed and serverless.
+- **Private in the design:** the code runs in private subnets and reaches AWS through VPC endpoints; the cost-optimized default skips the network ([Settings](#settings)).
+- **Two owners:** the workload builds its apps and their controls; the platform team's controls are assumed in place ([Platform boundary](#platform-boundary)).
+- **Every control is in the code:** whether a piece is deployed is a setting, chosen for its cost ([Settings](#settings)).
 
 ## End to end
 
 *(Diagram to come.)*
 
-**A customer's claim**
+**A customer makes a claim**
 
-1. The customer opens the portal: CloudFront serves it from a private S3 bucket, behind AWS WAF.
-2. They sign in to the customers' Cognito user pool and get an ID token.
-3. They submit a claim and a receipt: CloudFront forwards `/api/customer/*` to the `api` Lambda, running in the private subnets, which checks the token's issuer, audience and group, keeps the claim in Aurora DSQL and the receipt in S3.
-4. The `api` starts the agent: it gets a machine token from AgentCore Identity's token vault (the services pool, scope `undercover-agent/invoke`) and calls AgentCore Runtime, which accepts only that token.
-5. The agent screens the customer's text with the Bedrock Guardrail, then works the claim with Claude (the Anthropic API or Bedrock, by `MODEL_PROVIDER`), saving each step in DynamoDB.
-6. It looks up the policy through the agent's AgentCore Gateway, signed with IAM. AgentCore Policy allows the call before the gateway invokes the context Lambda by its ARN.
+1. The portal loads from a private S3 bucket through CloudFront, behind AWS WAF.
+2. The customer signs in to the customers' Cognito pool.
+3. CloudFront sends `/api/customer/*` to the `api` Lambda, which checks the token, keeps the claim in Aurora DSQL (through DSQL's own endpoint) and the receipt in S3.
+4. The `api` gets a machine token from AgentCore Identity and starts the agent on AgentCore Runtime, which accepts only that token.
+5. The agent screens the customer's text with a Bedrock guardrail, then works the claim with Claude, saving each step in DynamoDB.
+6. It looks up the policy through AgentCore Gateway; AgentCore Policy allows each tool call before the gateway invokes the context Lambda.
 7. It remembers the customer in AgentCore Memory, one namespace per customer.
-8. It records its decision through the `api` (a shared key): the `api` checks the approval limit and the kill switch, and code, not the model, pays (decision 4).
+8. It records its decision with the `api`, using its own machine token. The `api` checks the approval limit and the kill switch, and code, not the model, pays (decision 4).
 
-**A handler's question**
+**A handler asks the Copilot**
 
 1. The handler signs in to the dashboard through the handlers' pool.
-2. The dashboard sends `/api/staff/*` to the `api` and `/api/copilot/*` to the Copilot Lambda.
-3. The Copilot checks the handler with the `api`, then looks up documents through the staff AgentCore Gateway, which takes the handler's own ID token and lets in only the `handlers` group. AgentCore Policy allows only `search_documents` and `read_section`.
-4. Any action, such as a sign-off or a dispatch, waits for the handler's confirmation (decision 24). Conversations and notes are kept in DynamoDB.
+2. The Copilot Lambda checks the handler with the `api`.
+3. It looks up documents through a second gateway that takes the handler's own token; AgentCore Policy allows only `search_documents` and `read_section`.
+4. A sign-off, send-back or dispatch waits for the handler to confirm (decision 24).
 
-**An AI engineer's work**
+**An AI engineer checks the agent**
 
-The console, through the engineers' pool, runs evaluations, improvement and the red team on the same agent runtime. Ask UnderCover searches the policy wording in a Bedrock Knowledge Base on S3 Vectors.
+The console, through the engineers' pool, runs evaluations, improvement and the red team. Online, AgentCore Evaluations also scores a sample of live sessions from their traces.
 
 ## By layer
 
-| Layer | AWS | How it's secured | Decision |
-|---|---|---|---|
-| **Edge** | CloudFront, one distribution per site, with S3 origins | Private buckets read only through origin access control, TLS only, security headers and HSTS, the api never cached | 30 |
-| **Firewall** | AWS WAF through CloudFront's Free plan | Three managed rule sets and a rate limit per IP on the three apps (4 of the plan's 5 rules); one plan per app, the account's limit of 3 | 30 |
-| **Sign-in** | Cognito, four user pools | One pool per audience (customers, handlers, engineers), accounts made by an admin; a services pool with one client, the `api`, for its machine token | 10, 12, 33 |
-| **Network** | A VPC with private subnets in two availability zones, VPC endpoints, one NAT gateway | The functions, the agent's runtime and the lookup programs run in private subnets with nothing coming in; AWS's services through eight interface endpoints (ECR, Logs, SSM, Bedrock's runtime and knowledge bases, AgentCore and its gateways) and free S3 and DynamoDB gateway endpoints; anything else through the NAT gateway, standing in for the platform's inspected egress; lookup programs reach only the endpoints | 36 |
-| **Compute** | Lambda (`api`, `context`, `copilot`) | In the private subnets; each its own role inside the bootstrap's permissions boundary and a security group out only on HTTPS and PostgreSQL; the context server has no URL | 30, 34, 36 |
-| **Agent** | AgentCore Runtime | In the private subnets (VPC mode); accepts only the `api`'s machine token, with SigV4 off; one session per task | 17, 33, 36 |
-| **Tools** | AgentCore Gateway (two), AgentCore Policy | IAM for the agent and the handler's token for the Copilot; Cedar allow-lists in ENFORCE mode, so anything not permitted is denied | 34 |
-| **Agent identity** | AgentCore Identity | A workload identity for each app (`api`, `agent`, `copilot`); the Anthropic key and the `api`'s client secret stay in the token vault | 33 |
-| **AI safety** | Bedrock Guardrail | Customers' text is screened before any model reads it; a numbered version, so a change is a reviewed apply | 17 |
-| **Model** | Claude on Bedrock (Australian inference profile) or the Anthropic API | The model decides and code pays: it can't reach a payment (decisions 4 and 18) | 3, 15 |
-| **Search and memory** | Bedrock Knowledge Base on S3 Vectors, AgentCore Memory | Public policy wording only; memory is records the agent writes itself, so no model extracts anything from customers' words | 17 |
-| **Data** | Aurora DSQL, DynamoDB, S3 (receipts) | IAM sign-in to DSQL, so no password exists; encrypted at rest; receipts private and TLS-only under random names | 30 |
-| **Settings** | SSM Parameter Store (SecureString) | Written by script, so no value is in Terraform state | 30 |
-| **Audit** | Bedrock model invocation logging, CloudWatch | Every Bedrock model call kept 30 days in a bucket only tear down can empty; alarms on errors and throttles, by email through SNS | 34 |
-| **Delivery** | GitHub Actions with OIDC, Terraform per unit, ECR | No stored AWS keys; a read-only plan role on PRs, a deploy role only from `main`; scans and a cost estimate on every PR | 30, 32 |
+| Layer | AWS | How it's secured |
+|---|---|---|
+| **Edge** | CloudFront and S3, one distribution per site | Buckets read only by CloudFront; TLS only, security headers and HSTS; the api never cached |
+| **API** | API Gateway HTTP API (`API_GATEWAY=true`) | JWT authorizers check each audience's token before a function runs; throttling and access logs; the functions then have no URLs |
+| **Firewall** | AWS WAF, on CloudFront's Free plan | Three managed rule sets and a rate limit per IP on each app |
+| **Network** | VPC, private subnets in two zones, VPC endpoints, NAT gateway | Nothing comes in; AWS's services through endpoints; anything else out through the NAT gateway, standing in for the platform's inspected egress |
+| **Compute** | Lambda: `api`, `context`, `copilot` | In the private subnets; a role each inside the permissions boundary; the context server has no URL |
+| **Agent** | AgentCore Runtime | In the private subnets; accepts only the `api`'s machine token |
+| **Lookup programs** | AgentCore Code Interpreter (off unless `CODE_EXECUTION=true`) | Reaches only the VPC endpoints, never the internet (R24) |
+| **Tools** | AgentCore Gateway (two), AgentCore Policy | IAM for the agent, the handler's token for the Copilot; Cedar allow-lists deny anything not permitted |
+| **Sign-in** | Cognito, four pools; IAM Identity Center for staff (`STAFF_SAML_METADATA_URL`) | Customers, handlers and engineers each in their own pool; staff can sign in with the company's Identity Center, federated by SAML; a services pool for the apps' machine tokens |
+| **Agent identity** | AgentCore Identity | A workload identity per app; the Anthropic key and both machine clients' secrets stay in the token vault; no shared key on AWS |
+| **AI safety** | Bedrock Guardrails | Customers' text screened before any model reads it; answers checked for grounding and letters for personal data before anyone sees them, failing closed |
+| **Model** | Claude on Bedrock (Australian profile) or the Anthropic API | The model decides; code pays |
+| **Search and memory** | Bedrock Knowledge Base on S3 Vectors, AgentCore Memory | Public policy wording only; memory holds only what the agent writes itself |
+| **Data** | Aurora DSQL, DynamoDB, S3 | IAM sign-in to DSQL (no password), through its own endpoint; encrypted at rest; backed up daily |
+| **Settings** | SSM Parameter Store | Written by script, so no value is in Terraform state |
+| **Observability** | AgentCore Observability, CloudWatch | Each claim's trace across the agent, tools and models; alarms by email |
+| **Audit** | Bedrock model invocation logging | Every Bedrock call kept 30 days in a bucket only tear down can empty |
+| **Evaluations** | AgentCore Evaluations | Built-in judges score a sample of live sessions (`EVALUATION_SAMPLING`) |
+| **Delivery** | GitHub Actions with OIDC, Terraform per unit, ECR | No stored AWS keys; a read-only plan role on PRs; deploys only from `main`; scans and a cost estimate on every PR |
 
-To test locally, Docker Compose runs the same apps with PostgreSQL for DSQL, DynamoDB and Memory, a local stand-in for Cognito, and nginx for CloudFront.
+To test locally, Docker Compose stands in for each: PostgreSQL for DSQL, DynamoDB and Memory, a sign-in stand-in for Cognito, nginx for CloudFront.
 
 ## Platform boundary
 
-### What the platform provides
+### What the platform team provides
 
-In a regulated insurer, the secure enterprise patterns are expected to be in place already, managed at the organization level by a platform team. Every workload, this one included, inherits them:
+A regulated insurer's platform team runs these for every account, and a gap in them is fixed at that layer, not in this repo. Those marked † also have reference code here ([below](#reference-code-in-this-repo)).
 
-- **Accounts:** AWS Organizations and Control Tower, with separate development, test, production, log-archive and security accounts.
-- **Guardrails:** service and resource control policies: regions locked to Australia, nobody turns off CloudTrail, GuardDuty or Config, and data can't leave the organization.
-- **People:** IAM Identity Center with the company's identity provider: MFA everywhere, least-privilege access, time-bound admin access, break-glass accounts, and no standing root credentials.
-- **Keys and secrets:** AWS KMS customer-managed keys per data class, with rotation; Secrets Manager and AWS Private CA standards.
-- **Network:** each workload's VPC, its private subnets and shared VPC endpoints, published as `/platform/network/*` parameters; central inspected egress through AWS Network Firewall (an outbound allow-list), Route 53 Resolver DNS Firewall, and VPC Flow Logs to the log-archive account.
-- **Edge:** AWS Firewall Manager rules on every WAF, and Shield Advanced.
-- **Logging:** an organization CloudTrail trail to the log-archive account with S3 Object Lock, into the company's SIEM, kept for the regulated period.
-- **Detection:** Amazon GuardDuty (including Bedrock and AgentCore), AWS Security Hub, AWS Config, Amazon Inspector, Amazon Macie and IAM Access Analyzer: threat detection, one view of findings, drift checks, vulnerability scans, personal-data discovery and unused access.
-- **Response:** a 24/7 incident team and tested runbooks.
-- **Backup and resilience:** AWS Backup organization policies with Vault Lock, copies in another account and region, and recovery targets for critical operations.
-- **Compliance:** evidence through AWS Audit Manager and AWS Artifact for APRA CPS 234 (information security), CPS 230 (operational risk, including the model provider as a material service provider) and the Privacy Act.
-- **Cost:** AWS Budgets, Cost Anomaly Detection and tag policies per workload.
-- **Delivery:** a second reviewer on every change and every deploy beyond `dev`, signed images with an SBOM, and a pen test before go-live.
+- **Accounts:** AWS Organizations and Control Tower; separate development, test, production, log-archive and security accounts.
+- **Guardrails:** service and resource control policies: Australian regions only, logging and detection can't be turned off, data can't leave the organization.
+- **People:** IAM Identity Center with the company's identity provider, MFA, least privilege, time-bound admin and break-glass accounts.
+- **Keys:** AWS KMS customer-managed keys per data class, rotated.
+- **Network †:** each workload's VPC, private subnets and endpoints; central inspected egress (AWS Network Firewall, DNS Firewall); VPC Flow Logs.
+- **Edge:** Firewall Manager rules on every WAF, and Shield Advanced.
+- **Logging:** an organization CloudTrail trail to the log-archive account, locked, into the company's SIEM.
+- **Detection:** GuardDuty (including Bedrock and AgentCore), Security Hub, Config, Inspector, Macie and Access Analyzer †.
+- **Backup †:** AWS Backup by tag, with Vault Lock and copies in another account and region.
+- **Tracing †:** CloudWatch Transaction Search, one setting per account.
+- **Response:** a 24/7 incident team with tested runbooks.
+- **Compliance:** evidence for APRA CPS 234 and CPS 230 and the Privacy Act, through Audit Manager and Artifact.
+- **Cost †:** Budgets, anomaly detection and tag policies.
+- **Delivery:** a second reviewer on every change and every deploy beyond `dev`, signed images and a pen test before go-live.
 
 ### What the workload owns
 
-Everything in [By layer](#by-layer): its sites and WAF rules, sign-in pools, apps, agent and its identity, tool rules, data stores, settings, alarms, and the audit trail of its own AI decisions (Bedrock model invocation logging, agreed with the platform team in a shared account).
+Everything in [By layer](#by-layer), including its own security groups and the audit trail of its AI decisions (model invocation logging is one setting per account, so it's agreed with the platform team). The workload's DSQL cluster carries the tag `Backup=daily`, which the platform's backup plan selects.
 
-### What this repo builds that the platform would own
+### Reference code in this repo
 
-In a real organization this code sits in the platform team's own landing-zone repo, such as one built on Landing Zone Accelerator on AWS or Account Factory for Terraform, deployed through their pipeline to every account. It's shown in this repo only for simplicity, so one repo deploys the whole picture to an account with no platform team. Each piece is kept apart from the workload's and switched off with a setting (decisions 35 and 36):
+In a real organization the platform's code sits in its own landing-zone repo, such as one on Landing Zone Accelerator on AWS or Account Factory for Terraform. This repo carries the parts the workload depends on as reference code, kept apart from the workload, so the whole picture is in one place and can be deployed to an account with no platform team:
 
-- **The bootstrap:** the workflows read only `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` and `TF_STATE_BUCKET`, so the platform's own pipeline roles and state bucket replace `bootstrap.yaml`.
-- **The `platform` unit** (the network, budget alert and Access Analyzer): `PLATFORM_MANAGED=true` skips it, and the workload reads the platform's own `/platform/network/vpc-id` and `/platform/network/private-subnet-ids` instead (decision 36).
-- **Staff sign-in:** point the `api`'s `STAFF_` and `ENGINEERING_TOKEN_ISSUER` and `_AUDIENCE` at the company's identity provider; the customer and services pools stay.
-- **CloudFront's Free plan and its WAF:** `CLOUDFRONT_FREE_PLAN=false`, leaving Firewall Manager and Shield Advanced to the platform.
-- **`check-aws.sh` and `teardown-aws.sh`:** account-level, so not run.
+| Reference code | In an enterprise account |
+|---|---|
+| `bootstrap.yaml`: GitHub's roles and the state bucket | The platform's pipeline roles and bucket, in `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` and `TF_STATE_BUCKET` |
+| The `platform` unit: network, backups, Transaction Search, budget, Access Analyzer | Not deployed by default (`DEPLOY_PLATFORM=false`): the workload reads the platform's own `/platform/network/vpc-id` and `/platform/network/private-subnet-ids` |
+| Staff accounts in Cognito | The company's IAM Identity Center, federated into the staff pools: `STAFF_SAML_METADATA_URL` and `STAFF_SIGN_IN_URLS` |
+| WAF on CloudFront's Free plan | `CLOUDFRONT_FREE_PLAN=false`, with Firewall Manager's rules |
+| `check-aws.sh` and `teardown-aws.sh` | Not run: they act on the whole account |
 
-## Cost switches
+## Settings
 
-The design above is the default. Each setting below, in `.env` before step 4 of [the runbook](02-aws-runbook.md), trades a piece of it for cost in `dev`, and changes nothing else:
+Every piece above is in the code; these settings, in `.env` before step 4 of [the runbook](02-aws-runbook.md), decide what's deployed. The default is the cost-optimized one, for a `dev` demo on made-up data; the recommended one is the design, for an enterprise account or real data. This project deploys and tests only the defaults; the recommended settings are code that shows how each works, validated and scanned but not deployed.
 
-| Setting | What it drops | Saves |
-|---|---|---|
-| `NETWORK_MODE=public` | The private network: the functions, agent runtime and lookup programs run on AWS's public network, still signed and authorized as above; lookup programs must then stay off (R24) | About $150 to $200 a month |
-| `PLATFORM_MANAGED=true` | Nothing: the platform team's own network and account settings are used instead | The stand-in network's cost |
-| `CLOUDFRONT_FREE_PLAN=false` | WAF on the apps, for an account that can't have CloudFront's Free plan (Firewall Manager's rules take over) | Nothing; the plan is free |
+| Setting | Default (cost-optimized) | Recommended | What it adds | Cost |
+|---|---|---|---|---|
+| `NETWORK_MODE` | `public` | `private` | Private subnets and VPC endpoints | ~$165–220/month |
+| `API_GATEWAY` | `false` | `true` | Token checks at the gateway; no function URLs | ~$1/million requests |
+| `EVALUATION_SAMPLING` | `0` | `10` | Live sessions scored by judges | Cents a day |
+| `STAFF_SAML_METADATA_URL`, `STAFF_SIGN_IN_URLS` | Empty | Set | Staff sign in with IAM Identity Center | Free |
+| `CLOUDFRONT_FREE_PLAN` | `true` | `false`, with the platform's Firewall Manager | Central WAF and Shield Advanced in place of the Free plan's | The platform's |
 
-## Known gaps
+The platform team's pieces are assumed in place, so the `platform` unit is reference code and isn't deployed. In an account with no platform team, such as a personal demo account, `DEPLOY_PLATFORM=true` deploys it, for the budget alert, backups and Transaction Search, and for `NETWORK_MODE=private` or `EVALUATION_SAMPLING`, which need its network and traces.
 
-What the workload would still add before real data, in [TODO.md](../TODO.md) and [the security trade-offs](04-security-trade-offs.md):
-
-- **DSQL through its own endpoint**, not the NAT gateway.
-- **Guardrails on the model's output**, not only customers' text.
-- **AWS Backup for DSQL.**
-- **A permissions audit:** the bootstrap is wide while building (decision 32), to be narrowed.
-- **Observability and Evaluations** on AgentCore.
-- **The agent's own call back to the `api`** uses a shared key; a machine token like the `api`'s is next.
+What's still accepted for `dev`, with the fix for real data, is in [the security trade-offs](04-security-trade-offs.md).

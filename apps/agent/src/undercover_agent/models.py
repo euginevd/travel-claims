@@ -1,6 +1,7 @@
 """The one place the agent reaches Claude: the hidden-instruction check and the claim agent's
 turns, each with its tokens and cost."""
 
+import logging
 import re
 import time
 from dataclasses import dataclass, replace
@@ -11,8 +12,10 @@ from anthropic.lib.bedrock import AnthropicBedrock
 from anthropic.types import Message, Usage
 from pydantic import BaseModel, Field
 
-from undercover_agent.guardrail import Screen, guardrail_for
+from undercover_agent.guardrail import OutputScreen, Screen, guardrail_for, output_guardrail_for
 from undercover_agent.settings import Settings
+
+log = logging.getLogger(__name__)
 
 Json = dict[str, Any]
 
@@ -250,6 +253,18 @@ class Drafter(Protocol):
     def letter(self, content: str) -> tuple[Letter | None, Call]: ...
 
 
+def draft_text(draft: Draft) -> str:
+    """Every part of a draft a customer would read, as one text for the letter guardrail."""
+    parts = [
+        draft.summary,
+        draft.story,
+        draft.incident_location,
+        *(item.description for item in draft.items),
+        *draft.missing_questions,
+    ]
+    return "\n".join(part for part in parts if part)
+
+
 def price_for(model: str) -> tuple[float, float, float, float]:
     """A model's prices, found inside a Bedrock ID (au.anthropic.claude-sonnet-5-5-v1:0) too."""
     return next((p for name, p in PRICES.items() if name in model), (0.0, 0.0, 0.0, 0.0))
@@ -312,13 +327,31 @@ def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
 class AnthropicClaude:
     """Claude through the Anthropic API or Bedrock, as the settings say."""
 
-    def __init__(self, settings: Settings, guardrail: Screen | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        guardrail: Screen | None = None,
+        letters: OutputScreen | None = None,
+    ) -> None:
         self._settings = settings
         self._client = claude_client(settings)
         # Either Claude: the guardrail screens customer text, not Claude's calls.
         self._guardrail = guardrail or guardrail_for(
             settings.bedrock_guardrail_id, settings.bedrock_guardrail_version, settings.aws_region
         )
+        # What the drafting assistant writes, checked for sensitive numbers before anyone sees it.
+        self._letters = letters or output_guardrail_for(
+            settings.bedrock_letter_guardrail_id,
+            settings.bedrock_letter_guardrail_version,
+            settings.aws_region,
+        )
+
+    def _held_back(self, text: str, call: Call) -> tuple[bool, Call]:
+        """Whether the letter guardrail holds the text back, failing closed, with its cost."""
+        verdict = self._letters.check_output(text)
+        if verdict.blocked:
+            log.warning("draft held back: %s", verdict.reason)
+        return verdict.blocked, replace(call, cost=call.cost + verdict.cost)
 
     def screen(self, content: list[Json]) -> tuple[Screening | None, Call]:
         """The guardrail on the customer's text, then the check model on everything: whether the
@@ -373,7 +406,11 @@ class AnthropicClaude:
             output_config={"effort": "low"},
         )
         found = reply.parsed_output if reply.stop_reason == "end_turn" else None
-        return found, call_of(model, reply.usage, started)
+        call = call_of(model, reply.usage, started)
+        if found is None:
+            return None, call
+        held, call = self._held_back(draft_text(found), call)
+        return (None if held else found), call
 
     def letter(self, content: str) -> tuple[Letter | None, Call]:
         """Draft the customer's letter about a decision, for a handler to edit and send."""
@@ -388,7 +425,11 @@ class AnthropicClaude:
             output_config={"effort": "low"},
         )
         found = reply.parsed_output if reply.stop_reason == "end_turn" else None
-        return found, call_of(model, reply.usage, started)
+        call = call_of(model, reply.usage, started)
+        if found is None:
+            return None, call
+        held, call = self._held_back(f"{found.subject}\n\n{found.body}", call)
+        return (None if held else found), call
 
     def judge(self, content: str) -> tuple[Grade | None, Call]:
         """Grade one explanation against the handler's, on the drafting assistant's small

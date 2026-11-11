@@ -1,10 +1,12 @@
 """Ask UnderCover: it searches only the policy wording, reads only the customer's own records,
 answers through reply, and a question that tries to instruct it is stopped first."""
 
+from anthropic.types import Message
 from stubs import FakeClaude, tool_use
 
-from undercover_agent.ask import SCREENED, Asker, AskRequest
+from undercover_agent.ask import SCREENED, UNGROUNDED, Asker, AskRequest
 from undercover_agent.explain import Explainer, ExplainRequest
+from undercover_agent.guardrail import Verdict
 from undercover_agent.models import Call, Json, Screening
 
 REQUEST = AskRequest(
@@ -126,3 +128,44 @@ def test_a_question_the_check_couldnt_read_is_refused_not_answered() -> None:
     explained = Explainer(claude, "claude-haiku-5-5").explain(request)
     assert explained.screened is True
     assert claude.turns_taken == 0
+
+
+class Grounding:
+    """The answer guardrail: holds back answers when told to, and keeps what it was asked."""
+
+    def __init__(self, blocked: bool) -> None:
+        self.blocked = blocked
+        self.seen: list[tuple[str, str, str]] = []
+
+    def check_output(self, text: str, source: str = "", query: str = "") -> Verdict:
+        self.seen.append((text, source, query))
+        return Verdict(blocked=self.blocked, reason="", cost=0.0)
+
+
+def answering(*first: Message) -> FakeClaude:
+    reply = {"answer": "Delays over 6 hours are covered.", "sources": ["Policy wording section 6"]}
+    return FakeClaude([*first, tool_use("reply", reply | {"suggest": ""}, 9)])
+
+
+def test_an_answer_is_checked_against_the_wording_it_read_and_the_question() -> None:
+    grounding = Grounding(blocked=False)
+    claude = answering(tool_use("read_policy_section", {"number": 6}, 1))
+    answer = Asker(claude, ManualAndWording(), "m", grounding=grounding).ask(REQUEST)
+    assert answer.answer == "Delays over 6 hours are covered."
+    text, source, query = grounding.seen[0]
+    assert text == answer.answer
+    assert "Delays over 6 hours." in source
+    assert query == REQUEST.question
+
+
+def test_an_ungrounded_answer_is_never_shown_and_offers_a_person() -> None:
+    claude = answering(tool_use("read_policy_section", {"number": 6}, 1))
+    answer = Asker(claude, ManualAndWording(), "m", grounding=Grounding(blocked=True)).ask(REQUEST)
+    assert answer.answer == UNGROUNDED
+    assert (answer.sources, answer.suggest, answer.screened) == ([], "ask_person", False)
+
+
+def test_with_nothing_read_the_customers_records_are_the_source() -> None:
+    grounding = Grounding(blocked=False)
+    Asker(answering(), ManualAndWording(), "m", grounding=grounding).ask(REQUEST)
+    assert "POL-2001" in grounding.seen[0][1]

@@ -460,6 +460,8 @@ def build_app() -> FastAPI:
     """The service wired to the real api, Claude, the context layer and PostgreSQL."""
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
+    from undercover_agent.guardrail import output_guardrail_for  # noqa: PLC0415
+    from undercover_agent.identity import api_token  # noqa: PLC0415
     from undercover_agent.knowledge import KnowledgeBase  # noqa: PLC0415
     from undercover_agent.memory import AgentCoreMemory, Memory, StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude, plain_name  # noqa: PLC0415
@@ -477,9 +479,22 @@ def build_app() -> FastAPI:
 
         signer = SigV4Signer(region or os.environ["AWS_REGION"], settings.context_aws_service)
 
+    # On AWS one machine token, shared by every client and reused until it nearly expires.
+    token = api_token(
+        settings.workload_name, settings.api_token_provider, settings.api_token_scope, region
+    )
+
+    shared = settings.undercover_api_key
+    # Without a shared key (on Runtime with the machine token) the routes behind /invocations take
+    # a key made for this process alone: Runtime forwards only /invocations and /ping.
+    inbound = shared.get_secret_value() if shared else secrets.token_hex(32)
+
+    def api_client() -> ApiClient:
+        return ApiClient(settings.undercover_api, inbound, token=token)
+
     def make_runner() -> Runner:
         saver, store = checkpoints(settings, region)
-        api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
+        api = api_client()
         first = {
             "instructions": INSTRUCTIONS,
             # Configurations hold the plain name, so they work on either provider.
@@ -515,12 +530,9 @@ def build_app() -> FastAPI:
         )
         return Runner(graph, api)
 
-    def api_client() -> ApiClient:
-        return ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
-
     return create_app(
         make_runner,
-        settings.undercover_api_key.get_secret_value,
+        lambda: inbound,
         lambda: AnthropicClaude(settings),
         lambda runner: Dispatcher(runner, api_client()),
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
@@ -531,6 +543,11 @@ def build_app() -> FastAPI:
             KnowledgeBase(settings.knowledge_base_id, region)
             if settings.knowledge_base_id
             else None,
+            output_guardrail_for(
+                settings.bedrock_answer_guardrail_id,
+                settings.bedrock_answer_guardrail_version,
+                region,
+            ),
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
         make_judge=lambda: RunJudge(AnthropicClaude(settings), api_client()),

@@ -5,7 +5,7 @@ import os
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self, cast
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     database_url: str = Field(min_length=1)
     # No default: a deployment must say where it runs, so nothing local is on by accident.
     environment: Literal["local", "dev"]
-    undercover_api_key: SecretStr = Field(min_length=32)
+    # The key the api and the agent share locally; none on AWS, where the agent sends its machine
+    # token and the api reaches the agent through AgentCore Runtime.
+    undercover_api_key: Annotated[SecretStr, Field(min_length=32)] | None = None
     # The local sign-in stand-in issues tokens shaped like Cognito's; never on outside a laptop.
     local_sign_in: bool = False
     handler_password: SecretStr | None = None
@@ -49,6 +51,10 @@ class Settings(BaseSettings):
     workload_name: str | None = None
     agent_token_provider: str | None = None
     agent_token_scope: str = "undercover-agent/invoke"  # noqa: S105 - a scope, not a secret
+    # On AWS: the agent calls with a Cognito access token from this issuer and app client instead
+    # of the key, which is then refused; unset locally, where the agent sends its key.
+    agent_caller_issuer: str | None = None
+    agent_caller_client: str | None = None
     # The claim agent's configuration version, named on every decision it makes.
     agent_version: int = Field(default=1, ge=1)
 
@@ -73,6 +79,17 @@ class Settings(BaseSettings):
         )
         if self.environment != "local" and not all(i.startswith("https://") for i in issuers):
             raise ValueError("Token issuers must be https outside ENVIRONMENT=local")
+        if self.undercover_api_key is None and not (
+            self.agent_caller_issuer and self.agent_runtime_arn
+        ):
+            raise ValueError(
+                "UNDERCOVER_API_KEY is needed unless AGENT_CALLER_ISSUER and AGENT_RUNTIME_ARN "
+                "are set"
+            )
+        if self.agent_caller_issuer and not self.agent_caller_issuer.startswith("https://"):
+            raise ValueError("AGENT_CALLER_ISSUER must be https")
+        if self.agent_caller_issuer and not self.agent_caller_client:
+            raise ValueError("AGENT_CALLER_ISSUER needs AGENT_CALLER_CLIENT")
         if len(set(issuers)) != len(issuers):
             raise ValueError("Staff, customers and engineers need separate token issuers")
         if len(set(audiences)) != len(audiences):

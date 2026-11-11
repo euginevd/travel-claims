@@ -44,3 +44,9 @@ variable "model_provider" {
     error_message = "model_provider is anthropic or bedrock."
   }
 }
+
+variable "api_gateway" {
+  description = "true: the api and Copilot are behind the functions unit's API Gateway; false: their function URLs"
+  type        = bool
+  default     = false
+}

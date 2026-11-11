@@ -1,4 +1,5 @@
-# The records in Aurora DSQL and the agent's checkpoints in DynamoDB (decision 30); serverless, no VPC.
+# The records in Aurora DSQL and the agent's checkpoints in DynamoDB (decision 30); serverless, with DSQL
+# reached through its own endpoint on the private network (network.tf).
 locals {
   prefix = "${var.project}-${var.environment}"
 }
@@ -6,7 +7,8 @@ locals {
 # Serverless PostgreSQL with IAM sign-in, so no password exists; AWS-owned encryption key.
 resource "aws_dsql_cluster" "records" {
 
-  tags = { Name = "${local.prefix}-records" }
+  # Backup=daily: the platform's backup plan selects it by this tag (decision 38).
+  tags = { Name = "${local.prefix}-records", Backup = "daily" }
 }
 
 # The agent's checkpoints (LangGraph DynamoDBSaver's schema), compressed and expired after a week.
@@ -91,9 +93,12 @@ resource "aws_dynamodb_table" "copilot" {
 
 # Tells the apps where they are, through the settings parameter they read at start.
 resource "terraform_data" "settings" {
-  triggers_replace = [aws_dsql_cluster.records.identifier, aws_dynamodb_table.checkpoints.name, aws_dynamodb_table.copilot.name]
+  triggers_replace = [local.dsql_host, aws_dynamodb_table.checkpoints.name, aws_dynamodb_table.copilot.name]
+
+  depends_on = [aws_vpc_endpoint.dsql]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../../scripts/fill-secret.py /${var.project}/${var.environment}/app 'DATABASE_URL=postgresql+psycopg://admin@${aws_dsql_cluster.records.identifier}.dsql.${var.region}.on.aws:5432/postgres?sslmode=verify-full&sslrootcert=/etc/ssl/certs/ca-certificates.crt' CHECKPOINT_TABLE=${aws_dynamodb_table.checkpoints.name} COPILOT_TABLE=${aws_dynamodb_table.copilot.name}"
+    # The endpoint first, so the api never gets a host that doesn't resolve yet.
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py /${var.project}/${var.environment}/app 'DATABASE_URL=postgresql+psycopg://admin@${local.dsql_host}:5432/postgres?sslmode=verify-full&sslrootcert=/etc/ssl/certs/ca-certificates.crt' CHECKPOINT_TABLE=${aws_dynamodb_table.checkpoints.name} COPILOT_TABLE=${aws_dynamodb_table.copilot.name}"
   }
 }

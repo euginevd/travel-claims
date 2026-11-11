@@ -43,7 +43,7 @@ gh variable set AWS_DEPLOY_ROLE_ARN --env aws-dev-apply --body "$(output AWS_DEP
 gh variable set MODEL_PROVIDER --body "$provider"
 
 # Optional settings, only when .env has them.
-for name in ALERT_EMAIL MONTHLY_BUDGET CLOUDFRONT_FREE_PLAN PLATFORM_MANAGED NETWORK_MODE; do
+for name in ALERT_EMAIL MONTHLY_BUDGET CLOUDFRONT_FREE_PLAN DEPLOY_PLATFORM NETWORK_MODE EVALUATION_SAMPLING API_GATEWAY STAFF_SAML_METADATA_URL STAFF_SIGN_IN_URLS; do
   value=$(from_env "$name")
   if [ -n "$value" ]; then printf '%s' "$value" | gh variable set "$name"; fi
 done

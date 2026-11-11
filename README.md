@@ -70,14 +70,14 @@ Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the desi
 | `copilot` | The handlers' chat agent, with confirm cards, a memory of each handler's preferences and each turn's cost | Lambda |
 | `context` | Policy wording, claims manual and reference data as an MCP server | Lambda, behind AgentCore Gateway |
 
-One design, the one a regulated insurer would run, with its platform team's controls assumed in place (decision 37): S3 and CloudFront with WAF, Lambda and AgentCore (Runtime, Gateway with Policy, Memory, Identity) in private subnets behind VPC endpoints, a Bedrock Knowledge Base and guardrail, Claude on Bedrock or the Anthropic API, Cognito, Aurora DSQL and DynamoDB, all in Sydney. Every piece is managed and scales on its own. The [AWS architecture](guides/03-aws-architecture.md) walks through it end to end.
+One design, the one a regulated insurer would run, with its platform team's controls assumed in place (decision 37): S3 and CloudFront with WAF, Lambda and AgentCore (Runtime, Gateway with Policy, Memory, Identity, Observability, Evaluations) in private subnets behind VPC endpoints, a Bedrock Knowledge Base and guardrails on what goes in and what comes out, Claude on Bedrock or the Anthropic API, Cognito, Aurora DSQL through its own endpoint and backed up daily, and DynamoDB, all in Sydney. Every piece is managed and scales on its own. The [AWS architecture](guides/03-aws-architecture.md) walks through it end to end.
 
 Rough monthly cost in USD:
 
 | Deployed as | What changes | Cost a month |
 |------|---------|-------------:|
-| The design | Private subnets, VPC endpoints and a NAT gateway | ≈ $150 to $200 while up, plus Claude |
-| `NETWORK_MODE=public` | No VPC, to save the network's cost | ≈ $0 idle, plus Claude |
+| Default (cost-optimized) | No VPC, no API Gateway, no online evaluations | ≈ $0 idle, plus Claude |
+| Recommended (the full design) | `NETWORK_MODE=private`, `API_GATEWAY=true`, `EVALUATION_SAMPLING=10` and the other [settings](guides/03-aws-architecture.md#settings) | ≈ $165 to $220 while up, plus Claude |
 | Locally, to test | Docker Compose on a laptop, Claude through the Anthropic API | Tokens only |
 
 Details: [costs.md](docs/costs.md).

@@ -13,7 +13,6 @@ GitHub secret), so it's never on a command line; --remove drops keys.
 import json
 import os
 import random
-import secrets
 import shutil
 import subprocess
 import sys
@@ -49,11 +48,9 @@ def current(name: str) -> dict[str, str]:
 
 
 def fill(values: dict[str, str], given: dict[str, str], remove: tuple[str, ...] = ()) -> list[str]:
-    """Add what's missing and what's given, and drop what's removed; the names changed."""
+    """Add what's given and drop what's removed; the names changed. No shared agent key: on AWS
+    the agent and api use machine tokens (decision 38)."""
     changed = [key for key in remove if values.pop(key, None) is not None]
-    if "UNDERCOVER_API_KEY" not in values:
-        values["UNDERCOVER_API_KEY"] = secrets.token_hex(32)
-        changed.append("UNDERCOVER_API_KEY")
     for key, value in given.items():
         if values.get(key) != value:
             values[key] = value

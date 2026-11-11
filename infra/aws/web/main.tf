@@ -15,9 +15,10 @@ locals {
     home      = {} # the project page calls no api
   }
 
-  # The apps reach only themselves and Cognito; the project page pings the three apps' sites.
+  # The apps reach only themselves and Cognito (and its hosted sign-in's token endpoint, for staff
+  # through IAM Identity Center); the project page pings the three apps' sites.
   connect = {
-    app  = "'self' https://cognito-idp.${local.region}.amazonaws.com"
+    app  = "'self' https://cognito-idp.${local.region}.amazonaws.com https://*.auth.${local.region}.amazoncognito.com"
     home = "'self' https://*.cloudfront.net"
   }
 
@@ -27,10 +28,24 @@ locals {
   all_viewer_but_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
 }
 
+# The api's and Copilot's origin: the functions unit's API Gateway, or each function's URL (decision 39).
 data "aws_lambda_function_url" "origin" {
-  for_each = toset(["api", "copilot"])
+  for_each = var.api_gateway ? toset([]) : toset(["api", "copilot"])
 
   function_name = "${local.prefix}-${each.key}"
+}
+
+data "aws_apigatewayv2_apis" "api" {
+  count = var.api_gateway ? 1 : 0
+  name  = "${local.prefix}-api"
+}
+
+locals {
+  origin_domains = {
+    for name in ["api", "copilot"] : name => (var.api_gateway
+      ? "${one(data.aws_apigatewayv2_apis.api[0].ids)}.execute-api.${local.region}.amazonaws.com"
+    : trimsuffix(trimprefix(data.aws_lambda_function_url.origin[name].function_url, "https://"), "/"))
+  }
 }
 
 resource "aws_s3_bucket" "web" {
@@ -170,7 +185,7 @@ resource "aws_cloudfront_distribution" "web" {
     for_each = toset(values(each.value))
     content {
       origin_id   = origin.value
-      domain_name = trimsuffix(trimprefix(data.aws_lambda_function_url.origin[origin.value].function_url, "https://"), "/")
+      domain_name = local.origin_domains[origin.value]
       custom_origin_config {
         http_port                = 80
         https_port               = 443
