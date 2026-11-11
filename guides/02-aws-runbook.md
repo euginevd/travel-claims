@@ -1,6 +1,6 @@
 # AWS runbook
 
-Tier 2 from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. Why it's built this way: decisions 30 to 35. Compared with local: [What's deployed](#whats-deployed).
+Tier 2 from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](04-aws-architecture.md).
 
 **Cost:** cents idle; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
@@ -98,58 +98,3 @@ Removes everything tier 2 put in AWS. The code, the repo and its GitHub environm
 ## Switching to Claude on Bedrock
 
 Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a deployed setup it also applies the `secrets`, `functions` and `agent` units, so the apps call Bedrock and the Anthropic key leaves the token vault. `use-anthropic.sh` switches back the same way.
-
-## What's deployed
-
-Each AWS component in a word, and what plays its part locally; the apps and features are the same as `docker compose up`.
-
-| In a word | AWS component | What it does here | Local (Docker) |
-|---|---|---|---|
-| **Websites** | S3 and CloudFront | Hosts the four sites (project page, portal, dashboard, console) and forwards each app's `/api/` paths | nginx in each web app's container |
-| **Firewall** | AWS WAF, through CloudFront's Free plan | Three managed rule sets and a rate limit per IP (4 of the plan's 5 rules) on the three apps, one plan each: an account's limit of 3. Each plan covers 1 million requests and 100 GB a month | none |
-| **Backend** | Lambda (`api`, `context`, `copilot`) | The api, the context server and the Copilot, from the same images | Containers |
-| **Agent** | AgentCore Runtime | Runs the claim agent, evaluations, improvement and the red team | The `agent` container |
-| **Tool gateway** | AgentCore Gateway (two) | The only way to the context server's tools (MCP): one signed with IAM for the agent and lookup programs, one that takes a handler's own token for the Copilot. Each invokes the context server by its ARN, so it has no URL | A direct call to the context container |
-| **Tool rules** | AgentCore Policy | Cedar allow-lists checked before every tool call: the agent may use all seven lookups, the Copilot only the two document ones; anything else is denied | none |
-| **Memory** | AgentCore Memory | What the agent remembers of each customer | PostgreSQL |
-| **Sandbox** | AgentCore Code Interpreter | Lookup programs, off unless `CODE_EXECUTION=true` | none |
-| **Model** | Bedrock (or the Anthropic API) | Claude, chosen by `MODEL_PROVIDER` | The Anthropic API |
-| **Screening** | Bedrock Guardrail | Checks customers' text before any model reads it | The app's own check only |
-| **Search** | Bedrock Knowledge Base with S3 Vectors | Finds the policy wording for Wattle AI | The context server |
-| **Database** | Aurora DSQL | Claims, decisions, payments and everything else the api keeps | PostgreSQL |
-| **Checkpoints** | DynamoDB | Each claim's and conversation's saved progress, and the Copilot's notes | PostgreSQL |
-| **Files** | S3 (receipts) | Customers' receipts, private and encrypted | A Docker volume |
-| **Sign-in** | Cognito (four user pools) | Customers, handlers and AI engineers, each separately, and a services pool whose only client is the api, for its machine token | A local stand-in issuing the same tokens |
-| **Agent identity** | AgentCore Identity | Each app's workload identity; the token vault keeps the Anthropic key and the api's client secret, and hands out the key and the api's machine token, which the agent's runtime checks | The agent's shared key and `.env` |
-| **Settings** | SSM Parameter Store | The apps' settings and the agent's key, read at start; the Anthropic key is in the token vault | `.env` |
-| **Images** | ECR | The four app images the backend and agent run | Local Docker images |
-| **Alarms** | CloudWatch and SNS | Emails on errors and throttles | none |
-| **AI audit** | Bedrock model invocation logging | Every Bedrock model call, prompt and answer, kept 30 days in a bucket only tear down can empty (not the Anthropic API's calls) | none |
-| **Access** | IAM, through the bootstrap | GitHub's sign-in, the plan and deploy roles, and the boundary on every role | none |
-| **State** | S3 (Terraform state) | What Terraform has built, so it changes only what differs | none |
-
-## Enterprise pattern
-
-In a regulated insurer, the secure enterprise patterns are expected to be in place already, managed at the organization level by a platform team. Every workload, this one included, inherits them, and a gap there is fixed at that layer, not in this repo:
-
-- **Accounts:** AWS Organizations and Control Tower, with separate development, test, production, log-archive and security accounts.
-- **Guardrails:** service and resource control policies: regions locked to Australia, nobody turns off CloudTrail, GuardDuty or Config, and data can't leave the organization.
-- **People:** IAM Identity Center with the company's identity provider: MFA everywhere, least-privilege access, time-bound admin access, break-glass accounts, and no standing root credentials.
-- **Keys and secrets:** AWS KMS customer-managed keys per data class, with rotation; Secrets Manager and AWS Private CA standards.
-- **Network:** central inspected egress through AWS Network Firewall (an outbound allow-list) and Route 53 Resolver DNS Firewall.
-- **Edge:** AWS Firewall Manager rules on every WAF, and Shield Advanced.
-- **Logging:** an organization CloudTrail trail to the log-archive account with S3 Object Lock, into the company's SIEM, kept for the regulated period.
-- **Detection:** Amazon GuardDuty (including Bedrock and AgentCore), AWS Security Hub, AWS Config, Amazon Inspector, Amazon Macie and IAM Access Analyzer: threat detection, one view of findings, drift checks, vulnerability scans, personal-data discovery and unused access.
-- **Response:** a 24/7 incident team and tested runbooks.
-- **Backup and resilience:** AWS Backup organization policies with Vault Lock, copies in another account and region, and recovery targets for critical operations.
-- **Compliance:** evidence through AWS Audit Manager and AWS Artifact for APRA CPS 234 (information security), CPS 230 (operational risk, including the model provider as a material service provider) and the Privacy Act.
-- **Cost:** AWS Budgets, Cost Anomaly Detection and tag policies per workload.
-- **Delivery:** a second reviewer on every change and production deploy, signed images with an SBOM, and a pen test before go-live.
-
-What this repo builds that a platform team would own, and how each is left to them (decision 35):
-
-- **The bootstrap:** the workflows read only `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN` and `TF_STATE_BUCKET`, so the platform's own pipeline roles and state bucket replace `bootstrap.yaml`.
-- **The `platform` unit** (budget alert, Access Analyzer): `PLATFORM_MANAGED=true` skips it. Model invocation logging stays with the workload, agreed with the platform team in a shared account.
-- **Staff sign-in:** point the api's `STAFF_` and `ENGINEERING_TOKEN_ISSUER` and `_AUDIENCE` at the company's identity provider; the customer and services pools stay.
-- **CloudFront's Free plan and its WAF:** `CLOUDFRONT_FREE_PLAN=false`, leaving Firewall Manager and Shield Advanced to the platform.
-- **`check-aws.sh` and `teardown-aws.sh`:** account-level, so not run.

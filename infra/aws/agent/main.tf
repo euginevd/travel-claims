@@ -432,7 +432,7 @@ resource "aws_bedrockagentcore_code_interpreter" "programs" {
 }
 
 # AgentCore Gateway in front of the context layer (plan phase 3): the agent reaches its lookups as
-# managed MCP tools, and the gateway signs each call to the context's IAM-only URL with its own role.
+# managed MCP tools, and the gateway invokes the context Lambda by its ARN with its own role.
 resource "aws_iam_role" "gateway" {
   name                 = "${local.prefix}-gateway"
   description          = "Signs the ${var.project} gateway's calls to the context layer"

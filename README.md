@@ -111,7 +111,7 @@ The same apps run two ways (decisions 14 and 29). Rough monthly cost in USD:
 | 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
 | 2 · AWS serverless, fully AWS-native | S3 and CloudFront with WAF on the Free plan, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Claude on the Anthropic API or Bedrock, Cognito, Aurora DSQL, DynamoDB, free-tier alarms and budget, all in Sydney with no VPC | Built; to deploy, test and tear down | ≈ $0 idle, plus Claude |
 
-Every piece is managed and scales on its own; the paid, more secure options for real data (a VPC with PrivateLink, GuardDuty, Security Hub, customer-managed keys, Control Tower) are recorded in decision 30 ([AWS runbook](guides/02-aws-runbook.md#whats-deployed)). Details: [costs.md](docs/costs.md).
+Every piece is managed and scales on its own; the paid, more secure options for real data (a VPC with PrivateLink, GuardDuty, Security Hub, customer-managed keys, Control Tower) are recorded in decision 30 ([AWS architecture](guides/04-aws-architecture.md)). Details: [costs.md](docs/costs.md).
 
 ## Built with
 
@@ -139,5 +139,6 @@ Every piece is managed and scales on its own; the paid, more secure options for 
 1. [Findings](guides/01-findings.md): what the build found, and what was fixed.
 2. [Deploying to AWS, and tearing it down](guides/02-aws-runbook.md): tier 2 from nothing to running in `dev`, and back to nothing, step by step.
 3. [Security trade-offs](guides/03-security-trade-offs.md): the risks this project accepts, and the fix for production.
+4. [AWS architecture](guides/04-aws-architecture.md): tier 2 end to end, layer by layer, and where the platform team's controls take over.
 
 Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).
