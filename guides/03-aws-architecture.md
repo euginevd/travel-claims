@@ -91,7 +91,7 @@ Each is built here only because this account has no platform team, and each is l
 
 ## Known gaps
 
-What the workload would still add before real data, in [TODO.md](../TODO.md) and [the security trade-offs](03-security-trade-offs.md):
+What the workload would still add before real data, in [TODO.md](../TODO.md) and [the security trade-offs](04-security-trade-offs.md):
 
 - **Private network:** the Lambdas and the agent runtime in a VPC with endpoints, about $120 a month.
 - **Guardrails on the model's output**, not only customers' text.

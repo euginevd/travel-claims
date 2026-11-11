@@ -4,7 +4,7 @@
 
 Profile: `prototype`, for the whole project (decision 31): no real users, customer data or payments, every record made up, and `dev` the only environment. What that changes is in [AGENTS.md](../AGENTS.md) rule 24.
 
-The business and the app at a high level. What each app does: [features.md](features.md); what's next: [TODO.md](../TODO.md), where new requirements start; why: [decisions.md](decisions.md); risks: [threat-model.md](threat-model.md); tier 2's design: [the AWS architecture](../guides/04-aws-architecture.md).
+The business and the app at a high level. What each app does: [features.md](features.md); what's next: [TODO.md](../TODO.md), where new requirements start; why: [decisions.md](decisions.md); risks: [threat-model.md](threat-model.md); tier 2's design: [the AWS architecture](../guides/03-aws-architecture.md).
 
 ## Business
 
@@ -28,7 +28,7 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 ## Tiers
 
 4. **Tier 1, local (Docker), built:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Tier 2, AWS serverless, fully AWS-native:** S3 and CloudFront, Lambda, AgentCore, Cognito, Aurora DSQL, DynamoDB and Claude on Bedrock only, all in `ap-southeast-2` with no VPC, at close to $0 idle; deployed, tested with made-up data, then torn down (decisions 13, 29 and 30). The paid, more secure options for real data are in decision 30. Design: [the AWS architecture](../guides/04-aws-architecture.md).
+5. **Tier 2, AWS serverless, fully AWS-native:** S3 and CloudFront, Lambda, AgentCore, Cognito, Aurora DSQL, DynamoDB and Claude on Bedrock only, all in `ap-southeast-2` with no VPC, at close to $0 idle; deployed, tested with made-up data, then torn down (decisions 13, 29 and 30). The paid, more secure options for real data are in decision 30. Design: [the AWS architecture](../guides/03-aws-architecture.md).
 
 ## Apps
 

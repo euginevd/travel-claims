@@ -1,6 +1,6 @@
 # AWS runbook
 
-Tier 2 from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](04-aws-architecture.md).
+Tier 2 from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
 **Cost:** cents idle; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 

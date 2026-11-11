@@ -1,6 +1,6 @@
 # Checklist
 
-The guardrails in DevSecOps stage order. This project is a prototype throughout (decision 31); clear it before any real users, customer data or payments. How each one works: sdlc-template's [guide 04](https://github.com/euginevd/sdlc-template/blob/main/guides/04-the-guardrails.md); risks accepted instead: [guides/03-security-trade-offs.md](../guides/03-security-trade-offs.md). Tier 2 is torn down, so its rows describe what the code deploys.
+The guardrails in DevSecOps stage order. This project is a prototype throughout (decision 31); clear it before any real users, customer data or payments. How each one works: sdlc-template's [guide 04](https://github.com/euginevd/sdlc-template/blob/main/guides/04-the-guardrails.md); risks accepted instead: [guides/04-security-trade-offs.md](../guides/04-security-trade-offs.md). Tier 2 is torn down, so its rows describe what the code deploys.
 
 | # | Stage | Control | Tool | Profile | Here |
 |---|---|---|---|---|---|
