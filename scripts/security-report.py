@@ -149,13 +149,14 @@ def comment(folder, sha):
             if s["count"] > len(s["top"]):
                 top.append(f"- …and {s['count'] - len(s['top'])} more from {check}")
         else:
-            result = "–"
+            result = "✅"
         rows.append(f"| {check} ({tool.capitalize()}) | {result} |")
     status = "✅ all passed" if not failed else f"❌ {failed} failed"
     print(f"{MARKER}\n### Security checks: {status} ({sha[:7]})\n")
-    print("| Check | Findings |\n|---|--:|")
+    print("| Check | Findings |\n|---|:-:|")
     print("\n".join(rows))
-    print(f"| **Total** | **{badges(total) or '–'}** |")
+    # A check that didn't finish has no findings to count, so only a clean run earns the tick.
+    print(f"| **Total** | **{badges(total) or ('–' if failed else '✅')}** |")
     if top:
         urgent = any(total.get(s) for s in URGENT)
         summary = "<details open><summary>Fix first" if urgent else "<details><summary>Top findings"

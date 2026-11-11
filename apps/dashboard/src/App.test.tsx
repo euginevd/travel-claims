@@ -45,9 +45,14 @@ test("a handler signs in and sees the queue", async () => {
 
 test("the sign-in page is a plain staff sign-in with no list of people", () => {
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
-  expect(screen.getByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1 })).toHaveAccessibleName(
+    "The agent recommends. You decide.",
+  );
   expect(screen.queryByText(/customer/i)).not.toBeInTheDocument();
-  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  // The only people offered are the two test accounts, and only in a test build.
+  expect(screen.getAllByRole("radio")).toHaveLength(2);
+  expect(screen.getByRole("radio", { name: /Dana Whitfield/ })).toBeChecked();
 });
 
 test("the test account signs in through the dev route, with no password in the browser", async () => {
@@ -57,10 +62,35 @@ test("the test account signs in through the dev route, with no password in the b
     "POST /api/staff/dev/test-sign-in": () => [200, { id_token: "token-2", expires_in: 3600 }],
   });
   render(<App fetchFn={fetchFn} />);
-  await user.click(screen.getByRole("button", { name: /Use test account/ }));
+  await user.click(screen.getByRole("button", { name: "Continue as Dana" }));
   await screen.findByRole("heading", { name: "Claims queue" });
   const call = fetchFn.calls.find((c) => c.path === "/api/staff/dev/test-sign-in");
   expect(call?.body).toEqual({ account: "senior" });
+});
+
+test("the other test account signs in as the handler without sign-off rights", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    ...signedInRoutes,
+    "POST /api/staff/dev/test-sign-in": () => [200, { id_token: "token-3", expires_in: 3600 }],
+  });
+  render(<App fetchFn={fetchFn} />);
+  await user.click(screen.getByRole("radio", { name: /Marcus Oyelaran/ }));
+  await user.click(screen.getByRole("button", { name: "Continue as Marcus" }));
+  await screen.findByRole("heading", { name: "Claims queue" });
+  const call = fetchFn.calls.find((c) => c.path === "/api/staff/dev/test-sign-in");
+  expect(call?.body).toEqual({ account: "handler" });
+});
+
+test("the password can be shown while typing it", async () => {
+  const user = userEvent.setup();
+  render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  const password = screen.getByLabelText("Password");
+  expect(password).toHaveAttribute("type", "password");
+  await user.click(screen.getByRole("button", { name: "Show password" }));
+  expect(password).toHaveAttribute("type", "text");
+  await user.click(screen.getByRole("button", { name: "Hide password" }));
+  expect(password).toHaveAttribute("type", "password");
 });
 
 test("the needs-me view is first and J moves through the claims", async () => {
@@ -73,6 +103,36 @@ test("the needs-me view is first and J moves through the claims", async () => {
   expect(within(table).queryByRole("link", { name: "CLM-1001" })).not.toBeInTheDocument();
   await user.keyboard("j");
   expect(within(table).getByRole("link", { name: "CLM-1002" })).toHaveFocus();
+});
+
+test("the queue filters by claim type and plan, and can clear them", async () => {
+  const user = userEvent.setup();
+  saveToken("token-1");
+  const routes: Routes = {
+    ...signedInRoutes,
+    "GET /api/staff/claims": () => [
+      200,
+      [
+        SUMMARY,
+        { ...SUMMARY, claim_id: "CLM-1002", claim_type: "lost_bag", plan: "premium" },
+        { ...SUMMARY, claim_id: "CLM-1003", status: "in_progress", stalled: true },
+      ],
+    ],
+  };
+  render(<App fetchFn={fakeFetch(routes)} />);
+  await user.click(await screen.findByRole("button", { name: /^All/ }));
+  const links = () => screen.getAllByRole("link", { name: /^CLM-/ }).map((a) => a.textContent);
+  expect(links()).toEqual(["CLM-1001", "CLM-1002", "CLM-1003"]);
+  expect(screen.getByText("Stalled")).toBeInTheDocument();
+  expect(screen.getAllByText(/days overdue/)).toHaveLength(3);
+
+  await user.selectOptions(screen.getByRole("combobox", { name: "Claim type" }), "Lost bag");
+  expect(links()).toEqual(["CLM-1002"]);
+  await user.selectOptions(screen.getByRole("combobox", { name: "Plan" }), "Economy");
+  expect(screen.getByText("No claims match these filters.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Clear the filters" }));
+  await user.selectOptions(screen.getByRole("combobox", { name: "Sort" }), "Sort: due soonest");
+  expect(links()).toHaveLength(3);
 });
 
 test("signs in on the staff route only", async () => {

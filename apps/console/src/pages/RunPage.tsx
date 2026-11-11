@@ -1,6 +1,15 @@
-import { Award, CircleCheck, CircleMinus, CircleX, LoaderCircle, RotateCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Award,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  LoaderCircle,
+  RotateCw,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, RunClaim, RunInFull } from "../api";
+import { TableScroll } from "../components/TableScroll";
 import { dollars } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 import { SCOREBOARD_HREF } from "../useHashRoute";
@@ -25,7 +34,7 @@ function Judge({ claim, grading }: { claim: RunClaim; grading: boolean }) {
   if (!claim.judged) {
     return grading ? (
       <span className="chip chip-info">
-        <LoaderCircle size={14} strokeWidth={2} aria-hidden="true" />
+        <LoaderCircle className="spin" size={13} strokeWidth={1.75} aria-hidden="true" />
         Grading…
       </span>
     ) : (
@@ -36,7 +45,7 @@ function Judge({ claim, grading }: { claim: RunClaim; grading: boolean }) {
     return (
       <>
         <span className="chip">
-          <CircleMinus size={14} strokeWidth={2} aria-hidden="true" />
+          <CircleMinus size={13} strokeWidth={1.75} aria-hidden="true" />
           Not graded
         </span>
         {claim.grade_note && <p className="muted small">{claim.grade_note}</p>}
@@ -47,7 +56,7 @@ function Judge({ claim, grading }: { claim: RunClaim; grading: boolean }) {
   return (
     <>
       <span className={`chip ${tone}`}>
-        <Award size={14} strokeWidth={2} aria-hidden="true" />
+        <Award size={13} strokeWidth={1.75} aria-hidden="true" />
         {letter} · {String(claim.grade)}
       </span>
       <p className="muted small">
@@ -60,7 +69,8 @@ function Judge({ claim, grading }: { claim: RunClaim; grading: boolean }) {
 
 function outcome(decision: string | null, payout: number | null): string {
   if (!decision) return "Not decided";
-  return decision === "approve" ? `Approve ${dollars(payout ?? 0)}` : decision;
+  if (decision === "approve") return `Approve ${dollars(payout ?? 0)}`;
+  return `${decision.charAt(0).toUpperCase()}${decision.slice(1)}`;
 }
 
 export function RunPage({ api, runId }: { api: Api; runId: number }) {
@@ -113,13 +123,36 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
   const stuck = run?.claims.some((c) => c.status === "waiting" || c.status === "in_progress");
 
   return (
-    <section aria-labelledby="run-heading">
-      <p className="eyebrow">
-        <a href={SCOREBOARD_HREF}>Scoreboard</a>
-      </p>
-      <h1 id="run-heading" ref={heading} tabIndex={-1}>
-        Run {runId}
-      </h1>
+    <section className="view" aria-labelledby="run-heading">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">
+            <a href={SCOREBOARD_HREF}>
+              <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+              Scoreboard
+            </a>
+          </p>
+          <h1 id="run-heading" ref={heading} tabIndex={-1}>
+            Run {runId}
+          </h1>
+          {run && (
+            <p className="lede">
+              {run.label_set === "evaluation" ? "Evaluation set" : "Held-out set"}, {run.size} ·
+              configuration v{run.config_version} · {run.concurrency} at once ·{" "}
+              {running ? "running…" : grading ? "grading…" : run.status}
+              {run.scores && ` · ${String(misses)} missed of ${String(run.scores.claims)}`}
+            </p>
+          )}
+        </div>
+        {run && run.status !== "running" && stuck && (
+          <div className="page-head-side">
+            <button type="button" className="button secondary" onClick={() => void resume()}>
+              <RotateCw size={15} strokeWidth={1.75} aria-hidden="true" />
+              Carry on with the unfinished claims
+            </button>
+          </div>
+        )}
+      </header>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -128,33 +161,30 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
           </button>
         </p>
       )}
-      {!run && !error && <p role="status">Loading the run…</p>}
+      {!run && !error && (
+        <p role="status" className="loading">
+          <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
+          Loading the run…
+        </p>
+      )}
+      {run?.scores && (
+        <ul className="kpis six" aria-label="The run's measures">
+          {measures(run.scores).map((measure) => (
+            <li key={measure.label} className="kpi">
+              <p className="kpi-label">{measure.label}</p>
+              <p className="kpi-value">{measure.value}</p>
+            </li>
+          ))}
+        </ul>
+      )}
       {run && (
-        <>
-          <p className="muted">
-            {run.label_set === "evaluation" ? "Evaluation set" : "Held-out set"}, {run.size} ·
-            configuration v{run.config_version} · {run.concurrency} at once ·{" "}
-            {running ? "running…" : grading ? "grading…" : run.status}
-            {run.scores && ` · ${String(misses)} missed of ${String(run.scores.claims)}`}
-          </p>
-          {run.scores && (
-            <ul className="figures" aria-label="The run's measures">
-              {measures(run.scores).map((measure) => (
-                <li key={measure.label} className="figure">
-                  <p className="eyebrow figure-label">{measure.label}</p>
-                  <p className="figure-value">{measure.value}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {run.status !== "running" && stuck && (
-            <button type="button" className="button secondary" onClick={() => void resume()}>
-              <RotateCw size={16} strokeWidth={2} aria-hidden="true" />
-              Carry on with the unfinished claims
-            </button>
-          )}
-          <div className="table-wrap">
-            <table className="table">
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Claims</h2>
+            <p className="panel-note">The agent beside the handler. Misses first.</p>
+          </div>
+          <TableScroll label="Claims table">
+            <table className="table min-wide">
               <caption className="visually-hidden">
                 Each claim beside the handler's decision; misses first
               </caption>
@@ -166,7 +196,9 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                   <th scope="col">Handler</th>
                   <th scope="col">Match</th>
                   <th scope="col">Judge</th>
-                  <th scope="col">Cost</th>
+                  <th scope="col" className="num">
+                    Cost
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -177,12 +209,12 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                       <td className="nowrap">
                         <span className="mono">{claim.original_claim_id}</span>
                       </td>
-                      <td>{claim.summary}</td>
-                      <td>
+                      <td className="prose">{claim.summary}</td>
+                      <td className="prose">
                         <strong>{outcome(claim.decision, claim.payout)}</strong>
                         {claim.reason && <p className="muted small">{claim.reason}</p>}
                       </td>
-                      <td>
+                      <td className="prose">
                         <strong>{outcome(claim.handler_decision, claim.handler_payout)}</strong>
                         {claim.handler_reason && (
                           <p className="muted small">{claim.handler_reason}</p>
@@ -191,12 +223,12 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                       <td>
                         {claim.payout_matched ? (
                           <span className="chip chip-good">
-                            <CircleCheck size={14} strokeWidth={2} aria-hidden="true" />
+                            <CircleCheck size={13} strokeWidth={1.75} aria-hidden="true" />
                             Match
                           </span>
                         ) : (
                           <span className="chip chip-bad">
-                            <CircleX size={14} strokeWidth={2} aria-hidden="true" />
+                            <CircleX size={13} strokeWidth={1.75} aria-hidden="true" />
                             {claim.matched ? "Payout differs" : "Miss"}
                           </span>
                         )}
@@ -209,8 +241,8 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
                   ))}
               </tbody>
             </table>
-          </div>
-        </>
+          </TableScroll>
+        </div>
       )}
     </section>
   );

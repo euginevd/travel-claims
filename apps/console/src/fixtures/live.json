@@ -1,0 +1,130 @@
+{
+  "days": 7,
+  "since": "2026-11-04",
+  "until": "2026-11-10",
+  "totals": {
+    "decided": 1,
+    "straight_through": 0,
+    "straight_through_share": 0.0,
+    "reviewed": 1,
+    "disagreements": 1,
+    "disagreement_rate": 1.0,
+    "referrals": 0,
+    "hidden_instruction_flags": 0,
+    "cost_per_claim": 0.02,
+    "seconds_per_claim": null
+  },
+  "series": [
+    {
+      "day": "2026-11-04",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-05",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-06",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-07",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-08",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-09",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-10",
+      "decided": 1,
+      "straight_through": 0,
+      "reviewed": 1,
+      "disagreements": 1,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.02
+    }
+  ],
+  "feedback": {
+    "answers": {
+      "count": 0,
+      "helpful": 0,
+      "helpful_share": null
+    },
+    "decisions": {
+      "count": 1,
+      "helpful": 0,
+      "helpful_share": 0.0
+    },
+    "comments": [
+      {
+        "subject": "decision",
+        "claim_id": "CLM-1001",
+        "comment": "It doesn't say which receipt was missing.",
+        "question": null,
+        "created_at": "2026-11-10T23:47:56+00:00"
+      }
+    ]
+  },
+  "disagreements": [
+    {
+      "claim_id": "CLM-1001",
+      "kind": "override",
+      "at": "2026-11-10T23:47:56+00:00",
+      "by": "Dana Whitfield",
+      "claim_type": "trip_delay",
+      "amount_claimed": 420.0,
+      "agent_decision": "decline",
+      "agent_payout": 0.0,
+      "handler_decision": "approve",
+      "handler_payout": 150.0,
+      "reason_code": "evidence",
+      "note": "Receipt",
+      "final_decision": "approve",
+      "final_payout": 150.0,
+      "in_evaluation_set": true,
+      "can_add": false
+    }
+  ]
+}

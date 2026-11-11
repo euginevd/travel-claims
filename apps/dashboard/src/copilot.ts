@@ -13,13 +13,19 @@ const EntrySchema = z.object({
   detail: z.string().optional(),
 });
 
+// What waits on the handler: a sign-off (the default, as older conversations saved it), a
+// dispatch or a send-back, each with the facts its card shows.
 const PendingSchema = z.object({
   kind: z.literal("confirm"),
+  action: z.enum(["sign_off", "dispatch", "send_back"]).default("sign_off"),
   title: z.string(),
   detail: z.string(),
-  claim_id: z.string(),
-  customer: z.string(),
-  amount: z.number(),
+  claim_id: z.string().optional(),
+  customer: z.string().optional(),
+  amount: z.number().optional(),
+  note: z.string().optional(),
+  agents: z.number().optional(),
+  waiting: z.number().optional(),
 });
 
 export const ConversationSchema = z.object({
@@ -28,6 +34,11 @@ export const ConversationSchema = z.object({
   created_at: z.string(),
   transcript: z.array(EntrySchema),
   pending: PendingSchema.nullable(),
+  // The last turn's tool steps, model calls, seconds of work and cost in US dollars.
+  steps: z.number().default(0),
+  model_calls: z.number().default(0),
+  seconds: z.number().default(0),
+  cost_usd: z.number().default(0),
 });
 
 const SummarySchema = z.object({
@@ -38,6 +49,7 @@ const SummarySchema = z.object({
 
 export type Entry = z.infer<typeof EntrySchema>;
 export type Pending = z.infer<typeof PendingSchema>;
+export type Answer = "sign_off" | "confirm" | "cancel";
 export type Conversation = z.infer<typeof ConversationSchema>;
 export type ConversationSummary = z.infer<typeof SummarySchema>;
 
@@ -46,7 +58,7 @@ export interface CopilotApi {
   start: () => Promise<Conversation>;
   open: (conversationId: string) => Promise<Conversation>;
   send: (conversationId: string, text: string) => Promise<Conversation>;
-  confirm: (conversationId: string, answer: "sign_off" | "cancel") => Promise<Conversation>;
+  confirm: (conversationId: string, answer: Answer) => Promise<Conversation>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;

@@ -17,8 +17,8 @@ test("an AI engineer signs in with the test account and sees the scoreboard", as
     "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
-  expect(screen.getByRole("heading", { name: "AI assurance console" })).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: /Use test account/ }));
+  expect(screen.getByRole("heading", { name: "Every AI decision, measured." })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Continue as Sam" }));
   expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
   expect(screen.getByText("Sam Carter")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Security: Red team" })).toHaveAttribute(

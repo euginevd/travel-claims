@@ -155,6 +155,28 @@ test("the command palette finds claims and commands", () => {
   expect(commandsFor([], "sign").map((command) => command.id)).toEqual(["sign-out"]);
 });
 
+test("a bare / opens the palette, but not while typing in a field", async () => {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.open = true;
+  };
+  const user = userEvent.setup();
+  const api = createApi(
+    fakeFetch({ "GET /api/staff/claims": () => [200, [SUMMARY]] }),
+    () => "token",
+  );
+  render(
+    <>
+      <input aria-label="Somewhere else" />
+      <CommandPalette api={api} onSignOut={() => undefined} />
+    </>,
+  );
+  await user.type(screen.getByLabelText("Somewhere else"), "a/b");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await user.tab();
+  await user.keyboard("/");
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
+
 test("Ctrl+K opens the palette and Enter goes to the claim", async () => {
   HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
     this.open = true;

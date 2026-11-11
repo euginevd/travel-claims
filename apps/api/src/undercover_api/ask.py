@@ -99,10 +99,11 @@ def ask_engineering(
     body: QuestionRequest, engineer: SignedInEngineer, db: Database, tools: Asking
 ) -> QuestionAnswer:
     """Wattle AI for the AI engineers: read-only answers from the runs, rounds, red team, threat
-    coverage and the traces of any claims named in the question."""
+    coverage, the live numbers and the traces of any claims named in the question."""
     # Imported here: these modules import the routers this module sits beside.
     from undercover_api.evaluations import list_runs  # noqa: PLC0415
     from undercover_api.improvement import list_rounds  # noqa: PLC0415
+    from undercover_api.live import live_summary  # noqa: PLC0415
     from undercover_api.redteam import status_of  # noqa: PLC0415
     from undercover_api.threats import threat_coverage  # noqa: PLC0415
 
@@ -127,6 +128,7 @@ def ask_engineering(
         "redteam": status_of(db).model_dump(mode="json"),
         "threats": threat_coverage(engineer, db).model_dump(mode="json"),
         "traces": traces,
+        "live": live_summary(db),
     }
     try:
         answer = service.explain(request)

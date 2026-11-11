@@ -28,6 +28,7 @@ export function NeedsPanel({ api, claimId, requests, onUpdated }: NeedsPanelProp
         {requests.map((request) => (
           <NeedRow
             key={request.request_id}
+            first={request === requests.find((each) => each.fulfilled_at === null)}
             api={api}
             claimId={claimId}
             request={request}
@@ -41,11 +42,14 @@ export function NeedsPanel({ api, claimId, requests, onUpdated }: NeedsPanelProp
 
 function NeedRow({
   api,
+  first,
   claimId,
   request,
   onUpdated,
 }: {
   api: Api;
+  /** The first thing still to send carries the page's one main button. */
+  first: boolean;
   claimId: string;
   request: CustomerRequest;
   onUpdated: (claim: CustomerClaim) => void;
@@ -71,9 +75,9 @@ function NeedRow({
   return (
     <li className={`need-row${done ? " done" : ""}`}>
       {done ? (
-        <CircleCheck size={20} strokeWidth={2} aria-hidden="true" className="need-icon" />
+        <CircleCheck size={20} strokeWidth={1.75} aria-hidden="true" className="need-icon" />
       ) : (
-        <CircleDashed size={20} strokeWidth={2} aria-hidden="true" className="need-icon" />
+        <CircleDashed size={20} strokeWidth={1.75} aria-hidden="true" className="need-icon" />
       )}
       <div className="need-main">
         <p className="need-text" dir="auto">
@@ -104,8 +108,12 @@ function NeedRow({
               event.target.value = "";
             }}
           />
-          <label htmlFor={id} className="button small-button" aria-disabled={sending}>
-            <Upload size={16} strokeWidth={2} aria-hidden="true" />
+          <label
+            htmlFor={id}
+            className={`button small-button${first ? "" : " secondary strong"}`}
+            aria-disabled={sending}
+          >
+            <Upload size={16} strokeWidth={1.75} aria-hidden="true" />
             {sending ? "Sending…" : "Upload"}
             <span className="visually-hidden">: {request.text}</span>
           </label>

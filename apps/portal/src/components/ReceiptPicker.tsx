@@ -93,7 +93,7 @@ export function ReceiptPicker({ files, onChange, already = 0 }: ReceiptPickerPro
         htmlFor={`${ids}-files`}
         className={`drop-zone${dragging ? " dragging" : ""}`}
       >
-        <ImageUp size={28} strokeWidth={2} aria-hidden="true" />
+        <ImageUp size={28} strokeWidth={1.75} aria-hidden="true" />
         <span>Drag receipts here, or</span>
         <span className="button secondary">Choose files</span>
         <input
@@ -125,7 +125,7 @@ export function ReceiptPicker({ files, onChange, already = 0 }: ReceiptPickerPro
               {previews[index] ? (
                 <img src={previews[index]} alt="" />
               ) : (
-                <FileText size={32} strokeWidth={2} aria-hidden="true" />
+                <FileText size={32} strokeWidth={1.75} aria-hidden="true" />
               )}
               <span className="preview-name" dir="auto">
                 {file.name}
@@ -139,7 +139,7 @@ export function ReceiptPicker({ files, onChange, already = 0 }: ReceiptPickerPro
                   onChange(files.filter((_, i) => i !== index));
                 }}
               >
-                <X size={18} strokeWidth={2} aria-hidden="true" />
+                <X size={18} strokeWidth={1.75} aria-hidden="true" />
               </button>
             </li>
           ))}

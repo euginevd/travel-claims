@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lists a PR's open review threads and code scanning alerts, or answers one thread and resolves it (AGENTS.md rule 13).
+# Lists a PR's failed and running checks, security summary, open review threads and code scanning alerts,
+# or answers one thread and resolves it (AGENTS.md rule 13).
 # Usage: bash scripts/pr-findings.sh <pr>    |    bash scripts/pr-findings.sh resolve <thread-id> "<reply>"
 set -euo pipefail
 
@@ -16,6 +17,15 @@ if [ "${1:-}" = resolve ]; then
 fi
 
 pr=${1:?Usage: bash scripts/pr-findings.sh <pr>}
+echo "Checks on #$pr that failed or haven't finished (name, result, link):"
+# gh exits non-zero while a check is failing or running; the list is what matters here.
+gh pr checks "$pr" --json name,bucket,link \
+  --jq '.[] | select(.bucket != "pass" and .bucket != "skipping") | "- \(.name) \(.bucket) \(.link)"' || true
+echo
+echo "Security summary on #$pr:"
+gh api "repos/$repo/issues/$pr/comments" --paginate \
+  --jq '.[] | select(.body | startswith("<!-- security-report -->")) | .body | ltrimstr("<!-- security-report -->") | ltrimstr("\n")'
+echo
 echo "Open review threads on #$pr (id, place, author, comment):"
 gh api graphql -f query='query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){reviewThreads(first:100){nodes{id isResolved path line comments(first:1){nodes{author{login} body}}}}}}}' \
   -f o="${repo%/*}" -f n="${repo#*/}" -F p="$pr" \

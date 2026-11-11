@@ -34,6 +34,12 @@ export function when(value: string): string {
   return formatted(moment, value);
 }
 
+/** A code like "trip_delay" as words: "Trip delay". */
+export function words(code: string): string {
+  const spaced = code.replaceAll("_", " ").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 export const STEP_LABELS: Record<StepKind, string> = {
   screening: "Hidden-instruction check",
   message: "Agent",

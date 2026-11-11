@@ -1,0 +1,431 @@
+import { Activity, CircleCheck, LoaderCircle, Plus, ThumbsDown } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ApiError,
+  LIVE_PERIODS,
+  type Api,
+  type Disagreement,
+  type Live,
+  type LivePeriod,
+} from "../api";
+import { BarSeries, MiniBar, Sparkline } from "../components/Charts";
+import { TableScroll } from "../components/TableScroll";
+import { date, dollars, when } from "../format";
+import { useFocusHeading } from "../useFocusHeading";
+
+const DECISIONS: Record<string, string> = {
+  approve: "Approve",
+  decline: "Decline",
+  refer: "Refer",
+};
+const REASONS: Record<string, string> = {
+  policy_wording: "Policy wording",
+  evidence: "Evidence",
+  calculation: "Calculation",
+  customer_circumstances: "Customer circumstances",
+  suspected_fraud: "Suspected fraud",
+  other: "Other",
+};
+
+function percent(share: number | null): string {
+  return share === null ? "–" : `${String(Math.round(share * 1000) / 10)}%`;
+}
+
+function decided(decision: string | null, payout: number | null): string {
+  if (decision === null) return "–";
+  const label = DECISIONS[decision] ?? decision;
+  return decision === "approve" && payout !== null ? `${label} ${dollars(payout)}` : label;
+}
+
+/** The headline tiles: each a number with what it's out of written under it. */
+function Tiles({ live }: { live: Live }) {
+  const t = live.totals;
+  const tiles: [label: string, value: string, sub: string][] = [
+    ["Claims decided", String(t.decided), `Live claims, last ${String(live.days)} days`],
+    [
+      "Straight through",
+      percent(t.straight_through_share),
+      `${String(t.straight_through)} of ${String(t.decided)} decided and paid with no person`,
+    ],
+    [
+      "Handler disagreement",
+      percent(t.disagreement_rate),
+      `${String(t.disagreements)} of ${String(t.reviewed)} reviewed decisions overridden or sent back`,
+    ],
+    ["Referrals", String(t.referrals), "Decisions that went to a handler"],
+    [
+      "Hidden-instruction flags",
+      String(t.hidden_instruction_flags),
+      "Claims the check stopped before the agent",
+    ],
+    [
+      "Cost per claim",
+      t.cost_per_claim === null ? "–" : `$${t.cost_per_claim.toFixed(3)}`,
+      t.seconds_per_claim === null
+        ? "No timed decisions yet"
+        : `${String(Math.round(t.seconds_per_claim))} s per claim on average`,
+    ],
+  ];
+  return (
+    <ul className="kpis six" aria-label="Live behaviour at a glance">
+      {tiles.map(([label, value, sub]) => (
+        <li key={label} className="kpi">
+          <p className="kpi-label">{label}</p>
+          <p className="kpi-value">{value}</p>
+          <p className="kpi-sub">{sub}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Two small charts, one measure each: how many were decided a day, and the share of each
+ * day's decisions that went straight through. */
+function Trends({ live }: { live: Live }) {
+  const busy = live.series.filter((day) => day.decided > 0);
+  const shares = busy.map((day) => day.straight_through / day.decided);
+  return (
+    <div className="live-charts">
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Claims decided a day</h2>
+          <p className="panel-note">
+            {date(live.since)} to {date(live.until)}
+          </p>
+        </div>
+        <BarSeries
+          values={live.series.map((day) => ({ name: date(day.day), value: day.decided }))}
+          label={`Claims decided each day, oldest first: ${live.series
+            .map((day) => String(day.decided))
+            .join(", ")}`}
+        />
+      </div>
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Straight through a day</h2>
+          <p className="panel-note">Days with decisions only</p>
+        </div>
+        {shares.length < 2 ? (
+          <p className="muted small">A trend needs two days with decisions.</p>
+        ) : (
+          <Sparkline
+            values={shares}
+            label={`Straight-through share on each day with decisions, oldest first: ${busy
+              .map((day, index) => `${date(day.day)} ${percent(shares[index] ?? 0)}`)
+              .join(", ")}`}
+          />
+        )}
+        <p className="kpi-sub">Latest: {percent(shares.at(-1) ?? null)}</p>
+      </div>
+    </div>
+  );
+}
+
+function EvaluationCell({
+  row,
+  added,
+  onAdd,
+}: {
+  row: Disagreement;
+  added: boolean;
+  onAdd: (claimId: string) => Promise<void>;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (added || row.in_evaluation_set) {
+    return (
+      <span className="chip chip-good">
+        <CircleCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+        In evaluation set
+      </span>
+    );
+  }
+  if (!row.can_add) {
+    return <span className="muted small">Needs a handler&apos;s final decision</span>;
+  }
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        className="button secondary small-button"
+        onClick={() => {
+          setConfirming(true);
+        }}
+      >
+        <Plus size={14} strokeWidth={1.75} aria-hidden="true" />
+        Add to evaluation set
+      </button>
+    );
+  }
+  return (
+    <div className="live-confirm" role="group" aria-label={`Add ${row.claim_id}`}>
+      <p className="small">
+        Add {row.claim_id} labelled {decided(row.final_decision, row.final_payout)}? The next whole
+        run and the improver will see it.
+      </p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        className="button small-button"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          onAdd(row.claim_id).catch((caught: unknown) => {
+            setError(caught instanceof ApiError ? caught.message : "It couldn't be added.");
+            setBusy(false);
+          });
+        }}
+      >
+        {busy ? "Adding…" : `Add ${row.claim_id}`}
+      </button>
+      <button
+        type="button"
+        className="button secondary small-button"
+        disabled={busy}
+        onClick={() => {
+          setConfirming(false);
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function Disagreements({ api, rows }: { api: Api; rows: Disagreement[] }) {
+  const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
+  const add = useCallback(
+    async (claimId: string) => {
+      await api.addToEvaluation(claimId);
+      setAdded((now) => new Set([...now, claimId]));
+    },
+    [api],
+  );
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Disagreements</h2>
+        <p className="panel-note">The latest claims where a handler overrode or sent back</p>
+      </div>
+      {rows.length === 0 ? (
+        <p className="muted small">No handler has overridden or sent back the agent yet.</p>
+      ) : (
+        <TableScroll label="Disagreements table">
+          <table className="table min-wide">
+            <thead>
+              <tr>
+                <th scope="col">Claim</th>
+                <th scope="col">Agent decided</th>
+                <th scope="col">Handler</th>
+                <th scope="col">Reason</th>
+                <th scope="col">Evaluation set</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.claim_id}>
+                  <th scope="row">
+                    <span className="mono nowrap">{row.claim_id}</span>
+                    <span className="sub">
+                      {row.claim_type.replaceAll("_", " ")} · {dollars(row.amount_claimed)} claimed
+                    </span>
+                  </th>
+                  <td className="nowrap">{decided(row.agent_decision, row.agent_payout)}</td>
+                  <td>
+                    {row.kind === "override"
+                      ? decided(row.handler_decision, row.handler_payout)
+                      : "Sent back"}
+                    <span className="sub">
+                      {row.by} · {when(row.at)}
+                    </span>
+                  </td>
+                  <td className="prose">
+                    {row.reason_code && (
+                      <span className="tag">{REASONS[row.reason_code] ?? row.reason_code}</span>
+                    )}{" "}
+                    <span dir="auto">{row.note}</span>
+                  </td>
+                  <td>
+                    <EvaluationCell row={row} added={added.has(row.claim_id)} onAdd={add} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
+      )}
+    </div>
+  );
+}
+
+function CustomerFeedback({ live }: { live: Live }) {
+  const { answers, decisions, comments } = live.feedback;
+  const rows: [label: string, votes: typeof answers][] = [
+    ["Wattle's answers", answers],
+    ["Decision explanations", decisions],
+  ];
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Customer feedback</h2>
+        <p className="panel-note">Thumbs from the portal, last {live.days} days</p>
+      </div>
+      <dl className="live-votes">
+        {rows.map(([label, votes]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>
+              {votes.helpful_share === null ? (
+                <span className="muted small">No votes yet</span>
+              ) : (
+                <>
+                  <MiniBar value={votes.helpful_share} />
+                  <strong>{percent(votes.helpful_share)}</strong> helpful
+                  <span className="muted small">
+                    {" "}
+                    · {votes.helpful} of {votes.count}
+                  </span>
+                </>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <h3 className="live-sub">Latest thumbs-down comments</h3>
+      {comments.length === 0 ? (
+        <p className="muted small">No comments in this period.</p>
+      ) : (
+        <ul className="live-comments">
+          {comments.map((comment, index) => (
+            <li key={`${comment.created_at}-${String(index)}`}>
+              <ThumbsDown size={14} strokeWidth={1.75} aria-hidden="true" />
+              <div>
+                {/* The customer's own words: text only, never markup. */}
+                <p dir="auto">{comment.comment}</p>
+                <p className="muted small">
+                  {comment.subject === "decision" ? "Decision explanation" : "Wattle's answer"}
+                  {comment.claim_id && <span className="mono"> · {comment.claim_id}</span>}
+                  {" · "}
+                  {when(comment.created_at)}
+                  {comment.question && <span dir="auto"> · asked “{comment.question}”</span>}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Production behaviour, not offline runs: what the agents decided on live claims, how often a
+ * person disagreed, what it cost, and what customers made of it. */
+export function LivePage({ api }: { api: Api }) {
+  const heading = useFocusHeading();
+  const [days, setDays] = useState<LivePeriod>(14);
+  const [live, setLive] = useState<Live | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const load = useCallback(() => {
+    setError(null);
+    setGeneration((value) => value + 1);
+  }, []);
+
+  useEffect(() => {
+    let current = true;
+    api.getLive(days).then(
+      (found) => {
+        if (current) setLive(found);
+      },
+      (caught: unknown) => {
+        if (current) setError(caught instanceof Error ? caught.message : String(caught));
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [api, days, generation]);
+
+  // The period just chosen is loading until its own answer arrives.
+  const shown = live?.days === days ? live : null;
+  const quiet = shown !== null && shown.totals.decided === 0 && shown.totals.reviewed === 0;
+  return (
+    <section className="view" aria-labelledby="live-heading">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Quality · Live</p>
+          <h1 id="live-heading" ref={heading} tabIndex={-1}>
+            Live
+          </h1>
+          <p className="lede">
+            How the agents behave on real claims, not offline runs. Evaluation copies and red-team
+            claims are never counted.
+          </p>
+        </div>
+        <fieldset className="seg page-head-side">
+          <legend>Period</legend>
+          <div className="seg-track">
+            {LIVE_PERIODS.map((value) => (
+              <label key={value} className="seg-option">
+                <input
+                  type="radio"
+                  name="live-days"
+                  checked={days === value}
+                  onChange={() => {
+                    setError(null);
+                    setDays(value);
+                  }}
+                />
+                <span>{value} days</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </header>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+          <button type="button" className="button secondary" onClick={load}>
+            Try again
+          </button>
+        </p>
+      )}
+      {!shown && !error && (
+        <p role="status" className="loading">
+          <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
+          Loading the live numbers…
+        </p>
+      )}
+      {shown && (
+        <>
+          {quiet ? (
+            <div className="panel empty">
+              <span className="icon-tile" aria-hidden="true">
+                <Activity size={18} strokeWidth={1.75} />
+              </span>
+              <h2>No live decisions in this period</h2>
+              <p className="muted">
+                Choose a longer period, or have a handler work claims from the dashboard&apos;s
+                queue.
+              </p>
+            </div>
+          ) : (
+            <>
+              <Tiles live={shown} />
+              <Trends live={shown} />
+            </>
+          )}
+          <Disagreements api={api} rows={shown.disagreements} />
+          <CustomerFeedback live={shown} />
+        </>
+      )}
+    </section>
+  );
+}

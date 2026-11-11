@@ -1,10 +1,11 @@
-import { FlaskConical, Radar, ScrollText, ShieldCheck, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
 import { AskWattle } from "./components/AskWattle";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Header } from "./components/Header";
+import { Header, type NavGroup } from "./components/Header";
+import { Logo } from "./components/Logo";
 import { ImprovementPage } from "./pages/ImprovementPage";
+import { LivePage } from "./pages/LivePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
@@ -14,6 +15,7 @@ import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
   IMPROVEMENT_HREF,
+  LIVE_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
   THREATS_HREF,
@@ -98,7 +100,8 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
 
   if (token && !person && meError) {
     return (
-      <main className="landing" id="main">
+      <main className="gate" id="main">
+        <Logo />
         <h1>AI assurance console</h1>
         <p className="error" role="alert">
           We couldn&apos;t check your sign-in: {meError}
@@ -130,19 +133,14 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         name={person.name}
         detail={person.role}
         home={SCOREBOARD_HREF}
-        links={[
-          { href: SCOREBOARD_HREF, label: "Quality: Scoreboard", Icon: FlaskConical },
-          { href: IMPROVEMENT_HREF, label: "Quality: Improvement", Icon: Sparkles },
-          { href: TRACE_HREF, label: "Quality: Claim trace", Icon: ScrollText },
-          { href: REDTEAM_HREF, label: "Security: Red team", Icon: ShieldCheck },
-          { href: THREATS_HREF, label: "Security: Threat coverage", Icon: Radar },
-        ]}
+        groups={NAV}
+        current={currentHref(route)}
         onSignOut={signOut}
         onAssistant={() => {
           setAssistantOpen((now) => !now);
         }}
       />
-      <main id="main" tabIndex={-1}>
+      <main id="main" className="page" tabIndex={-1}>
         <ErrorBoundary key={routeKey(route)}>{page(route, api)}</ErrorBoundary>
       </main>
       {assistantOpen && (
@@ -158,12 +156,42 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   );
 }
 
+const NAV: NavGroup[] = [
+  {
+    label: "Quality",
+    links: [
+      { href: SCOREBOARD_HREF, label: "Scoreboard" },
+      { href: LIVE_HREF, label: "Live" },
+      { href: IMPROVEMENT_HREF, label: "Improvement" },
+      { href: TRACE_HREF, label: "Claim trace" },
+    ],
+  },
+  {
+    label: "Security",
+    links: [
+      { href: REDTEAM_HREF, label: "Red team" },
+      { href: THREATS_HREF, label: "Threat coverage" },
+    ],
+  },
+];
+
+/** The navigation link for a route; a run belongs to the scoreboard. */
+function currentHref(route: Route): string {
+  if (route.page === "live") return LIVE_HREF;
+  if (route.page === "improvement") return IMPROVEMENT_HREF;
+  if (route.page === "redteam") return REDTEAM_HREF;
+  if (route.page === "trace") return TRACE_HREF;
+  if (route.page === "threats") return THREATS_HREF;
+  return SCOREBOARD_HREF;
+}
+
 function routeKey(route: Route): string {
   return route.page === "run" ? `run:${String(route.runId)}` : route.page;
 }
 
 function page(route: Route, api: Api) {
   if (route.page === "run") return <RunPage key={route.runId} api={api} runId={route.runId} />;
+  if (route.page === "live") return <LivePage api={api} />;
   if (route.page === "improvement") return <ImprovementPage api={api} />;
   if (route.page === "redteam") return <RedTeamPage api={api} />;
   if (route.page === "trace") return <TracePage api={api} />;

@@ -106,6 +106,9 @@ labelled_claims = Table(
     Column("tiny", Boolean, nullable=False),
     Column("claim", JSON, nullable=False),
     Column("label", JSON, nullable=False),
+    # The AI engineer who added a live claim a handler disagreed on, and when; none if seeded.
+    Column("added_by", String(200)),
+    Column("added_at", String(32)),
 )
 
 # The claim agent's configuration: its instructions, model and reasoning effort, in versions.
@@ -302,6 +305,24 @@ letters = Table(
     Column("sent_at", String(32), nullable=False),
 )
 
+# A customer's thumbs up or down on one of Wattle's answers or on a decision's explanation. The
+# comment and question are the customer's own words: shown as plain text, never sent to a model.
+feedback = Table(
+    "feedback",
+    metadata,
+    Column("feedback_id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "customer_id", String(20), ForeignKey("customers.customer_id"), nullable=False, index=True
+    ),
+    # answer or decision
+    Column("subject", String(10), nullable=False),
+    Column("claim_id", String(20), ForeignKey("claims.claim_id")),
+    Column("helpful", Boolean, nullable=False),
+    Column("comment", String(300)),
+    Column("question", String(300)),
+    Column("created_at", String(32), nullable=False),
+)
+
 # A customer's claim in progress, saved so they can finish it later: one at a time.
 claim_drafts = Table(
     "claim_drafts",
@@ -368,6 +389,9 @@ setting_changes = Table(
     Column("changed_by", String(200), nullable=False),
     Column("changed_by_id", String(20), nullable=False),
     Column("changed_at", String(32), nullable=False),
+    # The value before, and why it changed; the payouts switch keeps its reason in its value.
+    Column("old_value", JSON),
+    Column("reason", String(200)),
 )
 
 # Each run of the red-team suite, newest last.

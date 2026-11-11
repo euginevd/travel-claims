@@ -14,20 +14,21 @@
   --bg-work: #fbfaf8;
   --ink: #24231f;
   --ink-2: #64625d;
-  --ink-3: #9d9b95;
+  --ink-3: #6f6d68;
   --line: #ebe9e4;
   --line-2: #f2f0ec;
   --ring: #f0eeea;
   --soft: #f4f3f0;
   --soft-2: #ebe9e5;
   --acc: #e2795f;
-  --acc-d: #b35a42;
+  --acc-d: #a04e38;
+  --acc-fill: #b35a42;
   --acc-tint: #fbece5;
   --acc-edge: #ecc0b1;
   --good: #3d6b47;
   --good-tint: #e7f0e5;
   --good-dot: #4f9e66;
-  --warm: #b35a42;
+  --warm: #a04e38;
   --warm-tint: #fbeae4;
   --info: #3a64b8;
   --info-tint: #e8eef9;
@@ -212,7 +213,7 @@ h2 {
   height: 34vw;
   right: 2vw;
   top: 18vh;
-  background: #fde4d8;
+  background: var(--wash-blush);
   opacity: 0.55;
   animation: drift-1 26s ease-in-out infinite;
 }
@@ -222,7 +223,7 @@ h2 {
   height: 26vw;
   right: 14vw;
   bottom: 4vh;
-  background: #e6f0e3;
+  background: var(--wash-sage);
   opacity: 0.5;
   animation: drift-2 30s ease-in-out infinite;
 }
@@ -232,7 +233,7 @@ h2 {
   height: 30vw;
   left: -8vw;
   top: -14vw;
-  background: #fbefe9;
+  background: var(--wash-blush);
   opacity: 0.45;
   animation: drift-3 32s ease-in-out infinite;
 }
@@ -242,7 +243,7 @@ h2 {
   height: 20vw;
   left: 30vw;
   bottom: -8vw;
-  background: #f1f3f8;
+  background: var(--wash-sky);
   opacity: 0.4;
   animation: drift-1 34s ease-in-out infinite reverse;
 }
@@ -524,10 +525,7 @@ textarea:focus {
   overflow: hidden;
   border-radius: 28%;
   line-height: 0;
-  box-shadow:
-    inset 0 -4px 8px rgb(140 50 25 / 18%),
-    0 6px 14px -8px rgb(200 98 74 / 60%),
-    0 0 0 0.5px rgb(150 60 35 / 15%);
+  box-shadow: 0 6px 14px -8px rgb(200 98 74 / 55%);
 }
 
 .logo-word {
@@ -555,7 +553,7 @@ textarea:focus {
 
 /* Sign-in only: the canopy springs open, the dot drops in, then a gloss sweeps every 7 s. */
 .logo-tile.animate .logo-canopy {
-  transform-origin: 20px 21px;
+  transform-origin: 20px 21.5px;
   transform: scale(0.3, 0.1);
   opacity: 0;
   animation: canopy-open 0.9s 0.3s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
@@ -2804,4 +2802,468 @@ main.signin-main {
   .map-tag {
     transition: none;
   }
+}
+
+/* ---------- Audit pass (local/AUDIT.md) ---------- */
+
+/* Forward actions carry the arrow in its own glass square. */
+.button:has(.arr) {
+  padding-right: 6px;
+  gap: 12px;
+}
+
+.button .arr {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 10%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
+  transition:
+    width 0.2s var(--ease),
+    background 0.2s;
+}
+
+.button .arr svg {
+  transition: transform 0.2s var(--ease);
+}
+
+.button:not(:disabled):hover .arr {
+  width: 38px;
+  background: linear-gradient(160deg, #f0937a, #d96a50);
+}
+
+.button:not(:disabled):hover .arr svg {
+  transform: translateX(2px);
+}
+
+.button:disabled .arr {
+  background: transparent;
+  box-shadow: none;
+}
+
+.button.wide:has(.arr) {
+  justify-content: space-between;
+  padding-left: 20px;
+}
+
+/* A secondary action that still has to be seen: white, hairline border. */
+.button.secondary.strong {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  font-weight: 600;
+  box-shadow: var(--lift);
+}
+
+.button.secondary.strong:not(:disabled):hover {
+  background: var(--soft);
+}
+
+.payout-card .link-button {
+  margin-top: 6px;
+  padding: 0;
+}
+
+.payid-value {
+  overflow-wrap: anywhere;
+}
+
+.tell-us .tell-row .button {
+  flex: none;
+  min-height: 36px;
+}
+
+/* Receipts: a row-shaped drop zone, receipt cards and the reading state. */
+.drop-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-items: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1.5px dashed var(--map-dot);
+  border-radius: 14px;
+  background: var(--bg-2);
+  text-align: left;
+  color: var(--ink);
+}
+
+.drop-zone > svg {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: linear-gradient(180deg, var(--bg-2), var(--soft));
+  color: var(--ink-2);
+}
+
+.drop-zone.dragging {
+  border-color: var(--acc);
+  background: var(--acc-tint);
+}
+
+.drop-zone:has(input:focus-visible) {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.preview {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.preview img {
+  border-radius: 10px;
+}
+
+.preview > svg {
+  color: var(--ink-2);
+}
+
+.chosen-line {
+  border-radius: 14px;
+  background: linear-gradient(160deg, var(--bg-2) 40%, var(--wash-blush));
+}
+
+.ai-mark {
+  gap: 8px;
+  padding: 4px 12px 4px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.source-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--good-tint);
+  color: var(--good);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.question-card {
+  border-left: 1px solid var(--line);
+  background:
+    radial-gradient(120% 120% at 0% 0%, var(--wash-sage) 0%, transparent 65%), var(--bg-2);
+}
+
+.question {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.question .wattle-mark {
+  flex: none;
+  margin-top: 2px;
+}
+
+input.unsure,
+select.unsure {
+  border-color: var(--acc-edge);
+  background: var(--acc-tint);
+}
+
+.reading-card {
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--good) 22%, var(--line));
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--wash-sage) 35%, var(--bg-2)),
+    var(--bg-2) 70%
+  );
+}
+
+.reading-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reading-head p {
+  margin: 0;
+}
+
+.reading-title {
+  font-weight: 500;
+}
+
+.scan {
+  height: 3px;
+  margin: 16px 0 14px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--good-tint);
+}
+
+.scan span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--good);
+  animation: scan 1.8s ease-in-out infinite;
+}
+
+@keyframes scan {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(290%);
+  }
+}
+
+.reading-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.skeleton {
+  border-radius: 10px;
+}
+
+.skeleton-field {
+  height: 44px;
+  border: 1px solid var(--line-2);
+}
+
+@media (max-width: 640px) {
+  .reading-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.flow-step > :first-child {
+  margin-top: 0;
+}
+
+.error,
+.notice {
+  border: 1px solid color-mix(in srgb, var(--acc) 22%, var(--line));
+  border-left-width: 1px;
+  border-radius: 14px;
+  background: var(--warm-tint);
+  color: var(--ink);
+}
+
+.needs-line .button {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (width < 980px) {
+  .home-side {
+    margin-top: 34px;
+  }
+}
+
+.payout-card .link-button {
+  font-size: 0.85rem;
+}
+
+/* ---------- Tidy-up pass ---------- */
+
+.home .page-head {
+  align-items: center;
+}
+
+.claims-group .claim-cards {
+  margin-top: -6px;
+}
+
+.claim-head {
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.claim-head .chip {
+  margin-top: 1.4rem;
+}
+
+.narrow.updates {
+  max-width: none;
+}
+
+.notice-body {
+  max-width: 72ch;
+}
+
+/* The way back to the project page sits quietly after the navigation. */
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.topnav .project-link {
+  padding: 6px 10px;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+
+.topnav .project-link:hover {
+  background: none;
+  color: var(--ink);
+}
+
+/* ---------- Wattle AI's mark and header button ---------- */
+
+.wattle-mark {
+  flex: none;
+}
+
+.wattle-mark .b {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wattle-mark.working .b {
+  animation: wattle-swell 2s ease-in-out infinite;
+}
+
+.wattle-mark.working .b2 {
+  animation-delay: 0.35s;
+}
+
+.wattle-mark.working .b3 {
+  animation-delay: 0.7s;
+}
+
+.wattle-mark.working .b4 {
+  animation-delay: 1.05s;
+}
+
+@keyframes wattle-swell {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(1.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wattle-mark.working .b {
+    animation: none;
+  }
+}
+
+.wattle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(31 30 28 / 4%);
+}
+
+.wattle-pill:hover {
+  border-color: var(--map-dot, #d3d0c9);
+  background: #ffffff;
+  box-shadow: 0 8px 20px -14px rgb(31 30 28 / 45%);
+}
+
+.wattle-ai-tag {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Feedback: quiet thumbs under an answer or a decision's reason */
+.feedback {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.feedback-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+.feedback-prompt {
+  margin-right: 2px;
+}
+
+.feedback-vote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.feedback-vote:hover:not(:disabled) {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.feedback-vote[aria-pressed="true"] {
+  border-color: var(--acc-edge);
+  background: var(--acc-tint);
+  color: var(--acc-d);
+}
+
+.feedback-thanks {
+  color: var(--good);
+  font-weight: 500;
+}
+
+.feedback-comment {
+  display: flex;
+  gap: 6px;
+}
+
+.feedback-comment input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
 }

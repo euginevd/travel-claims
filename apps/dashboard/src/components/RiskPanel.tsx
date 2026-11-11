@@ -1,7 +1,24 @@
-import { Copy, Receipt, TrendingUp } from "lucide-react";
+import { Check, Receipt, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Api, Risk } from "../api";
 import { dollars } from "../format";
+
+const SIGNALS = {
+  clear: { Icon: Check, chip: "chip-good", says: "Nothing unusual: " },
+  flag: { Icon: TriangleAlert, chip: "chip-warn flag", says: "Worth a look: " },
+  fact: { Icon: Receipt, chip: "", says: "" },
+} as const;
+
+function Signal({ kind, children }: { kind: keyof typeof SIGNALS; children: string }) {
+  const { Icon, chip, says } = SIGNALS[kind];
+  return (
+    <li className={`chip ${chip}`}>
+      <Icon size={13} strokeWidth={1.75} aria-hidden="true" />
+      {says && <span className="visually-hidden">{says}</span>}
+      {children}
+    </li>
+  );
+}
 
 /** Signals worth a second look on a claim: receipts seen on other claims, the customer's earlier
  * claims, and the amount against the typical one for the claim type. Never a decision. */
@@ -24,36 +41,34 @@ export function RiskPanel({ api, claimId }: { api: Api; claimId: string }) {
   }, [api, claimId]);
 
   if (!risk) return null;
-  const flags = (risk.shared_receipts.length > 0 ? 1 : 0) + (risk.high_amount ? 1 : 0);
+  const shared = risk.shared_receipts.length > 0;
+  const flags = (shared ? 1 : 0) + (risk.high_amount ? 1 : 0);
   return (
-    <section className={`risk${flags ? " risk-flagged" : ""}`} aria-labelledby="risk-title">
-      <h3 id="risk-title">
-        Risk signals{" "}
+    <section className="panel risk" aria-labelledby="risk-title">
+      <div className="panel-head">
+        <h2 id="risk-title">Risk signals</h2>
         <span className="muted small">
           {flags ? `${String(flags)} worth a look` : "nothing unusual"} · signals, not decisions
         </span>
-      </h3>
+      </div>
       <ul className="risk-list">
-        <li className={risk.shared_receipts.length ? "flag" : ""}>
-          <Copy size={16} strokeWidth={2} aria-hidden="true" />
-          {risk.shared_receipts.length === 0
-            ? "No receipt seen on another claim"
-            : risk.shared_receipts
+        <Signal kind={shared ? "flag" : "clear"}>
+          {shared
+            ? risk.shared_receipts
                 .map((s) => `Receipt ${String(s.receipt)} also on ${s.claim_id} (${s.match})`)
-                .join("; ")}
-        </li>
-        <li>
-          <Receipt size={16} strokeWidth={2} aria-hidden="true" />
+                .join("; ")
+            : "No receipt seen on another claim"}
+        </Signal>
+        <Signal kind={risk.earlier_claims === 0 ? "clear" : "fact"}>
           {risk.earlier_claims === 0
             ? "No earlier claims"
             : `${String(risk.earlier_claims)} earlier ${risk.earlier_claims === 1 ? "claim" : "claims"}, ${dollars(risk.earlier_paid)} paid`}
-        </li>
-        <li className={risk.high_amount ? "flag" : ""}>
-          <TrendingUp size={16} strokeWidth={2} aria-hidden="true" />
+        </Signal>
+        <Signal kind={risk.high_amount ? "flag" : risk.typical_amount === null ? "fact" : "clear"}>
           {risk.typical_amount === null
             ? `${dollars(risk.amount_claimed)} claimed`
             : `${dollars(risk.amount_claimed)} claimed, typical for this type ${dollars(risk.typical_amount)}`}
-        </li>
+        </Signal>
       </ul>
     </section>
   );

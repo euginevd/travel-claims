@@ -210,6 +210,36 @@ export const ThreatCoverageSchema = z.object({
   }),
 });
 
+export const SuccessCriteriaSchema = z.object({
+  met: z.boolean(),
+  criteria: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      unit: z.enum(["share", "count"]),
+      target: z.number(),
+      actual: z.number().nullable(),
+      // Null when there is nothing yet to measure.
+      met: z.boolean().nullable(),
+      detail: z.string(),
+    }),
+  ),
+});
+
+// The handlers' settings, read-only here: the console only needs the values.
+export const SettingsSchema = z.object({
+  values: z.object({
+    approval_limit: z.number(),
+    round_spend_limit: z.number(),
+    accuracy_objective: z.number(),
+    straight_through_objective: z.number(),
+    agents_at_once: z.number(),
+  }),
+});
+
+export type SuccessCriteria = z.infer<typeof SuccessCriteriaSchema>;
+export type Criterion = SuccessCriteria["criteria"][number];
+export type Settings = z.infer<typeof SettingsSchema>;
 export type ThreatCoverage = z.infer<typeof ThreatCoverageSchema>;
 export type Engineer = z.infer<typeof EngineerSchema>;
 export type RedTeamResult = z.infer<typeof RedTeamResultSchema>;
@@ -228,7 +258,95 @@ export interface AskTurn {
   text: string;
 }
 
+const HelpfulSchema = z.object({
+  count: z.number(),
+  helpful: z.number(),
+  helpful_share: z.number().nullable(),
+});
+
+// How the agent behaves on live claims. The comments and notes are people's own words: shown as
+// plain text only.
+export const LiveSchema = z.object({
+  days: z.number(),
+  since: z.string(),
+  until: z.string(),
+  totals: z.object({
+    decided: z.number(),
+    straight_through: z.number(),
+    straight_through_share: z.number().nullable(),
+    reviewed: z.number(),
+    disagreements: z.number(),
+    disagreement_rate: z.number().nullable(),
+    referrals: z.number(),
+    hidden_instruction_flags: z.number(),
+    cost_per_claim: z.number().nullable(),
+    seconds_per_claim: z.number().nullable(),
+  }),
+  series: z.array(
+    z.object({
+      day: z.string(),
+      decided: z.number(),
+      straight_through: z.number(),
+      reviewed: z.number(),
+      disagreements: z.number(),
+      referrals: z.number(),
+      hidden_instruction_flags: z.number(),
+      cost: z.number(),
+    }),
+  ),
+  feedback: z.object({
+    answers: HelpfulSchema,
+    decisions: HelpfulSchema,
+    comments: z.array(
+      z.object({
+        subject: z.string(),
+        claim_id: z.string().nullable(),
+        comment: z.string(),
+        question: z.string().nullable(),
+        created_at: z.string(),
+      }),
+    ),
+  }),
+  disagreements: z.array(
+    z.object({
+      claim_id: z.string(),
+      kind: z.enum(["override", "sent_back"]),
+      at: z.string(),
+      by: z.string(),
+      claim_type: z.string(),
+      amount_claimed: z.number(),
+      agent_decision: z.string(),
+      agent_payout: z.number(),
+      handler_decision: z.string().nullable(),
+      handler_payout: z.number().nullable(),
+      reason_code: z.string().nullable(),
+      note: z.string(),
+      final_decision: z.string().nullable(),
+      final_payout: z.number().nullable(),
+      in_evaluation_set: z.boolean(),
+      can_add: z.boolean(),
+    }),
+  ),
+});
+export type Live = z.infer<typeof LiveSchema>;
+export type Disagreement = Live["disagreements"][number];
+export const LIVE_PERIODS = [7, 14, 30] as const;
+export type LivePeriod = (typeof LIVE_PERIODS)[number];
+
+export const AddedSchema = z.object({
+  claim_id: z.string(),
+  label_set: z.string(),
+  status: z.enum(["added", "already_added"]),
+  decision: z.string(),
+  payout: z.number(),
+  added_by: z.string().nullable(),
+  added_at: z.string().nullable(),
+});
+export type Added = z.infer<typeof AddedSchema>;
+
 export interface Api {
+  getLive: (days: LivePeriod) => Promise<Live>;
+  addToEvaluation: (claimId: string) => Promise<Added>;
   signIn: (email: string, password: string) => Promise<string>;
   testSignIn: () => Promise<string>;
   me: () => Promise<Engineer>;
@@ -245,6 +363,8 @@ export interface Api {
   stopRound: (roundId: number) => Promise<Round>;
   getTrace: (claimId: string) => Promise<Trace>;
   getThreats: () => Promise<ThreatCoverage>;
+  getSuccessCriteria: () => Promise<SuccessCriteria>;
+  getSettings: () => Promise<Settings>;
   ask: (question: string, history: AskTurn[]) => Promise<Answer>;
 }
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -346,7 +466,16 @@ export function createApi(
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    getLive: (days) => call(LiveSchema, "GET", `/live?days=${String(days)}`),
+    addToEvaluation: (claimId) =>
+      call(
+        AddedSchema,
+        "POST",
+        `/live/disagreements/${encodeURIComponent(claimId)}/add-to-evaluation`,
+      ),
     getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
+    getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
+    getSettings: () => call(SettingsSchema, "GET", "/settings"),
     ask: (question, history) =>
       call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
     getTrace: (claimId) => call(TraceSchema, "GET", `/claims/${encodeURIComponent(claimId)}/trace`),

@@ -173,6 +173,11 @@ test("a senior handler signs off a held payout", async () => {
   expect(screen.getByText("Signing off pays $1,250.00 to Maya Patel now.")).toBeInTheDocument();
   expect(screen.getByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Sign off and pay $1,250.00" }));
+  // Nothing is paid until the confirm dialog's own button is pressed.
+  const confirm = screen.getByRole("dialog", { name: "Sign off and pay $1,250.00?" });
+  expect(within(confirm).getByText("Dana Whitfield, Senior Claims Handler")).toBeInTheDocument();
+  expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(0);
+  await user.click(within(confirm).getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByText(/signed off by Dana Whitfield/)).toBeInTheDocument();
   expect(screen.getByText("Signed off and paid $1,250.00.")).toHaveFocus();
   expect(signedOff).toBe(true);
@@ -208,6 +213,17 @@ test("a send-back needs a note of 1,000 characters or fewer", async () => {
   });
 });
 
+test("cancelling the sign-off confirm pays nothing and returns to the button", async () => {
+  const user = userEvent.setup();
+  const fetchFn = show(fixed(held));
+  const signOff = await screen.findByRole("button", { name: /Sign off and pay/ });
+  await user.click(signOff);
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(signOff).toHaveFocus();
+  expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(0);
+});
+
 test("a handler who can't sign off over the limit sees why", async () => {
   show(fixed(held), MARCUS);
   expect(await screen.findByRole("button", { name: /Sign off and pay/ })).toBeDisabled();
@@ -224,6 +240,7 @@ test("the api's 403 disables the buttons and gives its reason", async () => {
     [`POST ${BASE}/sign-off`]: () => [403, { detail: "Your sign-off limit is $1,000." }],
   });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
+  await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByText("Your sign-off limit is $1,000.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Sign off and pay/ })).toBeDisabled();
 });
@@ -232,6 +249,7 @@ test("other failures show as an alert and leave the buttons usable", async () =>
   const user = userEvent.setup();
   show({ ...fixed(held), [`POST ${BASE}/sign-off`]: () => [500, { detail: "Payments are down" }] });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
+  await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Payments are down");
   expect(screen.getByRole("button", { name: /Sign off and pay/ })).toBeEnabled();
 });
@@ -267,6 +285,7 @@ test("a sign-off that worked says so even when the steps don't reload", async ()
     },
   });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
+  await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   expect(screen.getByText(/Signed off and paid/)).toBeInTheDocument();
   // The steps already shown stay while the reload's failure is reported.

@@ -1,5 +1,5 @@
 import { FilePen, Plane, Wallet } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type DelayOffer, type SavedDraft } from "../api";
 import { date, dollars, when } from "../format";
 import { goTo, myClaimHref, NEW_CLAIM_HREF } from "../useHashRoute";
@@ -49,7 +49,7 @@ export function DelayOffers({ api }: { api: Api }) {
       {offers.map((offer) => (
         <div key={offer.flight_id} className="panel offer-card">
           <span className="offer-icon" aria-hidden="true">
-            <Plane size={22} strokeWidth={2} />
+            <Plane size={22} strokeWidth={1.75} />
           </span>
           <div className="offer-main">
             <h2 className="offer-title">
@@ -68,7 +68,7 @@ export function DelayOffers({ api }: { api: Api }) {
           </div>
           <button
             type="button"
-            className="button"
+            className="button secondary strong"
             disabled={busy !== null}
             onClick={() => {
               void claim(offer);
@@ -86,6 +86,20 @@ export function DelayOffers({ api }: { api: Api }) {
 export function PayoutCard({ api }: { api: Api }) {
   const [payid, setPayid] = useState<string | null | undefined>(undefined);
   const [editing, setEditing] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+
+  // Changing a PayID puts the cursor in the field, so leaving it empty can close it again.
+  useEffect(() => {
+    if (editing) field.current?.focus();
+  }, [editing]);
+
+  /** Leaving the change form with nothing typed puts the saved PayID back. */
+  function closeIfEmpty() {
+    if (payid && !value.trim()) {
+      setEditing(false);
+      setError(null);
+    }
+  }
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -128,13 +142,26 @@ export function PayoutCard({ api }: { api: Api }) {
   return (
     <section className="panel payout-card" aria-labelledby="payout-heading">
       <span className="offer-icon" aria-hidden="true">
-        <Wallet size={22} strokeWidth={2} />
+        <Wallet size={22} strokeWidth={1.75} />
       </span>
       <div className="offer-main">
         <h2 id="payout-heading" className="offer-title">
           {payid ? "Payouts go to your PayID" : "Get paid in seconds"}
         </h2>
-        {!form && payid && <p className="small muted">{payid}</p>}
+        {!form && payid && (
+          <>
+            <p className="small muted payid-value">{payid}</p>
+            <button
+              type="button"
+              className="link-button small"
+              onClick={() => {
+                setEditing(true);
+              }}
+            >
+              Change
+            </button>
+          </>
+        )}
         {form && (
           <form
             className="payid-form"
@@ -150,6 +177,18 @@ export function PayoutCard({ api }: { api: Api }) {
             <div className="payid-row">
               <input
                 id="payid"
+                ref={field}
+                onBlur={(event) => {
+                  // Moving on to Save keeps the form; anywhere else closes it if it's empty.
+                  if (!event.currentTarget.form?.contains(event.relatedTarget)) closeIfEmpty();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && payid) {
+                    setValue("");
+                    setEditing(false);
+                    setError(null);
+                  }
+                }}
                 autoComplete="email"
                 maxLength={320}
                 value={value}
@@ -157,7 +196,7 @@ export function PayoutCard({ api }: { api: Api }) {
                   setValue(event.target.value);
                 }}
               />
-              <button type="submit" className="button" disabled={saving || !value.trim()}>
+              <button type="submit" className="button secondary" disabled={saving || !value.trim()}>
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>
@@ -169,17 +208,6 @@ export function PayoutCard({ api }: { api: Api }) {
           </form>
         )}
       </div>
-      {!form && (
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => {
-            setEditing(true);
-          }}
-        >
-          Change
-        </button>
-      )}
     </section>
   );
 }
@@ -207,7 +235,7 @@ export function ResumeDraft({ api }: { api: Api }) {
   return (
     <section className="panel offer-card resume-card" aria-label="A claim you haven't sent">
       <span className="offer-icon" aria-hidden="true">
-        <FilePen size={22} strokeWidth={2} />
+        <FilePen size={22} strokeWidth={1.75} />
       </span>
       <div className="offer-main">
         <h2 className="offer-title">You have a claim you haven&apos;t sent</h2>
@@ -216,7 +244,7 @@ export function ResumeDraft({ api }: { api: Api }) {
         </p>
       </div>
       <div className="offer-actions">
-        <a className="button" href={NEW_CLAIM_HREF}>
+        <a className="button secondary strong" href={NEW_CLAIM_HREF}>
           Finish it
         </a>
         <button

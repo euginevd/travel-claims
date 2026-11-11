@@ -1,0 +1,19 @@
+{
+  "claim_id": "CLM-1019",
+  "claim_type": "trip_delay",
+  "summary": "1 of 1 similar claim was approved; typical payout $150",
+  "similar": [
+    {
+      "claim_id": "CLM-1001",
+      "decided_at": "2026-11-10T23:47:56+00:00",
+      "amount_claimed": 420.0,
+      "outcome": "approve",
+      "payout": 150.0,
+      "section": "Policy wording section 10",
+      "reason": "Receipt",
+      "overridden": true,
+      "same_plan": true,
+      "same_destination": false
+    }
+  ]
+}

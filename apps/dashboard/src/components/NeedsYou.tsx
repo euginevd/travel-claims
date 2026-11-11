@@ -33,7 +33,7 @@ export function NeedsYouBanner({ claim }: { claim: Claim }) {
   if (!message) return null;
   return (
     <p className="needs-you" role="status">
-      <CircleAlert size={18} strokeWidth={2} aria-hidden="true" />
+      <CircleAlert size={18} strokeWidth={1.75} aria-hidden="true" />
       <span>
         {message}
         {claim.review_note && claim.review_requested_at && (

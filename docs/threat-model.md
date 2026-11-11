@@ -9,10 +9,13 @@ flowchart LR
   subgraph browser ["Browser: untrusted"]
     customer[Customer]
     handler[Handler]
+    engineer[AI engineer]
   end
   subgraph laptop ["Docker Compose on the laptop, ports on 127.0.0.1"]
     portal((portal))
     dashboard((dashboard))
+    console((console))
+    copilot((copilot))
     api((api))
     db[(PostgreSQL)]
     receipts[(Receipt volume)]
@@ -28,6 +31,12 @@ flowchart LR
   handler -- "TB1b: sign-in, review, sign-off" --> dashboard
   portal -- "customer token, /api/customer only" --> api
   dashboard -- "staff token, /api/staff only" --> api
+  engineer -- "TB1c: sign-in, runs, live figures" --> console
+  console -- "engineer token, /api/engineering only" --> api
+  dashboard -- "TB6: the handler's own token, /api/copilot only" --> copilot
+  copilot -- "the handler's token, never a key" --> api
+  copilot -- "lookups over MCP" --> context
+  copilot -- "TB3" --> anthropic
   api --> db
   api --> receipts
   api -- "TB2: work, resume, agent key" --> agent
@@ -47,14 +56,19 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 | D1 | Customers' names, contact details, travel and medical details in claims | Highly sensitive in production; made up in tier 1 | PostgreSQL |
 | D2 | Decisions, their reasons, calculations and payments | Confidential | PostgreSQL |
 | D3 | Policy wording, claims manual and the other context files | Internal | The context layer, read by the agent |
-| D4 | Handlers' decisions on the labelled sets: the answer key | Confidential | `data/evals/` and the api's `labelled_claims`; no route the agent can call returns one, and the api sends the judge one handler's reason at a time, which it keeps and logs nowhere (TB5) |
+| D4 | Handlers' decisions on the labelled sets: the answer key, plus live claims an engineer added with the handler's final decision (a second copy of that claim's story and items) | Confidential | `data/evals/` and the api's `labelled_claims`; no route the agent can call returns one, and the api sends the judge one handler's reason at a time, which it keeps and logs nowhere (TB5) |
 | D6 | Receipts: images and PDFs customers upload | Highly sensitive in production; made up in tier 1 | The receipt volume (an S3 bucket in tier 2), under random names |
+| D7 | Customers' feedback: a vote, and up to 300 characters each of comment and question | Sensitive in production (free text); made up in tier 1 | PostgreSQL (`feedback`); engineers see it without a name or customer id; never sent to a model |
+| D8 | The Copilot's conversations and each handler's remembered preferences | Internal | PostgreSQL (`copilot` schema), one handler's only |
+| D9 | Settings and their change history: the approval limit, spending limit and objectives | Confidential | PostgreSQL (`settings`, `setting_changes`) |
 | D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged |
 
 ## Trust boundaries
 
 - **TB1a** Customers to the portal: customers sign in through the customer issuer (a Cognito-shaped local stand-in; a Cognito user pool, email and password only, in tier 2, whose public test-account button signs anyone in as Oliver Grant, made-up data only). The portal's web server forwards only `/api/customer/`; everything the browser sends is untrusted, receipts included.
 - **TB1b** Staff to the dashboard: handlers sign in through a separate staff issuer, with its own signing key and audience (a separate Cognito user pool in tier 2, reachable only from allowed networks). The dashboard's web server forwards only `/api/staff/`.
+- **TB1c** AI engineers to the console: a third issuer, signing key and audience; the console's web server forwards only `/api/engineering/`. An engineer's one write into the evaluation set (a live claim a handler overrode) is insert-only and recorded (R29).
+- **TB6** The Copilot: the dashboard sends each question with the handler's own token, which the Copilot checks with the `api` and never saves; every tool is a staff route the `api` authorises again, and a sign-off, send-back or dispatch waits on a confirm card (R11, R28). What it reads from a claim is customer data, never instructions.
 - **TB2** Agent and `api`: model output is untrusted; the `api` checks every decision against claims manual section 14 and the payout calculation before it can drive a payment.
 - **TB3** App to Claude: claim text leaves the laptop. Tier 1 sends only made-up data (spec 26); tier 2 keeps it in Australia.
 - **TB5** The judge: after an evaluation, the api sends the agent service's judge (Claude Haiku) one copy at a time: the agent's decision, reason and section beside the handler's. The agent's reason is untrusted model output; the judge's grade comes back to the api, which validates and stores it. The claim agent and the improver never receive the pairs (spec 24).
@@ -92,6 +106,9 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R24 | A receipt's hidden instruction steers a lookup program the model writes, to send out the claim and customer the model has read, or to run up cost *(off: `CODE_EXECUTION`)* | I, D | LLM01, LLM05, ASI05 | High | Off by default, and nothing (interpreter, role or permission) exists while off. Before switching it on, the sandbox's egress must reach only the gateway (a VPC-mode interpreter with the gateway's endpoint), since its public network lets a program send anything to any host. Meanwhile: the hidden-instruction check and the guardrail run first; the interpreter's role may call only the context gateway (public policy data); the claim's own tools and every decision stay outside the sandbox (R3, decision 4); a 60-second wait, 4,000 characters in and 8,000 out; every program and its output recorded as a step | Code, Deploy |
 | R25 | A dispatch runs up the bill, or works a claim twice beside a handler's Work this claim or a retry | D, T | LLM10, API4, ASI02 | Medium | Only a senior handler starts one (decision 7's signers); one dispatch or evaluation run at a time; it takes only claims waiting when it starts, at most 25 agents at once; each claim is started with the existing compare-and-set (`start_claim` refuses one that isn't waiting), so a handler's start or a retry and the dispatch start it once; one decision per attempt and one payment per claim (R2); the kill switch still holds every approval (R21); its cost recorded per claim | Code, Test |
 | R26 | The judge is steered or leaks the answer key: hidden instructions carried into the agent's reason inflate its grade, or a held-out reason reaches the improver | T, I | LLM01, LLM02, ASI06 | Low | The grade is shown only, never in the keep-or-roll-back rule, a payment or a decision; the judge sees the two reasons and sections as delimited data, not the claim, and answers in a schema the api validates (0 to 3, two booleans, a 200-character note); the pairs go only to `/judge`, never into a checkpoint, a step, memory or a log; the improver's routes are unchanged (evaluation-set misses only) | Code, Test |
+| R27 | A senior handler raises the approval limit so the agent pays larger claims without a person | E, T | LLM06, API5, ASI03 | Medium | Only a senior handler changes it, within a fixed $100 to $5,000 range; every change is kept with who, when, old, new and reason; a held payout stays held and a paid claim never changes; the success criteria judge each payment against the limit on its own decision | Code |
+| R28 | The Copilot is talked into starting a dispatch, sending a claim back, or remembering claim text as a preference | T, E | LLM01, LLM06, ASI02 | Medium | Dispatch and send-back wait on a confirm card like a sign-off, and a sign-off answer can't confirm another action; the api enforces the handler's role; memory is per handler from the verified token, 20 notes of 300 characters, each save shown on a card, with forget-all | Code |
+| R29 | A customer's story reaches the improver through a claim added to the evaluation set, or feedback text carries instructions or personal data to engineers | T, I | LLM01, LLM04, ASI06 | Medium | Only engineers add a claim, insert-only, recorded with who; a claim the hidden-instruction check ever flagged, an evaluation copy or a red-team claim is refused; the held-out set is never touched; a person approves every proposal and the held-out and red-team gates still apply; feedback text is shown as plain text and never sent to a model | Code |
 
 ## Compliance
 

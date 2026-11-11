@@ -94,7 +94,7 @@ def where(unit, unit_dir, address):
     for tf in sorted(pathlib.Path(unit_dir).glob("*.tf")):
         for n, line in enumerate(tf.read_text(encoding="utf-8").splitlines(), 1):
             if decl.search(line):
-                return f"aws/{unit}/{tf.name}", n
+                return f"infra/aws/{unit}/{tf.name}", n
     return None, None
 
 

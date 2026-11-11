@@ -4,7 +4,7 @@ import { Sparkle } from "lucide-react";
 export function AiMark({ label = "AI" }: { label?: string }) {
   return (
     <span className="ai-mark">
-      <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+      <Sparkle size={12} strokeWidth={1.75} aria-hidden="true" />
       {label}
     </span>
   );

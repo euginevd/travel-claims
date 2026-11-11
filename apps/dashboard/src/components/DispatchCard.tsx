@@ -1,4 +1,13 @@
-import { CircleCheck, Clock, Hand, Hourglass, LoaderCircle, Play } from "lucide-react";
+import {
+  CircleCheck,
+  CircleStop,
+  Clock,
+  Hand,
+  Hourglass,
+  Inbox,
+  LoaderCircle,
+  Play,
+} from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ApiError, type Api, type Dispatch, type Handler, type LatestDispatch } from "../api";
 import { dollars, when } from "../format";
@@ -29,11 +38,16 @@ function Progress({ dispatch }: { dispatch: Dispatch }) {
           Dispatch #{dispatch.dispatch_id}{" "}
           {running ? (
             <span className="chip chip-info">
-              <LoaderCircle size={14} strokeWidth={2} aria-hidden="true" />
+              <LoaderCircle size={14} strokeWidth={1.75} aria-hidden="true" />
               Running
             </span>
           ) : (
             <span className={`chip ${dispatch.status === "stopped" ? "chip-bad" : "chip-good"}`}>
+              {dispatch.status === "stopped" ? (
+                <CircleStop size={13} strokeWidth={1.75} aria-hidden="true" />
+              ) : (
+                <CircleCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+              )}
               {dispatch.status === "stopped" ? "Stopped" : "Finished"}
             </span>
           )}
@@ -59,19 +73,19 @@ function Progress({ dispatch }: { dispatch: Dispatch }) {
       </p>
       <ul className="dispatch-counts" aria-label="Where the dispatch's claims are">
         <li className="chip chip-good">
-          <CircleCheck size={14} strokeWidth={2} aria-hidden="true" />
+          <CircleCheck size={14} strokeWidth={1.75} aria-hidden="true" />
           {dispatch.decided} decided
         </li>
         <li className="chip chip-warn">
-          <Hourglass size={14} strokeWidth={2} aria-hidden="true" />
+          <Hourglass size={14} strokeWidth={1.75} aria-hidden="true" />
           {dispatch.waiting_for_sign_off} waiting for sign-off
         </li>
         <li className="chip chip-refer">
-          <Hand size={14} strokeWidth={2} aria-hidden="true" />
+          <Hand size={14} strokeWidth={1.75} aria-hidden="true" />
           {dispatch.referred} referred
         </li>
         <li className="chip chip-info">
-          <Clock size={14} strokeWidth={2} aria-hidden="true" />
+          <Clock size={14} strokeWidth={1.75} aria-hidden="true" />
           {dispatch.not_started} not started
         </li>
       </ul>
@@ -128,8 +142,26 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
+  const agentsTouched = useRef(false);
   const ids = useId();
   const senior = handler.can_approve_over_limit;
+
+  // Start from the number on the Settings page, unless the handler has already typed one.
+  useEffect(() => {
+    if (!senior) return;
+    let live = true;
+    api.getSettings().then(
+      (found) => {
+        if (live && !agentsTouched.current) setAgents(found.values.agents_at_once);
+      },
+      () => {
+        // Only a starting value: the form works without it.
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, senior]);
 
   const refresh = useCallback(() => {
     setGeneration((value) => value + 1);
@@ -185,13 +217,21 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
 
   const waiting = latest?.waiting ?? 0;
   const dispatch = latest?.dispatch ?? null;
+  // With nothing waiting and nothing running, the card folds down to one quiet line.
+  const quiet = !error && (latest === null || (!running && waiting === 0));
 
   return (
-    <section className="panel dispatch" aria-labelledby="dispatch-heading" aria-busy={!latest}>
+    <section
+      className={quiet ? "dispatch dispatch-quiet" : "panel dispatch"}
+      aria-labelledby="dispatch-heading"
+      aria-busy={!latest}
+    >
       {!latest && !error && (
         <>
-          <h2 id="dispatch-heading">Dispatch</h2>
-          <p role="status" className="muted small">
+          <h2 id="dispatch-heading" className="visually-hidden">
+            Dispatch
+          </h2>
+          <p role="status" className="muted small dispatch-line">
             Loading the latest dispatch…
           </p>
         </>
@@ -210,9 +250,16 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
       {latest && running && dispatch && <Progress dispatch={dispatch} />}
       {latest && !running && (
         <>
-          {!error && <h2 id="dispatch-heading">Dispatch</h2>}
+          {!error && (
+            <h2 id="dispatch-heading" className={quiet ? "visually-hidden" : undefined}>
+              Dispatch
+            </h2>
+          )}
           {waiting === 0 ? (
-            <p className="muted small">
+            <p className="muted small dispatch-line">
+              <span className="icon-tile" aria-hidden="true">
+                <Inbox size={15} strokeWidth={1.75} />
+              </span>
               Nothing is waiting, so there&apos;s nothing to dispatch. New claims from the portal
               land here.
             </p>
@@ -245,6 +292,7 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
                   value={agents}
                   aria-describedby={`${ids}-hint`}
                   onChange={(event) => {
+                    agentsTouched.current = true;
                     setAgents(Math.min(25, Math.max(1, Number(event.target.value) || 1)));
                   }}
                 />
@@ -253,7 +301,7 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
                 </p>
               </div>
               <button className="button" type="submit">
-                <Play size={16} strokeWidth={2} aria-hidden="true" />
+                <Play size={16} strokeWidth={1.75} aria-hidden="true" />
                 Work the waiting claims
               </button>
             </form>
@@ -291,7 +339,7 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
             </div>
           )}
           {dispatch && (
-            <p className="muted small">
+            <p className="muted small dispatch-last">
               Last dispatch: #{dispatch.dispatch_id}, {dispatch.status}{" "}
               {when(dispatch.finished_at ?? dispatch.started_at)} by {dispatch.started_by} ·{" "}
               {dispatch.claims.length} claims · {dollars(dispatch.total_cost)}

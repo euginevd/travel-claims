@@ -10,9 +10,9 @@ resource "aws_secretsmanager_secret" "app" {
 
 # On apply, adds the agent's key and SET-ME placeholders for the database URLs; never overwrites a value.
 resource "terraform_data" "fill" {
-  triggers_replace = [aws_secretsmanager_secret.app.arn, filesha256("${path.module}/../../scripts/fill-secret.py")]
+  triggers_replace = [aws_secretsmanager_secret.app.arn, filesha256("${path.module}/../../../scripts/fill-secret.py")]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../scripts/fill-secret.py ${aws_secretsmanager_secret.app.name}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${aws_secretsmanager_secret.app.name}"
   }
 }

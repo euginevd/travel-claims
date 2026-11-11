@@ -67,9 +67,11 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set it in .env}
       ANTHROPIC_WORKSPACE_ID: ${ANTHROPIC_WORKSPACE_ID:?set it in .env}
       UNDERCOVER_API: http://api:8000
+      UNDERCOVER_CONTEXT: http://context:8006/mcp
       CHECKPOINT_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     depends_on:
       api: { condition: service_healthy }
+      context: { condition: service_healthy }
 
   # Customers and staff use separate web apps; each web server forwards only its own api prefix.
   portal:

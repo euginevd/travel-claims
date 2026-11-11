@@ -27,3 +27,5 @@ coverage/
 .DS_Store
 test-results/
 playwright-report/
+# Local notes and drafts, never committed.
+.local/

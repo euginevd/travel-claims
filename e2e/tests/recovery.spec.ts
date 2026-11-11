@@ -19,7 +19,7 @@ test("a handler retries a claim the agent stopped working", async ({ page, reque
   );
 
   await page.goto(DASHBOARD);
-  await page.getByRole("button", { name: /Use test account/ }).click();
+  await page.getByRole("button", { name: /Continue as Dana/ }).click();
   const row = page.getByRole("row").filter({ hasText: CLAIM });
   await expect(row.getByText("Stalled")).toBeVisible();
 

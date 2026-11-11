@@ -60,10 +60,10 @@ export function LetterPanel({
 
   const sent = claim.letter;
   return (
-    <section className="letter" aria-labelledby={`${id}-title`}>
-      <h3 id={`${id}-title`}>
-        <Mail size={16} strokeWidth={2} aria-hidden="true" /> Letter to the customer
-      </h3>
+    <section className="panel letter" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>
+        <Mail size={16} strokeWidth={1.75} aria-hidden="true" /> Letter to the customer
+      </h2>
       {sent && !writing && (
         <div className="letter-sent">
           <p className="muted small">
@@ -86,7 +86,7 @@ export function LetterPanel({
               void draft();
             }}
           >
-            <Sparkle size={14} strokeWidth={2} aria-hidden="true" />
+            <Sparkle size={14} strokeWidth={1.75} aria-hidden="true" />
             {busy === "draft" ? "Drafting…" : sent ? "Draft a new letter with AI" : "Draft with AI"}
           </button>
           <button
@@ -112,7 +112,7 @@ export function LetterPanel({
         >
           {byAi && (
             <p className="muted small">
-              <Sparkle size={12} strokeWidth={2} aria-hidden="true" /> Drafted with AI: check it
+              <Sparkle size={12} strokeWidth={1.75} aria-hidden="true" /> Drafted with AI: check it
               before you send it.
             </p>
           )}
@@ -141,7 +141,7 @@ export function LetterPanel({
               className="button small-button"
               disabled={busy !== null || !subject.trim() || !body.trim()}
             >
-              <Send size={14} strokeWidth={2} aria-hidden="true" />
+              <Send size={14} strokeWidth={1.75} aria-hidden="true" />
               {busy === "send" ? "Sending…" : "Send to the customer"}
             </button>
             <button

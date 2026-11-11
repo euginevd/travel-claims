@@ -11,6 +11,12 @@ export function startersFor(route: Route): string[] {
         `Which claims did run ${String(route.runId)} get wrong?`,
         "How does this run compare with the last one?",
       ];
+    case "live":
+      return [
+        "How often do handlers disagree with the agent on live claims?",
+        "What share of live claims went straight through?",
+        "What do customers think of the explanations?",
+      ];
     case "improvement":
       return ["What changed in the latest round?", "Did the last round pass the red team?"];
     case "redteam":
@@ -41,7 +47,7 @@ export function AskWattle({
   return (
     <WattlePanel
       ask={(question, history) => api.ask(question, history)}
-      scope="Ask about evaluation runs, improvement rounds, the red team, threat coverage and claim traces. Read-only: it explains, it changes nothing."
+      scope="Ask about evaluation runs, improvement rounds, the red team, threat coverage, live monitoring and claim traces. Read-only: it explains, it changes nothing."
       starters={startersFor(route)}
       placeholder="Ask about quality, security or a trace"
       onClose={onClose}

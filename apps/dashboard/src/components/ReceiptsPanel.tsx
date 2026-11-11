@@ -65,7 +65,7 @@ export function ReceiptsPanel({ api, claimId, receipts }: ReceiptsPanelProps) {
               <img src={urls[receipt.receipt_id]} alt={`Receipt ${String(index + 1)}`} />
             ) : (
               <span className="receipt-icon">
-                <FileText size={32} strokeWidth={2} aria-hidden="true" />
+                <FileText size={32} strokeWidth={1.75} aria-hidden="true" />
               </span>
             )}
             <span className="small">
@@ -78,7 +78,7 @@ export function ReceiptsPanel({ api, claimId, receipts }: ReceiptsPanelProps) {
                 void download(receipt, index);
               }}
             >
-              <Download size={16} strokeWidth={2} aria-hidden="true" />
+              <Download size={16} strokeWidth={1.75} aria-hidden="true" />
               Download
             </button>
           </li>

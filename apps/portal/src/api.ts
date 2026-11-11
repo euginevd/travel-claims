@@ -227,6 +227,26 @@ export interface NewClaim {
   items: Item[];
 }
 
+export const FeedbackSchema = z.object({
+  feedback_id: z.number(),
+  subject: z.enum(["answer", "decision"]),
+  claim_id: z.string().nullable(),
+  helpful: z.boolean(),
+  comment: z.string().nullable(),
+});
+export type Feedback = z.infer<typeof FeedbackSchema>;
+/** A vote on one of Wattle's answers or on a decision's explanation. */
+export interface Vote {
+  subject: "answer" | "decision";
+  claim_id?: string;
+  helpful: boolean;
+  comment?: string;
+  question?: string;
+  feedback_id?: number;
+}
+// The longest comment or question the api keeps with a vote.
+export const FEEDBACK_WORDS = 300;
+
 export class ApiError extends Error {
   readonly status: number;
 
@@ -259,6 +279,8 @@ export interface Api {
   saveDraft: (draft: ClaimDraft) => Promise<SavedDraft>;
   discardDraft: () => Promise<void>;
   testSignIn: () => Promise<string>;
+  giveFeedback: (vote: Vote) => Promise<Feedback>;
+  myDecisionFeedback: (claimId: string) => Promise<Feedback | null>;
 }
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
@@ -381,5 +403,8 @@ export function createApi(
     myDraft: () => call(SavedDraftSchema.nullable(), "GET", "/draft"),
     saveDraft: (draft) => call(SavedDraftSchema, "PUT", "/draft", { body: draft }),
     discardDraft: () => call(z.undefined(), "DELETE", "/draft"),
+    giveFeedback: (vote) => call(FeedbackSchema, "POST", "/feedback", { body: vote }),
+    myDecisionFeedback: (claimId) =>
+      call(FeedbackSchema.nullable(), "GET", `${claimPath(claimId)}/feedback`),
   };
 }

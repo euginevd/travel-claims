@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export type Route =
   | { page: "scoreboard" }
+  | { page: "live" }
   | { page: "run"; runId: number }
   | { page: "improvement" }
   | { page: "redteam" }
@@ -11,12 +12,14 @@ export type Route =
 const RUN_PATH = /^#\/runs\/(\d+)$/;
 
 export const SCOREBOARD_HREF = "#/";
+export const LIVE_HREF = "#/live";
 export const IMPROVEMENT_HREF = "#/improvement";
 export const REDTEAM_HREF = "#/redteam";
 export const TRACE_HREF = "#/trace";
 export const THREATS_HREF = "#/threats";
 
 export function parseHash(hash: string): Route {
+  if (hash === LIVE_HREF) return { page: "live" };
   if (hash === REDTEAM_HREF) return { page: "redteam" };
   if (hash === IMPROVEMENT_HREF) return { page: "improvement" };
   if (hash === TRACE_HREF) return { page: "trace" };

@@ -32,7 +32,7 @@ export function CustomerStatusChip({ status }: { status: CustomerStatus }) {
   const { label, Icon, tone } = CUSTOMER[status];
   return (
     <span className={`chip chip-${tone}`}>
-      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+      <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
       {label}
     </span>
   );

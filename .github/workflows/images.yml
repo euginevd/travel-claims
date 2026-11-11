@@ -112,7 +112,7 @@ jobs:
           site() { aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$1'].$2 | [0]" --output text; }
           if [ "$APP" = home ]; then
             # The project page is static files, with the three apps' addresses in links.json.
-            mkdir dist && cp -r apps/home/index.html apps/home/styles.css apps/home/app.js apps/home/icon.svg apps/home/img apps/home/media dist/
+            mkdir dist && cp -r apps/home/index.html apps/home/styles.css apps/home/app.js apps/home/icon.svg apps/home/fonts apps/home/img apps/home/media dist/
             printf '{"portal":"https://%s/","dashboard":"https://%s/","console":"https://%s/"}\n' "$(site portal DomainName)" "$(site dashboard DomainName)" "$(site console DomainName)" > dist/links.json
           else
             pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"

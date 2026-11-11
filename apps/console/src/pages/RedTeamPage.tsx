@@ -1,11 +1,18 @@
-import { LoaderCircle, Play, ShieldAlert, ShieldCheck } from "lucide-react";
+import { LoaderCircle, Play, ShieldAlert, ShieldCheck, Target } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type RedTeamStatus } from "../api";
+import { RingChart } from "../components/Charts";
+import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
 
 // How often the page checks on a run while it's going.
 export const REDTEAM_POLL_MS = 3000;
+
+/** The OWASP IDs in a result's field, e.g. "LLM01, ASI01" -> ["LLM01", "ASI01"]. */
+export function owaspIds(owasp: string): string[] {
+  return owasp.split(/[\s,;/]+/).filter(Boolean);
+}
 
 /** The red-team suite: an AI engineer runs it from here, then each attack, what the app did and
  * whether it held. */
@@ -61,77 +68,110 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
 
   const report = status?.report ?? null;
   const held = report?.results.filter((result) => result.passed).length ?? 0;
+  const allHeld = report !== null && held === report.results.length;
   return (
-    <section aria-labelledby="redteam-heading">
-      <p className="eyebrow">Security · Red team</p>
-      <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
-        Red-team report
-      </h1>
-      <p className="muted">
-        Attack claims made through the customers' portal and worked by the agent. An attack passes
-        when no money leaves beyond what the claim honestly supports.
-      </p>
-      <div className="redteam-run panel">
+    <section className="view" aria-labelledby="redteam-heading">
+      <header className="page-head">
         <div>
+          <p className="eyebrow">Security · Red team</p>
+          <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
+            Red-team report
+          </h1>
+          <p className="lede">
+            Attack claims made through the customers' portal and worked by the agent. An attack
+            passes when no money leaves beyond what the claim honestly supports.
+          </p>
+        </div>
+      </header>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="cols redteam-top">
+        {report ? (
+          <div className={`panel verdict${allHeld ? " wash-sage" : " alert"}`}>
+            <RingChart part={held} whole={report.results.length} />
+            <div className="verdict-text">
+              <p className="verdict-title">
+                {allHeld ? (
+                  <ShieldCheck size={24} strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <ShieldAlert size={24} strokeWidth={1.75} aria-hidden="true" />
+                )}
+                <strong>
+                  {held} of {report.results.length} attacks held
+                </strong>
+              </p>
+              <p className="muted">
+                Run by {report.run_by}, {when(report.run_at)}.{" "}
+                {dollars(report.results.reduce((sum, result) => sum + result.paid, 0))} paid across
+                the attack claims.
+              </p>
+            </div>
+          </div>
+        ) : status && !running ? (
+          <div className="panel empty">
+            <span className="icon-tile">
+              <Target size={19} strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <h2>No run yet</h2>
+            <p className="muted">Run the red team to see how the app stands up to attack claims.</p>
+          </div>
+        ) : (
+          <div className="panel">
+            {!status && !error && (
+              <p role="status" className="loading">
+                <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
+                Loading the report…
+              </p>
+            )}
+            {running && (
+              <p className="muted">The first report appears here when the run is done.</p>
+            )}
+          </div>
+        )}
+        <div className="panel redteam-run">
+          <div className="panel-head">
+            <h2>Run the red team</h2>
+          </div>
+          <p className="muted small">
+            Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of
+            Claude, a few minutes.
+          </p>
           <button
             type="button"
-            className="button"
+            className="button wide"
             onClick={() => {
               void run();
             }}
             disabled={running || starting || !status}
           >
             {running || starting ? (
-              <LoaderCircle className="spin" size={16} strokeWidth={2} aria-hidden="true" />
+              <LoaderCircle className="spin" size={15} strokeWidth={1.75} aria-hidden="true" />
             ) : (
-              <Play size={16} strokeWidth={2} aria-hidden="true" />
+              <Play size={15} strokeWidth={1.75} aria-hidden="true" />
             )}
             {running ? "Running…" : "Run the red team"}
           </button>
+          {running && (
+            <p role="status" className="redteam-progress small">
+              Running 8 attack claims
+              {status?.started_by ? `, started by ${status.started_by}` : ""}
+              {status?.started_at ? ` ${when(status.started_at)}` : ""}… The report appears here
+              when they're done.
+            </p>
+          )}
         </div>
-        <p className="muted small">
-          Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of
-          Claude, a few minutes.
-        </p>
-        {running && (
-          <p role="status" className="redteam-progress">
-            Running 8 attack claims
-            {status?.started_by ? `, started by ${status.started_by}` : ""}
-            {status?.started_at ? ` ${when(status.started_at)}` : ""}… The report appears here when
-            they're done.
-          </p>
-        )}
       </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {status && !report && !running && (
-        <div className="panel empty">
-          <h2>No run yet</h2>
-          <p className="muted">Run the red team to see how the app stands up to attack claims.</p>
-        </div>
-      )}
-      {!status && !error && <p role="status">Loading the report…</p>}
       {report && (
-        <>
-          <p className="redteam-summary">
-            {held === report.results.length ? (
-              <ShieldCheck size={22} strokeWidth={2} aria-hidden="true" />
-            ) : (
-              <ShieldAlert size={22} strokeWidth={2} aria-hidden="true" />
-            )}
-            <strong>
-              {held} of {report.results.length} attacks held
-            </strong>
-            <span className="muted">
-              {" "}
-              · run by {report.run_by}, {when(report.run_at)}
-            </span>
-          </p>
-          <div className="table-wrap">
-            <table className="redteam">
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Attacks</h2>
+            <p className="panel-note">OWASP Top 10 for LLM and agentic applications</p>
+          </div>
+          <TableScroll label="Attacks table">
+            <table className="table min-wide">
               <thead>
                 <tr>
                   <th scope="col">Attack</th>
@@ -139,7 +179,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                   <th scope="col">OWASP</th>
                   <th scope="col">Outcome</th>
                   <th scope="col">Decided by</th>
-                  <th scope="col" className="number">
+                  <th scope="col" className="num">
                     Paid
                   </th>
                   <th scope="col">Result</th>
@@ -148,36 +188,46 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
               <tbody>
                 {report.results.map((result) => (
                   <tr key={result.attack_id}>
-                    <th scope="row">
-                      <span className="mono">{result.attack_id}</span> {result.name}
-                      {result.claim_id && (
-                        <div>
-                          <span className="mono">{result.claim_id}</span>
-                        </div>
-                      )}
+                    <th scope="row" className="nowrap">
+                      <span className="tag mono">{result.attack_id}</span>
+                      {result.claim_id && <span className="sub mono">{result.claim_id}</span>}
                     </th>
-                    <td dir="auto">{result.technique}</td>
-                    <td className="mono">{result.owasp}</td>
+                    <td className="prose">
+                      <strong>{result.name}</strong>
+                      <span className="sub" dir="auto">
+                        {result.technique}
+                      </span>
+                    </td>
+                    <td>
+                      {owaspIds(result.owasp).map((id) => (
+                        <span key={id} className="tag tag-owasp">
+                          {id}
+                        </span>
+                      ))}
+                    </td>
                     <td>{result.outcome}</td>
                     <td>{result.decided_by}</td>
-                    <td className="number">{dollars(result.paid)}</td>
+                    <td className="num">{dollars(result.paid)}</td>
                     <td>
                       {result.passed ? (
                         <span className="chip chip-good">
-                          <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" /> Held
+                          <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" /> Held
                         </span>
                       ) : (
-                        <span className="chip chip-bad" title={result.note}>
-                          <ShieldAlert size={14} strokeWidth={2} aria-hidden="true" /> Failed
-                        </span>
+                        <>
+                          <span className="chip chip-bad">
+                            <ShieldAlert size={13} strokeWidth={1.75} aria-hidden="true" /> Failed
+                          </span>
+                          {result.note && <span className="sub">{result.note}</span>}
+                        </>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </>
+          </TableScroll>
+        </div>
       )}
     </section>
   );

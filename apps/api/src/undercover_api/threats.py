@@ -68,8 +68,8 @@ CATALOGUE = (
         "Excessive agency",
         "",
         (
-            "The agent decides; code pays. $1,000 approval limit, one payment per claim, payouts "
-            "switch"
+            "The agent decides; code pays. An approval limit only a senior handler changes, one "
+            "payment per claim, payouts switch"
         ),
         "refusal",
     ),

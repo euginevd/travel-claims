@@ -1,0 +1,2 @@
+# Fonts are binary: the repo-wide rule for this folder would rewrite their line endings.
+fonts/** binary

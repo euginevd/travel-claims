@@ -31,8 +31,11 @@ export function AskedPanel({ api, claim, onUpdated }: AskedPanelProps) {
   }
 
   return (
-    <section className="asked" aria-labelledby={`${id}-title`}>
-      <h3 id={`${id}-title`}>Asked the customer</h3>
+    <section className="panel asked" aria-labelledby={`${id}-title`}>
+      <div className="panel-head">
+        <h2 id={`${id}-title`}>Asked the customer</h2>
+        <span className="muted small">they see each request on their claim</span>
+      </div>
       {claim.requests.length === 0 ? (
         <p className="muted small">Nothing asked yet.</p>
       ) : (
@@ -40,9 +43,9 @@ export function AskedPanel({ api, claim, onUpdated }: AskedPanelProps) {
           {claim.requests.map((request) => (
             <li key={request.request_id} className={request.fulfilled_at ? "done" : ""}>
               {request.fulfilled_at ? (
-                <CircleCheck size={16} strokeWidth={2} aria-label="Sent" />
+                <CircleCheck size={16} strokeWidth={1.75} aria-label="Sent" />
               ) : (
-                <CircleDashed size={16} strokeWidth={2} aria-label="Waiting" />
+                <CircleDashed size={16} strokeWidth={1.75} aria-label="Waiting" />
               )}
               <span dir="auto">{request.text}</span>
               <span className="muted small">
@@ -78,7 +81,7 @@ export function AskedPanel({ api, claim, onUpdated }: AskedPanelProps) {
           className="button secondary small-button"
           disabled={busy || text.trim().length < 3}
         >
-          <Send size={14} strokeWidth={2} aria-hidden="true" />
+          <Send size={14} strokeWidth={1.75} aria-hidden="true" />
           {busy ? "Asking…" : "Ask"}
         </button>
       </form>

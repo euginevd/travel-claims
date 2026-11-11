@@ -24,17 +24,17 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 ## Tests
 
 11. Add tests with each change, including the abuse cases in `threat-model.md`. Stub models, cloud and paid services.
-12. Keep test coverage at 80% or more for new code.
+12. Keep test coverage at 80% or more; the checks fail below it. A prototype's tests, in place of 11's abuse cases: `AGENTS.md` rule 24.
 
 ## Terraform
 
-13. One root per unit in `aws/<unit>/`, copied from an existing unit: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
+13. One root per unit in `infra/aws/<unit>/`, copied from an existing unit: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
 14. No hardcoded IDs, regions, ARNs, project names or environments. Name resources `${var.project}-<unit>-<what>-${var.environment}`, give every IAM role the `${var.project}-boundary` boundary, and tag through `default_tags`.
 
 ## Languages
 
 15. Python: the newest version the deploy runtime supports, `uv run` for everything, `ruff` to lint and format, `pyright` in strict mode; one workspace member per app in the root `pyproject.toml`.
-16. TypeScript: strict mode, never `any`; ESLint with `jsx-a11y` and Prettier; `save-exact` and a `before=` date a week back in the app's `.npmrc`. The server for web pages sends a strict CSP with `frame-ancestors 'none'`, `nosniff` and `no-referrer`.
+16. TypeScript: strict mode, never `any`; ESLint with `jsx-a11y` and Prettier; `save-exact=true` and `min-release-age=7` in the app's `.npmrc`. The server for web pages sends a strict CSP with `frame-ancestors 'none'`, `nosniff` and `no-referrer`.
 
 ## AI and agents
 
@@ -46,7 +46,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Containers
 
-22. Images are multi-stage, pinned by digest, run as a non-root user and have a `HEALTHCHECK`; local ports bind to `127.0.0.1`; a missing setting fails at start (`${VAR:?}`), and `.env.example` lists each one.
+22. Images are multi-stage, pinned by digest, run as a non-root user and have a `HEALTHCHECK`; local ports bind to `127.0.0.1`; a missing setting fails at start (`${VAR:?}`), and `.env.example` lists each one. A `.dockerignore` keeps `.env*` and `.git` out of every image.
 
 ## Docs
 

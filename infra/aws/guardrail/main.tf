@@ -43,6 +43,6 @@ resource "terraform_data" "enable" {
   triggers_replace = [aws_bedrock_guardrail_version.claims.version]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} BEDROCK_GUARDRAIL_ID=${aws_bedrock_guardrail.claims.guardrail_id} BEDROCK_GUARDRAIL_VERSION=${aws_bedrock_guardrail_version.claims.version}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} BEDROCK_GUARDRAIL_ID=${aws_bedrock_guardrail.claims.guardrail_id} BEDROCK_GUARDRAIL_VERSION=${aws_bedrock_guardrail_version.claims.version}"
   }
 }

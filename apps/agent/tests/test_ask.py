@@ -105,6 +105,7 @@ def test_the_engineers_assistant_reads_the_snapshot_and_traces_only_named_claims
     assert answer.sources == ["Trace CLM-1001"]
     assert "error" in explainer.run("claim_trace", {"claim_id": "CLM-9999"}, request)
     assert "run_id" in explainer.run("evaluation_runs", {}, request)
+    assert "error" in explainer.run("live_monitoring", {}, request)
 
 
 class UnreadableCheck(FakeClaude):

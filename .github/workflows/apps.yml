@@ -40,7 +40,7 @@ jobs:
               apps/console/*) console=true ;;
               apps/portal/*) portal=true ;;
               apps/* | data/* | *.py | pyproject.toml | uv.lock | .python-version) python=true ;;
-              *.md | docs/* | guides/* | LICENSE | aws/* | .vscode/*) ;;
+              *.md | docs/* | guides/* | LICENSE | infra/* | .vscode/*) ;;
               *) python=true; dashboard=true; console=true; portal=true ;;
             esac
           done <<< "$files"
