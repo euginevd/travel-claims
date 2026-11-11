@@ -1,4 +1,4 @@
-"""Tier 2's public demo: the test-account buttons sign a fixed account in through
+"""The public demo on AWS: the test-account buttons sign a fixed account in through
 its Cognito pool. Each sign-in sets a fresh random password and uses it at once, so none is
 stored."""
 

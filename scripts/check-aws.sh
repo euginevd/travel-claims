@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-flight checks for tier 2, by area: the account, Bedrock's models and the bootstrap's IAM policies; add new areas below.
+# Pre-flight checks for AWS, by area: the account, Bedrock's models and the bootstrap's IAM policies; add new areas below.
 # Paste it into AWS CloudShell in Sydney, or run it with the AWS CLI signed in. Costs under $0.001 in all.
 {
   R=ap-southeast-2; P=travel-claims

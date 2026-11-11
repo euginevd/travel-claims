@@ -1,6 +1,6 @@
-# What an enterprise's platform team runs for the whole account or organization (decision 35): the
-# budget alert and IAM Access Analyzer. The prototype builds them itself; with PLATFORM_MANAGED=true
-# the pipeline skips this unit, and the platform's own settings stay untouched.
+# What a platform team's landing zone gives every account (decisions 35 and 36), here in one unit for
+# simplicity: the budget alert, IAM Access Analyzer and the workload network (network.tf). With
+# PLATFORM_MANAGED=true the pipeline skips this unit, and the platform's own settings stay untouched.
 
 locals {
   prefix = "${var.project}-${var.environment}"

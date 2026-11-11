@@ -23,10 +23,10 @@ class Settings(BaseSettings):
     # The local sign-in stand-in issues tokens shaped like Cognito's; never on outside a laptop.
     local_sign_in: bool = False
     handler_password: SecretStr | None = None
-    # Tier 2's demo: test-account buttons signed in through Cognito, and the home page's counts.
+    # The AWS demo: test-account buttons signed in through Cognito, and the home page's counts.
     test_sign_in: bool = False
     # Where each audience's ID tokens come from and who they are for: names, not secrets.
-    # Staff and customers have separate issuers (two Cognito user pools in tier 2), so a
+    # Staff and customers have separate issuers (two Cognito user pools on AWS), so a
     # token for one audience fails the other's signature and audience checks.
     staff_token_issuer: str = "http://127.0.0.1:8000/api/staff/dev"  # noqa: S105
     staff_token_audience: str = "undercover-staff"  # noqa: S105
@@ -41,10 +41,10 @@ class Settings(BaseSettings):
     # Where receipts are kept: a Docker volume locally, a private S3 bucket when the bucket is set.
     receipts_dir: Path = Path("receipts")
     receipts_bucket: str | None = None
-    # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (tier 2).
+    # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (AWS).
     agent_url: str = "http://127.0.0.1:8080"
     agent_runtime_arn: str | None = None
-    # Tier 2: the runtime takes the api's machine token, which AgentCore Identity fetches from its
+    # On AWS: the runtime takes the api's machine token, which AgentCore Identity fetches from its
     # vault through this workload identity; the runtime is called with AWS signatures when unset.
     workload_name: str | None = None
     agent_token_provider: str | None = None
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         if self.local_sign_in and not self.handler_password:
             raise ValueError("LOCAL_SIGN_IN needs HANDLER_PASSWORD")
         if self.local_sign_in and self.test_sign_in:
-            raise ValueError("TEST_SIGN_IN is for tier 2; locally the stand-in signs in")
+            raise ValueError("TEST_SIGN_IN is for AWS; locally the stand-in signs in")
         issuers = (
             self.staff_token_issuer,
             self.customer_token_issuer,
@@ -81,7 +81,7 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON parameter named by APP_SECRET; what is
+    """On AWS, fill in settings from the JSON parameter named by APP_SECRET; what is
     already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:

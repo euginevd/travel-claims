@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys tier 2 from nothing, one unit at a time in dependency order; a prototype's apply runs unattended.
+# Deploys the AWS build from nothing, one unit at a time in dependency order; a prototype's apply runs unattended.
 # bash scripts/deploy-aws.sh apply|destroy [unit ...]   (needs gh, signed in; the bootstrap stack and repo variables set)
 # With units named, runs only those, in the order given (such as: apply secrets functions agent).
 set -euo pipefail
@@ -8,9 +8,9 @@ action=${1:-apply}
 [ $# -gt 0 ] && shift
 all=$([ $# -eq 0 ] && echo yes || echo no)
 # Each unit's plan reads what the ones before it made; images go to ECR before the functions and agent.
-order=(registry secrets database storage identity guardrail images functions agent web monitoring platform images)
+order=(platform registry secrets database storage identity guardrail images functions agent web monitoring images)
 # Destroy runs the other way, without the image builds.
-[ "$action" = destroy ] && order=(platform monitoring web agent functions guardrail identity storage database secrets registry)
+[ "$action" = destroy ] && order=(monitoring web agent functions guardrail identity storage database secrets registry platform)
 [ $# -gt 0 ] && order=("$@")
 
 # Dispatches a workflow, waits for the run it started, and stops on a failure.
@@ -28,7 +28,7 @@ run() {
   gh run watch "$id" --exit-status >/dev/null
 }
 
-# A platform team runs the account-wide settings instead (decision 35).
+# A platform team runs the account-wide settings and the network instead (decisions 35 and 36).
 platform_managed=$(gh variable get PLATFORM_MANAGED 2>/dev/null || true)
 
 for unit in "${order[@]}"; do

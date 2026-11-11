@@ -1,4 +1,4 @@
-"""The api's own identity towards the agent on AWS (tier 2): AgentCore Runtime accepts only the
+"""The api's own identity towards the agent on AWS: AgentCore Runtime accepts only the
 api's machine token, which AgentCore Identity fetches from its token vault through the api's
 workload identity, so the api never holds the client's secret and AWS keeps no shared key.
 
@@ -87,7 +87,7 @@ class BearerRuntime:
 
 def bearer_runtime(workload: str, provider: str, scope: str, timeout: float) -> BearerRuntime:
     """The runtime client the api uses on AWS, with its token from the vault."""
-    from undercover_api.aws import aws_client  # noqa: PLC0415 - only tier 2 needs it
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only AWS needs it
 
     return BearerRuntime(
         VaultToken(workload, provider, scope, aws_client("bedrock-agentcore")), timeout

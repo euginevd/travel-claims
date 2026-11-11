@@ -31,7 +31,7 @@ class Screen(Protocol):
 
 
 class NoGuardrail:
-    """No guardrail named (tier 1, or before it's checked live): everything passes."""
+    """No guardrail named (locally, or before it's checked live): everything passes."""
 
     def check(self, text: str) -> Verdict:  # noqa: ARG002 - the same shape as BedrockGuardrail
         return Verdict(blocked=False, reason="", cost=0.0)

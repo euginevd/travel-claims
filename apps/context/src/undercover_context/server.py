@@ -1,7 +1,7 @@
 """The context layer's MCP server: seven read-only lookups over streamable HTTP at /mcp,
 stateless and answering in JSON, with a health check at /health.
 
-On Lambda (tier 2) AgentCore Gateway invokes the function directly, by its ARN, so it has no
+On Lambda AgentCore Gateway invokes the function directly, by its ARN, so it has no
 URL: the Lambda Web Adapter passes each invocation to /events, with the tool's arguments as the
 body and the tool's name in the Lambda context's client context."""
 
@@ -133,7 +133,7 @@ def gateway_tool(lambda_context: str) -> str | None:
 def build_app() -> Starlette:
     """The server as an ASGI app, guarding against DNS rebinding with the allowed hosts."""
     allowed = os.environ.get("CONTEXT_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
-    # "*" on Lambda (tier 2): its URL is generated, and rebinding only threatens a laptop's server.
+    # "*" on Lambda: its URL is generated, and rebinding only threatens a laptop's server.
     if allowed.strip() == "*":
         security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     else:

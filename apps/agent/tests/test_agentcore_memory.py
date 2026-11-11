@@ -1,4 +1,4 @@
-"""Customer memory on AgentCore Memory (tier 2): the same rules as the Postgres store (R20)."""
+"""Customer memory on AgentCore Memory: the same rules as the Postgres store (R20)."""
 
 from typing import Any
 

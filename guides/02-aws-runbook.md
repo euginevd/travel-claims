@@ -1,8 +1,8 @@
 # AWS runbook
 
-Tier 2 from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
+The AWS build from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
-**Cost:** cents idle; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
+**Cost:** the private network is about $150 to $200 a month while it's up, or nothing with `NETWORK_MODE=public` (cents idle); about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
 ## How it fits together
 
@@ -28,15 +28,15 @@ Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Syd
 
 ## 3. Deploy the bootstrap (3 minutes)
 
-In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default (`GitHubRepo` and `GitHubIds` already point at this repo). It already grants every service tier 2 uses and the paid options in decision 30, so it's deployed once. Then paste `check-aws.sh` again.
+In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default (`GitHubRepo` and `GitHubIds` already point at this repo). It grants every service the build uses, the private network included (decision 36), and the paid options in decision 30, so it's deployed once; a stack made before decision 36 needs **Update stack** with the new template. Then paste `check-aws.sh` again.
 
 ## 4. Set up GitHub (1 minute)
 
 Put these in `.env` (git-ignored):
 
-- `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for tier 1.
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for testing locally.
 - `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs** (not needed if the AWS CLI is signed in). The names are fixed, so they survive a redeploy: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
-- Optional: `ALERT_EMAIL`, `MONTHLY_BUDGET` (default 10), `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, and `PLATFORM_MANAGED=true` if a platform team already runs the account-wide budget and Access Analyzer (the `platform` unit is then skipped).
+- Optional: `ALERT_EMAIL`, `MONTHLY_BUDGET` (default 10), `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `PLATFORM_MANAGED=true` if a platform team already runs the account-wide settings and the network and publishes its `/platform/network/*` parameters (the `platform` unit is then skipped), and `NETWORK_MODE=public` to run without the private network and its cost.
 
 Then run `bash scripts/use-anthropic.sh`. It prints no value, and sets, under the repo's **Settings**:
 
@@ -58,18 +58,18 @@ It runs each workflow in turn and waits for it, in this order, because each unit
 
 | # | Run | Makes |
 |---|---|---|
-| 1 | `registry` | Amazon ECR repositories for the four app images |
-| 2 | `secrets` | An AWS Systems Manager Parameter Store SecureString for the apps' settings; the Anthropic key in AgentCore Identity's token vault |
-| 3 | `database` | Amazon Aurora DSQL for the records; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
-| 4 | `storage` | An Amazon S3 bucket for customers' receipts |
-| 5 | `identity` | Amazon Cognito user pools for customers, handlers and AI engineers, with test accounts, and a services pool for the api's machine sign-in; AgentCore Identity's workload identities and token vault |
-| 6 | `guardrail` | An Amazon Bedrock Guardrail on customers' text |
-| 7 | `images` | A workflow, not a unit: builds the four app images and pushes them to Amazon ECR |
-| 8 | `functions` | AWS Lambda functions: the api, the context server and the Copilot |
-| 9 | `agent` | Amazon Bedrock AgentCore Runtime (the claim agent), two AgentCore Gateways (tools: IAM for the agent, handlers' tokens for the Copilot) with AgentCore Policy allow-lists, AgentCore Memory (customer memory) and a Bedrock Knowledge Base on S3 Vectors (policy search) |
-| 10 | `web` | Amazon S3 and Amazon CloudFront for the four websites; AWS WAF on the three apps, through CloudFront's Free plan |
-| 11 | `monitoring` | Amazon CloudWatch alarms on the functions, an Amazon SNS email topic, and Bedrock model invocation logging to S3 |
-| 12 | `platform` | Account-wide settings: an AWS Budgets alert and IAM Access Analyzer; skipped with `PLATFORM_MANAGED=true` |
+| 1 | `platform` | What a landing zone provides: the private network (a VPC with private subnets in two availability zones, VPC endpoints and a NAT gateway, published as `/platform/network/*`; none with `NETWORK_MODE=public`), an AWS Budgets alert and IAM Access Analyzer; skipped with `PLATFORM_MANAGED=true` |
+| 2 | `registry` | Amazon ECR repositories for the four app images |
+| 3 | `secrets` | An AWS Systems Manager Parameter Store SecureString for the apps' settings; the Anthropic key in AgentCore Identity's token vault |
+| 4 | `database` | Amazon Aurora DSQL for the records; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
+| 5 | `storage` | An Amazon S3 bucket for customers' receipts |
+| 6 | `identity` | Amazon Cognito user pools for customers, handlers and AI engineers, with test accounts, and a services pool for the api's machine sign-in; AgentCore Identity's workload identities and token vault |
+| 7 | `guardrail` | An Amazon Bedrock Guardrail on customers' text |
+| 8 | `images` | A workflow, not a unit: builds the four app images and pushes them to Amazon ECR |
+| 9 | `functions` | AWS Lambda functions in the private subnets: the api, the context server and the Copilot |
+| 10 | `agent` | Amazon Bedrock AgentCore Runtime (the claim agent, in the private subnets), two AgentCore Gateways (tools: IAM for the agent, handlers' tokens for the Copilot) with AgentCore Policy allow-lists, AgentCore Memory (customer memory) and a Bedrock Knowledge Base on S3 Vectors (policy search) |
+| 11 | `web` | Amazon S3 and Amazon CloudFront for the four websites; AWS WAF on the three apps, through CloudFront's Free plan |
+| 12 | `monitoring` | Amazon CloudWatch alarms on the functions, an Amazon SNS email topic, and Bedrock model invocation logging to S3 |
 | 13 | `images` | The workflow again: uploads the web apps to S3, now that their sites exist |
 
 If a run fails, the script stops: fix it, run that unit alone, then the rest. If `ALERT_EMAIL` is set, confirm the email AWS sends.
@@ -86,13 +86,13 @@ If a run fails, the script stops: fix it, run that unit alone, then the rest. If
 3. Make a claim in the portal, and watch the agent work it in the dashboard.
 4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start.
 
-Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
+Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); on the private network, every function and the agent reach their services through the endpoints and the NAT gateway, including the agent's gateway endpoint and Cognito's signing keys (decision 36); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
 
 ## 7. Tear down (about 45 minutes)
 
-Removes everything tier 2 put in AWS. The code, the repo and its GitHub environments stay (free), so steps 3 to 5 bring it back.
+Removes everything the build put in AWS. The code, the repo and its GitHub environments stay (free), so steps 3 to 5 bring it back.
 
-1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`, so the workflows skip AWS. If a run fails, it stops: fix it, destroy that unit alone, then run it again.
+1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`, so the workflows skip AWS. If a run fails, it stops: fix it, destroy that unit alone, then run it again. On the private network, AgentCore keeps its network interfaces for up to 8 hours after the agent goes, so the agent's security group and the `platform` unit's network may not delete at once: destroy `agent` and `platform` again later.
 2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes the state bucket, the bootstrap, leftover `travel-claims` buckets, the `cf-templates-*` buckets the console makes for uploaded templates, and AgentCore's log groups, then prints `Clean` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
 
 ## Switching to Claude on Bedrock

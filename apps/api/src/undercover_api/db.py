@@ -429,7 +429,7 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
-# Supabase's transaction pooler (tier 2) gives each transaction any connection: none are prepared.
+# Supabase's transaction pooler gives each transaction any connection: none are prepared.
 NO_PREPARED_STATEMENTS = {"prepare_threshold": None}
 
 

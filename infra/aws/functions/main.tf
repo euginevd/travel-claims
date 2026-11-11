@@ -151,6 +151,12 @@ resource "aws_iam_role_policy" "function" {
         Resource = "${aws_cloudwatch_log_group.function[each.key].arn}:*"
       }],
       [for grant in local.grants[each.key] : { Effect = "Allow", Action = grant.actions, Resource = grant.resources }],
+      # Lambda's network interfaces in the private subnets; these take no resource ARN.
+      local.private ? [{
+        Effect   = "Allow"
+        Action   = ["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DescribeSubnets", "ec2:DeleteNetworkInterface", "ec2:AssignPrivateIpAddresses", "ec2:UnassignPrivateIpAddresses"]
+        Resource = "*"
+      }] : [],
     )
   })
 }
@@ -174,6 +180,7 @@ locals {
       # The agent's runtime takes the api's machine token, which AgentCore Identity fetches.
       WORKLOAD_NAME        = "${local.prefix}-api"
       AGENT_TOKEN_PROVIDER = local.agent_provider
+      #checkov:skip=CKV_SECRET_6: an OAuth scope name, not a secret
       AGENT_TOKEN_SCOPE    = "undercover-agent/invoke"
     })
     # No URL: AgentCore Gateway invokes it by ARN, and the adapter passes each call to /events.
@@ -183,7 +190,7 @@ locals {
 
 # The api and the context layer; the copilot is below, since it needs the api's address.
 resource "aws_lambda_function" "service" {
-  #checkov:skip=CKV_AWS_117: nothing private to reach, so no VPC; Supabase and AWS's APIs are public endpoints
+  #checkov:skip=CKV_AWS_117: in the platform's private subnets unless NETWORK_MODE=public; the check can't follow the dynamic block
   #checkov:skip=CKV_AWS_116: called synchronously through its URL, so a dead-letter queue never receives anything
   #checkov:skip=CKV_AWS_115: Lambda's account limit caps the load; reserved concurrency can fail in new accounts
   #checkov:skip=CKV_AWS_50: tracing is off in the demo; turn on X-Ray when debugging calls across apps
@@ -208,11 +215,20 @@ resource "aws_lambda_function" "service" {
     log_group  = aws_cloudwatch_log_group.function[each.key].name
   }
 
+  # In the platform's private subnets unless NETWORK_MODE=public (network.tf).
+  dynamic "vpc_config" {
+    for_each = local.private ? [1] : []
+    content {
+      subnet_ids         = local.subnets
+      security_group_ids = [aws_security_group.workload[0].id]
+    }
+  }
+
   depends_on = [aws_iam_role_policy.function]
 }
 
 resource "aws_lambda_function" "copilot" {
-  #checkov:skip=CKV_AWS_117: nothing private to reach, so no VPC; Supabase and AWS's APIs are public endpoints
+  #checkov:skip=CKV_AWS_117: in the platform's private subnets unless NETWORK_MODE=public; the check can't follow the dynamic block
   #checkov:skip=CKV_AWS_116: called synchronously through its URL, so a dead-letter queue never receives anything
   #checkov:skip=CKV_AWS_115: Lambda's account limit caps the load; reserved concurrency can fail in new accounts
   #checkov:skip=CKV_AWS_50: tracing is off in the demo; turn on X-Ray when debugging calls across apps
@@ -242,6 +258,15 @@ resource "aws_lambda_function" "copilot" {
   logging_config {
     log_format = "Text"
     log_group  = aws_cloudwatch_log_group.function["copilot"].name
+  }
+
+  # In the platform's private subnets unless NETWORK_MODE=public (network.tf).
+  dynamic "vpc_config" {
+    for_each = local.private ? [1] : []
+    content {
+      subnet_ids         = local.subnets
+      security_group_ids = [aws_security_group.workload[0].id]
+    }
   }
 
   depends_on = [aws_iam_role_policy.function]

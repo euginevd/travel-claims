@@ -264,7 +264,7 @@ def build_app() -> FastAPI:
     settings = get_settings()
     context = McpContext(settings.undercover_context)
     if settings.context_gateway:
-        # Tier 2: the context layer only through its gateway, as the handler who asked: the
+        # On AWS: the context layer only through its gateway, as the handler who asked: the
         # gateway checks their own token and lets only handlers in.
         context = McpContext(settings.context_gateway, prefix="context___", bearer=True)
     # One client for every handler's requests, so connections are pooled, not opened per request

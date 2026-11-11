@@ -1,6 +1,6 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
 undercover_api.agent_service. It answers at once and works in the background. On AgentCore
-Runtime (tier 2) the same routes are reached through /invocations, and /ping tells Runtime to
+Runtime the same routes are reached through /invocations, and /ping tells Runtime to
 keep the session while work is going."""
 
 import json
@@ -431,7 +431,7 @@ CHECKPOINT_TTL_SECONDS = 7 * 24 * 3600
 
 def checkpoints(settings: Any, region: str | None) -> tuple[Any, Any]:
     """The saver for each claim's progress, and the Postgres store when there is one:
-    DynamoDB when CHECKPOINT_TABLE is set (AWS), PostgreSQL otherwise (tier 1)."""
+    DynamoDB when CHECKPOINT_TABLE is set (AWS), PostgreSQL otherwise (locally)."""
     if settings.checkpoint_table:
         from langgraph_checkpoint_aws import DynamoDBSaver  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
@@ -490,7 +490,7 @@ def build_app() -> FastAPI:
             api.register_configuration(first)
         except ApiError:
             log.warning("couldn't register the first configuration; using the built-in one")
-        # AgentCore Memory on AWS when named; the Postgres store otherwise (tier 1).
+        # AgentCore Memory on AWS when named; the Postgres store otherwise (locally).
         if settings.memory_id:
             memory: Memory = AgentCoreMemory(settings.memory_id, region)
         elif store is not None:

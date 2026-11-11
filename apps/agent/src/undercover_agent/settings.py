@@ -15,25 +15,25 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # Anthropic API locally, Bedrock on AWS (tier 2), where the model settings are Bedrock ids.
+    # Anthropic API locally, Bedrock on AWS, where the model settings are Bedrock ids.
     model_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
-    # Tier 2: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
+    # On AWS: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str = "1"
-    # Tier 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
+    # On AWS: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
     # The service the signature is for: bedrock-agentcore through Gateway, lambda to the URL.
     context_aws_service: Literal["bedrock-agentcore", "lambda"] = "lambda"
     # Gateway names each tool after its target (context___get_claim_rules); none locally.
     context_tool_prefix: str = ""
-    # Tier 2: the customers' memory on AgentCore Memory when set; the Postgres store otherwise.
+    # On AWS: the customers' memory on AgentCore Memory when set; the Postgres store otherwise.
     memory_id: str | None = None
-    # Tier 2: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
+    # On AWS: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
-    # Tier 2: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
+    # On AWS: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
     code_interpreter_id: str | None = None
     agentcore_runtime: bool = False
     undercover_api_key: SecretStr = Field(min_length=32)
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON parameter named by APP_SECRET; what is
+    """On AWS, fill in settings from the JSON parameter named by APP_SECRET; what is
     already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:
@@ -99,7 +99,7 @@ def fetch_secret(name: str) -> str:
 
 
 def load_vaulted_key(fetch: Callable[[str, str], str] | None = None) -> None:
-    """On AWS with the Anthropic API (tier 2), the key from AgentCore Identity's token vault,
+    """On AWS with the Anthropic API, the key from AgentCore Identity's token vault,
     fetched with this app's workload identity; it's in no shared settings. Off AWS, or on
     Bedrock, ANTHROPIC_KEY_PROVIDER is unset and nothing happens."""
     provider = os.environ.get("ANTHROPIC_KEY_PROVIDER")

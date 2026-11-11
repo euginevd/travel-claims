@@ -135,9 +135,9 @@ class Runner:
 
 
 class Watchdog:
-    """Carries the agent's stalled claims on by itself, every so often; tier 1's long-lived
-    agent only. The api lets each claim be taken this way a few times, then leaves it to a
-    handler."""
+    """Carries the agent's stalled claims on by itself, every so often; the long-lived
+    agent in Docker Compose only. The api lets each claim be taken this way a few times, then
+    leaves it to a handler."""
 
     def __init__(self, runner: Runner, api: ApiClient, every_seconds: float = 30.0) -> None:
         self._runner = runner

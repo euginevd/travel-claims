@@ -1,4 +1,4 @@
-"""The policy wording as the Bedrock Knowledge Base reads it (tier 2): one file per section, with
+"""The policy wording as the Bedrock Knowledge Base reads it: one file per section, with
 its number and title as metadata, so a search cites the section exactly as the context layer does.
 Only the policy wording: the claims manual is internal.
 

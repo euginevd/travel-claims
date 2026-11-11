@@ -72,7 +72,7 @@ EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
 
 
 def store(request: Request) -> Receipts:
-    """The bucket when the api has one (tier 2), else the folder."""
+    """The bucket when the api has one (AWS), else the folder."""
     bucket: Receipts | None = request.app.state.receipts
     return bucket or ReceiptStore(request.app.state.settings.receipts_dir)
 

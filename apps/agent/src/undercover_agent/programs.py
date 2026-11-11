@@ -1,4 +1,4 @@
-"""Code execution with MCP (plan phase 5, tier 2): the agent may write one short program that calls
+"""Code execution with MCP (plan phase 5, on AWS): the agent may write one short program that calls
 the context layer's lookups as functions, and AgentCore Code Interpreter runs it, so only the
 program's printed result comes back to Claude instead of one model turn per lookup.
 

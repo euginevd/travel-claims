@@ -32,3 +32,19 @@ variable "access_analyzer" {
   type        = bool
   default     = true
 }
+
+variable "network" {
+  description = "private: the workload network (network.tf); public: none, to save its cost"
+  type        = string
+  default     = "private"
+  validation {
+    condition     = contains(["private", "public"], var.network)
+    error_message = "network is private or public."
+  }
+}
+
+variable "zone_ids" {
+  description = "Two availability zone IDs for the private subnets, from those AgentCore's VPC mode supports in the region"
+  type        = list(string)
+  default     = ["apse2-az1", "apse2-az2"]
+}

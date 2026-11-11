@@ -58,6 +58,9 @@ env:
   # Where alarms and the budget alert are emailed, and the monthly budget in USD (monitoring and platform units).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   TF_VAR_monthly_budget: ${{ vars.MONTHLY_BUDGET || '10' }}
+  # Where the code runs (decision 36): private, the platform's private subnets and VPC endpoints, or
+  # public, no VPC, to save the network's cost (platform, functions and agent units).
+  TF_VAR_network: ${{ vars.NETWORK_MODE || 'private' }}
   # Lookup programs on AgentCore Code Interpreter (plan phase 5): true to switch them on.
   TF_VAR_code_execution: ${{ vars.CODE_EXECUTION || 'false' }}
 

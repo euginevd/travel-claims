@@ -11,14 +11,14 @@
 9. AgentCore Observability (~30 min, CloudWatch rates): each claim's trace across the agent, tools and models.
 10. AgentCore Evaluations online (~1 to 2 h, per token): scores a sample of live decisions.
 11. Bedrock Managed Knowledge Base through a Gateway connector (~2 h, $5 per GB a month): optional, in place of S3 Vectors.
-12. Private network (~half a day, about $120 a month for eight VPC endpoints in two AZs): the Lambdas, AgentCore Runtime and Code Interpreter in private VPC subnets, reaching Bedrock, AgentCore, SSM, STS, KMS and logs through VPC endpoints and S3 and DynamoDB through free gateway endpoints.
+12. DSQL through its own PrivateLink endpoint (~1 h, about $15 to $20 a month): the api's database connections stay inside the private network instead of leaving through the NAT gateway (decision 36).
 13. Delete the whole stack, when you've finished testing (~45 min): the deploy guide's step 7, `bash scripts/deploy-aws.sh destroy`, then `scripts/teardown-aws.sh` in CloudShell until it prints `Clean`.
 
 ## Notes
 
 Your requirements, features and ideas, numbered, in your own words. The agent confirms with you before starting one, adds it to [features.md](docs/features.md) and any rule it needs to [spec.md](docs/spec.md), and removes it when done.
 
-**Tier 2, fully AWS-native, close to $0 idle** ([decision 30](docs/decisions.md)). Managed and serverless only: no VPC, NAT gateway or VPC endpoints. Everything stays in `ap-southeast-2`, and Claude is called only through Bedrock. Anything that costs money just by existing is swapped for a free alternative, and the paid, more secure option is recorded in decision 30. Prototype, built for speed: no plan doc, and tests only where the checks need them to pass (the 80% coverage gate stays). Nothing deploys while building: the `aws` workflow skips while `PROJECT_NAME` is unset. Commit after each step; push when you say.
+**Fully AWS-native** ([decisions 30 and 36](docs/decisions.md)). Managed and serverless, in a private network by default (`NETWORK_MODE=public` for close to $0 idle). Everything stays in `ap-southeast-2`, and Claude is called only through Bedrock. Anything that costs money just by existing is swapped for a free alternative, and the paid, more secure option is recorded in decision 30. Prototype, built for speed: no plan doc, and tests only where the checks need them to pass (the 80% coverage gate stays). Nothing deploys while building: the `aws` workflow skips while `PROJECT_NAME` is unset. Commit after each step; push when you say.
 
 Built on the `aws-native` branch, one commit per step. Left: about 1.5 hours to get it up (steps 1 and 2), plus 45 minutes to delete it. Idle cost is a few cents a month (images, logs and stored data); Bedrock, DSQL, Lambda and AgentCore are paid per use.
 

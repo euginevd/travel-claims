@@ -1,4 +1,4 @@
-"""The api's machine token for the agent's runtime (tier 2): fetched from AgentCore Identity's
+"""The api's machine token for the agent's runtime on AWS: fetched from AgentCore Identity's
 vault, reused until shortly before it expires, and sent as a bearer token over HTTPS."""
 
 import io

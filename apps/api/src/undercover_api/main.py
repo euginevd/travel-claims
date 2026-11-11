@@ -158,7 +158,7 @@ staff_router = APIRouter(prefix="/api/staff")
 staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
 customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
 engineering_sign_in_router = APIRouter(prefix="/api/engineering/dev")
-# Tier 2's test-account buttons, at the same paths as the stand-in's.
+# The AWS demo's test-account buttons, at the same paths as the stand-in's.
 staff_demo_router = APIRouter(prefix="/api/staff/dev")
 customer_demo_router = APIRouter(prefix="/api/customer/dev")
 engineering_demo_router = APIRouter(prefix="/api/engineering/dev")
@@ -754,7 +754,7 @@ def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Databas
 def demo_sign_in(
     request: Request, accounts: dict[str, str], account: str, issuer: str, client_id: str
 ) -> SignIn:
-    """A fixed test account signed in through Cognito; tier 2's demo only. The pool's ID ends
+    """A fixed test account signed in through Cognito; the AWS demo only. The pool's ID ends
     its issuer."""
     email = accounts.get(account)
     if email is None:
@@ -837,11 +837,11 @@ def load_names_to_redact(engine: Engine) -> None:
 
 
 def make_agent_service(settings: Settings) -> AgentService:
-    """The agent on AgentCore Runtime when its ARN is set (tier 2), with the api's machine token
+    """The agent on AgentCore Runtime when its ARN is set (AWS), with the api's machine token
     when its identity is set, else over HTTP."""
     key = settings.undercover_api_key.get_secret_value()
     if settings.agent_runtime_arn and settings.workload_name and settings.agent_token_provider:
-        from undercover_api.agent_identity import bearer_runtime  # noqa: PLC0415 - tier 2 only
+        from undercover_api.agent_identity import bearer_runtime  # noqa: PLC0415 - AWS only
 
         runtime = bearer_runtime(
             settings.workload_name,
@@ -856,10 +856,10 @@ def make_agent_service(settings: Settings) -> AgentService:
 
 
 def make_receipts(settings: Settings) -> Receipts | None:
-    """The receipts bucket when one is set (tier 2); the folder is used otherwise."""
+    """The receipts bucket when one is set (AWS); the folder is used otherwise."""
     if not settings.receipts_bucket:
         return None
-    from undercover_api.aws import aws_client  # noqa: PLC0415 - only tier 2 needs it
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only AWS needs it
 
     return S3ReceiptStore(settings.receipts_bucket, aws_client("s3"))
 

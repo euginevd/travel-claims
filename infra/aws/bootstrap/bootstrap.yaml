@@ -127,6 +127,7 @@ Resources:
         - !Ref DeployDataPolicy
         - !Ref DeployOpsPolicy
         - !Ref DeployAiPolicy
+        - !Ref DeployNetworkPolicy
       Policies:
         - PolicyName: terraform-state
           PolicyDocument:
@@ -367,7 +368,10 @@ Resources:
           - Sid: SsmProject
             Effect: Allow
             Action: ssm:*
-            Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+              # What the platform unit publishes for the workload (decision 36): IDs, not secrets.
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/platform/*'
           # The project's secrets, and AgentCore Identity's for its credential providers.
           - Sid: SecretsProject
             Effect: Allow
@@ -551,6 +555,50 @@ Resources:
                 aws:RequestedRegion: !Ref AWS::Region
 
   # Read-only plan role; can't read secrets, parameters' values, objects or items.
+  # The workload network (decision 36): a VPC, its subnets, routes, NAT gateway, endpoints and
+  # security groups, in this region only. No instances, peering or transit gateways.
+  DeployNetworkPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_111
+            comment: VPC resources have generated IDs, so they're limited to this region and these actions
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-network'
+      Description: !Sub 'The VPC, subnets, NAT gateway and endpoints for the ${ProjectName} deploy role'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: NetworkRegion
+            Effect: Allow
+            Action:
+              - ec2:Describe*
+              - ec2:CreateVpc
+              - ec2:DeleteVpc
+              - ec2:ModifyVpcAttribute
+              - ec2:*Subnet
+              - ec2:ModifySubnetAttribute
+              - ec2:*RouteTable
+              - ec2:*Route
+              - ec2:*InternetGateway
+              - ec2:*NatGateway
+              - ec2:AllocateAddress
+              - ec2:ReleaseAddress
+              - ec2:DisassociateAddress
+              - ec2:*SecurityGroup
+              - ec2:*SecurityGroupIngress
+              - ec2:*SecurityGroupEgress
+              - ec2:*VpcEndpoint
+              - ec2:*VpcEndpoints
+              - ec2:CreateTags
+              - ec2:DeleteTags
+              - ec2:DeleteNetworkInterface
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+
   PlanRole:
     Type: AWS::IAM::Role
     Properties:
@@ -617,6 +665,10 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject*
                 Resource: !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-knowledge-*/*'
+              # And the IDs the platform publishes for the workload network (decision 36).
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/platform/*'
               - Effect: Allow
                 Action:
                   - s3vectors:Get*
@@ -667,6 +719,7 @@ Resources:
                   - dsql:List*
                   - dynamodb:Describe*
                   - dynamodb:List*
+                  - ec2:Describe*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy
                   - ecr:GetRepositoryPolicy
@@ -768,12 +821,23 @@ Resources:
               - xray:PutTelemetryRecords
               - xray:PutTraceSegments
             Resource: '*'
+          # Lambda's network interfaces in the platform's private subnets (decision 36); no resource ARN.
+          - Sid: LambdaNetwork
+            Effect: Allow
+            Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeSubnets
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Resource: '*'
           # Every AgentCore feature: Runtime, Gateway, Memory, Identity, Code Interpreter and Browser.
           - Sid: AgentCore
             Effect: Allow
             Action: bedrock-agentcore:*
             Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
-          # The gateway calls the context's IAM-only function URL.
+          # The gateways invoke the context function by its ARN.
           - Sid: LambdaUrls
             Effect: Allow
             Action:

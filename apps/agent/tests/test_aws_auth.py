@@ -1,4 +1,4 @@
-"""The agent signs its calls to the context layer (tier 2): to AgentCore Gateway, or to the
+"""The agent signs its calls to the context layer on AWS: to AgentCore Gateway, or to the
 context's IAM-only function URL."""
 
 import httpx2

@@ -207,7 +207,7 @@ class Context(Protocol):
 
 class McpContext:
     """The context layer over MCP at its url, one short session per lookup; on AWS each request
-    is signed with the agent's role and goes through AgentCore Gateway (tier 2), which names
+    is signed with the agent's role and goes through AgentCore Gateway, which names
     each tool after its target."""
 
     def __init__(self, url: str, auth: httpx2.Auth | None = None, tool_prefix: str = "") -> None:

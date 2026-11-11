@@ -1,7 +1,7 @@
 """The Copilot's conversations and handler notes in one DynamoDB table on AWS (decision 30).
 
 Items: a conversation is CONV#<id> / CONV, found by handler through the by_handler index; a note
-is NOTES#<handler> / <time>#<id>. The local Postgres store and memory stay for tier 1.
+is NOTES#<handler> / <time>#<id>. The local Postgres store and memory stay for local runs.
 """
 
 import time

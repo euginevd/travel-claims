@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # Anthropic API locally, Bedrock on AWS (tier 2), where the model settings are Bedrock ids.
+    # Anthropic API locally, Bedrock on AWS, where the model settings are Bedrock ids.
     model_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     undercover_api: str = "http://127.0.0.1:8000"
     # The context layer's MCP url, for the policy wording and the claims manual.
     undercover_context: str = "http://127.0.0.1:8006/mcp"
-    # Tier 2: the context gateway's URL, from the app secret the agent unit fills; calls to it are
+    # On AWS: the context gateway's URL, from the app secret the agent unit fills; calls to it are
     # signed with the function's role and its tools are named context___<lookup>. Unset locally.
     context_gateway: str | None = None
     # Where conversations and their progress are kept: DynamoDB on AWS (decision 30), both tables
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON parameter named by APP_SECRET; what is
+    """On AWS, fill in settings from the JSON parameter named by APP_SECRET; what is
     already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:
@@ -77,7 +77,7 @@ def fetch_secret(name: str) -> str:
 
 
 def load_vaulted_key(fetch: Callable[[str, str], str] | None = None) -> None:
-    """On AWS with the Anthropic API (tier 2), the key from AgentCore Identity's token vault,
+    """On AWS with the Anthropic API, the key from AgentCore Identity's token vault,
     fetched with this app's workload identity; it's in no shared settings. Off AWS, or on
     Bedrock, ANTHROPIC_KEY_PROVIDER is unset and nothing happens."""
     provider = os.environ.get("ANTHROPIC_KEY_PROVIDER")

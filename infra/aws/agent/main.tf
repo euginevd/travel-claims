@@ -423,9 +423,17 @@ resource "aws_bedrockagentcore_code_interpreter" "programs" {
   description        = "Runs the ${var.project} claim agent's lookup programs"
   execution_role_arn = aws_iam_role.programs[0].arn
 
-  # Public, so a program can reach the gateway; its role can call nothing else.
+  # Private: the VPC endpoints only (network.tf); public: the internet, with a role that can call
+  # only the gateway.
   network_configuration {
-    network_mode = "PUBLIC"
+    network_mode = local.private ? "VPC" : "PUBLIC"
+    dynamic "vpc_config" {
+      for_each = local.private ? [1] : []
+      content {
+        subnets         = local.subnets
+        security_groups = [aws_security_group.programs[0].id]
+      }
+    }
   }
 
   depends_on = [aws_iam_role_policy.programs]
@@ -677,8 +685,16 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     }
   }
 
+  # In the platform's private subnets unless NETWORK_MODE=public (network.tf).
   network_configuration {
-    network_mode = "PUBLIC"
+    network_mode = local.private ? "VPC" : "PUBLIC"
+    dynamic "network_mode_config" {
+      for_each = local.private ? [1] : []
+      content {
+        subnets         = local.subnets
+        security_groups = [aws_security_group.workload[0].id]
+      }
+    }
   }
 
   protocol_configuration {

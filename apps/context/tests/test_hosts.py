@@ -1,4 +1,4 @@
-"""Which Host headers the server answers: the laptop's names by default, any on Lambda (tier 2)."""
+"""Which Host headers the server answers: the laptop's names by default, any on Lambda."""
 
 import pytest
 from starlette.testclient import TestClient

@@ -293,7 +293,7 @@ def provider_model(model: str, settings: Settings) -> str:
 
 
 def claude_client(settings: Settings) -> anthropic.Anthropic | AnthropicBedrock:
-    """Claude through the Anthropic API in the user's workspace, or through Bedrock (tier 2)."""
+    """Claude through the Anthropic API in the user's workspace, or through Bedrock on AWS."""
     if settings.model_provider == "bedrock":
         return AnthropicBedrock(
             aws_region=settings.aws_region,
