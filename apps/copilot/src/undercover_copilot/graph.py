@@ -205,6 +205,8 @@ class Handler:
 
     api: StaffApi
     handler_id: str = ""
+    # The handler's own token, for the context gateway on AWS; never saved.
+    token: str = ""
 
 
 class CopilotState(TypedDict, total=False):
@@ -277,7 +279,9 @@ def source_names(answer: Json) -> str:
     return ", ".join(str(source.get("file", "")) for source in sources if source.get("file"))
 
 
-def lookup(context: Context | None, name: str, args: Json) -> tuple[str, Json]:  # noqa: PLR0911
+def lookup(  # noqa: PLR0911
+    context: Context | None, name: str, args: Json, token: str = ""
+) -> tuple[str, Json]:
     """Look something up in the policy wording or the claims manual, with its source."""
     if context is None:
         return "The policy documents aren't connected.", card("error", "No policy documents")
@@ -291,7 +295,7 @@ def lookup(context: Context | None, name: str, args: Json) -> tuple[str, Json]: 
         why = "That isn't a section of the policy wording or the claims manual"
         return why, card("error", "Couldn't read the section", why)
     try:
-        answer, failed = context.call(name, args)
+        answer, failed = context.call(name, args, token)
     except Exception as error:  # noqa: BLE001 - whatever the transport raises, the turn goes on
         why = f"The policy documents can't be reached ({type(error).__name__})"
         return why, card("error", "Couldn't reach the policy documents")
@@ -533,7 +537,7 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
                     continue
                 text, shown = why, card("error", "Can't do that", why)
             elif name in ("search_documents", "read_section"):
-                text, shown = lookup(context, name, args)
+                text, shown = lookup(context, name, args, runtime.context.token)
             elif name in ("remember", "forget_all"):
                 text, shown = recall(notes, handler_id, name, args)
             else:

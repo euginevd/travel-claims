@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 

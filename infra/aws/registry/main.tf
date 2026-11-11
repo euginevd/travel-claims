@@ -1,4 +1,4 @@
-# One repository per image the pipeline builds (tier 2 design 10); Lambda and AgentCore Runtime pull from them.
+# One repository per image the pipeline builds; Lambda and AgentCore Runtime pull from them.
 locals {
   apps = toset(["api", "context", "copilot", "agent"])
 }
@@ -9,8 +9,8 @@ resource "aws_ecr_repository" "app" {
 
   name                 = "${var.project}/${each.key}"
   image_tag_mutability = "IMMUTABLE"
-  # dev can be torn down with its images; prod keeps them.
-  force_delete = var.environment != "prod"
+  # Torn down with its images.
+  force_delete = true
 
   image_scanning_configuration {
     scan_on_push = true

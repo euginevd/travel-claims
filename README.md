@@ -109,10 +109,9 @@ The same apps run two ways (decisions 14 and 29). Rough monthly cost in USD:
 | Tier | Runs on | Status | Cost a month |
 |------|---------|--------|-------------:|
 | 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
-| 2 · AWS serverless, as built | S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
-| 2 · AWS serverless, secure target | The same, AWS-native: Aurora in Sydney, Claude on Bedrock only, private subnets, WAF, a multi-account landing zone | Planned: to build, then test | ≈ $100–200 before Claude |
+| 2 · AWS serverless, fully AWS-native | S3 and CloudFront with WAF on the Free plan, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Claude on the Anthropic API or Bedrock, Cognito, Aurora DSQL, DynamoDB, free-tier alarms and budget, all in Sydney with no VPC | Built; to deploy, test and tear down | ≈ $0 idle, plus Claude |
 
-The secure target adds control, not scale: tier 2 already scales ([infra/aws/README.md](infra/aws/README.md)). As built, tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+Every piece is managed and scales on its own; the paid, more secure options for real data (a VPC with PrivateLink, GuardDuty, Security Hub, customer-managed keys, Control Tower) are recorded in decision 30 ([AWS runbook](guides/02-aws-runbook.md#whats-deployed)). Details: [costs.md](docs/costs.md).
 
 ## Built with
 
@@ -121,7 +120,7 @@ The secure target adds control, not scale: tier 2 already scales ([infra/aws/REA
 | Claude (Sonnet, Haiku) | Decides claims, checks for hidden instructions, drafts, answers questions | [apps/agent](apps/agent/), [apps/copilot](apps/copilot/) |
 | LangGraph | The claim agent and the Copilot, with progress saved after every step | [apps/agent](apps/agent/) |
 | MCP | The context layer's seven lookups, used by the claim agent and the Copilot | [apps/context](apps/context/) |
-| FastAPI, PostgreSQL | The api, its rules and payments; Supabase on AWS | [apps/api](apps/api/) |
+| FastAPI, PostgreSQL | The api, its rules and payments; Aurora DSQL on AWS | [apps/api](apps/api/) |
 | React, Vite | The portal, dashboard and console | [apps/](apps/) |
 | AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [infra/aws/agent](infra/aws/agent/) |
 | Bedrock | The guardrail, the Knowledge Base on S3 Vectors, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
@@ -138,7 +137,7 @@ The secure target adds control, not scale: tier 2 already scales ([infra/aws/REA
 ## Guides
 
 1. [Findings](guides/01-findings.md): what the build found, and what was fixed.
-2. [Security trade-offs](guides/02-security-trade-offs.md): the risks this project accepts, and the fix for production.
-3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, prove it, and redeploy.
+2. [Deploying to AWS, and tearing it down](guides/02-aws-runbook.md): tier 2 from nothing to running in `dev`, and back to nothing, step by step.
+3. [Security trade-offs](guides/03-security-trade-offs.md): the risks this project accepts, and the fix for production.
 
 Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).

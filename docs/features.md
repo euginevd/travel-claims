@@ -65,6 +65,8 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 28 | The hidden-instruction check reads every claim and receipt first, on a separate model; a flagged claim goes to a handler unseen by the claim agent | Done | #2 |
 | 29 | The claim agent with the context layer, specialists (document checker, duplicate receipts, medical reviewer), the customer's earlier claims and claim recovery (heartbeats, retry, a watchdog) | Done | #2 |
 | 30 | Tier 2: the same apps serverless on AWS (spec 5) | Done, torn down to save cost | #46 |
-| 31 | Tier 2's secure target: AWS-native, Claude on Bedrock only, a private network (spec 5) | Planned | |
+| 31 | Tier 2 fully AWS-native at close to $0 idle: Aurora DSQL, DynamoDB checkpoints, Claude on Bedrock only, CloudFront's Free plan with WAF, free-tier alarms and budget (decision 30) | Built, to deploy and test | |
+| 32 | Agent identity on AWS: the Anthropic key in AgentCore Identity's vault, the api's machine token for the agent's runtime, and the Copilot's tools as the signed-in handler (decision 33) | Built, to deploy and test | |
+| 33 | Tool rules and audit on AWS: AgentCore Policy allow-lists per gateway, the context server reached by ARN with no URL, and Bedrock model invocation logging (decision 34) | Built, to deploy and test | |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

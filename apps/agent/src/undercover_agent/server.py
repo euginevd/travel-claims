@@ -425,11 +425,39 @@ def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
     )
 
 
-def build_app() -> FastAPI:
-    """The service wired to the real api, Claude, the context layer and PostgreSQL."""
+# A week of a claim's saved progress, compressed to stay under DynamoDB's item size.
+CHECKPOINT_TTL_SECONDS = 7 * 24 * 3600
+
+
+def checkpoints(settings: Any, region: str | None) -> tuple[Any, Any]:
+    """The saver for each claim's progress, and the Postgres store when there is one:
+    DynamoDB when CHECKPOINT_TABLE is set (AWS), PostgreSQL otherwise (tier 1)."""
+    if settings.checkpoint_table:
+        from langgraph_checkpoint_aws import DynamoDBSaver  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+        saver = DynamoDBSaver(
+            table_name=settings.checkpoint_table,
+            region_name=region,
+            ttl_seconds=CHECKPOINT_TTL_SECONDS,
+            enable_checkpoint_compression=True,
+        )
+        return saver, None
+    if settings.checkpoint_database_url is None:
+        raise RuntimeError("Set CHECKPOINT_TABLE or CHECKPOINT_DATABASE_URL")
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
     from langgraph.store.postgres import PostgresStore  # noqa: PLC0415
 
+    pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
+    pool.open()
+    saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
+    saver.setup()
+    store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
+    store.setup()
+    return saver, store
+
+
+def build_app() -> FastAPI:
+    """The service wired to the real api, Claude, the context layer and PostgreSQL."""
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
     from undercover_agent.knowledge import KnowledgeBase  # noqa: PLC0415
@@ -450,12 +478,7 @@ def build_app() -> FastAPI:
         signer = SigV4Signer(region or os.environ["AWS_REGION"], settings.context_aws_service)
 
     def make_runner() -> Runner:
-        pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
-        pool.open()
-        saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
-        saver.setup()
-        store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
-        store.setup()
+        saver, store = checkpoints(settings, region)
         api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
         first = {
             "instructions": INSTRUCTIONS,
@@ -468,11 +491,12 @@ def build_app() -> FastAPI:
         except ApiError:
             log.warning("couldn't register the first configuration; using the built-in one")
         # AgentCore Memory on AWS when named; the Postgres store otherwise (tier 1).
-        memory: Memory = (
-            AgentCoreMemory(settings.memory_id, region)
-            if settings.memory_id
-            else StoreMemory(store)
-        )
+        if settings.memory_id:
+            memory: Memory = AgentCoreMemory(settings.memory_id, region)
+        elif store is not None:
+            memory = StoreMemory(store)
+        else:
+            raise RuntimeError("Checkpoints in DynamoDB need MEMORY_ID for the customers' memory")
         graph = build_graph(
             api,
             AnthropicClaude(settings),

@@ -7,6 +7,11 @@ on:
     branches: [main]
     paths: [apps/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Run the aws workflow for every unit after (scripts/deploy-aws.sh runs the units itself)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -168,6 +173,7 @@ jobs:
   # The units pick up the newest image, so a deploy is an aws workflow run.
   deploy:
     needs: build
+    if: inputs.deploy != false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

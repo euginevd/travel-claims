@@ -11,10 +11,13 @@ Approximate monthly figures, by tier.
 
 ## Tier 2, AWS serverless, cost-optimised
 
-4. Serverless (decision 13): Lambda, AgentCore and Bedrock are paid per use and Supabase's free tier holds the database, so `dev` costs about $2 a month idle and about $10 with demo use, and can stay up. Bedrock tokens are the main cost.
+4. Serverless (decisions 13 and 30): everything is paid per use or free, so `dev` costs a few cents a month idle. In use, AgentCore Runtime is the main cost: about $3 to $6 a day of demo use (measured November 2026, findings 7), because each agent task holds a session open while it works, plus Claude tokens.
 5. `dev` budget: under $20 a month, watched by the account's AWS Budgets.
 6. Each PR that changes `infra/aws/` gets a cost comment: the monthly estimate, the change and the top drivers, each with a saving where one applies. It warns above the `MONTHLY_COST_LIMIT` variable and excludes usage, such as model tokens and data transfer.
 
-## Tier 2, secure target *(planned: to build, then test)*
+## Tier 2, fully AWS-native (decision 30)
 
-7. AWS-native ([infra/aws/README.md](../infra/aws/README.md) 12 to 19): Aurora Serverless v2 at its minimum, VPC endpoints in two zones, WAF and the landing zone's logging run all the time, so roughly $100 to $200 a month before Bedrock tokens, whether used or not. A rough estimate, not priced against AWS; the PR that builds it gets the cost comment.
+7. Close to $0 idle (AgentCore Runtime aside while in use, item 4): Aurora DSQL, DynamoDB, Lambda, AgentCore, Cognito and Bedrock are paid per use within free tiers; the app settings are a free SSM parameter; WAF and DDoS protection come with CloudFront's flat-rate Free plan on the three apps; alarms (six of the ten free), SNS email, the budget alert and IAM Access Analyzer are free. A few cents a month for images, logs and stored data, plus Bedrock tokens. Left out because they cost just by existing, each recorded in decision 30: a paid WAF, GuardDuty, Security Hub, AWS Config, a CloudTrail trail, customer-managed KMS keys, a VPC with PrivateLink and Control Tower (about $100 to $200 a month together).
+8. Agent identity (decision 33): AgentCore Identity is free through Runtime and Gateway, and $0.010 per 1,000 token or key requests from the api's and Copilot's Lambdas; Cognito charges about $0.00225 per machine token (the US East rate), with no free tier, and the api reuses each for 50 minutes, so cents a month.
+9. Tool rules and the model-call audit trail (decision 34): AgentCore Policy is $0.000025 per tool call checked; model invocation logs are a few cents of S3 a month, kept 30 days.
+10. The platform unit's budget alert emails at 80% of `MONTHLY_BUDGET` (default $10) spent and at 100% forecast.

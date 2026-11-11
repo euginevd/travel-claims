@@ -435,6 +435,19 @@ NO_PREPARED_STATEMENTS = {"prepare_threshold": None}
 
 def make_engine(url: str) -> Engine:
     """An engine for the database at the url. Errors never carry the statement's values,
-    which can hold customers' personal data. No prepared statements, for a transaction pooler."""
+    which can hold customers' personal data. No prepared statements, for a transaction pooler.
+    On DSQL, each connection signs in with an IAM token and is recycled within the hour."""
+    from undercover_api.dsql import RECYCLE_SECONDS, is_dsql, sign_in_with_iam  # noqa: PLC0415
+
     extra = NO_PREPARED_STATEMENTS if url.startswith("postgresql+psycopg") else {}
-    return create_engine(url, pool_pre_ping=True, hide_parameters=True, connect_args=extra)
+    if not is_dsql(url):
+        return create_engine(url, pool_pre_ping=True, hide_parameters=True, connect_args=extra)
+    engine = create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_recycle=RECYCLE_SECONDS,
+        hide_parameters=True,
+        connect_args=extra,
+    )
+    sign_in_with_iam(engine)
+    return engine

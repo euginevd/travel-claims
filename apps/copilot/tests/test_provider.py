@@ -8,7 +8,7 @@ from anthropic.lib.bedrock import AnthropicBedrock
 from pydantic import ValidationError
 
 from undercover_copilot.claude import claude_client
-from undercover_copilot.settings import Settings
+from undercover_copilot.settings import Settings, load_vaulted_key
 
 BASE = {"checkpoint_database_url": "postgresql://x"}
 
@@ -64,3 +64,18 @@ def test_no_guardrail_header_rides_on_claudes_calls() -> None:
 def test_an_unfilled_secret_placeholder_fails_at_start() -> None:
     with pytest.raises(ValidationError, match="ANTHROPIC_API_KEY"):
         Settings(anthropic_api_key="SET-ME: a key", anthropic_workspace_id="w", **BASE)  # pyright: ignore[reportArgumentType]
+
+
+def test_the_vaulted_key_is_fetched_only_with_a_provider_and_workload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_KEY_PROVIDER", raising=False)
+    monkeypatch.setenv("WORKLOAD_NAME", "travel-claims-dev-app")
+    load_vaulted_key(lambda workload, provider: "never")
+    assert "ANTHROPIC_API_KEY" not in os.environ
+    monkeypatch.setenv("ANTHROPIC_KEY_PROVIDER", "travel-claims-dev-anthropic")
+    asked: list[tuple[str, str]] = []
+    load_vaulted_key(lambda workload, provider: asked.append((workload, provider)) or "sk-vault")
+    assert os.environ["ANTHROPIC_API_KEY"] == "sk-vault"
+    assert asked == [("travel-claims-dev-app", "travel-claims-dev-anthropic")]

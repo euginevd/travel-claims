@@ -638,6 +638,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langgraph-checkpoint-aws"
+version = "1.2.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/03/52f4a13fe7b8878fe19ae01f0fc0eff534874a7fab15dee943198a02dc95/langgraph_checkpoint_aws-1.2.6.tar.gz", hash = "sha256:882e4cb8220af0649f8a7cbe0a1f4e209829f3858c043cbd031422d7baa9d917", size = 355418, upload-time = "2026-10-23T01:06:00.321Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/49/e01f7cf84febc5c8cded764efc703c91a8fae0b7bcfa99fd377311ae0c42/langgraph_checkpoint_aws-1.2.6-py3-none-any.whl", hash = "sha256:749a662c4b4eabd48ad8125c3a9e503749669217b143e666fd6790faff0fb7c5", size = 188817, upload-time = "2026-10-23T01:05:59.28Z" },
+]
+
+[[package]]
 name = "langgraph-checkpoint-postgres"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1470,6 +1484,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint-aws" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
@@ -1485,6 +1500,7 @@ requires-dist = [
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx2", specifier = "==2.16.0" },
     { name = "langgraph", specifier = "==1.2.19" },
+    { name = "langgraph-checkpoint-aws", specifier = "==1.2.6" },
     { name = "langgraph-checkpoint-postgres", specifier = "==3.2.0" },
     { name = "mcp", specifier = "==2.3.0" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.7" },
@@ -1552,6 +1568,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx2" },
     { name = "langgraph" },
+    { name = "langgraph-checkpoint-aws" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "mcp" },
     { name = "psycopg", extra = ["binary"] },
@@ -1566,6 +1583,7 @@ requires-dist = [
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx2", specifier = "==2.16.0" },
     { name = "langgraph", specifier = "==1.2.19" },
+    { name = "langgraph-checkpoint-aws", specifier = "==1.2.6" },
     { name = "langgraph-checkpoint-postgres", specifier = "==3.2.0" },
     { name = "mcp", specifier = "==2.3.0" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.7" },

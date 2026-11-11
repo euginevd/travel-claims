@@ -1,4 +1,4 @@
-# One user pool per audience (decisions 10 and 12, tier 2 design 6), email and password, accounts made by an admin.
+# One user pool per audience (decisions 10 and 12), email and password, accounts made by an admin.
 locals {
   audiences = {
     customers   = { group = "customers", description = "Customers of the portal" }
@@ -14,7 +14,7 @@ resource "aws_cognito_user_pool" "audience" {
   user_pool_tier           = "LITE"
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
-  deletion_protection      = var.environment == "prod" ? "ACTIVE" : "INACTIVE"
+  deletion_protection      = "INACTIVE"
 
   admin_create_user_config {
     allow_admin_create_user_only = true

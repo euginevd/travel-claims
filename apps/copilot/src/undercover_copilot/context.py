@@ -17,23 +17,32 @@ CONTEXT_TIMEOUT_SECONDS = 20.0
 class Context(Protocol):
     """The context layer's lookups: the answer, and whether it is an error."""
 
-    def call(self, name: str, arguments: Json) -> tuple[Json, bool]: ...
+    def call(self, name: str, arguments: Json, token: str = "") -> tuple[Json, bool]: ...
 
 
 class McpContext:
     """The context layer over MCP at its url, one short session per lookup."""
 
-    def __init__(self, url: str, auth: httpx2.Auth | None = None, prefix: str = "") -> None:
+    def __init__(
+        self, url: str, auth: httpx2.Auth | None = None, prefix: str = "", *, bearer: bool = False
+    ) -> None:
         self._url = url
         self._auth = auth
+        # On AWS the gateway takes the handler's own token, so each lookup carries it.
+        self._bearer = bearer
         # Gateway names each lookup after its target: context___get_claim_rules.
         self._prefix = prefix
 
-    def call(self, name: str, arguments: Json) -> tuple[Json, bool]:
-        return asyncio.run(self._call(name, arguments))
+    def call(self, name: str, arguments: Json, token: str = "") -> tuple[Json, bool]:
+        if self._bearer and not token:
+            return {"error": "The policy documents need the handler's sign-in"}, True
+        return asyncio.run(self._call(name, arguments, token))
 
-    async def _call(self, name: str, arguments: Json) -> tuple[Json, bool]:
-        async with httpx2.AsyncClient(timeout=CONTEXT_TIMEOUT_SECONDS, auth=self._auth) as http:
+    async def _call(self, name: str, arguments: Json, token: str) -> tuple[Json, bool]:
+        headers = {"Authorization": f"Bearer {token}"} if self._bearer else None
+        async with httpx2.AsyncClient(
+            timeout=CONTEXT_TIMEOUT_SECONDS, auth=self._auth, headers=headers
+        ) as http:
             server = streamable_http_client(self._url, http_client=http)
             async with Client(server) as client:
                 result = await client.call_tool(self._prefix + name, arguments)

@@ -120,7 +120,7 @@ class FakeApi(StaffApi):
 class FakeContext:
     """The context layer, answering one search."""
 
-    def call(self, name: str, arguments: Json) -> tuple[Json, bool]:
+    def call(self, name: str, arguments: Json, token: str = "") -> tuple[Json, bool]:
         assert (name, arguments) == ("search_documents", {"query": "delayed bag"})
         section = {"document": "policy_wording", "number": 7, "title": "Baggage delay"}
         return {"sections": [section], "sources": [{"file": "policy_wording.md"}]}, False

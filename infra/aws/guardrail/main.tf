@@ -1,10 +1,7 @@
-# A Bedrock guardrail on customer text (tier 2 design 7), named to the agent through the app secret when enabled.
+# A Bedrock guardrail on customer text, named to the agent through the app settings when enabled.
 locals {
-  prefix = "${var.project}-${var.environment}"
-}
-
-data "aws_secretsmanager_secret" "app" {
-  name = "${var.project}/${var.environment}/app"
+  prefix        = "${var.project}-${var.environment}"
+  app_parameter = "/${var.project}/${var.environment}/app"
 }
 
 resource "aws_bedrock_guardrail" "claims" {
@@ -43,6 +40,6 @@ resource "terraform_data" "enable" {
   triggers_replace = [aws_bedrock_guardrail_version.claims.version]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} BEDROCK_GUARDRAIL_ID=${aws_bedrock_guardrail.claims.guardrail_id} BEDROCK_GUARDRAIL_VERSION=${aws_bedrock_guardrail_version.claims.version}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${local.app_parameter} BEDROCK_GUARDRAIL_ID=${aws_bedrock_guardrail.claims.guardrail_id} BEDROCK_GUARDRAIL_VERSION=${aws_bedrock_guardrail_version.claims.version}"
   }
 }

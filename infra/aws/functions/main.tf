@@ -1,4 +1,4 @@
-# The api, context and copilot on Lambda (tier 2 design 2), each from the newest image the images workflow pushed.
+# The api, context and copilot on Lambda, each from the newest image the images workflow pushed.
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}
@@ -11,7 +11,7 @@ data "aws_bedrock_inference_profiles" "system" {
 locals {
   profiles = data.aws_bedrock_inference_profiles.system.inference_profile_summaries[*].inference_profile_id
   bedrock  = var.model_provider == "bedrock"
-  # The API takes plain names; Bedrock takes the Australian profiles.
+  # The API takes plain names; Bedrock takes Australia's inference profiles.
   sonnet = local.bedrock ? coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none")) : "claude-sonnet-5-5"
   haiku  = local.bedrock ? coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none")) : "claude-haiku-5-5"
 }
@@ -31,6 +31,14 @@ locals {
     copilot = { memory = 1024, timeout = 60 }
   }
   audiences = { customers = "CUSTOMER", staff = "STAFF", engineering = "ENGINEERING" }
+
+  # AgentCore Identity (identity unit): each app's workload identity and what it fetches from the vault.
+  vault          = "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default"
+  workloads      = "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default"
+  vault_secrets  = "arn:${local.partition}:secretsmanager:${local.region}:${local.account}:secret:bedrock-agentcore-identity!default"
+  agent_provider = "${local.prefix}-agent-access"
+  # The Anthropic key's provider (secrets unit), when the apps use the API.
+  key_provider = local.bedrock ? "" : "${local.prefix}-anthropic"
 }
 
 data "aws_ecr_image" "newest" {
@@ -46,8 +54,10 @@ data "aws_ecr_repository" "app" {
   name = "${var.project}/${each.key}"
 }
 
-data "aws_secretsmanager_secret" "app" {
-  name = "${var.project}/${var.environment}/app"
+# The app's settings parameter (secrets unit), named here so the plan never reads its value.
+locals {
+  app_parameter     = "/${var.project}/${var.environment}/app"
+  app_parameter_arn = "arn:${local.partition}:ssm:${local.region}:${local.account}:parameter${local.app_parameter}"
 }
 
 data "aws_cognito_user_pools" "audience" {
@@ -93,14 +103,28 @@ locals {
   grants = {
     api = [
       { actions = ["s3:GetObject", "s3:PutObject"], resources = ["arn:${local.partition}:s3:::${local.receipts}/*"] },
-      { actions = ["secretsmanager:GetSecretValue"], resources = [data.aws_secretsmanager_secret.app.arn] },
+      { actions = ["ssm:GetParameter"], resources = [local.app_parameter_arn] },
       # The demo's test buttons: a fresh password per sign-in, so none is stored.
       { actions = ["cognito-idp:AdminSetUserPassword"], resources = [for name, _ in local.audiences : "arn:${local.partition}:cognito-idp:${local.region}:${local.account}:userpool/${one(data.aws_cognito_user_pools.audience[name].ids)}"] },
-      { actions = ["bedrock-agentcore:InvokeAgentRuntime"], resources = ["arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:runtime/*"] },
+      # A machine token for the agent's runtime, from the vault through the api's workload identity.
+      { actions = ["bedrock-agentcore:GetWorkloadAccessToken"], resources = [local.workloads, "${local.workloads}/workload-identity/${local.prefix}-api"] },
+      { actions = ["bedrock-agentcore:GetResourceOauth2Token"], resources = [local.vault, "${local.vault}/oauth2credentialprovider/${local.agent_provider}", "${local.workloads}/workload-identity/${local.prefix}-api"] },
+      { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/oauth2/${local.agent_provider}*"] },
+      # The records in DSQL, signed in as admin with an IAM token (decision 30).
+      { actions = ["dsql:DbConnectAdmin"], resources = ["arn:${local.partition}:dsql:${local.region}:${local.account}:cluster/*"] },
     ]
     context = []
     copilot = [
-      { actions = ["secretsmanager:GetSecretValue"], resources = [data.aws_secretsmanager_secret.app.arn] },
+      { actions = ["ssm:GetParameter"], resources = [local.app_parameter_arn] },
+      # The Anthropic key from the vault, through the Copilot's workload identity.
+      { actions = ["bedrock-agentcore:GetWorkloadAccessToken"], resources = [local.workloads, "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
+      { actions = ["bedrock-agentcore:GetResourceApiKey"], resources = [local.vault, "${local.vault}/apikeycredentialprovider/*", "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
+      { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/apikey/${local.prefix}-*"] },
+      # Conversations, their saved progress and handlers' notes (database unit).
+      {
+        actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:BatchGetItem", "dynamodb:BatchWriteItem"]
+        resources = [for t in ["checkpoints", "copilot", "copilot/index/*"] : "arn:${local.partition}:dynamodb:${local.region}:${local.account}:table/${var.project}-${var.environment}-${t}"]
+      },
       {
         actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:ApplyGuardrail"]
         resources = [
@@ -143,12 +167,17 @@ locals {
   service_environment = {
     api = merge(local.issuers, local.token_audiences, {
       ENVIRONMENT     = var.environment
-      APP_SECRET      = data.aws_secretsmanager_secret.app.name
+      APP_SECRET      = local.app_parameter
       RECEIPTS_BUCKET = local.receipts
       # The demo's test-account buttons and the project page's counts; drop it to turn both off.
       TEST_SIGN_IN = "true"
+      # The agent's runtime takes the api's machine token, which AgentCore Identity fetches.
+      WORKLOAD_NAME        = "${local.prefix}-api"
+      AGENT_TOKEN_PROVIDER = local.agent_provider
+      AGENT_TOKEN_SCOPE    = "undercover-agent/invoke"
     })
-    context = { CONTEXT_ALLOWED_HOSTS = "*" }
+    # No URL: AgentCore Gateway invokes it by ARN, and the adapter passes each call to /events.
+    context = { CONTEXT_ALLOWED_HOSTS = "*", CONTEXT_GATEWAY_EVENTS = "true" }
   }
 }
 
@@ -200,10 +229,13 @@ resource "aws_lambda_function" "copilot" {
   environment {
     variables = {
       ENVIRONMENT    = var.environment
-      APP_SECRET     = data.aws_secretsmanager_secret.app.name
+      APP_SECRET     = local.app_parameter
       MODEL_PROVIDER = var.model_provider
       COPILOT_MODEL  = local.sonnet
       UNDERCOVER_API = trimsuffix(aws_lambda_function_url.service["api"].function_url, "/")
+      # The Copilot's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
+      WORKLOAD_NAME          = "${local.prefix}-copilot"
+      ANTHROPIC_KEY_PROVIDER = local.key_provider
     }
   }
 
@@ -215,11 +247,6 @@ resource "aws_lambda_function" "copilot" {
   depends_on = [aws_iam_role_policy.function]
 
   lifecycle {
-    # Spec 26: prod sends claim data only to Bedrock in Australia.
-    precondition {
-      condition     = var.environment != "prod" || local.bedrock
-      error_message = "prod uses Bedrock only (spec 26): set the MODEL_PROVIDER variable to bedrock."
-    }
     precondition {
       condition     = !local.bedrock || (local.sonnet != "none" && local.haiku != "none")
       error_message = "No Australian inference profile for Claude Sonnet 5.5 or Haiku 5.5 here: turn on model access in the Bedrock console, or set sonnet_model and haiku_model."
@@ -227,13 +254,13 @@ resource "aws_lambda_function" "copilot" {
   }
 }
 
-# The api checks tokens or the agent's key itself; the context has no auth of its own, so only the agent's role may call it.
+# The api checks tokens or the agent's key itself. The context has no URL: only the gateway's role may invoke it.
 resource "aws_lambda_function_url" "service" {
-  #checkov:skip=CKV_AWS_258: the api authenticates every request itself; the context's URL is AWS_IAM
-  for_each = aws_lambda_function.service
+  #checkov:skip=CKV_AWS_258: the api authenticates every request itself
+  for_each = { for name, fn in aws_lambda_function.service : name => fn if name != "context" }
 
   function_name      = each.value.function_name
-  authorization_type = each.key == "context" ? "AWS_IAM" : "NONE"
+  authorization_type = "NONE"
 }
 
 resource "aws_lambda_function_url" "copilot" {

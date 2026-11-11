@@ -1,4 +1,4 @@
-"""The one place the agent reaches Bedrock Guardrails (tier 2 design 7): customer text only,
+"""The one place the agent reaches Bedrock Guardrails: customer text only,
 before any model reads it, so the guardrail never sees the agent's own instructions or tool
 results."""
 

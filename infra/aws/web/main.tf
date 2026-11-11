@@ -1,4 +1,4 @@
-# Each web app in a private bucket behind its own CloudFront distribution (tier 2 design 1), forwarding only its api prefixes.
+# Each web app in a private bucket behind its own CloudFront distribution, forwarding only its api prefixes.
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -141,20 +141,21 @@ resource "aws_cloudfront_function" "spa" {
   JS
 }
 
-# trivy:ignore:AWS-0011 no WAF in the demo; every api route authenticates, and the api throttles what costs money
+# trivy:ignore:AWS-0011 the apps get WAF through the Free plan (edge.tf); the project page is static
 resource "aws_cloudfront_distribution" "web" {
-  #checkov:skip=CKV_AWS_68: no WAF in the demo; every api route authenticates, and the api throttles what costs money
+  #checkov:skip=CKV_AWS_68: the apps get WAF through the Free plan (edge.tf); the project page is static
   #checkov:skip=CKV_AWS_86: access logs need a bucket and cost; turn them on before real users
   #checkov:skip=CKV_AWS_174: the default certificate allows only CloudFront's own TLS policy; a custom domain would set TLSv1.2_2021
   #checkov:skip=CKV_AWS_310: one origin per path is enough for a demo
   #checkov:skip=CKV_AWS_374: no geo restriction: the demo is for anyone with a test account
   #checkov:skip=CKV2_AWS_32: the response headers policy is attached to every behaviour below
   #checkov:skip=CKV2_AWS_42: no custom domain in the demo, so CloudFront's own certificate
-  #checkov:skip=CKV2_AWS_47: no WAF in the demo, as above
+  #checkov:skip=CKV2_AWS_47: the common rules include Log4j through the Free plan; the project page is static
   for_each = local.apps
 
   enabled             = true
   comment             = "${local.prefix}-${each.key}"
+  web_acl_id          = try(aws_wafv2_web_acl.app[each.key].arn, null)
   default_root_object = "index.html"
   price_class         = "PriceClass_All"
   http_version        = "http2and3"

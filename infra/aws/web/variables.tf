@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 
@@ -13,4 +13,10 @@ variable "region" {
   description = "AWS region"
   type        = string
   default     = "ap-southeast-2"
+}
+
+variable "free_plan" {
+  description = "CloudFront's flat-rate Free plan (WAF and DDoS protection) on the three apps; false where the account can't have it"
+  type        = bool
+  default     = true
 }

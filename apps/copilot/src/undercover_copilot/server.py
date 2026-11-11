@@ -60,6 +60,8 @@ class ConversationView(ConversationSummary):
 class Caller:
     handler_id: str
     api: StaffApi
+    # The handler's own token, which the context gateway checks on AWS.
+    token: str = ""
 
 
 def caller(request: Request, authorization: Annotated[str | None, Header()] = None) -> Caller:
@@ -74,7 +76,7 @@ def caller(request: Request, authorization: Annotated[str | None, Header()] = No
     except ApiError as error:
         status = error.status if error.status == UNAUTHORISED else 403
         raise HTTPException(status, error.detail) from error
-    return Caller(str(handler["handler_id"]), api)
+    return Caller(str(handler["handler_id"]), api, token)
 
 
 Signed = Annotated[Caller, Depends(caller)]
@@ -137,7 +139,9 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             raise HTTPException(409, "The Copilot is still answering in this conversation")
         try:
             graph = cast(Graph, ready["graph"])
-            graph.invoke(payload(), config_for(key), context=Handler(who.api, who.handler_id))
+            graph.invoke(
+                payload(), config_for(key), context=Handler(who.api, who.handler_id, who.token)
+            )
         finally:
             store.free(key)
         return view(conversation)
@@ -260,13 +264,20 @@ def build_app() -> FastAPI:
     settings = get_settings()
     context = McpContext(settings.undercover_context)
     if settings.context_gateway:
-        # Tier 2: the context layer only through its gateway, signed as this function's role.
-        from undercover_copilot.aws_auth import SigV4Signer  # noqa: PLC0415
+        # Tier 2: the context layer only through its gateway, as the handler who asked: the
+        # gateway checks their own token and lets only handlers in.
+        context = McpContext(settings.context_gateway, prefix="context___", bearer=True)
+    # One client for every handler's requests, so connections are pooled, not opened per request
+    # and left open; it closes when the service stops.
+    http = httpx2.Client(base_url=settings.undercover_api, timeout=30.0)
 
-        region = settings.aws_region or os.environ["AWS_REGION"]
-        context = McpContext(
-            settings.context_gateway, SigV4Signer(region, "bedrock-agentcore"), "context___"
-        )
+    def staff_api(token: str) -> StaffApi:
+        return StaffApi(settings.undercover_api, token, http)
+
+    if settings.checkpoint_table and settings.copilot_table:
+        return aws_app(settings, context, staff_api, http.close)
+    if settings.checkpoint_database_url is None:
+        raise RuntimeError("Set CHECKPOINT_TABLE and COPILOT_TABLE, or CHECKPOINT_DATABASE_URL")
     pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=6)
 
     def make_graph() -> Graph:
@@ -281,17 +292,43 @@ def build_app() -> FastAPI:
             PostgresMemory(pool),
         )
 
-    # One client for every handler's requests, so connections are pooled, not opened per request
-    # and left open; it and the database pool close when the service stops.
-    http = httpx2.Client(base_url=settings.undercover_api, timeout=30.0)
-
     def close() -> None:
         http.close()
         pool.close()
 
-    return create_app(
-        make_graph,
-        lambda: PostgresStore(pool),
-        lambda token: StaffApi(settings.undercover_api, token, http),
-        close,
-    )
+    return create_app(make_graph, lambda: PostgresStore(pool), staff_api, close)
+
+
+# A week of a conversation's saved progress, compressed to stay under DynamoDB's item size.
+CHECKPOINT_TTL_SECONDS = 7 * 24 * 3600
+
+
+def aws_app(
+    settings: Any, context: Any, staff_api: Callable[[str], StaffApi], close: Callable[[], None]
+) -> FastAPI:
+    """The service on AWS: checkpoints, conversations and notes in DynamoDB."""
+    from langgraph_checkpoint_aws import DynamoDBSaver  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    from undercover_copilot.claude import AnthropicClaude  # noqa: PLC0415
+    from undercover_copilot.dynamo import DynamoMemory, DynamoStore, table  # noqa: PLC0415
+    from undercover_copilot.graph import build_graph  # noqa: PLC0415
+
+    region = settings.aws_region or os.environ.get("AWS_REGION")
+    copilot = table(settings.copilot_table, region)
+
+    def make_graph() -> Graph:
+        saver = DynamoDBSaver(
+            table_name=settings.checkpoint_table,
+            region_name=region,
+            ttl_seconds=CHECKPOINT_TTL_SECONDS,
+            enable_checkpoint_compression=True,
+        )
+        return build_graph(
+            AnthropicClaude(settings),
+            saver,
+            settings.max_model_calls,
+            context,
+            DynamoMemory(copilot),
+        )
+
+    return create_app(make_graph, lambda: DynamoStore(copilot), staff_api, close)

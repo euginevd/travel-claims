@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     database_url: str = Field(min_length=1)
     # No default: a deployment must say where it runs, so nothing local is on by accident.
-    environment: Literal["local", "dev", "prod"]
+    environment: Literal["local", "dev"]
     undercover_api_key: SecretStr = Field(min_length=32)
     # The local sign-in stand-in issues tokens shaped like Cognito's; never on outside a laptop.
     local_sign_in: bool = False
@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (tier 2).
     agent_url: str = "http://127.0.0.1:8080"
     agent_runtime_arn: str | None = None
+    # Tier 2: the runtime takes the api's machine token, which AgentCore Identity fetches from its
+    # vault through this workload identity; the runtime is called with AWS signatures when unset.
+    workload_name: str | None = None
+    agent_token_provider: str | None = None
+    agent_token_scope: str = "undercover-agent/invoke"  # noqa: S105 - a scope, not a secret
     # The claim agent's configuration version, named on every decision it makes.
     agent_version: int = Field(default=1, ge=1)
 
@@ -76,8 +81,8 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON secret named by APP_SECRET; anything already
-    in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
+    """On AWS (tier 2), fill in settings from the JSON parameter named by APP_SECRET; what is
+    already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:
         return
@@ -87,11 +92,11 @@ def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
 
 
 def fetch_secret(name: str) -> str:
-    """A secret's value from Secrets Manager, with the role's credentials."""
+    """The settings parameter's decrypted value from SSM, with the role's credentials."""
     import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
-    client = cast(Any, boto3).client("secretsmanager")
-    return str(client.get_secret_value(SecretId=name)["SecretString"])
+    client = cast(Any, boto3).client("ssm")
+    return str(client.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"])
 
 
 @lru_cache

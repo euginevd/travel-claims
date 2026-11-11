@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 
@@ -27,8 +27,9 @@ variable "haiku_model" {
   default     = ""
 }
 
+
 variable "model_provider" {
-  description = "Which Claude the apps call: anthropic (the API key in the app secret) or bedrock (Australia's profiles)"
+  description = "Which Claude the apps call: anthropic (the key from GitHub secrets) or bedrock (Australia's profiles)"
   type        = string
   default     = "bedrock"
 

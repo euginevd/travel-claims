@@ -1,4 +1,4 @@
-# Customers' receipts (tier 2 design 5): private, encrypted, TLS-only, under the api's random names.
+# Customers' receipts: private, encrypted, TLS-only, under the api's random names.
 data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "receipts" {
@@ -7,8 +7,8 @@ resource "aws_s3_bucket" "receipts" {
   #checkov:skip=CKV_AWS_145: S3-managed encryption is enough for made-up receipts; real data would take a customer key
   #checkov:skip=CKV2_AWS_62: nothing reacts to new receipts; the api reads them when asked
   bucket = "${var.project}-receipts-${var.environment}-${data.aws_caller_identity.current.account_id}"
-  # dev can be torn down with its receipts; prod keeps them.
-  force_destroy = var.environment != "prod"
+  # Torn down with its receipts.
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "receipts" {

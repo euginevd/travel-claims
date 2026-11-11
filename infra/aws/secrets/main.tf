@@ -1,18 +1,61 @@
-# One JSON secret per environment (tier 2 design 8); the apply fills what code can, so no value is in state.
-resource "aws_secretsmanager_secret" "app" {
-  #checkov:skip=CKV_AWS_149: the AWS-managed key is enough for a demo; real data would take a customer key
-  #checkov:skip=CKV2_AWS_57: the values come from Supabase and are rotated there by hand
-  name        = "${var.project}/${var.environment}/app"
-  description = "The ${var.project} apps' database URLs and the agent's key, as JSON; set by hand"
-  # dev can be torn down and recreated at once; prod keeps a week to undo a deletion.
-  recovery_window_in_days = var.environment == "prod" ? 7 : 0
+# One SecureString parameter of JSON settings per environment (decision 30); written by script, so no value is in state.
+locals {
+  name   = "/${var.project}/${var.environment}/app"
+  script = "${path.module}/../../../scripts/fill-secret.py"
+  keys   = "${path.module}/../../../scripts/api-key-provider.py"
+  # The Anthropic key's provider in the token vault; the agent and functions units name it too.
+  key_provider = "${var.project}-${var.environment}-anthropic"
 }
 
-# On apply, adds the agent's key and SET-ME placeholders for the database URLs; never overwrites a value.
-resource "terraform_data" "fill" {
-  triggers_replace = [aws_secretsmanager_secret.app.arn, filesha256("${path.module}/../../../scripts/fill-secret.py")]
+# Deletes the parameter on destroy, and only then.
+resource "terraform_data" "app" {
+  input = local.name
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${aws_secretsmanager_secret.app.name}"
+    when    = destroy
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py --delete ${self.input}"
+  }
+}
+
+# Creates it with the agent's key and adds what's missing, never overwriting a value.
+resource "terraform_data" "fill" {
+  triggers_replace = [terraform_data.app.input, filesha256(local.script)]
+
+  provisioner "local-exec" {
+    command = "python3 ${local.script} ${terraform_data.app.input}"
+  }
+}
+
+# MODEL_PROVIDER=anthropic: the key into AgentCore Identity's token vault, where only the agent's and
+# Copilot's workload identities fetch it, and the workspace into the settings; both from GitHub
+# secrets in the environment, never from state.
+resource "terraform_data" "anthropic" {
+  count = var.model_provider == "anthropic" ? 1 : 0
+
+  triggers_replace = [terraform_data.fill.id, var.anthropic_key_version]
+
+  provisioner "local-exec" {
+    command = "python3 ${local.keys} ${local.key_provider} --from-env ANTHROPIC_API_KEY && python3 ${local.script} ${terraform_data.app.input} --from-env ANTHROPIC_WORKSPACE_ID --remove ANTHROPIC_API_KEY"
+  }
+}
+
+# Deletes the vaulted key on destroy, and only then.
+resource "terraform_data" "anthropic_provider" {
+  input = local.key_provider
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "python3 ${path.module}/../../../scripts/api-key-provider.py --delete ${self.input}"
+  }
+}
+
+# MODEL_PROVIDER=bedrock: no Anthropic key is kept, in the vault or the settings.
+resource "terraform_data" "bedrock_only" {
+  count = var.model_provider == "bedrock" ? 1 : 0
+
+  triggers_replace = [terraform_data.fill.id]
+
+  provisioner "local-exec" {
+    command = "python3 ${local.keys} --delete ${local.key_provider} && python3 ${local.script} ${terraform_data.app.input} --remove ANTHROPIC_API_KEY ANTHROPIC_WORKSPACE_ID"
   }
 }

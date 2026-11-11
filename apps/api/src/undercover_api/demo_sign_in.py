@@ -1,4 +1,4 @@
-"""Tier 2's public demo (tier 2 design 6): the test-account buttons sign a fixed account in through
+"""Tier 2's public demo: the test-account buttons sign a fixed account in through
 its Cognito pool. Each sign-in sets a fresh random password and uses it at once, so none is
 stored."""
 

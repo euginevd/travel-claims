@@ -27,8 +27,11 @@ class Settings(BaseSettings):
     # Tier 2: the context gateway's URL, from the app secret the agent unit fills; calls to it are
     # signed with the function's role and its tools are named context___<lookup>. Unset locally.
     context_gateway: str | None = None
-    # psycopg's own form (postgresql://...), where conversations and their progress are kept.
-    checkpoint_database_url: SecretStr
+    # Where conversations and their progress are kept: DynamoDB on AWS (decision 30), both tables
+    # set; else PostgreSQL in psycopg's own form (postgresql://...).
+    checkpoint_table: str | None = None
+    copilot_table: str | None = None
+    checkpoint_database_url: SecretStr | None = None
 
     copilot_model: str = "claude-sonnet-5-5"
     copilot_max_tokens: int = 8_000
@@ -55,8 +58,8 @@ class Settings(BaseSettings):
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON secret named by APP_SECRET; anything already
-    in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
+    """On AWS (tier 2), fill in settings from the JSON parameter named by APP_SECRET; what is
+    already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:
         return
@@ -66,15 +69,39 @@ def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
 
 
 def fetch_secret(name: str) -> str:
-    """A secret's value from Secrets Manager, with the role's credentials."""
+    """The settings parameter's decrypted value from SSM, with the role's credentials."""
     import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
-    client = cast(Any, boto3).client("secretsmanager")
-    return str(client.get_secret_value(SecretId=name)["SecretString"])
+    client = cast(Any, boto3).client("ssm")
+    return str(client.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"])
+
+
+def load_vaulted_key(fetch: Callable[[str, str], str] | None = None) -> None:
+    """On AWS with the Anthropic API (tier 2), the key from AgentCore Identity's token vault,
+    fetched with this app's workload identity; it's in no shared settings. Off AWS, or on
+    Bedrock, ANTHROPIC_KEY_PROVIDER is unset and nothing happens."""
+    provider = os.environ.get("ANTHROPIC_KEY_PROVIDER")
+    workload = os.environ.get("WORKLOAD_NAME")
+    if not provider or not workload or os.environ.get("ANTHROPIC_API_KEY"):
+        return
+    os.environ["ANTHROPIC_API_KEY"] = (fetch or fetch_api_key)(workload, provider)
+
+
+def fetch_api_key(workload: str, provider: str) -> str:
+    """The provider's API key, through a workload access token for this app's identity."""
+    import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    client = cast(Any, boto3).client("bedrock-agentcore")
+    token = client.get_workload_access_token(workloadName=workload)["workloadAccessToken"]
+    reply = client.get_resource_api_key(
+        workloadIdentityToken=token, resourceCredentialProviderName=provider
+    )
+    return str(reply["apiKey"])
 
 
 @lru_cache
 def get_settings() -> Settings:
     """The settings, read once."""
     load_app_secret()
+    load_vaulted_key()
     return Settings()  # pyright: ignore[reportCallIssue] - pydantic-settings fills them in
