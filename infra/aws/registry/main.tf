@@ -1,4 +1,4 @@
-# One repository per image the pipeline builds (spec 39); Lambda and AgentCore Runtime pull from them.
+# One repository per image the pipeline builds (tier 2 design 10); Lambda and AgentCore Runtime pull from them.
 locals {
   apps = toset(["api", "context", "copilot", "agent"])
 }

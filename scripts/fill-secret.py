@@ -1,4 +1,4 @@
-"""Fills the app secret's JSON (spec 37), never overwriting a value. Stdlib and the AWS CLI.
+"""Fills the app secret's JSON (tier 2 design 8), never overwriting a value. Stdlib and the AWS CLI.
 
 python3 scripts/fill-secret.py <store> [KEY=VALUE ...]
 

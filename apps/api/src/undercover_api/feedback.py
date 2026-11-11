@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Connection, RowMapping, insert, select, update
+from sqlalchemy.exc import IntegrityError
 
 from undercover_api.auth import Database, SignedInCustomer
 from undercover_api.db import feedback, now
@@ -66,6 +67,46 @@ def earlier_vote(db: Connection, customer_id: str, body: FeedbackRequest) -> Row
     return db.execute(mine.order_by(feedback.c.feedback_id)).mappings().first()
 
 
+def first_vote(
+    db: Connection, customer_id: str, body: FeedbackRequest, values: dict[str, str | bool | None]
+) -> int | None:
+    """Keep a new vote; None when the same customer's vote on the same decision beat it in."""
+    try:
+        with db.begin_nested():
+            return new_id(
+                db.execute(
+                    insert(feedback).values(
+                        customer_id=customer_id, subject=body.subject, created_at=now(), **values
+                    )
+                )
+            )
+    except IntegrityError:
+        return None
+
+
+def save_vote(
+    db: Connection, customer_id: str, body: FeedbackRequest, values: dict[str, str | bool | None]
+) -> int:
+    """A new vote, or the change to the customer's earlier one on the same thing."""
+    earlier = earlier_vote(db, customer_id, body)
+    if earlier is None:
+        if body.feedback_id is not None:
+            raise HTTPException(404, "Feedback not found")
+        feedback_id = first_vote(db, customer_id, body, values)
+        if feedback_id is not None:
+            return feedback_id
+        # A second vote on the same decision raced in: it changes the first one instead.
+        earlier = earlier_vote(db, customer_id, body)
+        if earlier is None:
+            raise HTTPException(409, "That vote couldn't be saved. Please try again.")
+    feedback_id = int(earlier["feedback_id"])
+    if body.subject == ANSWER:
+        # An answer's vote keeps the question and claim it was first given with.
+        values = {k: values[k] for k in ("helpful", "comment")}
+    db.execute(update(feedback).where(feedback.c.feedback_id == feedback_id).values(**values))
+    return feedback_id
+
+
 @feedback_router.post("/feedback", operation_id="give_feedback")
 def give_feedback(
     body: FeedbackRequest, customer: SignedInCustomer, db: Database, limit: Limiter
@@ -86,26 +127,7 @@ def give_feedback(
         "comment": None if body.helpful else body.comment or None,
         "question": body.question or None,
     }
-    earlier = earlier_vote(db, customer.customer_id, body)
-    if earlier is None:
-        if body.feedback_id is not None:
-            raise HTTPException(404, "Feedback not found")
-        feedback_id = new_id(
-            db.execute(
-                insert(feedback).values(
-                    customer_id=customer.customer_id,
-                    subject=body.subject,
-                    created_at=now(),
-                    **values,
-                )
-            )
-        )
-    else:
-        feedback_id = int(earlier["feedback_id"])
-        if body.subject == ANSWER:
-            # An answer's vote keeps the question and claim it was first given with.
-            values = {k: values[k] for k in ("helpful", "comment")}
-        db.execute(update(feedback).where(feedback.c.feedback_id == feedback_id).values(**values))
+    feedback_id = save_vote(db, customer.customer_id, body, values)
     row = db.execute(select(feedback).where(feedback.c.feedback_id == feedback_id)).mappings().one()
     return Feedback.model_validate(dict(row))
 

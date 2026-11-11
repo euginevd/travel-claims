@@ -4,7 +4,7 @@ These rules are the same for every project. The business and the project are des
 
 ## Read
 
-1. Always: [docs/business-context.md](docs/business-context.md), [docs/spec.md](docs/spec.md), [docs/features.md](docs/features.md), [TODO.md](TODO.md) and the current `docs/plan-<name>.md`, if there is one.
+1. Always: [docs/spec.md](docs/spec.md), [docs/features.md](docs/features.md), [TODO.md](TODO.md) and the current `docs/plan-<name>.md`, if there is one.
 2. Writing or reviewing code: [docs/code-standards.md](docs/code-standards.md), and [docs/design-system.md](docs/design-system.md) for UI work, if it exists.
 3. Changing an approach: [docs/decisions.md](docs/decisions.md), and for a security finding [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md). Don't reopen what's settled unasked.
 4. Users, data, auth or endpoints: [docs/threat-model.md](docs/threat-model.md), if it exists.
@@ -36,9 +36,9 @@ Read rule 24 first: the project's profile changes rules 11 to 17 for a prototype
 15. Kickoff, once per project made from the template, before its first plan:
     - First, ask whether the project is a `prototype` (no real users, customer data or payments) or `production`, and record it as `Profile` in `spec.md`.
     - Replace every *(to fill in)* line in `docs/`, fixing the numbered references that move, or delete a doc that doesn't apply. A prototype keeps the starter's `threat-model.md` and `costs.md`, deleting only their *(to fill in)* lines, unless asked for more.
-    - Get the user's approval of `business-context.md`, `spec.md` and a decision in `decisions.md` on the profile, who owns the code and the trade-offs accepted from [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md): a prototype accepts them all, production fixes each or names who accepts it.
+    - Get the user's approval of `spec.md`, its Business section included, and a decision in `decisions.md` on the profile, who owns the code and the trade-offs accepted from [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md): a prototype accepts them all, production fixes each or names who accepts it.
     - With UI, also of `design-system.md` and a mockup of the MVP's main screens built from it, in `docs/mockups/mvp.html`. For `production`, also of `threat-model.md` and `costs.md` if they apply.
-16. Build only what the spec or plan lists, and suggest the rest. Small follow-ups go in the next PR. [TODO.md](TODO.md) is the user's list: suggest from it, but confirm with the user before starting an item, and remove the item once it's done, renumbering the rest and leaving *Nothing planned.* when the list is empty. After kickoff, draft or change the business context, spec, design system or costs only when asked, and show each change for the user to approve before planning from it.
+16. Build only what the spec, `features.md` or plan lists, and suggest the rest. Small follow-ups go in the next PR. [TODO.md](TODO.md) is the user's inbox: they draft requirements, features and ideas there, in their own words. Suggest from it, but confirm with the user before starting an item; then add it to `features.md` as Next, put any new rule, limit or done-when in `spec.md`, plan and build it, and remove the item once it's done, renumbering the rest and leaving *Nothing planned.* when the list is empty. After kickoff, draft or change the business context, spec, design system or costs only when asked, and show each change for the user to approve before planning from it.
 17. Report what passed, failed and was skipped. Ask when something is unclear or two docs conflict. When the same check has failed three times, stop and report; don't try a fourth.
 18. Before adding a package, check it's real and maintained, and pin its latest stable version that is at least 7 days old and has no known vulnerabilities. A release that fixes a vulnerability a scan or advisory names in the version in use may skip the 7-day wait, for that package only (uv: `exclude-newer-package`).
 19. Ask first: a new AWS service, anything that adds cost, or a change to these rules or `code-standards.md`.

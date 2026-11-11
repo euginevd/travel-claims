@@ -1,4 +1,4 @@
-# Each web app in a private bucket behind its own CloudFront distribution (spec 30), forwarding only its api prefixes.
+# Each web app in a private bucket behind its own CloudFront distribution (tier 2 design 1), forwarding only its api prefixes.
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 

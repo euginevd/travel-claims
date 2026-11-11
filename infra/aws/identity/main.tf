@@ -1,4 +1,4 @@
-# One user pool per audience (decisions 10 and 12, spec 35), email and password, accounts made by an admin.
+# One user pool per audience (decisions 10 and 12, tier 2 design 6), email and password, accounts made by an admin.
 locals {
   audiences = {
     customers   = { group = "customers", description = "Customers of the portal" }
