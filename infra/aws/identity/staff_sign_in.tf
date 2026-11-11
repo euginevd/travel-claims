@@ -1,5 +1,7 @@
-# Staff sign-in through IAM Identity Center (SAML), for the handlers' and the AI engineers' pools,
-# when the pipeline names its metadata URL. Customers keep their own pool's email and password.
+# Reference code, never switched on here (decision 41): how the handlers' and AI engineers' pools
+# would federate with the platform team's IAM Identity Center (SAML) when STAFF_SAML_METADATA_URL is
+# set, and the api would accept those sign-ins. The apps' sign-in pages don't change. Customers keep
+# their own pool's email and password.
 locals {
   sso_provider = "IdentityCenter"
   sso_pools    = var.staff_saml_metadata_url == "" ? toset([]) : toset(["staff", "engineering"])

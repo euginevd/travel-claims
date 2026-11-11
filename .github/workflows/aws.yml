@@ -55,11 +55,10 @@ env:
   TF_VAR_anthropic_key_version: ${{ vars.ANTHROPIC_KEY_VERSION || '1' }}
   # CloudFront's Free plan (WAF and DDoS) on the apps: false for an account that can't have it (decision 30).
   TF_VAR_free_plan: ${{ vars.CLOUDFRONT_FREE_PLAN || 'true' }}
-  # Where alarms and the budget alert are emailed, and the monthly budget in USD (monitoring and platform units).
+  # Where the alarms are emailed (monitoring unit).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
-  TF_VAR_monthly_budget: ${{ vars.MONTHLY_BUDGET || '10' }}
   # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the
-  # platform's private subnets and VPC endpoints (platform, database, functions and agent units).
+  # platform team's private subnets, found by its /platform/network/* parameters (database, functions and agent units).
   TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
   # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
   TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
@@ -91,11 +90,8 @@ jobs:
           EVENT: ${{ github.event_name }}
           INPUT_UNIT: ${{ inputs.unit }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          # The platform unit is reference code for what a platform team runs; it deploys only with
-          # DEPLOY_PLATFORM=true, in an account with no platform team (decision 40).
-          SKIP: ${{ vars.DEPLOY_PLATFORM == 'true' && 'bootstrap' || 'platform' }}
         run: |
-          all=$(find infra/aws -mindepth 1 -maxdepth 1 -type d ! -name bootstrap ! -name "$SKIP" ! -name '_*' -printf '%f\n')
+          all=$(find infra/aws -mindepth 1 -maxdepth 1 -type d ! -name bootstrap ! -name '_*' -printf '%f\n')
           if [ "$EVENT" = workflow_dispatch ] && [ "$INPUT_UNIT" = all ]; then
             units="$all"
           elif [ "$EVENT" = workflow_dispatch ]; then

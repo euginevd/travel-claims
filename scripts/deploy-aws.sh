@@ -8,9 +8,9 @@ action=${1:-apply}
 [ $# -gt 0 ] && shift
 all=$([ $# -eq 0 ] && echo yes || echo no)
 # Each unit's plan reads what the ones before it made; images go to ECR before the functions and agent.
-order=(platform registry secrets database storage identity guardrail images functions agent web monitoring images)
+order=(registry secrets database storage identity guardrail images functions agent web monitoring images)
 # Destroy runs the other way, without the image builds.
-[ "$action" = destroy ] && order=(monitoring web agent functions guardrail identity storage database secrets registry platform)
+[ "$action" = destroy ] && order=(monitoring web agent functions guardrail identity storage database secrets registry)
 [ $# -gt 0 ] && order=("$@")
 
 # Dispatches a workflow, waits for the run it started, and stops on a failure.
@@ -28,14 +28,7 @@ run() {
   gh run watch "$id" --exit-status >/dev/null
 }
 
-# The platform unit is reference code for what a platform team runs: deployed only with DEPLOY_PLATFORM=true (decision 40).
-deploy_platform=$(gh variable get DEPLOY_PLATFORM 2>/dev/null || true)
-
 for unit in "${order[@]}"; do
-  if [ "$unit" = platform ] && [ "$deploy_platform" != true ]; then
-    echo "== platform: skipped (the platform team's; DEPLOY_PLATFORM=true deploys this repo's reference)"
-    continue
-  fi
   echo "== $unit"
   if [ "$unit" = images ]; then
     run images.yml -f deploy=false

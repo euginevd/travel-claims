@@ -1,5 +1,5 @@
 # AgentCore Evaluations online (decision 38): a sample of the agent's live sessions is scored by
-# built-in judges from its traces in aws/spans (Transaction Search, platform unit), with results in
+# built-in judges from its traces in aws/spans (the platform team's Transaction Search), with results in
 # CloudWatch beside the console's own evaluations. Off (0) unless EVALUATION_SAMPLING is set.
 variable "evaluation_sampling" {
   description = "Percentage of the agent's live sessions scored online; 0 turns online evaluations off"

@@ -15,10 +15,9 @@ locals {
     home      = {} # the project page calls no api
   }
 
-  # The apps reach only themselves and Cognito (and its hosted sign-in's token endpoint, for staff
-  # through IAM Identity Center); the project page pings the three apps' sites.
+  # The apps reach only themselves and Cognito; the project page pings the three apps' sites.
   connect = {
-    app  = "'self' https://cognito-idp.${local.region}.amazonaws.com https://*.auth.${local.region}.amazoncognito.com"
+    app  = "'self' https://cognito-idp.${local.region}.amazonaws.com"
     home = "'self' https://*.cloudfront.net"
   }
 

@@ -1,6 +1,6 @@
 # Free-tier monitoring of the app (decision 30): alarms on its functions, emailed through one topic.
-# Bedrock model invocation logging is in model_logs.tf; the account-wide budget and Access Analyzer are
-# in the platform unit (decision 35).
+# Bedrock model invocation logging is in model_logs.tf; the account's budget and Access Analyzer are the
+# platform team's (decision 41).
 data "aws_caller_identity" "current" {}
 
 locals {

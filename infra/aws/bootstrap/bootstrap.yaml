@@ -183,7 +183,6 @@ Resources:
                   StringEquals:
                     iam:PassedToService:
                       - lambda.amazonaws.com
-                      - backup.amazonaws.com
                       - bedrock-agentcore.amazonaws.com
                       - bedrock.amazonaws.com
                       - cloudtrail.amazonaws.com
@@ -371,7 +370,7 @@ Resources:
             Action: ssm:*
             Resource:
               - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
-              # What the platform unit publishes for the workload (decision 36): IDs, not secrets.
+              # What the platform team publishes for the workload (decision 41): IDs, not secrets.
               - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/platform/*'
           # The project's secrets, and AgentCore Identity's for its credential providers.
           - Sid: SecretsProject
@@ -475,28 +474,6 @@ Resources:
               - events:List*
               - sns:List*
             Resource: '*'
-          # The platform unit's backups (decision 38): vaults and plans have generated IDs; the vault
-          # keeps its recovery points under AWS Backup's own key.
-          - Sid: BackupRegion
-            Effect: Allow
-            Action:
-              - backup:*
-              - backup-storage:MountCapsule
-            Resource: '*'
-            Condition:
-              StringEquals:
-                aws:RequestedRegion: !Ref AWS::Region
-          - Sid: BackupKey
-            Effect: Allow
-            Action:
-              - kms:CreateGrant
-              - kms:DescribeKey
-              - kms:GenerateDataKey
-              - kms:Decrypt
-            Resource: '*'
-            Condition:
-              StringEquals:
-                kms:ViaService: !Sub 'backup.${AWS::Region}.amazonaws.com'
           # Account-wide services with generated IDs, so they're limited to this region.
           - Sid: SecurityServicesRegion
             Effect: Allow
@@ -578,18 +555,18 @@ Resources:
                 aws:RequestedRegion: !Ref AWS::Region
 
   # Read-only plan role; can't read secrets, parameters' values, objects or items.
-  # The workload network (decision 36): a VPC, its subnets, routes, NAT gateway, endpoints and
-  # security groups, in this region only. No instances, peering or transit gateways.
+  # The workload's side of the platform's network (decisions 36 and 41): its security groups and DSQL's
+  # endpoint in the platform's VPC, in this region only. The VPC itself is the platform team's.
   DeployNetworkPolicy:
     Type: AWS::IAM::ManagedPolicy
     Metadata:
       checkov:
         skip:
           - id: CKV_AWS_111
-            comment: VPC resources have generated IDs, so they're limited to this region and these actions
+            comment: Security groups and endpoints have generated IDs, so they're limited to this region and these actions
     Properties:
       ManagedPolicyName: !Sub '${ProjectName}-github-deploy-network'
-      Description: !Sub 'The VPC, subnets, NAT gateway and endpoints for the ${ProjectName} deploy role'
+      Description: !Sub 'Security groups and VPC endpoints for the ${ProjectName} deploy role'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -597,18 +574,6 @@ Resources:
             Effect: Allow
             Action:
               - ec2:Describe*
-              - ec2:CreateVpc
-              - ec2:DeleteVpc
-              - ec2:ModifyVpcAttribute
-              - ec2:*Subnet
-              - ec2:ModifySubnetAttribute
-              - ec2:*RouteTable
-              - ec2:*Route
-              - ec2:*InternetGateway
-              - ec2:*NatGateway
-              - ec2:AllocateAddress
-              - ec2:ReleaseAddress
-              - ec2:DisassociateAddress
               - ec2:*SecurityGroup
               - ec2:*SecurityGroupIngress
               - ec2:*SecurityGroupEgress
@@ -712,9 +677,6 @@ Resources:
                   - bedrock-agentcore:List*
                   - bedrock:Get*
                   - bedrock:List*
-                  - backup:Describe*
-                  - backup:Get*
-                  - backup:List*
                   - budgets:Describe*
                   - budgets:ListTagsForResource
                   - budgets:View*
@@ -847,17 +809,6 @@ Resources:
               - xray:PutTelemetryRecords
               - xray:PutTraceSegments
             Resource: '*'
-          # AWS Backup's role backs up and restores the cluster tagged Backup=daily (decision 38).
-          - Sid: Backups
-            Effect: Allow
-            Action:
-              - backup:*
-              - dsql:*
-              - tag:GetResources
-            Resource: '*'
-            Condition:
-              StringEquals:
-                aws:RequestedRegion: !Ref AWS::Region
           # Online evaluations read the agent's spans and runtime logs (decision 38).
           - Sid: EvaluationReads
             Effect: Allow
