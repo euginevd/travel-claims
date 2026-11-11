@@ -130,7 +130,7 @@ def test_the_criteria_have_no_data_until_a_held_out_run_finishes(
     assert before["met"] is False
     assert before["accuracy"]["met"] is None
     assert before["accuracy"]["actual"] is None
-    assert before["straight_through"]["detail"] == "No held-out run yet"
+    assert before["straight_through"]["detail"] == "No held-out run of the version in use yet"
     assert before["signed_off"]["met"] is True
 
     register(client)
