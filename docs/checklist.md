@@ -7,7 +7,7 @@ The guardrails in DevSecOps stage order. Clear it before real users, customer da
 | 1 | Plan | Threat modelling, requirements | `threat-model.md`, spec, ASVS | Production | Done: threat model and ASVS 5.0 Level 2 (spec 28) |
 | 2 | Plan | Cost estimate | `costs.md` | Production | Done |
 | 3 | Code, IDE | Secrets, SCA, IaC scanning | Gitleaks, Trivy | Both | Done: the pre-push scan |
-| 4 | Code, repo | Push protection, SCA | GitHub, Dependabot | Both | Done; `/e2e` not yet in Dependabot (TODO 8) |
+| 4 | Code, repo | Push protection, SCA | GitHub, Dependabot | Both | Done |
 | 5 | Code, agent | Agent guardrails | `AGENTS.md`, harness settings | Both | `AGENTS.md` only: no deny rules (trade-offs 8) |
 | 6 | Build | Secrets, SCA, IaC scanning | Gitleaks, Trivy, Checkov | Both | Done: the `security` workflow |
 | 7 | Build | SAST | Semgrep, CodeQL, GitHub AI Scan | Both | Done: Semgrep and CodeQL |
