@@ -13,7 +13,7 @@ These rules are the same for every project. The business and the project are des
 ## Commands
 
 6. The developer is on Windows: give commands for PowerShell or Git Bash.
-7. Setup, once: `bash scripts/setup.sh`
+7. Setup, once per clone, run by the user: `bash scripts/setup.sh`. To check a machine without changing it: `bash scripts/setup.sh --check`. Run the check at kickoff, and whenever a tool or the push hook is missing, and tell the user what it found.
 8. Security scan, run on every push: `bash .lefthook/pre-push-scan.sh`
 9. Terraform, in `aws/<unit>/`: `terraform fmt -recursive && terraform init -backend=false && terraform validate`
 10. App checks: the steps in [.github/workflows/apps.yml](.github/workflows/apps.yml)

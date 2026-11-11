@@ -10,7 +10,7 @@
 
 ## Setup
 
-1. `bash scripts/setup.sh`, once: installs the tools and the pre-push scan.
+1. `bash scripts/setup.sh`, once per clone: installs the tools and the pre-push scan. `--check` reports what's missing.
 2. Read [AGENTS.md](AGENTS.md) and [docs/code-standards.md](docs/code-standards.md). They're the rules for agents and people alike.
 
 ## Making a change
