@@ -9,10 +9,13 @@ flowchart LR
   subgraph browser ["Browser: untrusted"]
     customer[Customer]
     handler[Handler]
+    engineer[AI engineer]
   end
   subgraph laptop ["Docker Compose on the laptop, ports on 127.0.0.1"]
     portal((portal))
     dashboard((dashboard))
+    console((console))
+    copilot((copilot))
     api((api))
     db[(PostgreSQL)]
     receipts[(Receipt volume)]
@@ -28,6 +31,12 @@ flowchart LR
   handler -- "TB1b: sign-in, review, sign-off" --> dashboard
   portal -- "customer token, /api/customer only" --> api
   dashboard -- "staff token, /api/staff only" --> api
+  engineer -- "TB1c: sign-in, runs, live figures" --> console
+  console -- "engineer token, /api/engineering only" --> api
+  dashboard -- "TB6: the handler's own token, /api/copilot only" --> copilot
+  copilot -- "the handler's token, never a key" --> api
+  copilot -- "lookups over MCP" --> context
+  copilot -- "TB3" --> anthropic
   api --> db
   api --> receipts
   api -- "TB2: work, resume, agent key" --> agent
@@ -47,14 +56,19 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 | D1 | Customers' names, contact details, travel and medical details in claims | Highly sensitive in production; made up in tier 1 | PostgreSQL |
 | D2 | Decisions, their reasons, calculations and payments | Confidential | PostgreSQL |
 | D3 | Policy wording, claims manual and the other context files | Internal | The context layer, read by the agent |
-| D4 | Handlers' decisions on the labelled sets: the answer key | Confidential | `data/evals/` and the api's `labelled_claims`; no route the agent can call returns one, and the api sends the judge one handler's reason at a time, which it keeps and logs nowhere (TB5) |
+| D4 | Handlers' decisions on the labelled sets: the answer key, plus live claims an engineer added with the handler's final decision (a second copy of that claim's story and items) | Confidential | `data/evals/` and the api's `labelled_claims`; no route the agent can call returns one, and the api sends the judge one handler's reason at a time, which it keeps and logs nowhere (TB5) |
 | D6 | Receipts: images and PDFs customers upload | Highly sensitive in production; made up in tier 1 | The receipt volume (an S3 bucket in tier 2), under random names |
+| D7 | Customers' feedback: a vote, and up to 300 characters each of comment and question | Sensitive in production (free text); made up in tier 1 | PostgreSQL (`feedback`); engineers see it without a name or customer id; never sent to a model |
+| D8 | The Copilot's conversations and each handler's remembered preferences | Internal | PostgreSQL (`copilot` schema), one handler's only |
+| D9 | Settings and their change history: the approval limit, spending limit and objectives | Confidential | PostgreSQL (`settings`, `setting_changes`) |
 | D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged |
 
 ## Trust boundaries
 
 - **TB1a** Customers to the portal: customers sign in through the customer issuer (a Cognito-shaped local stand-in; a Cognito user pool, email and password only, in tier 2, whose public test-account button signs anyone in as Oliver Grant, made-up data only). The portal's web server forwards only `/api/customer/`; everything the browser sends is untrusted, receipts included.
 - **TB1b** Staff to the dashboard: handlers sign in through a separate staff issuer, with its own signing key and audience (a separate Cognito user pool in tier 2, reachable only from allowed networks). The dashboard's web server forwards only `/api/staff/`.
+- **TB1c** AI engineers to the console: a third issuer, signing key and audience; the console's web server forwards only `/api/engineering/`. An engineer's one write into the evaluation set (a live claim a handler overrode) is insert-only and recorded (R29).
+- **TB6** The Copilot: the dashboard sends each question with the handler's own token, which the Copilot checks with the `api` and never saves; every tool is a staff route the `api` authorises again, and a sign-off, send-back or dispatch waits on a confirm card (R11, R28). What it reads from a claim is customer data, never instructions.
 - **TB2** Agent and `api`: model output is untrusted; the `api` checks every decision against claims manual section 14 and the payout calculation before it can drive a payment.
 - **TB3** App to Claude: claim text leaves the laptop. Tier 1 sends only made-up data (spec 26); tier 2 keeps it in Australia.
 - **TB5** The judge: after an evaluation, the api sends the agent service's judge (Claude Haiku) one copy at a time: the agent's decision, reason and section beside the handler's. The agent's reason is untrusted model output; the judge's grade comes back to the api, which validates and stores it. The claim agent and the improver never receive the pairs (spec 24).

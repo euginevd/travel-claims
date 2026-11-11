@@ -23,13 +23,13 @@
 ## What it does
 
 10. **Customers** see only their own claims; make a claim photo first, with an AI drafting assistant and up to five receipts (JPEG, PNG or PDF, 5 MB each), saved to finish later; and claim a delayed flight in one tap when the flight-status feed shows it qualifies.
-11. **Customers** follow each claim on a tracker with a plain-English reason and an AI disclosure, upload each document asked for, ask a person to review a decision, get paid to a PayID, and see every email and text in Updates (an outbox in tier 1). They can ask an assistant about their policy and claims, answered from customer-facing sources only, citing the wording and never promising cover.
+11. **Customers** follow each claim on a tracker with a plain-English reason and an AI disclosure, upload each document asked for, ask a person to review a decision, get paid to a PayID, and see every email and text in Updates (an outbox in tier 1). They can ask an assistant about their policy and claims, answered from customer-facing sources only, citing the wording and never promising cover. They can rate each of the assistant's answers and each decision's explanation, helpful or not, with a short comment.
 12. **The hidden-instruction check** reads every claim and receipt first, on a separate model; a claim with hidden instructions goes to a handler and the claim agent never sees it.
 13. **The claim agent** uses the context layer, specialists (document checker, duplicate receipts, medical reviewer) and the customer's earlier claims to approve, decline or refer, with the payout from the payout rules and a decision record that meets claims manual section 14 or is refused. A referral can ask the customer for documents.
-14. **Payments:** an approval under $1,000 is paid at once, and a claim is paid once at most; anything over waits for a senior handler's sign-off. A senior handler can pause all payouts, and approvals then hold.
-15. **Handlers** get a queue with what needs them first, a case brief (recommendation, checklist with sources, payout lines, screened claims flagged), and sign off, send back, override with a reason code, ask the customer, or send an AI-drafted letter they've checked. Wattle AI (the Copilot) acts as the handler and signs off only after they confirm. A senior handler can start a dispatch: 1 to 25 claim agents work the claims waiting in the queue, oldest first, one dispatch at a time, with its progress and cost on the queue.
-16. **AI engineers** run evaluations on labelled sets with 1 to 25 agents at once (restart-safe), see scores, misses and any claim's tokens and cost, and a judge's grade of each explanation against the handler's (0 to 3, same grounds, same section; shown beside the scores, never deciding what's kept), approve or reject the improver's proposals (kept only if the held-out scores improve and every red-team attack holds against it), and run the red team: eight attack claims mapped to the OWASP Top 10 for LLMs, none of which may end paid.
-17. **The project page** explains the project, shows live counts and links to the three apps; local only, no customer data.
+14. **Payments:** an approval under the approval limit ($1,000 to start; a senior handler's setting, $100 to $5,000, every change recorded) is paid at once, and a claim is paid once at most; anything over waits for a senior handler's sign-off. A senior handler can pause all payouts, and approvals then hold.
+15. **Handlers** get a queue with what needs them first, a case brief (recommendation, checklist with sources, payout lines, screened claims flagged), and sign off, send back, override with a reason code, ask the customer, or send an AI-drafted letter they've checked. Each claim shows up to five similar decided claims, worked out in code, as a guide. Wattle AI (the Copilot) acts as the handler: it says what needs them, reads claims, settings and the success criteria, looks up the policy wording and claims manual, remembers the handler's stated preferences only, shows each turn's steps, time and cost, and signs off, sends back or starts a dispatch only after they confirm on a card. Senior handlers keep the settings (the approval limit, a round's spending limit, the accuracy and straight-through objectives, agents at once). A senior handler can start a dispatch: 1 to 25 claim agents work the claims waiting in the queue, oldest first, one dispatch at a time, with its progress and cost on the queue.
+16. **AI engineers** run evaluations on labelled sets with 1 to 25 agents at once (restart-safe), see scores, misses and any claim's tokens and cost, and a judge's grade of each explanation against the handler's (0 to 3, same grounds, same section; shown beside the scores, never deciding what's kept), approve or reject the improver's proposals (kept only if the held-out scores improve and every red-team attack holds against it), and run the red team: eight attack claims mapped to the OWASP Top 10 for LLMs, none of which may end paid. Success criteria are worked out in code, never by a model: straight through and held-out accuracy against their objectives on the latest held-out run, and no payment over the limit without a person. A Live page shows live claims only: straight through, how often handlers override or send back the agent, referrals, flags, cost and time per claim, and customers' feedback; an engineer can add a claim a handler overrode to the evaluation set, never the held-out set.
+17. **The project page** is one screen: a brief, the walkthrough video and a link to each app; no customer data.
 
 ## Done when
 
@@ -39,14 +39,14 @@
 ## Rules
 
 20. The agent decides; deterministic code pays and enforces every limit.
-21. Claims, documents and receipts are untrusted: hidden text must not change a decision; receipts are typed from their contents and never on a public URL.
+21. Claims, documents and receipts are untrusted: hidden text must not change a decision; receipts are typed from their contents and never on a public URL. Customers' feedback comments are shown as plain text and never sent to a model.
 22. Each audience signs in through its own issuer and the `api` checks the person on every request; the agent's key never stands in for a person; the Copilot acts as the handler who asked.
-23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations.
+23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations. The Copilot's memory holds a handler's preferences only, never claim or customer data.
 24. The claim agent and the improver never see the held-out set's answers; only the judge reads a handler's reason, one claim at a time, and keeps nothing.
 25. Every decision is logged with its reasons; personal data is redacted.
 26. Tier 1, and tier 2's `dev` while `MODEL_PROVIDER` is `anthropic`, send only made-up data to the Anthropic API; `prod` sends claim data only to Bedrock in Australia.
 27. A payout held for sign-off is never paid without a handler.
-28. Amounts are in US dollars. Security baseline: OWASP ASVS 5.0 Level 2.
+28. Amounts are in US dollars; the drafting assistant converts a receipt in another currency and marks it for the customer to check. Security baseline: OWASP ASVS 5.0 Level 2.
 
 ## Not for now
 
