@@ -8,5 +8,3 @@ Ideas and tasks, numbered. The agent confirms with you before starting one and r
 4. Bound the Live and similar-claims queries, which read every decision (status 61).
 5. A unique index on decision feedback (status 61).
 6. Close the Copilot's HTTP clients on shutdown (status 61).
-7. Re-record the walkthrough video with Settings, Live, similar claims and feedback.
-8. Redeploy tier 2 with the 2026-11-11 additions: set `PROJECT_NAME` first (status 48).
