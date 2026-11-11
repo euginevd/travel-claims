@@ -140,4 +140,4 @@ Tier 3 adds control, not scale: tier 2 already scales. Tier 2 is mostly free tie
 2. [Security trade-offs](guides/02-security-trade-offs.md): the risks this project accepts, and the fix for production.
 3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, and prove it.
 
-Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).
+Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).

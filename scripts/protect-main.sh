@@ -33,7 +33,7 @@ JSON
   # Anyone can open a PR on a public repo: their workflow runs wait for your approval.
   api -X PUT "repos/$repo/actions/permissions/fork-pr-contributor-approval" -f approval_policy=all_external_contributors
   # No API for these, so the script can only remind you.
-  echo "By hand, in Settings > Advanced Security: turn on everything except Agentic autofix, which uses AI credits."
+  echo "By hand, in Settings > Advanced Security: turn on everything; the AI scans and Agentic autofix use AI credits."
 fi
 
 # Updates the ruleset in place when it exists, so a change here reaches repos made earlier.

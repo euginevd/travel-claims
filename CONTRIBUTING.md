@@ -2,7 +2,7 @@
 
 # Contributing
 
-**Every change, by a person or a coding agent, goes through the same checks; the project's profile sets how much planning and approval it needs. This project is a `prototype` ([spec.md](docs/spec.md)).**
+**Every change, by a person or a coding agent, goes through the same checks. The project's profile sets how much planning and approval it needs. This project is a `prototype` ([spec.md](docs/spec.md)).**
 
 [Setup](#setup) · [Making a change](#making-a-change) · [Pull requests](#pull-requests)
 
