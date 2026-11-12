@@ -19,8 +19,9 @@
     done
   }
 
+  # No "!" in this script: a paste into CloudShell reads it as history and drops the line.
   # Another repo's roles trusting GitHub would lose sign-in with the shared OIDC provider, so stop if there are any.
-  others=$(aws iam list-roles --query "Roles[?contains(to_string(AssumeRolePolicyDocument), 'token.actions.githubusercontent.com') && !starts_with(RoleName, '$P')].RoleName" --output text)
+  others=$(aws iam list-roles --query "Roles[?contains(to_string(AssumeRolePolicyDocument), 'token.actions.githubusercontent.com') && starts_with(RoleName, '$P') == \`false\`].RoleName" --output text)
   if [ -n "$others" ]; then
     echo "STOP  other roles trust GitHub ($others): redeploy the bootstrap with CreateOidcProvider=false before deleting it."
   else
