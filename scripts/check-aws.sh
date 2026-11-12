@@ -45,11 +45,14 @@
   if ! aws cloudformation describe-stacks --region "$R" --stack-name "$P-bootstrap" >/dev/null 2>&1; then
     echo "SKIP  the $P-bootstrap stack isn't deployed yet (runbook step 3)"
   else
+    # Git Bash on Windows: the Windows AWS CLI needs the temp file's Windows path.
+    doc="file://$out"; command -v cygpath >/dev/null && doc="file://$(cygpath -m "$out")"
     validate() {
       local found
-      found=$(aws accessanalyzer validate-policy --region "$R" --policy-type IDENTITY_POLICY --policy-document "file://$out" \
-        --query "findings[?findingType!='SUGGESTION'].[findingType,issueCode,findingDetails]" --output text)
-      if [ -z "$found" ]; then echo "OK    $1"; else echo "CHECK $1:"; echo "$found" | sed 's/^/        /'; fi
+      if ! found=$(aws accessanalyzer validate-policy --region "$R" --policy-type IDENTITY_POLICY --policy-document "$doc" \
+        --query "findings[?findingType!='SUGGESTION'].[findingType,issueCode,findingDetails]" --output text 2>"$out.err"); then
+        result 1 "$1"
+      elif [ -z "$found" ]; then echo "OK    $1"; else echo "CHECK $1:"; echo "$found" | sed 's/^/        /'; fi
     }
     A=$(aws sts get-caller-identity --query Account --output text)
     for name in boundary github-deploy-compute github-deploy-data github-deploy-ops github-deploy-ai github-deploy-network; do
