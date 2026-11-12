@@ -135,7 +135,7 @@ Details: [costs.md](docs/costs.md).
 | Bedrock, Textract | The guardrails with Automated Reasoning checks, the Knowledge Base on S3 Vectors, Data Automation or Textract reading receipts, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
 | Terraform | AWS infrastructure, one root per unit | [infra/aws/](infra/aws/) |
 | GitHub Actions | App checks, security scans, images, Terraform plan and apply | [.github/workflows/](.github/workflows/) |
-| Python, uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
+| Python 3.14 (stable since October 2025), uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
 | Semgrep, CodeQL | Static analysis | [security.yml](.github/workflows/security.yml), [codeql.yml](.github/workflows/codeql.yml) |
 | Gitleaks | Secrets in code and history | [scan.sh](scripts/scan.sh) |
 | Trivy, Checkov | Vulnerable packages, images and IaC misconfiguration | [security.yml](.github/workflows/security.yml) |
