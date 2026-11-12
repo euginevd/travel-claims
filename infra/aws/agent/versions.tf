@@ -6,7 +6,7 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.72.0"
     }
-    # Cloud Control, for what the aws provider has no resource for yet (decision 49).
+    # Cloud Control, for what the aws provider has no resource for yet (decision 50).
     awscc = {
       source  = "hashicorp/awscc"
       version = "1.109.0"

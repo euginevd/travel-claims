@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # On AWS: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
     # On AWS: receipts read into fields before any model sees them, by Bedrock Data Automation or
-    # Amazon Textract (decisions 48 and 49); none, they reach Claude as images.
+    # Amazon Textract (decisions 48 and 50); none, they reach Claude as images.
     receipt_reader: Literal["none", "data-automation", "textract"] = "none"
     # Data Automation's project (made by the agent unit) and its cross-Region profile.
     data_automation_project_arn: str | None = None

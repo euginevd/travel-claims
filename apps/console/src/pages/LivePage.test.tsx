@@ -15,6 +15,16 @@ function withRow(changes: Partial<Live["disagreements"][number]>): Live {
   return {
     ...LIVE,
     days: 14,
+    // The api's fixture has no finished exam, so the version in use and its exam are set here.
+    version: 3,
+    exam: {
+      version: 3,
+      claims: 25,
+      accuracy: 0.84,
+      cost_per_claim: 0.009,
+      finished_at: "2026-11-12T08:05:00Z",
+    },
+    by_version: LIVE.by_version.map((slice) => ({ ...slice, name: "v3" })),
     feedback: {
       ...LIVE.feedback,
       comments: [
@@ -52,7 +62,18 @@ test("shows the tiles, the disagreements and feedback, and adds a claim after a 
   // A customer's words are text, never markup.
   expect(screen.getByText("<b>Which receipt?</b>")).toBeInTheDocument();
 
-  const table = screen.getByRole("table");
+  // The exam beside live, and the breakdown by version with the one in use marked.
+  const exam = screen.getByRole("region", { name: "Exam against live table" });
+  expect(within(exam).getByText("84%")).toBeInTheDocument();
+  expect(screen.getByText("Live is over 10% below the exam", { exact: false })).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("region", { name: "By version table" })).getByText("In use"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("1 to review")).toBeInTheDocument();
+
+  const table = within(screen.getByRole("region", { name: "Disagreements table" })).getByRole(
+    "table",
+  );
   await user.click(within(table).getByRole("button", { name: "Add to evaluation set" }));
   expect(fetchFn.calls.some((call) => call.method === "POST")).toBe(false);
   await user.click(within(table).getByRole("button", { name: `Add ${FIRST.claim_id}` }));

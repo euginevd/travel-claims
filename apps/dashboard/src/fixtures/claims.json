@@ -13,7 +13,8 @@
     "review_requested": false,
     "due_on": "2026-07-08",
     "documents_in": false,
-    "stalled": false
+    "stalled": false,
+    "red_team": false
   },
   {
     "claim_id": "CLM-1008",
@@ -29,7 +30,8 @@
     "review_requested": false,
     "due_on": "2026-07-13",
     "documents_in": false,
-    "stalled": false
+    "stalled": false,
+    "red_team": false
   },
   {
     "claim_id": "CLM-1011",
@@ -45,6 +47,7 @@
     "review_requested": false,
     "due_on": "2026-07-13",
     "documents_in": false,
-    "stalled": false
+    "stalled": false,
+    "red_team": false
   }
 ]

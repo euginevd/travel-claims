@@ -1,6 +1,6 @@
 """The one place the agent reads receipts into fields, so on AWS the claim checks and the claim
 agent never read a customer's image and the input guardrail sees what a receipt says (decisions
-48 and 49). Bedrock Data Automation with AWS's Receipt blueprint by default, which from Sydney may
+48 and 50). Bedrock Data Automation with AWS's Receipt blueprint by default, which from Sydney may
 process a receipt anywhere in its Asia Pacific profile; Amazon Textract's AnalyzeExpense, which
 stays in the agent's Region, where receipts must stay in Australia. Locally there is no reader,
 and receipts reach Claude as images."""

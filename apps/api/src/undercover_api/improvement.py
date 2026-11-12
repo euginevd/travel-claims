@@ -20,8 +20,9 @@ from sqlalchemy import Connection, RowMapping, func, insert, select, update
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.claims import find_claim
-from undercover_api.db import configurations, now, rounds, settings
+from undercover_api.db import configurations, now, rounds, setting_changes, settings
 from undercover_api.evaluations import (
+    CURRENT_VERSION,
     EFFORTS,
     MODELS,
     AgentCalls,
@@ -31,10 +32,12 @@ from undercover_api.evaluations import (
     LabelSet,
     Model,
     Scores,
+    Size,
     StartRunRequest,
     agent_eval_router,
     configuration,
     create_run,
+    current_version,
     dispatch,
     need_current,
     new_id,
@@ -56,12 +59,17 @@ MEASURES = ("accuracy", "payout_accuracy", "straight_through")
 # How far cost per claim must move to count as better or worse; time per claim is too noisy
 # on a few claims to judge by.
 COST_NOISE = 0.10
-OPEN = ("baselining", "improving", "awaiting_review", "evaluating")
-TINY = "tiny"
-BASELINES: tuple[tuple[LabelSet, str], ...] = (
-    ("evaluation", "baseline_eval_run"),
-    ("held_out", "baseline_held_run"),
+# How many more claims a measure must get right to count as better: one claim either way is
+# within the noise of a 25-claim exam. Any claim lost still counts as worse.
+BETTER_BY = 2
+OPEN = ("baselining", "improving", "awaiting_review", "evaluating", "red_teaming")
+# The practice run stays small; the exam is the whole held-out set, so a verdict rests on 25
+# claims, not 5.
+BASELINES: tuple[tuple[LabelSet, Size, str], ...] = (
+    ("evaluation", "tiny", "baseline_eval_run"),
+    ("held_out", "whole", "baseline_held_run"),
 )
+EXAM: Size = "whole"
 CONCURRENCY = 5
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
@@ -120,6 +128,41 @@ class Brief(BaseModel):
     misses: list[Miss]
     models: list[str]
     efforts: list[str]
+    # Earlier rounds' proposals and whether their exam kept them, so it doesn't repeat a change
+    # that failed. Only the outcome: no held-out score, reason or claim, so it can't tune itself
+    # to the exam.
+    history: list[dict[str, Any]] = []
+
+
+def history_of(db: Connection, before: int) -> list[dict[str, Any]]:
+    """The last few rounds whose candidate took its exam: what was tried, and whether it was
+    kept. A round that stopped before a candidate or an exam has nothing to learn from."""
+    rows = db.execute(
+        select(rounds.c.round_id, rounds.c.candidate_version, rounds.c.verdict)
+        .where(
+            rounds.c.round_id < before,
+            rounds.c.verdict.is_not(None),
+            rounds.c.candidate_version.is_not(None),
+        )
+        .order_by(rounds.c.round_id.desc())
+        .limit(10)
+    ).mappings()
+    found: list[dict[str, Any]] = []
+    for row in rows:
+        verdict = row["verdict"]
+        if "candidate" not in verdict:
+            continue
+        tried = configuration(db, row["candidate_version"])
+        found.append(
+            {
+                "round": row["round_id"],
+                "model": tried.model,
+                "effort": tried.effort,
+                "change": tried.reason,
+                "outcome": verdict.get("outcome", "better" if verdict.get("kept") else "worse"),
+            }
+        )
+    return found
 
 
 def spend_limit(db: Connection) -> float:
@@ -194,8 +237,8 @@ def start_round(engineer: SignedInEngineer, db: Database, service: AgentCalls) -
             )
         )
     )
-    for label_set, column in BASELINES:
-        body = StartRunRequest(label_set=label_set, size=TINY, concurrency=CONCURRENCY)
+    for label_set, size, column in BASELINES:
+        body = StartRunRequest(label_set=label_set, size=size, concurrency=CONCURRENCY)
         run_id, ids = create_run(db, body, version, engineer.name, round_id)
         update_round(db, round_id, **{column: run_id})
         dispatch(db, service, run_id, ids, CONCURRENCY)
@@ -237,7 +280,7 @@ def review_proposal(
         .where(configurations.c.version == candidate)
         .values(status="candidate", reviewed_by=engineer.name)
     )
-    body_run = StartRunRequest(label_set="held_out", size=TINY, concurrency=CONCURRENCY)
+    body_run = StartRunRequest(label_set="held_out", size=EXAM, concurrency=CONCURRENCY)
     run_id, ids = create_run(db, body_run, candidate, engineer.name, round_id)
     update_round(db, round_id, status="evaluating", review=review, candidate_held_run=run_id)
     dispatch(db, service, run_id, ids, CONCURRENCY)
@@ -289,6 +332,7 @@ def get_improver_brief(round_id: int, db: Database) -> Brief:
         misses=misses,
         models=list(MODELS),
         efforts=list(EFFORTS),
+        history=history_of(db, round_id),
     )
 
 
@@ -352,25 +396,44 @@ def improver_failed(round_id: int, body: ReviewRequest, db: Database) -> Round:
 # --- Moving a round on when its runs finish ---
 
 
+LABELS = {
+    "accuracy": "right decision",
+    "payout_accuracy": "right amount",
+    "straight_through": "decided without a person",
+}
+
+
+def claims_changed(baseline: Scores, candidate: Scores, measure: str) -> int:
+    """How many more claims the candidate got right on a measure (negative when fewer)."""
+    claims = min(baseline.claims, candidate.claims) or 1
+    return round((getattr(candidate, measure) - getattr(baseline, measure)) * claims)
+
+
 def verdict(baseline: Scores, candidate: Scores) -> dict[str, Any]:
-    """Keep the candidate only if it's no worse on every measure and better on at least one.
-    Cost per claim counts too, lower being better, outside its noise."""
-    worse = [m for m in MEASURES if getattr(candidate, m) < getattr(baseline, m)]
-    better = [m for m in MEASURES if getattr(candidate, m) > getattr(baseline, m)]
+    """Keep the candidate only if it's no worse on every measure and clearly better on one:
+    worse means any claim lost; better means BETTER_BY claims more, or cost per claim down
+    beyond its noise. A difference smaller than that is no clear difference, and the current
+    version stays."""
+    changed = {m: claims_changed(baseline, candidate, m) for m in MEASURES}
+    worse = [LABELS[m] for m, by in changed.items() if by < 0]
+    better = [LABELS[m] for m, by in changed.items() if by >= BETTER_BY]
     if candidate.cost_per_claim < baseline.cost_per_claim * (1 - COST_NOISE):
         better.append("cost per claim")
     elif candidate.cost_per_claim > baseline.cost_per_claim * (1 + COST_NOISE):
         worse.append("cost per claim")
     kept = not worse and bool(better)
+    outcome = "better" if kept else "worse" if worse else "unclear"
     if worse:
         why = f"Rolled back: worse on {', '.join(worse)}"
     elif not better:
-        why = "Rolled back: no measure improved on the held-out set"
+        why = "No clear difference on the held-out set, so the current version stays"
     else:
         why = f"Kept: better on {', '.join(better)} and worse on none"
     return {
         "kept": kept,
+        "outcome": outcome,
         "why": why,
+        "changed": changed,
         "baseline": baseline.model_dump(),
         "candidate": candidate.model_dump(),
     }
@@ -439,3 +502,42 @@ def finish_gate(db: Connection, round_id: int, results: list[Any]) -> None:
 
 # The routers the evaluation and round routes live on, for the app to include.
 ROUTERS = (staff_eval_router, agent_eval_router)
+
+
+class RollbackRequest(Strict):
+    reason: Reason
+
+
+@staff_eval_router.post("/configuration/{version}/restore", operation_id="restore_configuration")
+def restore_configuration(
+    version: int, body: RollbackRequest, engineer: SignedInEngineer, db: Database
+) -> Configuration:
+    """Go back to an earlier version, with the reason, on the record. Only a version that was
+    kept, so one that passed its exam and the red team, and never while a round is open."""
+    found = configuration(db, version)
+    if found.current:
+        raise HTTPException(409, f"Version {version} is already the one in use")
+    if found.status != "kept":
+        raise HTTPException(409, f"Version {version} was never kept, so it can't be restored")
+    if db.execute(select(func.count()).where(rounds.c.status.in_(OPEN))).scalar_one():
+        raise HTTPException(409, "A round is open; finish or stop it first")
+    before = current_version(db)
+    set_current_version(db, version, engineer.name)
+    db.execute(
+        insert(setting_changes).values(
+            key=CURRENT_VERSION,
+            value=version,
+            old_value=before,
+            reason=body.reason[:200],
+            changed_by=engineer.name,
+            changed_by_id=engineer.engineer_id,
+            changed_at=now(),
+        )
+    )
+    log.warning(
+        "claim agent restored to version %s from %s by engineer %s",
+        version,
+        before,
+        engineer.engineer_id,
+    )
+    return configuration(db, version)

@@ -72,7 +72,7 @@ test("a handler who isn't senior sees the queue's state but no way to start one"
   render(<DispatchCard api={createApi(fetchFn, () => "t")} handler={MARCUS} onProgress={noop} />);
   expect(await screen.findByText(/A senior handler can have claim agents/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Work the waiting claims" })).toBeNull();
-  expect(screen.getByText(/Last dispatch: #4, finished/)).toBeInTheDocument();
+  expect(screen.getByText(/Last time claim agents worked the queue: finished/)).toBeInTheDocument();
 });
 
 test("a refused start says why", async () => {

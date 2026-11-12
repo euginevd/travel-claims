@@ -199,7 +199,7 @@ resource "aws_iam_role_policy" "agent" {
       # Receipts read into fields before any model sees them (decision 48); Textract has no
       # resource-level permissions, and the region condition keeps it in this one.
       { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },
-      # Or Data Automation's project, through its Asia Pacific profile, in each Region it may use (decision 49).
+      # Or Data Automation's project, through its Asia Pacific profile, in each Region it may use (decision 50).
       {
         Effect = "Allow"
         Action = "bedrock:InvokeDataAutomation"

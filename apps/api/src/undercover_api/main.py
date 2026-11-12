@@ -131,6 +131,7 @@ from undercover_api.models import (
 from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
+from undercover_api.posture import posture_router
 from undercover_api.records import check_calculation, check_request
 from undercover_api.recovery import (
     agent_claim_router,
@@ -948,6 +949,7 @@ def create_app(
         agent_dispatch_router,
         redteam_router,
         threats_router,
+        posture_router,
         risk_router,
         letters_router,
         ask_router,

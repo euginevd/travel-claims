@@ -2,9 +2,9 @@ from typing import Any, cast
 
 from api_helpers import AGENT, FakeAgent, decide, line, payout, start
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, insert
+from sqlalchemy import Engine, insert, select
 
-from undercover_api.db import configurations, now, rounds, settings
+from undercover_api.db import configurations, now, rounds, setting_changes, settings
 from undercover_api.evaluations import Scores
 from undercover_api.improvement import verdict
 
@@ -163,6 +163,30 @@ def test_a_round_proposes_reviews_and_rolls_back_a_version_that_doesnt_help(
     configurations = client.get("/api/engineering/configuration", headers=sam).json()
     assert next(c for c in configurations if c["current"])["version"] == 1
 
+    # A round whose improver failed has no candidate; the next round's brief still works and
+    # learns only what was tried and whether it was kept, never a held-out score.
+    failed = client.post("/api/engineering/rounds", headers=sam).json()
+    for run_id in (failed["baseline_eval_run"], failed["baseline_held_run"]):
+        work_all(client, run_id, sam, "decline")
+        finish(client, run_id)
+    stop = {"approve": False, "reason": "The improver couldn't produce a proposal"}
+    client.post(f"/api/agent/rounds/{failed['round_id']}/failed", json=stop, headers=AGENT)
+    later = client.post("/api/engineering/rounds", headers=sam).json()
+    for run_id in (later["baseline_eval_run"], later["baseline_held_run"]):
+        work_all(client, run_id, sam, "decline")
+        finish(client, run_id)
+    found = client.get(f"/api/agent/rounds/{later['round_id']}/brief", headers=AGENT)
+    assert found.status_code == 200, found.text
+    assert found.json()["history"] == [
+        {
+            "round": round_["round_id"],
+            "model": "claude-sonnet-5-5",
+            "effort": "high",
+            "change": "More care on thin documents",
+            "outcome": "unclear",
+        }
+    ]
+
 
 def test_a_rejected_proposal_ends_the_round(
     client: TestClient, sam: dict[str, str], dana: dict[str, str]
@@ -203,6 +227,67 @@ def test_the_verdict_keeps_a_cheaper_version_that_is_as_accurate() -> None:
     assert verdict(base, cheaper)["kept"] is True
     assert verdict(base, cheaper.model_copy(update={"accuracy": 0.8}))["kept"] is False
     assert verdict(base, base)["kept"] is False
+    assert verdict(base, base)["outcome"] == "unclear"
+
+
+def test_one_claim_either_way_is_no_clear_difference_but_any_claim_lost_is_worse() -> None:
+    base = Scores(
+        claims=25,
+        decided=25,
+        accuracy=0.8,
+        payout_accuracy=0.8,
+        straight_through=0.6,
+        cost_per_claim=0.03,
+        seconds_per_claim=20,
+        total_cost=0.75,
+    )
+    one_more = base.model_copy(update={"accuracy": 0.84})
+    two_more = base.model_copy(update={"accuracy": 0.88})
+    one_fewer = base.model_copy(update={"payout_accuracy": 0.76, "accuracy": 0.88})
+    assert verdict(base, one_more)["outcome"] == "unclear"
+    assert verdict(base, one_more)["changed"]["accuracy"] == 1
+    assert verdict(base, two_more)["kept"] is True
+    assert "right decision" in verdict(base, two_more)["why"]
+    found = verdict(base, one_fewer)
+    assert found["outcome"] == "worse"
+    assert found["why"] == "Rolled back: worse on right amount"
+
+
+def test_an_engineer_restores_a_kept_version_with_a_reason_on_the_record(
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
+) -> None:
+    round_id = gated_round(client, 2)
+    report = {"results": [attack(True)]}
+    assert client.put("/api/engineering/redteam", json=report, headers=sam).status_code == 200
+    assert client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()["status"] == "kept"
+    restore = "/api/engineering/configuration/{}/restore"
+    body = {"reason": "Haiku misses medical claims"}
+    assert client.post(restore.format(2), json=body, headers=sam).status_code == 409
+    assert client.post(restore.format(1), json={"reason": ""}, headers=sam).status_code == 422
+    assert client.post(restore.format(1), json=body, headers=dana).status_code == 401
+    restored = client.post(restore.format(1), json=body, headers=sam)
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["current"] is True
+    engine: Engine = cast(Any, client.app).state.engine
+    with engine.connect() as db:
+        row = db.execute(select(setting_changes)).mappings().all()[-1]
+    assert (row["value"], row["old_value"], row["reason"], row["changed_by"]) == (
+        1,
+        2,
+        "Haiku misses medical claims",
+        "Sam Carter",
+    )
+
+
+def test_a_version_that_was_never_kept_cant_be_restored(
+    client: TestClient, sam: dict[str, str]
+) -> None:
+    gated_round(client, 2)
+    body = {"reason": "Try it"}
+    # Version 2 is still a candidate facing the red team, and a round is open.
+    found = client.post("/api/engineering/configuration/2/restore", json=body, headers=sam)
+    assert found.status_code == 409
+    assert "never kept" in found.json()["detail"]
 
 
 def gated_round(client: TestClient, version: int) -> int:

@@ -39,6 +39,7 @@ export const RedTeamReportSchema = z.object({
   run_at: z.string(),
   run_by: z.string(),
   results: z.array(RedTeamResultSchema),
+  config_version: z.number().nullable().default(null),
 });
 
 export const RedTeamStatusSchema = z.object({
@@ -94,6 +95,7 @@ export const RunSchema = z.object({
 export const RunClaimSchema = z.object({
   claim_id: z.string(),
   original_claim_id: z.string(),
+  claim_type: z.string().optional(),
   summary: z.string(),
   status: StatusSchema,
   decision: DecisionKindSchema.nullable(),
@@ -182,6 +184,22 @@ export const TraceSchema = z.object({
   ),
   total_cost: z.number(),
   total_tokens: z.number(),
+  // What the engineers read it against: the claim, its outcome, the agent version that worked it
+  // and what a live claim costs on average.
+  summary: z.string(),
+  status: StatusSchema,
+  outcome: z
+    .object({
+      decision: DecisionKindSchema,
+      payout: z.number(),
+      section: z.string(),
+      reason: z.string(),
+      decided_by: z.string(),
+      decided_at: z.string(),
+    })
+    .nullable(),
+  config_version: z.number().nullable(),
+  average_cost: z.number().nullable(),
 });
 
 export type Trace = z.infer<typeof TraceSchema>;
@@ -200,7 +218,14 @@ export const ThreatCoverageSchema = z.object({
     }),
   ),
   agents: z.array(
-    z.object({ agent: z.string(), model: z.string(), tools: z.string(), sources: z.string() }),
+    z.object({
+      agent: z.string(),
+      model: z.string(),
+      tools: z.string(),
+      sources: z.string(),
+      worst_case: z.string(),
+      stopped_by: z.string(),
+    }),
   ),
   payouts: z.object({
     paused: z.boolean(),
@@ -237,6 +262,100 @@ export const SettingsSchema = z.object({
   }),
 });
 
+const SeveritySchema = z.enum(["high", "medium", "low"]);
+const DetectionKindSchema = z.enum(["guardrail", "hidden_instruction", "refusal", "held"]);
+const DetectionCountsSchema = z.object({
+  guardrail: z.number(),
+  hidden_instruction: z.number(),
+  refusal: z.number(),
+  held: z.number(),
+});
+
+// Where the latest red-team run's attacks were stopped, the gaps and the detections, worked out
+// by the api from its own records.
+export const PostureSchema = z.object({
+  verdict: z.enum(["untested", "failing", "gap", "holding"]),
+  redteam: z
+    .object({
+      run_at: z.string(),
+      run_by: z.string(),
+      config_version: z.number().nullable(),
+      attacks: z.number(),
+      held: z.number(),
+      paid: z.number(),
+    })
+    .nullable(),
+  layers: z.array(
+    z.object({
+      key: z.enum(["screening", "agent", "limits", "sign_off"]),
+      name: z.string(),
+      what: z.string(),
+      reached: z.number(),
+      stopped: z.number(),
+    }),
+  ),
+  inventory: z.object({
+    agents: z.number(),
+    models: z.number(),
+    risks: z.number(),
+    live_version: z.number().nullable(),
+  }),
+  controls: z.object({
+    risks: z.number(),
+    with_control: z.number(),
+    tested: z.number(),
+    llm_tested: z.number(),
+    llm_total: z.number(),
+    agentic_tested: z.number(),
+    agentic_total: z.number(),
+  }),
+  issues: z.array(
+    z.object({
+      severity: SeveritySchema,
+      title: z.string(),
+      detail: z.string(),
+      link: z.enum(["redteam", "coverage"]),
+    }),
+  ),
+  detections: DetectionCountsSchema,
+  detection_days: z.number(),
+  readiness: z.object({
+    payouts_paused: z.boolean(),
+    live_version: z.number().nullable(),
+    tested_version: z.number().nullable(),
+    live_version_red_teamed: z.boolean(),
+  }),
+});
+
+// The controls that fired on live claims, each claim once per control. A summary is the check's
+// own reason: untrusted model output that may quote the claim, shown as plain text only.
+export const DetectionsSchema = z.object({
+  days: z.number(),
+  since: z.string(),
+  counts: DetectionCountsSchema,
+  events: z.array(
+    z.object({
+      kind: DetectionKindSchema,
+      control: z.string(),
+      claim_id: z.string(),
+      at: z.string(),
+      summary: z.string(),
+      outcome: z.string(),
+    }),
+  ),
+});
+
+// A live claim worth tracing: the one with the most model calls lately, or none yet.
+export const TraceSuggestionSchema = z.object({
+  claim_id: z.string().nullable(),
+  model_calls: z.number(),
+});
+
+export type TraceSuggestion = z.infer<typeof TraceSuggestionSchema>;
+export type Posture = z.infer<typeof PostureSchema>;
+export type Severity = z.infer<typeof SeveritySchema>;
+export type Detections = z.infer<typeof DetectionsSchema>;
+export type DetectionKind = z.infer<typeof DetectionKindSchema>;
 export type SuccessCriteria = z.infer<typeof SuccessCriteriaSchema>;
 export type Criterion = SuccessCriteria["criteria"][number];
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -266,10 +385,33 @@ const HelpfulSchema = z.object({
 
 // How the agent behaves on live claims. The comments and notes are people's own words: shown as
 // plain text only.
+const SliceSchema = z.object({
+  name: z.string(),
+  decided: z.number(),
+  straight_through_share: z.number().nullable(),
+  disagreements: z.number(),
+  cost_per_claim: z.number().nullable(),
+  first_day: z.string().nullable(),
+});
+export type Slice = z.infer<typeof SliceSchema>;
+
 export const LiveSchema = z.object({
   days: z.number(),
   since: z.string(),
   until: z.string(),
+  version: z.number().nullable().default(null),
+  exam: z
+    .object({
+      version: z.number(),
+      claims: z.number(),
+      accuracy: z.number(),
+      cost_per_claim: z.number(),
+      finished_at: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
+  by_version: z.array(SliceSchema).default([]),
+  by_claim_type: z.array(SliceSchema).default([]),
   totals: z.object({
     decided: z.number(),
     straight_through: z.number(),
@@ -361,8 +503,12 @@ export interface Api {
   startRound: () => Promise<Round>;
   reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
   stopRound: (roundId: number) => Promise<Round>;
+  restoreVersion: (version: number, reason: string) => Promise<Configuration>;
   getTrace: (claimId: string) => Promise<Trace>;
   getThreats: () => Promise<ThreatCoverage>;
+  getPosture: () => Promise<Posture>;
+  suggestTrace: () => Promise<TraceSuggestion>;
+  getDetections: (days: LivePeriod) => Promise<Detections>;
   getSuccessCriteria: () => Promise<SuccessCriteria>;
   getSettings: () => Promise<Settings>;
   ask: (question: string, history: AskTurn[]) => Promise<Answer>;
@@ -466,6 +612,10 @@ export function createApi(
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    restoreVersion: (version, reason) =>
+      call(ConfigurationSchema, "POST", `/configuration/${String(version)}/restore`, {
+        body: { reason },
+      }),
     getLive: (days) => call(LiveSchema, "GET", `/live?days=${String(days)}`),
     addToEvaluation: (claimId) =>
       call(
@@ -474,6 +624,9 @@ export function createApi(
         `/live/disagreements/${encodeURIComponent(claimId)}/add-to-evaluation`,
       ),
     getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
+    getPosture: () => call(PostureSchema, "GET", "/posture"),
+    suggestTrace: () => call(TraceSuggestionSchema, "GET", "/trace-suggestion"),
+    getDetections: (days) => call(DetectionsSchema, "GET", `/detections?days=${String(days)}`),
     getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
     getSettings: () => call(SettingsSchema, "GET", "/settings"),
     ask: (question, history) =>

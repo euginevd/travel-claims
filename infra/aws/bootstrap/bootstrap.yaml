@@ -504,7 +504,7 @@ Resources:
             Action:
               - aoss:*
               - bedrock:*
-              # Terraform's awscc provider manages through Cloud Control (decision 49).
+              # Terraform's awscc provider manages through Cloud Control (decision 50).
               - cloudformation:CreateResource
               - cloudformation:GetResource
               - cloudformation:UpdateResource
