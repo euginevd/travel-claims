@@ -40,9 +40,12 @@ export function AskUnderCover({
   route: Route;
   onClose: () => void;
 }) {
+  // On a claim's page, Wattle answers about that claim (the api uses it only if it's theirs).
+  const about = route.page === "my-claim" ? route.claimId : "";
   return (
     <WattlePanel
-      ask={(question, history) => api.ask(question, history)}
+      ask={(question, history) => api.ask(question, history, about)}
+      context={about || undefined}
       scope="Ask about your policy and your claims. Answers come from your policy wording and your own records. Only a decision on a claim can say what is paid."
       starters={startersFor(route)}
       placeholder="Ask about your policy or claims"

@@ -370,6 +370,10 @@ export const AnswerSchema = z.object({
   sources: z.array(z.string()),
   suggest: z.string(),
   screened: z.boolean(),
+  // The answer laid out: a headline, short points citing the sources, one likely next question.
+  headline: z.string().default(""),
+  points: z.array(z.object({ text: z.string(), source: z.number().int().default(0) })).default([]),
+  next: z.string().default(""),
 });
 export type Answer = z.infer<typeof AnswerSchema>;
 export interface AskTurn {

@@ -180,6 +180,10 @@ export const AnswerSchema = z.object({
   screened: z.boolean(),
   // Automated Reasoning found it consistent with the policy wording's rules (on AWS).
   verified: z.boolean().default(false),
+  // The answer laid out: a headline, short points citing the sources, one likely next question.
+  headline: z.string().default(""),
+  points: z.array(z.object({ text: z.string(), source: z.number().int().default(0) })).default([]),
+  next: z.string().default(""),
 });
 
 export type Answer = z.infer<typeof AnswerSchema>;
@@ -275,7 +279,7 @@ export interface Api {
   setPayId: (payid: string) => Promise<string | null>;
   myDelays: () => Promise<DelayOffer[]>;
   myCover: () => Promise<Cover[]>;
-  ask: (question: string, history: AskTurn[]) => Promise<Answer>;
+  ask: (question: string, history: AskTurn[], about?: string) => Promise<Answer>;
   claimDelay: (flightId: string) => Promise<CustomerClaim>;
   myDraft: () => Promise<SavedDraft | null>;
   saveDraft: (draft: ClaimDraft) => Promise<SavedDraft>;
@@ -398,8 +402,10 @@ export function createApi(
       (await call(PayIdSchema, "PUT", "/payid", { body: { payid } })).payid,
     myDelays: () => call(z.array(DelayOfferSchema), "GET", "/delays"),
     myCover: () => call(z.array(CoverSchema), "GET", "/cover"),
-    ask: (question, history) =>
-      call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),
+    ask: (question, history, about = "") =>
+      call(AnswerSchema, "POST", "/ask", {
+        body: { question, history: history.slice(-8), about },
+      }),
     claimDelay: (flightId) =>
       call(CustomerClaimSchema, "POST", `/delays/${encodeURIComponent(flightId)}/claim`),
     myDraft: () => call(SavedDraftSchema.nullable(), "GET", "/draft"),

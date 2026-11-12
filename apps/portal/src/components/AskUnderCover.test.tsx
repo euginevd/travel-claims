@@ -38,7 +38,44 @@ test("answers a question with its sources and offers a next step", async () => {
       { role: "user", text: "Am I covered if my flight is delayed?" },
       { role: "assistant", text: "Your Premium plan covers delays over 6 hours." },
     ],
+    about: "",
   });
+});
+
+test("on a claim's page, answers about that claim, laid out, with one next question", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "POST /api/customer/ask": () => [
+      200,
+      {
+        answer: "Yes, it looks covered. Your flight left 4h 40m late",
+        sources: ["Policy wording section 3"],
+        suggest: "",
+        screened: false,
+        headline: "Yes, it looks covered.",
+        points: [{ text: "Your flight left **4h 40m** late", source: 1 }],
+        next: "What do I still need to send?",
+      },
+    ],
+  });
+  render(
+    <AskUnderCover
+      api={createApi(fetchFn, () => "t")}
+      route={{ page: "my-claim", claimId: "CLM-1903" }}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("CLM-1903", { selector: "b" })).toBeInTheDocument();
+  await user.type(screen.getByLabelText("Your question"), "Is my delay covered?");
+  await user.click(screen.getByRole("button", { name: "Ask" }));
+  expect(await screen.findByText("Yes, it looks covered.")).toBeInTheDocument();
+  // Bold is text in <strong>, never HTML from the model; the citation names its source.
+  expect(screen.getByText("4h 40m").tagName).toBe("STRONG");
+  expect(screen.getByLabelText("Source: Policy wording section 3")).toBeInTheDocument();
+  const posts = () => fetchFn.calls.filter((c) => c.method === "POST");
+  expect(posts()[0]?.body).toMatchObject({ about: "CLM-1903" });
+  await user.click(screen.getByRole("button", { name: "What do I still need to send?" }));
+  expect(posts()[1]?.body).toMatchObject({ question: "What do I still need to send?" });
 });
 
 test("says when the assistant can't answer, offers a person, and closes", async () => {
