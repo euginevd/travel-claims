@@ -80,6 +80,10 @@ const TOOL_WORDS: Record<string, string> = {
   search_reference_data: "Checked outside facts",
   search_documents: "Searched the policy documents",
   read_section: "Read a section",
+  check_documents: "Asked the document checker",
+  find_duplicate_receipts: "Checked for receipts used on other claims",
+  review_medical: "Asked the medical reviewer",
+  search_memory: "Checked what it knows about the customer",
 };
 
 /** A step in plain words for the activity rail, or null for steps only the trace shows. */

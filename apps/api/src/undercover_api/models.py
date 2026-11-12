@@ -217,6 +217,9 @@ class ClaimSummary(BaseModel):
     stalled: bool = Field(
         default=False, description="In progress, but the agent stopped working it"
     )
+    red_team: bool = Field(
+        default=False, description="An attack claim the red team made to test the defences"
+    )
 
 
 # A name to look customers up by: a few letters, no more than a full name.

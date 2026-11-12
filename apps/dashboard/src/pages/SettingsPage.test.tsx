@@ -68,8 +68,8 @@ test("a senior handler saves only what changed, with the reason, and sees it lis
 test("a handler who isn't senior reads the settings and is told why they can't change them", async () => {
   const fetchFn = fakeFetch({ "GET /api/staff/settings": () => [200, SETTINGS] });
   render(<SettingsPage api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
-  expect(await screen.findByLabelText(/Accuracy objective/)).toBeDisabled();
-  expect(screen.getByLabelText(/Accuracy objective/)).toHaveValue(80);
+  expect(await screen.findByLabelText(/Accuracy target/)).toBeDisabled();
+  expect(screen.getByLabelText(/Accuracy target/)).toHaveValue(80);
   expect(screen.getByText(/Only a senior claims handler can change these/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
 });

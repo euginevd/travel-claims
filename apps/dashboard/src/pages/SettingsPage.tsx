@@ -34,31 +34,31 @@ const FIELDS: Record<SettingKey, FieldDef> = {
     help: "A payout over this waits for a senior handler's sign-off. A new limit applies to decisions made from now on: payouts already held stay held, and nothing already paid changes.",
   },
   round_spend_limit: {
-    label: "Improvement round spending limit",
+    label: "AI improvement budget",
     unit: "US dollars",
     kind: "money",
     step: 0.5,
-    help: "The most one improvement round may spend on Claude before it stops.",
+    help: "The most the AI team may spend on Claude each time they try to improve the agent.",
   },
   accuracy_objective: {
-    label: "Accuracy objective",
+    label: "Accuracy target",
     unit: "%",
     kind: "percent",
     step: 1,
-    help: "The share of held-out claims the agent must decide as the handlers did.",
+    help: "How often the agent must reach the same decision a handler did, on test claims it never learns from.",
   },
   straight_through_objective: {
-    label: "Straight-through objective",
+    label: "Decided-alone target",
     unit: "%",
     kind: "percent",
     step: 1,
-    help: "The share of claims the agent should decide without referring them to a person.",
+    help: "How many claims the agent should settle without passing them to a person.",
   },
   agents_at_once: {
-    label: "Claim agents at once",
+    label: "Claims worked at once",
     kind: "whole",
     step: 1,
-    help: "The number the dispatch and evaluation forms start with. Whoever starts one can still change it.",
+    help: "How many claims the agent works side by side when you send it through the queue. You can still change it each time.",
   },
 };
 
@@ -229,7 +229,7 @@ export function SettingsPage({ api, handler }: Props) {
         <>
           <form className="panel settings-card" noValidate onSubmit={(event) => void save(event)}>
             <div className="panel-head">
-              <h2>Limits and objectives</h2>
+              <h2>Limits and targets</h2>
               <p className="muted small">Every change is kept with who made it and why.</p>
             </div>
             {!senior && (

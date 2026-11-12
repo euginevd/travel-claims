@@ -35,15 +35,15 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 11 | **Queue** that opens on what needs the handler, with screened claims flagged | Done | #2 |
-| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and the agent's activity live in plain words | Done | #5 |
+| 11 | **Queue** that opens on what needs the handler, with screened claims flagged; the red team's attack claims are tagged as tests and kept out of what needs the handler | Done | #2 |
+| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and the agent's activity live in plain words; its details, every lookup with what came back, also in plain words | Done | #5 |
 | 13 | **Sign off**, **send back** or **override** with a reason code; approvals under the approval limit pay at once, larger ones wait for a senior handler (spec 27) | Done | #2 |
 | 14 | Ask the customer for documents, and send an AI-drafted letter after editing it | Done | #39 |
 | 15 | **Similar claims**: up to five decided claims of the same type nearest in amount | Done | #72 |
 | 16 | **Retry**: carry on a claim the agent stopped working | Done | #57 |
 | 17 | **Pause payouts**: a senior handler stops every payment from the header | Done | #8 |
 | 18 | **Dispatch**: a senior handler works the waiting queue with 1 to 25 claim agents at once | Done | #70 |
-| 19 | **Settings** (senior handlers): approval limit ($100 to $5,000), round spending limit, accuracy and straight-through objectives, agents at once; every change recorded | Done | #72 |
+| 19 | **Settings** (senior handlers), in plain words: approval limit ($100 to $5,000), the AI improvement budget, the accuracy and decided-alone targets, claims worked at once; every change recorded | Done | #72 |
 | 20 | **Wattle AI Copilot**, acting as the handler who asked: what needs me, a claim and its steps, the latest dispatch, payouts, settings, success criteria and policy lookups; sign-off, dispatch and send-back only after a confirm card; remembers the handler's preferences (never claim or customer data); shows each turn's steps, time and cost (spec 22, 23, 27) | Done | #7 |
 
 ## AI assurance console (`console`)
