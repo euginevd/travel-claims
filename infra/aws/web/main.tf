@@ -167,9 +167,10 @@ resource "aws_cloudfront_distribution" "web" {
   #checkov:skip=CKV2_AWS_47: the common rules include Log4j through the Free plan; the project page is static
   for_each = local.apps
 
-  enabled             = true
-  comment             = "${local.prefix}-${each.key}"
-  web_acl_id          = try(aws_wafv2_web_acl.app[each.key].arn, null)
+  enabled = true
+  comment = "${local.prefix}-${each.key}"
+  # "" detaches a web ACL; null would leave whatever is attached, as the field is computed.
+  web_acl_id          = contains(local.protected, each.key) ? aws_wafv2_web_acl.app[each.key].arn : ""
   default_root_object = "index.html"
   price_class         = "PriceClass_All"
   http_version        = "http2and3"
