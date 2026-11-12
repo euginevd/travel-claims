@@ -40,24 +40,25 @@ The numbered badges in the diagram.
 3. The agent reaches tools only through Gateway, under Cedar policy; the staff Gateway takes the handler's own token.
 4. A separate model checks every claim for hidden instructions; a guardrail screens customer text, answers are checked for grounding and letters for personal data; Claude runs on Bedrock's Australian profile.
 5. The model decides; code checks the limits and pays; large payouts wait for a handler, and payouts can be paused.
-6. Every model call is logged; traces follow each claim; evaluations score live sessions; each customer's memory is kept apart.
+6. Every model call is logged; traces follow each claim; evaluations score live sessions; each customer's memory is kept apart; personal data is masked in the logs.
 7. Machine clients get short-lived tokens from AgentCore Identity; each function and the agent has its own role, inside a permissions boundary.
 8. Code the agent writes runs in a sandbox that reaches VPC endpoints only, never the internet.
 9. Each audience has its own pool; staff sign in through the company's Okta.
+10. Data is encrypted with the platform's key and backed up by the platform; uploads are scanned for malware; the api reads and writes through its own database role.
 
 ## What each part does
 
 In the diagram's order:
 
 - **Sign-in (Cognito):** a pool each for customers, handlers and AI engineers, so one audience's token never works for another; staff sign in with the company's Okta, by SAML; a services pool issues the apps' machine tokens.
-- **Edge (CloudFront, WAF):** one site per app, served from private buckets; WAF rules and a rate limit in front.
+- **Edge (CloudFront, WAF):** one site per app on the company's domain, with certificates, served from private buckets; WAF rules and a rate limit in front.
 - **API (API Gateway):** a regional REST API with its own WAF, so even a call that skips CloudFront meets the rules; it checks every token before a function runs, with throttling and access logs; the functions have no public URLs.
 - **Backend (Lambda):** the api, which owns claims, payouts and limits and checks every token again; the copilot for handlers; and the context server, reachable only through Gateway.
 - **VPC:** the functions and the agent run in private subnets, with nothing coming in; they reach AWS through VPC endpoints, and anything else through the platform's inspected egress.
 - **Agent (AgentCore):** the claim agent on Runtime, which accepts only the api's machine token; Identity keeps the machine-client secrets; Gateway and the staff Gateway are the only way to the tools, under Cedar policy; Code Interpreter reaches the VPC endpoints only.
 - **Models (Bedrock):** Claude on Australia's inference profile, so data stays in Australia; guardrails screen customers' text and check answers and letters before anyone sees them; the knowledge base holds the public policy wording.
 - **Data:** Aurora DSQL for claims and payouts (IAM sign-in, no password, through its own endpoint); S3 for receipts, each scanned for malware; DynamoDB for agent and chat progress; AgentCore Memory for each customer's history. All encrypted at rest with the platform's key, and backed up by the platform.
-- **Operate:** CloudWatch alarms by email, AgentCore Observability's trace of each claim, AgentCore Evaluations on live sessions, and a log of every model call as the workload's AI audit trail.
+- **Operate:** CloudWatch logs with personal data masked, alarms by email, AgentCore Observability's trace of each claim, AgentCore Evaluations on live sessions, and a log of every model call as the workload's AI audit trail.
 - **Delivery:** GitHub Actions signs in with OIDC, plans on PRs and deploys only from `main`, through the platform's pipeline roles and state bucket.
 
 To test a change before deploying, Docker Compose runs the same apps on a laptop.
