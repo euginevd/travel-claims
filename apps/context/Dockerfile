@@ -11,7 +11,10 @@ RUN uv sync --frozen --no-dev --package undercover-context --no-install-workspac
 COPY apps/context apps/context
 RUN uv sync --frozen --no-dev --package undercover-context --no-editable
 
-FROM python:3.14.9-slim-trixie@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
+FROM python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+# Debian's security fixes since the base image was built, and no pip: the app runs from its own .venv,
+# and pip bundles its own urllib3, msgpack and setuptools, which the image scan flags.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/* && python -m pip uninstall -y pip
 RUN useradd --system --uid 10001 app
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
