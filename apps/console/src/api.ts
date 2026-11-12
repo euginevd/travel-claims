@@ -384,10 +384,33 @@ const HelpfulSchema = z.object({
 
 // How the agent behaves on live claims. The comments and notes are people's own words: shown as
 // plain text only.
+const SliceSchema = z.object({
+  name: z.string(),
+  decided: z.number(),
+  straight_through_share: z.number().nullable(),
+  disagreements: z.number(),
+  cost_per_claim: z.number().nullable(),
+  first_day: z.string().nullable(),
+});
+export type Slice = z.infer<typeof SliceSchema>;
+
 export const LiveSchema = z.object({
   days: z.number(),
   since: z.string(),
   until: z.string(),
+  version: z.number().nullable().default(null),
+  exam: z
+    .object({
+      version: z.number(),
+      claims: z.number(),
+      accuracy: z.number(),
+      cost_per_claim: z.number(),
+      finished_at: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
+  by_version: z.array(SliceSchema).default([]),
+  by_claim_type: z.array(SliceSchema).default([]),
   totals: z.object({
     decided: z.number(),
     straight_through: z.number(),

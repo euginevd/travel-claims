@@ -126,5 +126,33 @@
       "in_evaluation_set": true,
       "can_add": false
     }
+  ],
+  "version": 3,
+  "exam": {
+    "version": 3,
+    "claims": 25,
+    "accuracy": 0.84,
+    "cost_per_claim": 0.009,
+    "finished_at": "2026-11-12T08:05:00Z"
+  },
+  "by_version": [
+    {
+      "name": "v3",
+      "decided": 1,
+      "straight_through_share": 0.0,
+      "disagreements": 1,
+      "cost_per_claim": 0.02,
+      "first_day": "2026-11-10"
+    }
+  ],
+  "by_claim_type": [
+    {
+      "name": "emergency medical",
+      "decided": 1,
+      "straight_through_share": 0.0,
+      "disagreements": 1,
+      "cost_per_claim": 0.02,
+      "first_day": "2026-11-10"
+    }
   ]
 }

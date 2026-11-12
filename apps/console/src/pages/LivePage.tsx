@@ -1,4 +1,4 @@
-import { Activity, CircleCheck, LoaderCircle, Plus, ThumbsDown } from "lucide-react";
+import { Activity, CircleAlert, CircleCheck, LoaderCircle, Plus, ThumbsDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   ApiError,
@@ -7,6 +7,7 @@ import {
   type Disagreement,
   type Live,
   type LivePeriod,
+  type Slice,
 } from "../api";
 import { BarSeries, MiniBar, Sparkline } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
@@ -28,6 +29,13 @@ const REASONS: Record<string, string> = {
   other: "Other",
 };
 
+// Where a tile turns amber: a prototype's rule of thumb, not a business setting.
+const TARGETS = { straightThrough: 0.6, disagreement: 0.2, cost: 0.03 };
+// How far live agreement may sit below the exam before it's called out.
+const EXAM_GAP = 0.1;
+// How many times the exam's cost per claim live may run before it's called out.
+const COST_GAP = 1.5;
+
 function percent(share: number | null): string {
   return share === null ? "–" : `${String(Math.round(share * 1000) / 10)}%`;
 }
@@ -38,45 +46,213 @@ function decided(decision: string | null, payout: number | null): string {
   return decision === "approve" && payout !== null ? `${label} ${dollars(payout)}` : label;
 }
 
-/** The headline tiles: each a number with what it's out of written under it. */
+function money(value: number | null): string {
+  return value === null ? "–" : `$${value.toFixed(3)}`;
+}
+
+/** The headline tiles: each a number with what it's out of written under it, and a word and
+ * icon when it's past its target. */
 function Tiles({ live }: { live: Live }) {
   const t = live.totals;
-  const tiles: [label: string, value: string, sub: string][] = [
-    ["Claims decided", String(t.decided), `Live claims, last ${String(live.days)} days`],
+  const tiles: [label: string, value: string, sub: string, off: string | null][] = [
+    ["Claims decided", String(t.decided), `Live claims, last ${String(live.days)} days`, null],
     [
       "Straight through",
       percent(t.straight_through_share),
       `${String(t.straight_through)} of ${String(t.decided)} decided and paid with no person`,
+      t.straight_through_share !== null && t.straight_through_share < TARGETS.straightThrough
+        ? `Below ${percent(TARGETS.straightThrough)}`
+        : null,
+    ],
+    [
+      "Cost per claim",
+      money(t.cost_per_claim),
+      t.seconds_per_claim === null
+        ? "No timed decisions yet"
+        : `${String(Math.round(t.seconds_per_claim))} s per claim on average`,
+      t.cost_per_claim !== null && t.cost_per_claim > TARGETS.cost
+        ? `Above ${money(TARGETS.cost)}`
+        : null,
     ],
     [
       "Handler disagreement",
       percent(t.disagreement_rate),
       `${String(t.disagreements)} of ${String(t.reviewed)} reviewed decisions overridden or sent back`,
+      t.disagreement_rate !== null && t.disagreement_rate > TARGETS.disagreement
+        ? `Above ${percent(TARGETS.disagreement)}`
+        : null,
     ],
-    ["Referrals", String(t.referrals), "Decisions that went to a handler"],
+    ["Referrals", String(t.referrals), "Decisions that went to a handler", null],
     [
       "Hidden-instruction flags",
       String(t.hidden_instruction_flags),
       "Claims the check stopped before the agent",
-    ],
-    [
-      "Cost per claim",
-      t.cost_per_claim === null ? "–" : `$${t.cost_per_claim.toFixed(3)}`,
-      t.seconds_per_claim === null
-        ? "No timed decisions yet"
-        : `${String(Math.round(t.seconds_per_claim))} s per claim on average`,
+      null,
     ],
   ];
   return (
     <ul className="kpis six" aria-label="Live behaviour at a glance">
-      {tiles.map(([label, value, sub]) => (
+      {tiles.map(([label, value, sub, off]) => (
         <li key={label} className="kpi">
           <p className="kpi-label">{label}</p>
           <p className="kpi-value">{value}</p>
           <p className="kpi-sub">{sub}</p>
+          {off && (
+            <span className="chip chip-warn">
+              <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+              {off}
+            </span>
+          )}
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The version in use's exam beside how it's doing live: a gap means the exam's claims don't
+ * look like real ones. */
+function ExamVsLive({ live }: { live: Live }) {
+  const { exam } = live;
+  const name = live.version === null ? null : `v${String(live.version)}`;
+  // Only the version in use's own live claims: an older version's numbers say nothing about it.
+  const own = live.by_version.find((row) => row.name === name) ?? null;
+  const kept = own === null ? null : 1 - own.disagreements / own.decided;
+  const warnings: string[] = [];
+  if (exam !== null && own !== null) {
+    if (kept !== null && exam.accuracy - kept > EXAM_GAP) {
+      warnings.push(
+        `Live is over ${percent(EXAM_GAP)} below the exam: add the disagreements below to the evaluation set`,
+      );
+    }
+    if (own.cost_per_claim !== null && own.cost_per_claim > exam.cost_per_claim * COST_GAP) {
+      warnings.push(
+        `Live costs over ${String(COST_GAP)}× the exam: real claims may need more model calls`,
+      );
+    }
+  }
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Exam against live{name !== null && ` · ${name} in use`}</h2>
+        <p className="panel-note">
+          Does the version in use do as well on real claims as on its exam?
+        </p>
+      </div>
+      {exam === null ? (
+        <p className="muted small">
+          The version in use hasn&apos;t taken an exam yet. An improvement round gives it one.
+        </p>
+      ) : (
+        <>
+          <TableScroll label="Exam against live table">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">Measure</th>
+                  <th scope="col">Exam ({exam.claims} claims)</th>
+                  <th scope="col">
+                    Live ({own === null ? "none yet" : `${String(own.decided)} claims`})
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">
+                    Right decision
+                    <span className="sub">Live: decisions no handler overrode or sent back</span>
+                  </th>
+                  <td>{percent(exam.accuracy)}</td>
+                  <td>{percent(kept)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">Cost per claim</th>
+                  <td>{money(exam.cost_per_claim)}</td>
+                  <td>{money(own?.cost_per_claim ?? null)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </TableScroll>
+          {own === null ? (
+            <p className="muted small">
+              {name} hasn&apos;t decided a live claim in the last {live.days} days, so there&apos;s
+              nothing to compare yet.
+            </p>
+          ) : warnings.length > 0 ? (
+            warnings.map((warning) => (
+              <p key={warning} className="chip chip-warn">
+                <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+                {warning}
+              </p>
+            ))
+          ) : (
+            <p className="chip chip-good">
+              <CircleCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+              Live is in line with the exam
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A breakdown's name as read: claims from before versions were recorded say so. */
+function label(name: string): string {
+  if (name === "Unknown") return "Before versions";
+  return /^v\d/.test(name) ? name : name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** One breakdown of the period's decisions: by agent version or by claim type. */
+function SliceTable({
+  title,
+  column,
+  rows,
+  current,
+}: {
+  title: string;
+  column: string;
+  rows: Slice[];
+  current?: string;
+}) {
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>{title}</h2>
+      </div>
+      {rows.length === 0 ? (
+        <p className="muted small">No decisions in this period.</p>
+      ) : (
+        <TableScroll label={`${title} table`}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">{column}</th>
+                <th scope="col">Decided</th>
+                <th scope="col">Straight through</th>
+                <th scope="col">Disagreed</th>
+                <th scope="col">Cost per claim</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name}>
+                  <th scope="row" className="nowrap">
+                    {label(row.name)} {row.name === current && <span className="tag">In use</span>}
+                    {current !== undefined && row.first_day && (
+                      <span className="sub">from {date(row.first_day)}</span>
+                    )}
+                  </th>
+                  <td>{row.decided}</td>
+                  <td>{percent(row.straight_through_share)}</td>
+                  <td>{row.disagreements}</td>
+                  <td>{money(row.cost_per_claim)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
+      )}
+    </div>
   );
 }
 
@@ -209,11 +385,24 @@ function Disagreements({ api, rows }: { api: Api; rows: Disagreement[] }) {
     },
     [api],
   );
+  // Ready to add first, then the biggest claims.
+  const queue = [...rows].sort(
+    (a, b) => Number(b.can_add) - Number(a.can_add) || b.amount_claimed - a.amount_claimed,
+  );
+  const waiting = rows.filter(
+    (row) => row.can_add && !row.in_evaluation_set && !added.has(row.claim_id),
+  ).length;
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>Disagreements</h2>
-        <p className="panel-note">The latest claims where a handler overrode or sent back</p>
+        <h2>
+          Disagreements to review{" "}
+          {waiting > 0 && <span className="chip chip-warn">{waiting} to review</span>}
+        </h2>
+        <p className="panel-note">
+          Where a handler overrode or sent back the agent. Add each to the evaluation set so the
+          next round learns from it
+        </p>
       </div>
       {rows.length === 0 ? (
         <p className="muted small">No handler has overridden or sent back the agent yet.</p>
@@ -230,7 +419,7 @@ function Disagreements({ api, rows }: { api: Api; rows: Disagreement[] }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {queue.map((row) => (
                 <tr key={row.claim_id}>
                   <th scope="row">
                     <a className="mono nowrap" href={traceHref(row.claim_id)}>
@@ -408,6 +597,7 @@ export function LivePage({ api }: { api: Api }) {
       )}
       {shown && (
         <>
+          <ExamVsLive live={shown} />
           {quiet ? (
             <div className="panel empty">
               <span className="icon-tile" aria-hidden="true">
@@ -423,6 +613,15 @@ export function LivePage({ api }: { api: Api }) {
             <>
               <Tiles live={shown} />
               <Trends live={shown} />
+              <div className="live-charts">
+                <SliceTable
+                  title="By version"
+                  column="Version"
+                  rows={shown.by_version}
+                  current={shown.version === null ? undefined : `v${String(shown.version)}`}
+                />
+                <SliceTable title="By claim type" column="Claim type" rows={shown.by_claim_type} />
+              </div>
             </>
           )}
           <Disagreements api={api} rows={shown.disagreements} />

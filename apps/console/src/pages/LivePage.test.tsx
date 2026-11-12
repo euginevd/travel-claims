@@ -52,7 +52,18 @@ test("shows the tiles, the disagreements and feedback, and adds a claim after a 
   // A customer's words are text, never markup.
   expect(screen.getByText("<b>Which receipt?</b>")).toBeInTheDocument();
 
-  const table = screen.getByRole("table");
+  // The exam beside live, and the breakdown by version with the one in use marked.
+  const exam = screen.getByRole("region", { name: "Exam against live table" });
+  expect(within(exam).getByText("84%")).toBeInTheDocument();
+  expect(screen.getByText("Live is over 10% below the exam", { exact: false })).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("region", { name: "By version table" })).getByText("In use"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("1 to review")).toBeInTheDocument();
+
+  const table = within(screen.getByRole("region", { name: "Disagreements table" })).getByRole(
+    "table",
+  );
   await user.click(within(table).getByRole("button", { name: "Add to evaluation set" }));
   expect(fetchFn.calls.some((call) => call.method === "POST")).toBe(false);
   await user.click(within(table).getByRole("button", { name: `Add ${FIRST.claim_id}` }));

@@ -6,7 +6,7 @@ the held-out set is never read or written here.
 """
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
@@ -25,10 +25,11 @@ from undercover_api.db import (
     labelled_claims,
     now,
     payments,
+    runs,
     sent_back,
     steps,
 )
-from undercover_api.evaluations import COPIED, EVALUATION, costs_of
+from undercover_api.evaluations import COPIED, EVALUATION, costs_of, current_version
 from undercover_api.models import ClaimId, Decision, DecisionKind, Status
 from undercover_api.redteam import REDTEAM_CUSTOMER
 
@@ -119,12 +120,37 @@ class Disagreement(BaseModel):
     can_add: bool = Field(description="Whether it can be added to the evaluation set now")
 
 
+class Slice(BaseModel):
+    """The period's live claims of one agent version or one claim type."""
+
+    name: str
+    decided: int
+    straight_through_share: float | None
+    disagreements: int = Field(description="Of those decided, overridden or sent back")
+    cost_per_claim: float | None
+    first_day: str | None = Field(description="The first day in the period it decided a claim")
+
+
+class Exam(BaseModel):
+    """The version in use's latest exam, to set live numbers against."""
+
+    version: int
+    claims: int
+    accuracy: float
+    cost_per_claim: float
+    finished_at: str | None
+
+
 class Live(BaseModel):
     days: int
     since: str
     until: str
+    version: int | None = Field(description="The agent version in use now")
+    exam: Exam | None
     totals: LiveTotals
     series: list[LiveDay]
+    by_version: list[Slice]
+    by_claim_type: list[Slice]
     feedback: LiveFeedback
     disagreements: list[Disagreement]
 
@@ -218,6 +244,7 @@ def decision_rows(db: Connection, since: str) -> list[RowMapping]:
                 claims.c.claim_type,
                 claims.c.amount_claimed,
                 claims.c.status,
+                claims.c.config_version,
                 decisions.c.decision,
                 decisions.c.payout,
                 decisions.c.decided_by,
@@ -247,6 +274,87 @@ def sent_back_rows(db: Connection, since: str) -> list[RowMapping]:
             .order_by(sent_back.c.sent_back_id)
         ).mappings()
     )
+
+
+def latest_exam(db: Connection, version: int | None) -> Exam | None:
+    """The latest finished held-out run of a version: its exam."""
+    if version is None:
+        return None
+    row = (
+        db.execute(
+            select(runs.c.scores, runs.c.finished_at)
+            .where(
+                runs.c.config_version == version,
+                runs.c.label_set == "held_out",
+                runs.c.status == "finished",
+                runs.c.scores.is_not(None),
+            )
+            .order_by(runs.c.run_id.desc())
+            .limit(1)
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return None
+    scores = row["scores"]
+    return Exam(
+        version=version,
+        claims=scores["claims"],
+        accuracy=scores["accuracy"],
+        cost_per_claim=scores["cost_per_claim"],
+        finished_at=row["finished_at"],
+    )
+
+
+def slices(
+    rows: list[RowMapping],
+    name: Callable[[RowMapping], str],
+    straight: set[str],
+    disagreed: set[str],
+    costs: dict[str, float],
+) -> list[Slice]:
+    """The period's decisions grouped by a name, busiest first."""
+    groups: dict[str, list[RowMapping]] = {}
+    for r in rows:
+        groups.setdefault(name(r), []).append(r)
+    found: list[Slice] = []
+    for key, group in groups.items():
+        ids = [r["claim_id"] for r in group]
+        costed = [costs[i] for i in ids if i in costs]
+        found.append(
+            Slice(
+                name=key,
+                decided=len(ids),
+                straight_through_share=share(sum(i in straight for i in ids), len(ids)),
+                disagreements=sum(i in disagreed for i in ids),
+                cost_per_claim=round(sum(costed) / len(costed), 6) if costed else None,
+                first_day=min(str(r["decided_at"])[:10] for r in group),
+            )
+        )
+    return sorted(found, key=lambda s: s.decided, reverse=True)
+
+
+def breakdowns(
+    in_period: list[RowMapping],
+    decided: list[RowMapping],
+    sent_back_ids: set[str],
+    straight: set[str],
+    costs: dict[str, float],
+) -> dict[str, list[Slice]]:
+    """The period's decisions by agent version and by claim type."""
+    disagreed = sent_back_ids | {r["claim_id"] for r in decided if r["override"] is not None}
+
+    def version(r: RowMapping) -> str:
+        return f"v{r['config_version']}" if r["config_version"] else "Unknown"
+
+    def claim_type(r: RowMapping) -> str:
+        return str(r["claim_type"]).replace("_", " ")
+
+    return {
+        "by_version": slices(in_period, version, straight, disagreed, costs),
+        "by_claim_type": slices(in_period, claim_type, straight, disagreed, costs),
+    }
 
 
 def was_flagged(db: Connection, claim_id: str) -> bool:
@@ -369,12 +477,13 @@ def live(db: Connection, days: int) -> Live:
     costs = costs_of(db, ids)
     first = first_steps(db, ids)
     seconds: list[float] = []
+    straight_ids = {r["claim_id"] for r in in_period if is_straight_through(r, sent_back_ids, paid)}
     for r in in_period:
         day = series[r["decided_at"][:10]]
         day.decided += 1
         day.cost = round(day.cost + costs.get(r["claim_id"], 0.0), 6)
         day.referrals += r["decision"] == DecisionKind.REFER
-        day.straight_through += is_straight_through(r, sent_back_ids, paid)
+        day.straight_through += r["claim_id"] in straight_ids
         own = str(r["decided_by"]).startswith(AGENT_MAKER) and r["claim_id"] not in sent_back_ids
         if own and r["claim_id"] in first:
             # The agent's own first decision: its first step to its decision.
@@ -403,10 +512,14 @@ def live(db: Connection, days: int) -> Live:
     reviewed = sum(d.reviewed for d in days_found)
     disagreed = sum(d.disagreements for d in days_found)
     costed = [costs[i] for i in ids if i in costs]
+    version = current_version(db)
     return Live(
         days=days,
         since=since,
         until=today.isoformat(),
+        version=version,
+        exam=latest_exam(db, version),
+        **breakdowns(in_period, decided, sent_back_ids, straight_ids, costs),
         totals=LiveTotals(
             decided=total_decided,
             straight_through=straight,
