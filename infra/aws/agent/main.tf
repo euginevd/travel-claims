@@ -199,6 +199,15 @@ resource "aws_iam_role_policy" "agent" {
       # Receipts read into fields before any model sees them (decision 48); Textract has no
       # resource-level permissions, and the region condition keeps it in this one.
       { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },
+      # Or Data Automation's project, through its Asia Pacific profile, in each Region it may use (decision 50).
+      {
+        Effect = "Allow"
+        Action = "bedrock:InvokeDataAutomation"
+        Resource = concat(
+          ["arn:${local.partition}:bedrock:${local.region}:${local.account}:data-automation-project/*"],
+          [for r in local.data_automation_regions : "arn:${local.partition}:bedrock:${r}:${local.account}:data-automation-profile/apac.data-automation-v1"],
+        )
+      },
       ],
       # Lookup programs, only while they're on: one short session each on their own interpreter.
       [for ci in aws_bedrockagentcore_code_interpreter.programs : {
@@ -774,20 +783,21 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     MODEL_PROVIDER   = var.model_provider
     CONTEXT_AWS_AUTH = "true"
     # The context layer through its gateway, signed for AgentCore, with Gateway's tool names.
-    CONTEXT_AWS_SERVICE = "bedrock-agentcore"
-    CONTEXT_TOOL_PREFIX = "${aws_bedrockagentcore_gateway_target.context.name}___"
-    AGENTCORE_RUNTIME   = "true"
-    CLAIM_MODEL         = local.sonnet
-    IMPROVER_MODEL      = local.sonnet
-    SCREENING_MODEL     = local.haiku
-    SPECIALIST_MODEL    = local.haiku
-    DRAFTING_MODEL      = local.haiku
-    UNDERCOVER_API      = local.api_endpoint
-    UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
-    MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
-    KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
-    READ_RECEIPTS       = "true"
-    CODE_INTERPRETER_ID = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
+    CONTEXT_AWS_SERVICE         = "bedrock-agentcore"
+    CONTEXT_TOOL_PREFIX         = "${aws_bedrockagentcore_gateway_target.context.name}___"
+    AGENTCORE_RUNTIME           = "true"
+    CLAIM_MODEL                 = local.sonnet
+    IMPROVER_MODEL              = local.sonnet
+    SCREENING_MODEL             = local.haiku
+    SPECIALIST_MODEL            = local.haiku
+    DRAFTING_MODEL              = local.haiku
+    UNDERCOVER_API              = local.api_endpoint
+    UNDERCOVER_CONTEXT          = aws_bedrockagentcore_gateway.context.gateway_url
+    MEMORY_ID                   = aws_bedrockagentcore_memory.customers.id
+    KNOWLEDGE_BASE_ID           = aws_bedrockagent_knowledge_base.wording.id
+    RECEIPT_READER              = var.receipt_reader
+    DATA_AUTOMATION_PROJECT_ARN = var.receipt_reader == "data-automation" ? awscc_bedrock_data_automation_project.receipts[0].project_arn : ""
+    CODE_INTERPRETER_ID         = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
     # The agent's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
     WORKLOAD_NAME          = "${local.prefix}-agent"
     ANTHROPIC_KEY_PROVIDER = local.key_provider

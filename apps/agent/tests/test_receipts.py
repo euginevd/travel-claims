@@ -118,3 +118,34 @@ def test_an_instruction_in_a_read_receipt_still_refers_the_claim() -> None:
     assert claude.turns_taken == 0
     assert api.decision is not None
     assert api.decision["maker"] == "hidden_instruction_check"
+
+
+def test_data_automation_reads_any_blueprint_into_fields_and_lines() -> None:
+    from undercover_agent.receipts import read_segments  # noqa: PLC0415
+
+    output = {
+        "inference_result": {
+            "merchant_name": "Nairobi City Cabs",
+            "total": 2400,
+            "items": [{"name": "Transfer", "price": 2400}],
+        },
+        "explainability_info": [
+            {
+                "merchant_name": {"confidence": 0.97},
+                "total": {"confidence": 0.9},
+                "items": [{"name": {"confidence": 0.8}, "price": {"confidence": 0.95}}],
+            }
+        ],
+    }
+    import json  # noqa: PLC0415
+
+    reply = {
+        "outputSegments": [{"customOutputStatus": "MATCH", "customOutput": json.dumps(output)}]
+    }
+    read = read_segments(reply)
+    assert read is not None
+    text = read.as_text(1)
+    assert "by Amazon Bedrock Data Automation" in text
+    assert "Merchant name: Nairobi City Cabs (97%)" in text
+    assert "- Item 1: Name Transfer, Price 2400 (80%)" in text
+    assert read_segments({"outputSegments": [{"customOutputStatus": "NO_MATCH"}]}) is None

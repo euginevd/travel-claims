@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.72.0"
     }
+    # Cloud Control, for what the aws provider has no resource for yet (decision 50).
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "1.109.0"
+    }
   }
 
   # The pipeline passes the bucket, region and key at init, so no account ID is in the code.
@@ -27,4 +32,8 @@ provider "aws" {
       ManagedBy   = "Terraform"
     }
   }
+}
+
+provider "awscc" {
+  region = var.region
 }
