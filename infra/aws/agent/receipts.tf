@@ -35,7 +35,8 @@ resource "awscc_bedrock_data_automation_project" "receipts" {
     }
     image = {
       extraction = {
-        category     = { state = "DISABLED", types = [] }
+        # At least one image option is required; the receipt's text is the useful one.
+        category     = { state = "ENABLED", types = ["TEXT_DETECTION"] }
         bounding_box = { state = "DISABLED" }
       }
       generative_field = { state = "DISABLED", types = [] }
