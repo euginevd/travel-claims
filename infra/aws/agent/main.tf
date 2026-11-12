@@ -152,6 +152,8 @@ resource "aws_iam_role_policy" "agent" {
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/apikeycredentialprovider/*",
+          # The directory too: AgentCore checks the call against it as well as the workload.
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },
@@ -167,6 +169,8 @@ resource "aws_iam_role_policy" "agent" {
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/oauth2credentialprovider/${local.prefix}-api-access",
+          # The directory too: AgentCore checks the call against it as well as the workload.
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },

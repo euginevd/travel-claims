@@ -175,7 +175,8 @@ jobs:
   # The units pick up the newest image, so a deploy is an aws workflow run.
   deploy:
     needs: build
-    if: inputs.deploy != false
+    # On a push the input is empty, which equals false in an expression; so test the event.
+    if: github.event_name != 'workflow_dispatch' || inputs.deploy
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
