@@ -4,33 +4,26 @@ import {
   Clock,
   GitPullRequestArrow,
   LoaderCircle,
+  RotateCcw,
   Sparkles,
   Square,
+  TrendingDown,
+  TrendingUp,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { Api, Configuration, Round } from "../api";
+import type { Api, Configuration, Round, Run, RunClaim, Scores } from "../api";
 import { AiMark } from "../components/AiMark";
 import { Meter } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
+import { modelName } from "../traceTimeline";
 import { useFocusHeading } from "../useFocusHeading";
-import { runHref } from "../useHashRoute";
-import { cost, words } from "./ScoreboardPage";
+import { runHref, traceHref } from "../useHashRoute";
+import { cost } from "./ScoreboardPage";
 
 const POLL_MS = 3000;
-const OPEN = ["baselining", "improving", "awaiting_review", "evaluating"];
-const STAGE_TEXT: Record<string, string> = {
-  baselining: "Evaluating the current version on both sets…",
-  improving: "The improver is reading the misses and drafting a proposal…",
-  awaiting_review: "A proposal is waiting for an AI engineer's review.",
-  red_teaming: "Better on the held-out set. The red team is attacking it before it's kept.",
-  evaluating: "Trying the approved version on the held-out set…",
-  kept: "Kept: the new version is now the current one.",
-  rolled_back: "Rolled back: the current version stays.",
-  rejected: "Rejected by an AI engineer.",
-  stopped: "Stopped.",
-};
+const OPEN = ["baselining", "improving", "awaiting_review", "evaluating", "red_teaming"];
 
 type Tone = "good" | "warn" | "info" | "plain";
 
@@ -57,43 +50,78 @@ function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
   );
 }
 
-function roundTone(status: string): Tone {
-  if (status === "kept") return "good";
-  if (status === "awaiting_review") return "warn";
-  if (OPEN.includes(status) || status === "red_teaming") return "info";
-  return "plain";
+interface Verdict {
+  kept?: boolean;
+  outcome?: "better" | "worse" | "unclear";
+  why?: string;
+  baseline?: Scores;
+  candidate?: Scores;
 }
 
-function versionTone(version: Configuration): Tone {
-  if (version.current || version.status === "kept") return "good";
-  if (version.status === "proposed") return "warn";
-  return "plain";
+function verdictOf(round: Round): Verdict {
+  return round.verdict ?? {};
 }
 
-function RunLink({ label, runId }: { label: string; runId: number | null }) {
-  if (runId === null) return null;
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>
-        <a href={runHref(runId)}>run {runId}</a>
-      </dd>
-    </div>
+/** How a round ended, in a word: rounds from before "no clear difference" read from their why. */
+function result(round: Round): { tone: Tone; label: string } {
+  if (OPEN.includes(round.status)) {
+    return round.status === "awaiting_review"
+      ? { tone: "warn", label: "Needs your review" }
+      : { tone: "info", label: "Running" };
+  }
+  if (round.status === "kept") return { tone: "good", label: "Kept" };
+  if (round.status === "rejected") return { tone: "plain", label: "Rejected" };
+  if (round.status === "stopped") return { tone: "plain", label: "Stopped" };
+  const verdict = verdictOf(round);
+  const unclear = verdict.outcome === "unclear" || verdict.why?.includes("no measure improved");
+  return { tone: "plain", label: unclear ? "No clear difference" : "Rolled back" };
+}
+
+/** The proposal in one sentence: what changes from the version it started from. */
+function changeOf(round: Round, versions: Configuration[]): string | null {
+  const before = versions.find((v) => v.version === round.baseline_version);
+  const after = versions.find((v) => v.version === round.candidate_version);
+  if (!before || !after) return null;
+  const parts: string[] = [];
+  if (before.model !== after.model) {
+    parts.push(`Switch ${modelName(before.model)} → ${modelName(after.model)}`);
+  }
+  if (before.effort !== after.effort) parts.push(`effort ${before.effort} → ${after.effort}`);
+  parts.push(
+    before.instructions === after.instructions ? "instructions unchanged" : "instructions changed",
   );
+  const sentence = parts.join(", ");
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
-function RunLinks({ round }: { round: Round }) {
+// The round's path, and which step each status is at.
+const STEPS = ["Baseline", "Proposal", "Your review", "Exam (25 claims)", "Red team", "Result"];
+const STEP_AT: Record<string, number> = {
+  baselining: 0,
+  improving: 1,
+  awaiting_review: 2,
+  evaluating: 3,
+  red_teaming: 4,
+};
+
+function Stepper({ round }: { round: Round }) {
+  const at = STEP_AT[round.status] ?? STEPS.length;
   return (
-    <>
-      <RunLink label="Current version, evaluation set" runId={round.baseline_eval_run} />
-      <RunLink label="Current version, held-out set" runId={round.baseline_held_run} />
-      <RunLink label="Proposed version, held-out set" runId={round.candidate_held_run} />
-    </>
+    <ol className="round-steps" aria-label="Where the round is">
+      {STEPS.map((step, index) => {
+        const state = index < at ? "done" : index === at ? "now" : undefined;
+        return (
+          <li key={step} className={state} aria-current={state === "now" ? "step" : undefined}>
+            <span className="step-dot" aria-hidden="true">
+              {state === "done" ? <Check size={11} strokeWidth={2.4} /> : index + 1}
+            </span>
+            {step}
+            {state === "done" && <span className="visually-hidden"> (done)</span>}
+          </li>
+        );
+      })}
+    </ol>
   );
-}
-
-function spentText(round: Round): string {
-  return `Spent ${cost(round.spent)} of the round's ${cost(round.spend_limit)} limit`;
 }
 
 function Review(props: { api: Api; round: Round; onDone: () => void; stop: ReactNode }) {
@@ -131,6 +159,10 @@ function Review(props: { api: Api; round: Round; onDone: () => void; stop: React
           setReason(event.target.value);
         }}
       />
+      <p className="small muted">
+        If you approve, it takes the 25-claim exam, then faces the red team, within the round&apos;s
+        spending limit.
+      </p>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -139,7 +171,7 @@ function Review(props: { api: Api; round: Round; onDone: () => void; stop: React
       <div className="actions">
         <button type="button" className="button" disabled={busy} onClick={() => void review(true)}>
           <Check size={15} strokeWidth={1.75} aria-hidden="true" />
-          Approve and try it on the held-out set
+          Approve and run the exam
         </button>
         <button
           type="button"
@@ -186,20 +218,214 @@ function Diff({ text }: { text: string }) {
   );
 }
 
+const MEASURES: [key: "accuracy" | "payout_accuracy" | "straight_through", label: string][] = [
+  ["accuracy", "Right decision"],
+  ["payout_accuracy", "Right amount"],
+  ["straight_through", "Decided without a person"],
+];
+
+function percent(share: number): string {
+  return `${String(Math.round(share * 100))}%`;
+}
+
+function Change({ by, unit }: { by: number; unit: "claims" | "cost" }) {
+  if (unit === "cost") {
+    const pct = Math.round(by * 100);
+    if (pct === 0) return <span className="muted">same</span>;
+    const cheaper = pct < 0;
+    return (
+      <span className={cheaper ? "change up" : "change down"}>
+        {cheaper ? (
+          <TrendingDown size={13} strokeWidth={1.75} aria-hidden="true" />
+        ) : (
+          <TrendingUp size={13} strokeWidth={1.75} aria-hidden="true" />
+        )}
+        {`${String(Math.abs(pct))}% ${cheaper ? "cheaper" : "dearer"}`}
+      </span>
+    );
+  }
+  if (by === 0) return <span className="muted">same</span>;
+  return (
+    <span className={by > 0 ? "change up" : "change down"}>
+      {by > 0 ? (
+        <TrendingUp size={13} strokeWidth={1.75} aria-hidden="true" />
+      ) : (
+        <TrendingDown size={13} strokeWidth={1.75} aria-hidden="true" />
+      )}
+      {`${by > 0 ? "+" : "−"}${String(Math.abs(by))} ${Math.abs(by) === 1 ? "claim" : "claims"}`}
+    </span>
+  );
+}
+
+/** The exam's measures for the old and new version side by side, with the change in claims. */
+function BeforeAfter({ round, verdict }: { round: Round; verdict: Verdict }) {
+  const { baseline, candidate } = verdict;
+  if (!baseline || !candidate) return null;
+  const claims = Math.min(baseline.claims, candidate.claims) || 1;
+  return (
+    <TableScroll label="Before and after table">
+      <table className="table">
+        <caption className="small muted">
+          The exam: {candidate.claims} held-out claims neither version had seen the answers to
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Measure</th>
+            <th scope="col" className="num">
+              v{round.baseline_version}
+            </th>
+            <th scope="col" className="num">
+              v{round.candidate_version}
+            </th>
+            <th scope="col">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {MEASURES.map(([key, label]) => (
+            <tr key={key}>
+              <th scope="row">{label}</th>
+              <td className="num">{percent(baseline[key])}</td>
+              <td className="num">{percent(candidate[key])}</td>
+              <td>
+                <Change by={Math.round((candidate[key] - baseline[key]) * claims)} unit="claims" />
+              </td>
+            </tr>
+          ))}
+          <tr>
+            <th scope="row">Cost per claim</th>
+            <td className="num">{cost(baseline.cost_per_claim)}</td>
+            <td className="num">{cost(candidate.cost_per_claim)}</td>
+            <td>
+              <Change
+                by={
+                  baseline.cost_per_claim > 0
+                    ? candidate.cost_per_claim / baseline.cost_per_claim - 1
+                    : 0
+                }
+                unit="cost"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </TableScroll>
+  );
+}
+
+const DECIDED: Record<string, string> = {
+  approve: "Approve",
+  decline: "Decline",
+  refer: "Refer",
+};
+
+function decided(claim: RunClaim | undefined): string {
+  if (!claim?.decision) return "Not decided";
+  return DECIDED[claim.decision] ?? claim.decision;
+}
+
+/** Each exam claim the two versions decided differently, lost ones first. */
+function ClaimByClaim({ api, round }: { api: Api; round: Round }) {
+  const [pairs, setPairs] = useState<[RunClaim | undefined, RunClaim][] | null>(null);
+  const before = round.baseline_held_run;
+  const after = round.candidate_held_run;
+
+  useEffect(() => {
+    if (before === null || after === null) return;
+    let live = true;
+    Promise.all([api.getRun(before), api.getRun(after)]).then(
+      ([old, next]) => {
+        if (!live) return;
+        const byClaim = new Map(old.claims.map((c) => [c.original_claim_id, c]));
+        setPairs(next.claims.map((c) => [byClaim.get(c.original_claim_id), c]));
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, before, after]);
+
+  if (!pairs) return null;
+  const changed = pairs.filter(([old, next]) => old?.decision !== next.decision);
+  const lost = changed.filter(([old, next]) => old?.matched && !next.matched);
+  const gained = changed.filter(([old, next]) => !old?.matched && next.matched);
+  const other = changed.filter((pair) => !lost.includes(pair) && !gained.includes(pair));
+  return (
+    <section className="claim-by-claim" aria-labelledby={`pairs-${String(round.round_id)}`}>
+      <h3 id={`pairs-${String(round.round_id)}`}>Claim by claim</h3>
+      <p className="small muted">
+        {pairs.length - changed.length} of {pairs.length} claims decided the same. {lost.length} got
+        worse, {gained.length} got better.
+      </p>
+      {changed.length > 0 && (
+        <TableScroll label="Claims decided differently table">
+          <table className="table min-mid">
+            <thead>
+              <tr>
+                <th scope="col">Claim</th>
+                <th scope="col">Handler</th>
+                <th scope="col">v{round.baseline_version}</th>
+                <th scope="col">v{round.candidate_version}</th>
+                <th scope="col">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...lost, ...gained, ...other].map(([old, next]) => (
+                <tr key={next.original_claim_id}>
+                  <th scope="row" className="prose">
+                    {next.summary}
+                    <span className="sub mono">{next.original_claim_id}</span>
+                  </th>
+                  <td>{next.handler_decision ? (DECIDED[next.handler_decision] ?? "–") : "–"}</td>
+                  <td>
+                    {old ? <a href={traceHref(old.claim_id)}>{decided(old)}</a> : decided(old)}
+                  </td>
+                  <td>
+                    <a href={traceHref(next.claim_id)}>{decided(next)}</a>
+                  </td>
+                  <td>
+                    {old?.matched && !next.matched ? (
+                      <span className="chip chip-bad">
+                        <TrendingDown size={13} strokeWidth={1.75} aria-hidden="true" />
+                        Worse
+                      </span>
+                    ) : !old?.matched && next.matched ? (
+                      <span className="chip chip-good">
+                        <TrendingUp size={13} strokeWidth={1.75} aria-hidden="true" />
+                        Better
+                      </span>
+                    ) : (
+                      <span className="chip">
+                        <CircleMinus size={13} strokeWidth={1.75} aria-hidden="true" />
+                        Different, both wrong
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
+      )}
+    </section>
+  );
+}
+
 interface RoundPanelProps {
   api: Api;
   round: Round;
-  senior: boolean;
-  /** Show the budget and runs here, for a round the side column isn't about. */
-  facts: boolean;
+  versions: Configuration[];
   onChange: () => void;
 }
 
-function RoundPanel({ api, round, senior, facts, onChange }: RoundPanelProps) {
+/** The latest round: where it is, what it proposes, and how the exam went. */
+function RoundPanel({ api, round, versions, onChange }: RoundPanelProps) {
   const open = OPEN.includes(round.status);
   const awaiting = round.status === "awaiting_review";
-  const verdict = round.verdict as { why?: string } | null;
-  const stop = senior && open && (
+  const verdict = verdictOf(round);
+  const ended = result(round);
+  const change = changeOf(round, versions);
+  const stop = open && (
     <button
       type="button"
       className={`button secondary${awaiting ? " end" : ""}`}
@@ -221,114 +447,255 @@ function RoundPanel({ api, round, senior, facts, onChange }: RoundPanelProps) {
             · started {when(round.started_at)} by {round.started_by}
           </span>
         </h2>
-        <Pill tone={roundTone(round.status)}>{words(round.status)}</Pill>
+        <Pill tone={ended.tone}>{ended.label}</Pill>
       </div>
-      <p role="status" className="round-status">
-        {STAGE_TEXT[round.status] ?? round.status}
-      </p>
-      {verdict?.why && <p>{verdict.why}</p>}
-      {facts && (
-        <>
-          <p className="muted small">{spentText(round)}</p>
-          <dl className="facts small">
-            <RunLinks round={round} />
-          </dl>
-        </>
+      <Stepper round={round} />
+      {verdict.why && (
+        <p role="status" className="round-verdict">
+          {verdict.why}.
+        </p>
       )}
-      {round.diff !== null && (
+      {round.candidate_version !== null && (
         <section className="proposal" aria-label="The proposal">
           <h3>
-            <AiMark /> The improver's proposal: v{round.candidate_version}
+            <AiMark /> The improver proposes v{round.candidate_version}
           </h3>
-          {round.proposal && <p>{String(round.proposal.reason)}</p>}
-          <Diff text={round.diff} />
+          {change && <p className="proposal-change">{change}</p>}
+          {round.proposal && <p className="muted">{String(round.proposal.reason)}</p>}
+          {round.diff !== null && (
+            <details className="proposal-diff">
+              <summary>Show the full change</summary>
+              <Diff text={round.diff} />
+            </details>
+          )}
         </section>
       )}
-      {senior && awaiting ? (
+      {awaiting ? (
         <Review api={api} round={round} onDone={onChange} stop={stop} />
       ) : (
         stop && <div className="actions">{stop}</div>
       )}
+      <BeforeAfter round={round} verdict={verdict} />
+      {!open && <ClaimByClaim api={api} round={round} />}
+      <div className="round-budget">
+        <p className="small muted">
+          Spent {cost(round.spent)} of the round&apos;s {cost(round.spend_limit)} limit
+          {round.baseline_held_run !== null && (
+            <>
+              {" · runs "}
+              {[round.baseline_eval_run, round.baseline_held_run, round.candidate_held_run]
+                .filter((id): id is number => id !== null)
+                .map((id, index) => (
+                  <span key={id}>
+                    {index > 0 && ", "}
+                    <a href={runHref(id)}>{id}</a>
+                  </span>
+                ))}
+            </>
+          )}
+        </p>
+        <Meter value={round.spend_limit > 0 ? round.spent / round.spend_limit : 0} tone="spend" />
+      </div>
     </article>
   );
 }
 
-/** One round's budget and the runs behind it. */
-function RoundFacts({ round }: { round: Round }) {
+/** The version in use, its exam score, and the way back to an earlier kept version. */
+function CurrentVersion(props: {
+  api: Api;
+  versions: Configuration[];
+  runs: Run[];
+  locked: boolean;
+  onChange: () => void;
+}) {
+  const { api, versions, runs, locked, onChange } = props;
+  const current = versions.find((v) => v.current);
+  const earlier = versions.filter((v) => v.status === "kept" && !v.current);
+  const [target, setTarget] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!current) return null;
+  const exam = runs.find(
+    (run) => run.config_version === current.version && run.label_set === "held_out" && run.scores,
+  );
+  const examsRun = runs.filter((run) => run.label_set === "held_out").length;
+  const chosen = target ?? earlier[0]?.version ?? null;
+
+  async function restore() {
+    if (chosen === null) return;
+    if (!reason.trim()) {
+      setError("Say why, for the record.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.restoreVersion(chosen, reason.trim());
+      setReason("");
+      onChange();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="panel">
+    <div className="panel current-panel">
       <div className="panel-head">
-        <h2>Round {round.round_id}: budget and runs</h2>
+        <h2>
+          In use: v{current.version}
+          <span className="tag mono">{current.model}</span>
+        </h2>
+        <span className="chip chip-good">
+          <Check size={13} strokeWidth={1.75} aria-hidden="true" />
+          {current.proposed_by === "Improver"
+            ? "Passed its exam and the red team"
+            : "First version"}
+        </span>
       </div>
-      <p className="muted small">{spentText(round)}</p>
-      <Meter value={round.spend_limit > 0 ? round.spent / round.spend_limit : 0} tone="spend" />
-      <dl className="facts">
-        <RunLinks round={round} />
+      <dl className="stage-rows">
         <div>
-          <dt>Keep rule</dt>
-          <dd>Better on the held-out set, worse on no measure</dd>
+          <dt>Effort</dt>
+          <dd>{current.effort}</dd>
+        </div>
+        <div>
+          <dt>Latest exam: right decision</dt>
+          <dd>
+            {exam?.scores
+              ? `${percent(exam.scores.accuracy)} of ${String(exam.scores.claims)}`
+              : "Not examined yet"}
+          </dd>
+        </div>
+        <div>
+          <dt>Latest exam: cost per claim</dt>
+          <dd>{exam?.scores ? cost(exam.scores.cost_per_claim) : "–"}</dd>
+        </div>
+        <div>
+          <dt>Exam set used</dt>
+          <dd>{`${String(examsRun)} ${examsRun === 1 ? "time" : "times"}`}</dd>
         </div>
       </dl>
-    </div>
-  );
-}
-
-const NEXT = [
-  { title: "An AI engineer approves or rejects", detail: "With a reason, for the record." },
-  {
-    title: "The approved version runs on the held-out set",
-    detail: "The improver never sees these answers.",
-  },
-  {
-    title: "Kept only if it does better",
-    detail: "Without doing worse on any measure; otherwise the current version stays.",
-  },
-];
-
-// Which of the three steps a round is at; rounds that ended early are at none.
-const STEP_AT: Record<string, number> = {
-  awaiting_review: 0,
-  evaluating: 1,
-  red_teaming: 2,
-  kept: 3,
-  rolled_back: 3,
-};
-
-function NextSteps({ round }: { round: Round | undefined }) {
-  const at = round ? (STEP_AT[round.status] ?? -1) : -1;
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>What happens next</h2>
-      </div>
-      <ol className="next-steps">
-        {NEXT.map((step, index) => {
-          const state = at > index ? "done" : at === index ? "now" : undefined;
-          return (
-            <li
-              key={step.title}
-              className={state}
-              aria-current={state === "now" ? "step" : undefined}
+      {examsRun >= 10 && (
+        <p className="small muted">
+          The more often the same exam is used, the more a version can pass it by chance. Add new
+          labelled claims from Live to keep it honest.
+        </p>
+      )}
+      {earlier.length > 0 && (
+        <details className="rollback">
+          <summary>
+            <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" />
+            Roll back to an earlier version
+          </summary>
+          <div className="rollback-form">
+            <label htmlFor="rollback-version">Version</label>
+            <select
+              id="rollback-version"
+              value={chosen ?? ""}
+              disabled={busy || locked}
+              onChange={(event) => {
+                setTarget(Number(event.target.value));
+              }}
             >
-              <span className="step-dot" aria-hidden="true">
-                {state === "done" ? <Check size={12} strokeWidth={2.4} /> : index + 1}
-              </span>
-              <span>
-                <strong>{step.title}</strong>
-                {state === "done" && <span className="visually-hidden"> (done)</span>}
-                <small>{step.detail}</small>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+              {earlier.map((v) => (
+                <option key={v.version} value={v.version}>
+                  v{v.version}: {modelName(v.model)}, {v.effort} effort
+                </option>
+              ))}
+            </select>
+            <label htmlFor="rollback-reason">Why</label>
+            <textarea
+              id="rollback-reason"
+              value={reason}
+              maxLength={200}
+              disabled={busy || locked}
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
+            />
+            {locked && <p className="small muted">Finish or stop the open round first.</p>}
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            <button
+              type="button"
+              className="button secondary"
+              disabled={busy || locked}
+              onClick={() => void restore()}
+            >
+              <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" />
+              {chosen === null ? "Roll back" : `Roll back to v${String(chosen)}`}
+            </button>
+          </div>
+        </details>
+      )}
     </div>
   );
 }
+
+/** Earlier rounds, one line each. */
+function PastRounds({ rounds, versions }: { rounds: Round[]; versions: Configuration[] }) {
+  if (rounds.length === 0) return null;
+  return (
+    <section className="panel" aria-labelledby="past-rounds-heading">
+      <div className="panel-head">
+        <h2 id="past-rounds-heading">Earlier rounds</h2>
+      </div>
+      <TableScroll label="Earlier rounds table">
+        <table className="table min-mid">
+          <thead>
+            <tr>
+              <th scope="col">Round</th>
+              <th scope="col">Proposal</th>
+              <th scope="col">Result</th>
+              <th scope="col" className="num">
+                Spent
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rounds.map((round) => {
+              const ended = result(round);
+              return (
+                <tr key={round.round_id}>
+                  <th scope="row" className="nowrap">
+                    Round {round.round_id}
+                    <span className="sub">{when(round.started_at)}</span>
+                  </th>
+                  <td className="prose">
+                    {changeOf(round, versions) ?? "No proposal"}
+                    {verdictOf(round).why && <span className="sub">{verdictOf(round).why}</span>}
+                  </td>
+                  <td>
+                    <Pill tone={ended.tone}>{ended.label}</Pill>
+                  </td>
+                  <td className="num">{cost(round.spent)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </TableScroll>
+    </section>
+  );
+}
+
+const STATUS_WORDS: Record<string, string> = {
+  kept: "Kept",
+  rolled_back: "Rolled back",
+  rejected: "Rejected",
+  proposed: "Proposed",
+  candidate: "Being tested",
+};
 
 export function ImprovementPage({ api }: { api: Api }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
   const [versions, setVersions] = useState<Configuration[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const heading = useFocusHeading();
@@ -338,11 +705,14 @@ export function ImprovementPage({ api }: { api: Api }) {
 
   useEffect(() => {
     let live = true;
-    Promise.all([api.listRounds(), api.listConfigurations()]).then(
-      ([foundRounds, foundVersions]) => {
+    // The runs only feed the exam score and counter: without them the page still works.
+    const runsOrNone = api.listRuns().catch(() => [] as Run[]);
+    Promise.all([api.listRounds(), api.listConfigurations(), runsOrNone]).then(
+      ([foundRounds, foundVersions, foundRuns]) => {
         if (!live) return;
         setRounds(foundRounds);
         setVersions(foundVersions);
+        setRuns(foundRuns);
         setError(null);
       },
       (caught: unknown) => {
@@ -372,39 +742,30 @@ export function ImprovementPage({ api }: { api: Api }) {
     }
   }
 
-  const current = versions.find((version) => version.current);
   const waiting = rounds?.filter((round) => round.status === "awaiting_review") ?? [];
-  // The round the side column is about: the open one, or else the first listed.
-  const focus = rounds?.find((round) => OPEN.includes(round.status)) ?? rounds?.[0];
+  const [latest, ...earlier] = rounds ?? [];
   return (
     <section className="view" aria-labelledby="improvement-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · The claim agent</p>
+          <p className="eyebrow">Quality · Improvement</p>
           <h1 id="improvement-heading" ref={heading} tabIndex={-1}>
             Improvement
           </h1>
           <p className="lede">
-            The improver reads where the agent disagreed with the handlers on the evaluation set and
-            proposes a new configuration. An AI engineer approves or rejects it, and an approved
-            version is kept only if it does better on the held-out set without doing worse on any
-            measure. The improver never sees the held-out answers.
+            An AI proposes a better version of the claim agent; you decide whether to try it. It
+            goes live only if it does better on a 25-claim exam it never saw the answers to, worse
+            on nothing, and holds against the red team.
           </p>
         </div>
-        <div className="page-head-side">
-          {current && (
-            <p className="current-version">
-              <span className="label">Current version</span>
-              <strong>v{current.version}</strong>, {current.model} at {current.effort} effort
-            </p>
-          )}
-          {!open && (
+        {!open && (
+          <div className="page-head-side">
             <button type="button" className="button" onClick={() => void start()}>
               <Sparkles size={15} strokeWidth={1.75} aria-hidden="true" />
               Start an improvement round
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
       {waiting.map((round) => (
         <div key={round.round_id} className="banner">
@@ -430,73 +791,54 @@ export function ImprovementPage({ api }: { api: Api }) {
         </p>
       )}
       {rounds && (
-        <div className="cols">
+        <div className="cols wide-side">
           <div className="stack">
-            {rounds.length === 0 && (
+            {latest ? (
+              <RoundPanel api={api} round={latest} versions={versions} onChange={refresh} />
+            ) : (
               <div className="panel empty">
                 <span className="icon-tile">
                   <Sparkles size={19} strokeWidth={1.75} aria-hidden="true" />
                 </span>
                 <h2>No improvement rounds yet</h2>
                 <p className="muted">
-                  Start a round and the improver will propose a new configuration for you to review.
+                  Start a round and the improver will propose a new version for you to review.
                 </p>
               </div>
             )}
-            {rounds.map((round) => (
-              <RoundPanel
-                key={round.round_id}
-                api={api}
-                round={round}
-                senior
-                facts={round !== focus}
-                onChange={refresh}
-              />
-            ))}
+            <PastRounds rounds={earlier} versions={versions} />
+          </div>
+          <aside className="stack" aria-label="The claim agent's versions">
+            <CurrentVersion
+              api={api}
+              versions={versions}
+              runs={runs}
+              locked={open}
+              onChange={refresh}
+            />
             {versions.length > 0 && (
               <section className="panel" aria-labelledby="versions-heading">
                 <div className="panel-head">
                   <h2 id="versions-heading">Versions</h2>
                 </div>
-                <TableScroll label="Versions table">
-                  <table className="table min-mid">
-                    <thead>
-                      <tr>
-                        <th scope="col">Version</th>
-                        <th scope="col">Model and effort</th>
-                        <th scope="col">Why</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Proposed by</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {versions.map((version) => (
-                        <tr key={version.version}>
-                          <td className="nowrap">
-                            <span className="tag">
-                              v{version.version}
-                              {version.current && " (current)"}
-                            </span>
-                          </td>
-                          <td>
-                            {version.model}, {version.effort}
-                          </td>
-                          <td className="prose">{version.reason}</td>
-                          <td>
-                            <Pill tone={versionTone(version)}>{words(version.status)}</Pill>
-                          </td>
-                          <td>{version.proposed_by}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </TableScroll>
+                <ul className="version-list">
+                  {versions.map((version) => (
+                    <li key={version.version}>
+                      <span className="tag">v{version.version}</span>
+                      <span>
+                        {modelName(version.model)}, {version.effort}
+                        <span className="sub">by {version.proposed_by}</span>
+                      </span>
+                      <span className="small">
+                        {version.current
+                          ? "In use"
+                          : (STATUS_WORDS[version.status] ?? version.status)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
-          </div>
-          <aside className="stack" aria-label="About the round">
-            {focus && <RoundFacts round={focus} />}
-            <NextSteps round={focus} />
           </aside>
         </div>
       )}

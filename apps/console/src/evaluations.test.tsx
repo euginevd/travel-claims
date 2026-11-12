@@ -166,7 +166,7 @@ test("an AI engineer approves the improver's proposal with a reason", async () =
   });
   render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText("+Refer when the documents are thin.")).toBeInTheDocument();
-  const approve = screen.getByRole("button", { name: /Approve and try it/ });
+  const approve = screen.getByRole("button", { name: /Approve and run the exam/ });
   await userEvent.click(approve);
   expect(await screen.findByRole("alert")).toHaveTextContent("Say why");
   await userEvent.type(screen.getByLabelText("Your reason"), "Worth trying");
@@ -206,7 +206,7 @@ test("a rejection and a finished round read plainly", async () => {
   });
   render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText(/no measure improved/)).toBeInTheDocument();
-  expect(screen.getByText("v1 (current)")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /In use: v1/ })).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Your reason"), "Too risky");
   await userEvent.click(screen.getByRole("button", { name: "Reject" }));
   const review = fetchFn.calls.find((c) => c.path === "/api/engineering/rounds/1/review");

@@ -479,6 +479,7 @@ export interface Api {
   startRound: () => Promise<Round>;
   reviewRound: (roundId: number, approve: boolean, reason: string) => Promise<Round>;
   stopRound: (roundId: number) => Promise<Round>;
+  restoreVersion: (version: number, reason: string) => Promise<Configuration>;
   getTrace: (claimId: string) => Promise<Trace>;
   getThreats: () => Promise<ThreatCoverage>;
   getPosture: () => Promise<Posture>;
@@ -587,6 +588,10 @@ export function createApi(
         body: { approve, reason },
       }),
     stopRound: (roundId) => call(RoundSchema, "POST", `/rounds/${String(roundId)}/stop`),
+    restoreVersion: (version, reason) =>
+      call(ConfigurationSchema, "POST", `/configuration/${String(version)}/restore`, {
+        body: { reason },
+      }),
     getLive: (days) => call(LiveSchema, "GET", `/live?days=${String(days)}`),
     addToEvaluation: (claimId) =>
       call(

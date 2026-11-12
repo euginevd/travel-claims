@@ -242,24 +242,18 @@ test("improvement shows each round's stage, its diff by line and what happens ne
     "GET /api/engineering/configuration": () => [200, versions],
   });
   const { container } = render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByText("(no change to the text)")).toBeInTheDocument();
+  // The latest round is open: its path shows the exam as the step it's on.
+  const path = await screen.findByRole("list", { name: "Where the round is" });
+  expect(path.querySelector("[aria-current='step']")).toHaveTextContent("Exam (25 claims)");
+  expect(path.querySelectorAll("li.done")).toHaveLength(3);
+  // The full change sits behind "Show the full change", diffed by line.
   expect(container.querySelector(".diff-line.del")).toHaveTextContent("-model: sonnet");
   expect(container.querySelector(".diff-line.add")).toHaveTextContent("+model: haiku");
-  expect(container.querySelectorAll(".diff-line.hunk")).toHaveLength(6);
-  expect(screen.getByText("Red teaming")).toBeInTheDocument();
-  expect(screen.getByText("Rolled back")).toBeInTheDocument();
+  // Earlier rounds are one line each.
+  const earlier = screen.getByRole("region", { name: "Earlier rounds table" });
+  expect(within(earlier).getAllByRole("row")).toHaveLength(4);
+  expect(within(earlier).getByText("Stopped")).toBeInTheDocument();
   expect(screen.getByText("Proposed")).toBeInTheDocument();
-  // The side column is about the open round; the others keep their budget in their own panel.
-  const side = screen.getByRole("complementary", { name: "About the round" });
-  expect(
-    within(side).getByRole("heading", { name: "Round 3: budget and runs" }),
-  ).toBeInTheDocument();
-  expect(screen.getAllByText("Spent $0.50 of the round's $2.00 limit")).toHaveLength(3);
-  expect(
-    within(side).getByText("The approved version runs on the held-out set"),
-  ).toBeInTheDocument();
-  expect(side.querySelector("[aria-current='step']")).toHaveTextContent("held-out set");
-  expect(side.querySelectorAll("li.done")).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /Start an improvement round/ })).toBeNull();
 });
 
@@ -277,7 +271,7 @@ test("improvement with no rounds says what to do, and a round awaiting review is
   expect(await screen.findByText("No improvement rounds yet")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Start an improvement round/ }));
   expect(await screen.findByText("Round 1 needs your review.")).toBeInTheDocument();
-  expect(screen.getByText("Awaiting review")).toBeInTheDocument();
+  expect(screen.getByText("Needs your review")).toBeInTheDocument();
 });
 
 test("threat coverage sums up what is tested, and says when nothing is", async () => {

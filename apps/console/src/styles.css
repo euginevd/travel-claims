@@ -1388,3 +1388,141 @@ main.page {
 .trace-checks .chip {
   white-space: normal;
 }
+
+/* ---------- Improvement: the round's path, before and after, rollback ---------- */
+
+.round-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 4px 0 14px;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+
+.round-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.round-steps li.done {
+  color: var(--ink-2);
+}
+
+.round-steps li.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.round-steps .step-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--soft);
+  font-size: 0.72rem;
+}
+
+.round-steps li.done .step-dot {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.round-steps li.now .step-dot {
+  background: var(--acc-tint);
+  color: var(--acc-d);
+}
+
+.round-verdict {
+  margin: 0 0 14px;
+  font-family: var(--font-head);
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.proposal-change {
+  margin: 6px 0 4px;
+  font-weight: 600;
+}
+
+.proposal-diff summary,
+.rollback summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.change.up {
+  color: var(--good);
+}
+
+.change.down {
+  color: var(--acc-d);
+}
+
+.claim-by-claim {
+  margin-top: 16px;
+}
+
+.claim-by-claim h3 {
+  margin: 0 0 4px;
+}
+
+.round-budget {
+  margin-top: 14px;
+}
+
+.round-budget p {
+  margin: 0;
+}
+
+.current-panel .panel-head h2 .tag {
+  margin-left: 4px;
+}
+
+.rollback-form {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.rollback-form textarea {
+  min-height: 64px;
+}
+
+.version-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.88rem;
+}
+
+.version-list li:first-child {
+  border-top: 0;
+}
