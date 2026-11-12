@@ -67,7 +67,7 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 
 <img src="docs/assets/undercover-60s.gif" width="880" alt="A minute on UnderCover, sped up: the project page, the repo, the AWS architecture and threat model, security at every DevSecOps stage, a customer's claim, a reused receipt referred to a handler, a senior handler's sign-off, the evals scoreboard, the improver held for approval, the red team, defence in depth, a claim trace and the pipeline's security scans.">
 
-The one-minute video with captions: [undercover-60s.mp4](docs/assets/undercover-60s.mp4). The three-minute walkthrough plays on the project page ([the video](apps/home/media/walkthrough.mp4)).
+The full walkthrough, three minutes with captions, plays on the project page ([the video](apps/home/media/walkthrough.mp4)).
 
 </div>
 

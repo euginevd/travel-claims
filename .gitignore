@@ -29,3 +29,4 @@ test-results/
 playwright-report/
 # Local notes and drafts, never committed.
 .local/
+Claude outputs/
