@@ -4,7 +4,7 @@ answers through reply, and a question that tries to instruct it is stopped first
 from anthropic.types import Message
 from stubs import FakeClaude, tool_use
 
-from undercover_agent.ask import SCREENED, UNGROUNDED, Asker, AskRequest
+from undercover_agent.ask import SCREENED, UNGROUNDED, Asker, AskRequest, question_for
 from undercover_agent.explain import Explainer, ExplainRequest
 from undercover_agent.guardrail import Verdict
 from undercover_agent.models import Call, Json, Screening
@@ -169,3 +169,9 @@ def test_with_nothing_read_the_customers_records_are_the_source() -> None:
     grounding = Grounding(blocked=False)
     Asker(answering(), ManualAndWording(), "m", grounding=grounding).ask(REQUEST)
     assert "POL-2001" in grounding.seen[0][1]
+
+
+def test_the_claim_on_screen_goes_with_the_question() -> None:
+    asked = question_for(REQUEST.model_copy(update={"about": "CLM-1001"}))
+    assert "looking at claim CLM-1001" in asked
+    assert "looking at" not in question_for(REQUEST)

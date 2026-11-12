@@ -133,8 +133,13 @@ def policy_only(found: Json) -> Json:
 
 def question_for(request: AskRequest) -> str:
     """The question as the assistant reads it, marked as the customer's data."""
+    # The api passes `about` only for the customer's own claim, and its pattern allows a claim
+    # number alone, so it can sit outside the question's markers.
+    looking = f" They're looking at claim {request.about}." if request.about else ""
     # nosemgrep: raw-html-format - markers around data for the model, not HTML
-    return f"(Customer: {request.first_name})\n<question>\n{request.question}\n</question>"
+    return (
+        f"(Customer: {request.first_name}.{looking})\n<question>\n{request.question}\n</question>"
+    )
 
 
 class Asker:
