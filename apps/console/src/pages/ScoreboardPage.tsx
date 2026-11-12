@@ -1,21 +1,26 @@
 import { Check, CircleMinus, FlaskConical, LoaderCircle, Play, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react";
-import type { Api, Criterion, Run, Scores, StartRunRequest, SuccessCriteria } from "../api";
-import { MiniBar, Sparkline } from "../components/Charts";
+import type {
+  Api,
+  Criterion,
+  Live,
+  Run,
+  RunClaim,
+  Scores,
+  StartRunRequest,
+  SuccessCriteria,
+} from "../api";
+import { RangeBar, VersionChart } from "../components/Charts";
+import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
-import { useFocusHeading } from "../useFocusHeading";
 import { when } from "../format";
-import { runHref } from "../useHashRoute";
+import { rangeText, wilson } from "../stats";
+import { useFocusHeading } from "../useFocusHeading";
+import { IMPROVEMENT_HREF, runHref } from "../useHashRoute";
 
 const POLL_MS = 3000;
-// How many scored runs a trend line looks back over.
-const TREND_RUNS = 12;
-const SET_LABELS: Record<Run["label_set"], string> = {
-  evaluation: "Evaluation set",
-  held_out: "Held-out set",
-};
 const SIZE_LABELS: Record<Run["size"], string> = {
-  tiny: "The five tiny claims (about $0.15)",
+  tiny: "5 claims (about $0.15)",
   whole: "All 25 (about $0.75)",
 };
 
@@ -29,16 +34,16 @@ export function cost(value: number): string {
 
 /** The judge's mean grade out of 3, or why there isn't one. */
 export function gradeOf(scores: Scores): string {
-  return scores.grade === null ? "Not graded" : `${scores.grade.toFixed(2)} of 3`;
+  return scores.grade === null ? "Not graded" : `${scores.grade.toFixed(1)} of 3`;
 }
 
-/** The measures shown for a run, in the order the scoreboard shows them. */
+/** The measures shown for a run, in plain words, in the order the scoreboard shows them. */
 export function measures(scores: Scores): { label: string; value: string }[] {
   return [
-    { label: "Accuracy", value: percent(scores.accuracy) },
-    { label: "Payout accuracy", value: percent(scores.payout_accuracy) },
-    { label: "Straight through", value: percent(scores.straight_through) },
-    { label: "Judge's grade", value: gradeOf(scores) },
+    { label: "Right decision", value: percent(scores.accuracy) },
+    { label: "Right amount", value: percent(scores.payout_accuracy) },
+    { label: "Decided without a person", value: percent(scores.straight_through) },
+    { label: "Explanation matches the handler's", value: gradeOf(scores) },
     { label: "Cost per claim", value: cost(scores.cost_per_claim) },
     { label: "Time per claim", value: `${scores.seconds_per_claim.toFixed(0)}s` },
   ];
@@ -78,44 +83,155 @@ export function RunStatus({ status }: { status: string }) {
 
 type Scored = Run & { scores: Scores };
 
-const HEADLINES: { label: string; of: (scores: Scores) => number; show: (n: number) => string }[] =
-  [
-    { label: "Accuracy", of: (scores) => scores.accuracy, show: percent },
-    { label: "Payout accuracy", of: (scores) => scores.payout_accuracy, show: percent },
-    { label: "Straight through", of: (scores) => scores.straight_through, show: percent },
-    { label: "Cost per claim", of: (scores) => scores.cost_per_claim, show: cost },
-  ];
-
-/** The latest scored run's four headline measures, each with its trend over the scored runs on
- * the same set: the evaluation and held-out sets score differently, so they never share a line. */
-function Headlines({ runs }: { runs: Run[] }) {
-  const all = runs
-    .filter((run): run is Scored => run.scores !== null)
+function scored(runs: Run[]): Scored[] {
+  return runs
+    .filter((run): run is Scored => run.scores !== null && run.status === "finished")
     .sort((a, b) => a.run_id - b.run_id);
-  const latest = all[all.length - 1];
-  if (!latest) return null;
-  const scored = all.filter((run) => run.label_set === latest.label_set).slice(-TREND_RUNS);
+}
+
+/** An exam is a held-out run: only an improvement round starts one. */
+function isExam(run: Run): boolean {
+  return run.label_set === "held_out";
+}
+
+/** Each version's latest exam, oldest version first; whole exams win over 5-claim ones. */
+export function examsByVersion(runs: Run[]): Scored[] {
+  const best = new Map<number, Scored>();
+  for (const run of scored(runs).filter(isExam)) {
+    const held = best.get(run.config_version);
+    if (!held || run.size === "whole" || held.size !== "whole") best.set(run.config_version, run);
+  }
+  return [...best.values()].sort((a, b) => a.config_version - b.config_version);
+}
+
+function targetOf(criteria: SuccessCriteria | null, key: string): number | undefined {
+  return criteria?.criteria.find((c) => c.key === key)?.target ?? undefined;
+}
+
+/** One measure of the exam: the score, its likely range and its target, drawn on one track. */
+function MeasureRow({
+  label,
+  value,
+  claims,
+  target,
+}: {
+  label: string;
+  value: number;
+  claims: number;
+  target?: number;
+}) {
+  const range = wilson(value, claims);
   return (
-    <ul className="kpis" aria-label={`Run ${String(latest.run_id)}'s headline measures`}>
-      {HEADLINES.map(({ label, of, show }) => (
-        <li key={label} className="kpi">
-          <p className="kpi-label">
-            {label}
-            <span>v{latest.config_version}</span>
+    <div className="measure-row">
+      <dt>{label}</dt>
+      <dd>
+        <strong>{percent(value)}</strong>
+        <span className="muted small"> likely {rangeText(range)}</span>
+        <RangeBar value={value} range={range} target={target} />
+      </dd>
+    </div>
+  );
+}
+
+/** The version in use's latest exam, measure by measure with how sure each score is, beside
+ * every version's exam score. */
+function ExamPanel({
+  runs,
+  version,
+  criteria,
+}: {
+  runs: Run[];
+  version: number | null;
+  criteria: SuccessCriteria | null;
+}) {
+  const exams = examsByVersion(runs);
+  const exam =
+    exams.find((run) => run.config_version === version) ?? exams[exams.length - 1] ?? null;
+  const accuracyTarget = targetOf(criteria, "accuracy");
+  if (exam === null) {
+    return (
+      <div className="panel">
+        <div className="panel-head">
+          <h2>The exam</h2>
+        </div>
+        <p className="muted small">
+          No exam yet. An improvement round runs one on the 25 held-out claims; a practice run below
+          doesn&apos;t count.
+        </p>
+      </div>
+    );
+  }
+  const s = exam.scores;
+  return (
+    <div className="panel score-hero">
+      <div>
+        <div className="panel-head">
+          <h2>
+            v{exam.config_version}&apos;s exam
+            {exam.config_version === version && <span className="tag">In use</span>}
+          </h2>
+          <p className="panel-note">
+            <a href={runHref(exam.run_id)}>Run {exam.run_id}</a> · {s.claims} held-out claims ·{" "}
+            {when(exam.started_at)}
           </p>
-          <p className="kpi-value">{show(of(latest.scores))}</p>
-          <p className="kpi-sub">
-            Run {latest.run_id} · {SET_LABELS[latest.label_set]}, {latest.size}
-          </p>
-          <Sparkline
-            values={scored.map((run) => of(run.scores))}
-            label={`${label} over the last ${String(scored.length)} scored runs on the ${SET_LABELS[latest.label_set].toLowerCase()}, oldest first: ${scored
-              .map((run) => show(of(run.scores)))
-              .join(", ")}`}
+        </div>
+        <dl className="measure-list">
+          <MeasureRow
+            label="Right decision"
+            value={s.accuracy}
+            claims={s.claims}
+            target={accuracyTarget}
           />
-        </li>
-      ))}
-    </ul>
+          <MeasureRow label="Right amount" value={s.payout_accuracy} claims={s.claims} />
+          <MeasureRow
+            label="Decided without a person"
+            value={s.straight_through}
+            claims={s.claims}
+            target={targetOf(criteria, "straight_through")}
+          />
+          <div className="measure-row">
+            <dt>Explanation matches the handler&apos;s</dt>
+            <dd>
+              <strong>{gradeOf(s)}</strong>
+              <span className="muted small"> the judge&apos;s grade, 3 is the same reasons</span>
+            </dd>
+          </div>
+          <div className="measure-row">
+            <dt>Cost per claim</dt>
+            <dd>
+              <strong>{cost(s.cost_per_claim)}</strong>
+              <span className="muted small"> {s.seconds_per_claim.toFixed(0)} s a claim</span>
+            </dd>
+          </div>
+        </dl>
+        <p className="small muted">
+          The shaded band is where the true score likely sits: {s.claims} claims can&apos;t pin it
+          down closer. A tick marks the target.
+        </p>
+      </div>
+      <div>
+        <h3 className="live-sub">Right decision by version</h3>
+        <VersionChart
+          points={exams.map((run) => ({
+            name: `v${String(run.config_version)}`,
+            value: run.scores.accuracy,
+            range: wilson(run.scores.accuracy, run.scores.claims),
+          }))}
+          target={accuracyTarget}
+          label={`Each version's latest exam, right decision, oldest first: ${exams
+            .map(
+              (run) =>
+                `v${String(run.config_version)} ${percent(run.scores.accuracy)} (likely ${rangeText(wilson(run.scores.accuracy, run.scores.claims))}, ${String(run.scores.claims)} claims)`,
+            )
+            .join(", ")}`}
+        />
+        <p className="small muted">
+          The dashed line is the target
+          {accuracyTarget === undefined ? "" : ` (${percent(accuracyTarget)})`}. Whiskers that
+          overlap mean the versions can&apos;t be told apart on their exams.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -157,50 +273,60 @@ function Met({ met }: { met: boolean | null }) {
   );
 }
 
-/** Whether the agent meets its objectives, as the api worked it out in code. It loads again
- * whenever `refreshKey` changes, which the page ties to its finished runs. */
-function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
-  const [found, setFound] = useState<SuccessCriteria | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+/** The same measure on live claims, over the last 14 days, for the version in use. */
+function liveOf(key: string, live: Live | null): string {
+  if (live === null) return "–";
+  if (key === "straight_through") {
+    const share = live.totals.straight_through_share;
+    return share === null ? "–" : percent(share);
+  }
+  if (key === "accuracy") {
+    const own = live.by_version.find((row) => row.name === `v${String(live.version)}`);
+    return own ? percent(1 - own.disagreements / own.decided) : "None yet";
+  }
+  return "–";
+}
 
+/** Whether the agent meets its objectives, as the api worked it out in code, beside the same
+ * measures live. */
+function SuccessCard({
+  api,
+  found,
+  error,
+  onRetry,
+}: {
+  api: Api;
+  found: SuccessCriteria | null;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  const [live, setLive] = useState<Live | null>(null);
   useEffect(() => {
-    let live = true;
-    api.getSuccessCriteria().then(
-      (criteria) => {
-        if (!live) return;
-        setFound(criteria);
-        setError(null);
+    let current = true;
+    api.getLive(14).then(
+      (got) => {
+        if (current) setLive(got);
       },
-      (caught: unknown) => {
-        if (live) setError(caught instanceof Error ? caught.message : String(caught));
-      },
+      () => undefined,
     );
     return () => {
-      live = false;
+      current = false;
     };
-  }, [api, refreshKey, attempt]);
+  }, [api]);
 
   return (
     <section className="panel criteria" aria-labelledby="criteria-heading">
       <div className="panel-head">
         <h2 id="criteria-heading">Success criteria</h2>
         <p className="panel-note">
-          Worked out in code from the latest held-out run and the payments. No model is asked.
+          Worked out in code from the latest exam and the payments, beside the last 14 days live.
         </p>
       </div>
       {/* A quiet status, not an alert: the scoreboard below still works without this card. */}
       {error && (
         <p className="criteria-error" role="status">
           The success criteria couldn&apos;t be loaded: {error}
-          <button
-            type="button"
-            className="button secondary"
-            onClick={() => {
-              setError(null);
-              setAttempt((value) => value + 1);
-            }}
-          >
+          <button type="button" className="button secondary" onClick={onRetry}>
             Reload the criteria
           </button>
         </p>
@@ -214,9 +340,9 @@ function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
       {found && (
         <>
           <TableScroll label="Success criteria table">
-            <table className="table criteria-table">
+            <table className="table criteria-table min-mid">
               <caption className="visually-hidden">
-                Each success criterion with its target and the latest figure
+                Each success criterion with its target, the exam's figure and the live figure
               </caption>
               <thead>
                 <tr>
@@ -225,7 +351,10 @@ function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
                     Target
                   </th>
                   <th scope="col" className="num">
-                    Actual
+                    Exam
+                  </th>
+                  <th scope="col" className="num">
+                    Live
                   </th>
                   <th scope="col">Status</th>
                 </tr>
@@ -242,6 +371,11 @@ function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
                       {figure(criterion, criterion.target)}
                     </td>
                     <td className="num">{figure(criterion, criterion.actual)}</td>
+                    <td className="num">
+                      {criterion.key === "signed_off"
+                        ? figure(criterion, criterion.actual)
+                        : liveOf(criterion.key, live)}
+                    </td>
                     <td>
                       <Met met={criterion.met} />
                     </td>
@@ -253,7 +387,7 @@ function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
           <p className="criteria-overall">
             <strong>{overall(found)}</strong>
             {found.criteria.some((criterion) => criterion.met === null) &&
-              " Run the held-out set below to measure the rest."}
+              " An improvement round's exam measures the rest."}
           </p>
         </>
       )}
@@ -261,12 +395,157 @@ function SuccessCard({ api, refreshKey }: { api: Api; refreshKey: number }) {
   );
 }
 
-function Percent({ value }: { value: number }) {
+/** The latest exam's right decisions by claim type, weakest first, each with its range. */
+function ByClaimType({ api, exam }: { api: Api; exam: Scored | null }) {
+  const examId = exam?.run_id ?? null;
+  const [claims, setClaims] = useState<{ run: number; found: RunClaim[] } | null>(null);
+  useEffect(() => {
+    if (examId === null) return;
+    let live = true;
+    api.getRun(examId).then(
+      (got) => {
+        if (live) setClaims({ run: got.run_id, found: got.claims });
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, examId]);
+
+  if (exam === null || claims?.run !== exam.run_id) return null;
+  const groups = new Map<string, RunClaim[]>();
+  for (const claim of claims.found) {
+    const type = claim.claim_type ?? "other";
+    groups.set(type, [...(groups.get(type) ?? []), claim]);
+  }
+  const rows = [...groups.entries()]
+    .map(([type, found]) => ({
+      type: type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase()),
+      claims: found.length,
+      right: found.filter((c) => c.matched).length,
+    }))
+    .sort((a, b) => a.right / a.claims - b.right / b.claims || b.claims - a.claims);
   return (
-    <span className="pct">
-      <span className="pct-value">{percent(value)}</span>
-      <MiniBar value={value} />
-    </span>
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Right decision by claim type</h2>
+        <p className="panel-note">
+          Run {exam.run_id}, v{exam.config_version}&apos;s exam. Weakest first; few claims means a
+          wide band
+        </p>
+      </div>
+      <TableScroll label="By claim type table">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">Claim type</th>
+              <th scope="col" className="num">
+                Right
+              </th>
+              <th scope="col">Score and likely range</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const share = row.right / row.claims;
+              const range = wilson(share, row.claims);
+              return (
+                <tr key={row.type}>
+                  <th scope="row">{row.type}</th>
+                  <td className="num nowrap">
+                    {row.right} of {row.claims}
+                  </td>
+                  <td className="range-cell">
+                    <RangeBar value={share} range={range} />
+                    <span className="muted small nowrap">
+                      {percent(share)} · likely {rangeText(range)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </TableScroll>
+    </div>
+  );
+}
+
+function runName(run: Run): string {
+  return `Run ${String(run.run_id)} · v${String(run.config_version)} ${isExam(run) ? "exam" : "practice"}, ${String(run.scores?.claims ?? 0)} claims`;
+}
+
+/** Any two finished runs side by side: the claims they decided differently. */
+function Compare({ api, runs }: { api: Api; runs: Run[] }) {
+  const [after, setAfter] = useState<number | null>(null);
+  const [before, setBefore] = useState<number | null>(null);
+  const done = scored(runs).reverse();
+  if (done.length < 2) return null;
+  const exams = done.filter(isExam);
+  const pickAfter = after ?? (exams[0] ?? done[0])?.run_id ?? null;
+  // By default, the latest exam against the latest exam of another version.
+  const afterVersion = done.find((run) => run.run_id === pickAfter)?.config_version;
+  const pickBefore =
+    before ??
+    (
+      exams.find((run) => run.config_version !== afterVersion) ??
+      done.find((run) => run.run_id !== pickAfter)
+    )?.run_id ??
+    null;
+  const versionOf = (id: number) =>
+    String(done.find((run) => run.run_id === id)?.config_version ?? "");
+  const options = done.map((run) => (
+    <option key={run.run_id} value={run.run_id}>
+      {runName(run)}
+    </option>
+  ));
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Compare two runs</h2>
+        <p className="panel-note">The claims they decided differently, worse ones first</p>
+      </div>
+      <div className="compare-pick">
+        <div className="field">
+          <label htmlFor="compare-before">Before</label>
+          <select
+            id="compare-before"
+            value={pickBefore ?? ""}
+            onChange={(event) => {
+              setBefore(Number(event.target.value));
+            }}
+          >
+            {options}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="compare-after">After</label>
+          <select
+            id="compare-after"
+            value={pickAfter ?? ""}
+            onChange={(event) => {
+              setAfter(Number(event.target.value));
+            }}
+          >
+            {options}
+          </select>
+        </div>
+      </div>
+      {pickBefore !== null && pickAfter !== null && pickBefore !== pickAfter ? (
+        <RunDiff
+          api={api}
+          before={pickBefore}
+          after={pickAfter}
+          beforeLabel={`Run ${String(pickBefore)} (v${versionOf(pickBefore)})`}
+          afterLabel={`Run ${String(pickAfter)} (v${versionOf(pickAfter)})`}
+          headingId="compare-heading"
+          title="Decided differently"
+        />
+      ) : (
+        <p className="muted small">Pick two different runs.</p>
+      )}
+    </div>
   );
 }
 
@@ -315,31 +594,14 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
   return (
     <form className="panel" onSubmit={(event) => void start(event)}>
       <div className="panel-head">
-        <h2>Run an evaluation</h2>
+        <h2>Run a practice test</h2>
       </div>
       <p className="run-form-note">
-        Copies of labelled claims are worked by the current configuration and scored against the
-        handlers' decisions. Copies are never paid and never show in the queue.
+        The version in use decides copies of practice claims and is scored against the handlers.
+        Copies are never paid and never show in the queue. Only an{" "}
+        <a href={IMPROVEMENT_HREF}>improvement round</a> runs the exam, so it isn&apos;t worn out.
       </p>
       <div className="run-form">
-        <fieldset className="seg">
-          <legend>Set</legend>
-          <div className="seg-track">
-            {(["evaluation", "held_out"] as const).map((value) => (
-              <label key={value} className="seg-option">
-                <input
-                  type="radio"
-                  name="label_set"
-                  checked={request.label_set === value}
-                  onChange={() => {
-                    setRequest({ ...request, label_set: value });
-                  }}
-                />
-                <span>{SET_LABELS[value]}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
         <fieldset className="seg">
           <legend>Claims</legend>
           <div className="seg-track">
@@ -358,23 +620,26 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
             ))}
           </div>
         </fieldset>
-        <div className="field">
-          <label htmlFor="run-concurrency">Claim agents at once</label>
-          <input
-            id="run-concurrency"
-            type="number"
-            min={1}
-            max={25}
-            value={request.concurrency}
-            onChange={(event) => {
-              touched.current = true;
-              setRequest({ ...request, concurrency: Number(event.target.value) });
-            }}
-          />
-        </div>
+        <details className="run-more">
+          <summary>More options</summary>
+          <div className="field">
+            <label htmlFor="run-concurrency">Claims worked at once</label>
+            <input
+              id="run-concurrency"
+              type="number"
+              min={1}
+              max={25}
+              value={request.concurrency}
+              onChange={(event) => {
+                touched.current = true;
+                setRequest({ ...request, concurrency: Number(event.target.value) });
+              }}
+            />
+          </div>
+        </details>
         <button type="submit" className="button" disabled={busy}>
           <Play size={15} strokeWidth={1.75} aria-hidden="true" />
-          {busy ? "Starting…" : "Start the run"}
+          {busy ? "Starting…" : "Start the practice run"}
         </button>
       </div>
       {error && (
@@ -386,10 +651,113 @@ function StartRun({ api, onStarted }: { api: Api; onStarted: () => void }) {
   );
 }
 
+/** A share with its likely range under it. */
+function Share({ value, claims }: { value: number; claims: number }) {
+  return (
+    <>
+      {percent(value)}
+      <span className="sub">{rangeText(wilson(value, claims))}</span>
+    </>
+  );
+}
+
+function RunsTable({ runs }: { runs: Run[] }) {
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>All runs</h2>
+        <p className="panel-note">
+          Newest first. Under each score, its likely range. Open a run for its claims
+        </p>
+      </div>
+      <TableScroll label="Evaluation runs table">
+        <table className="table min-wide">
+          <caption className="visually-hidden">Evaluation runs, newest first</caption>
+          <thead>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col">Kind</th>
+              <th scope="col">Version</th>
+              <th scope="col">Right decision</th>
+              <th scope="col">Right amount</th>
+              <th scope="col">Without a person</th>
+              <th scope="col">Explanation</th>
+              <th scope="col" className="num">
+                Cost per claim
+              </th>
+              <th scope="col">Started</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => (
+              <tr key={run.run_id}>
+                <td className="nowrap">
+                  <a href={runHref(run.run_id)}>Run {run.run_id}</a>
+                </td>
+                <td className="nowrap">
+                  <span className={isExam(run) ? "tag tag-exam" : "tag"}>
+                    {isExam(run) ? "Exam" : "Practice"}
+                  </span>
+                  <span className="sub">
+                    {run.size === "tiny" ? "5 claims, a rough check" : "25 claims"}
+                    {run.round_id !== null && (
+                      <>
+                        {" · "}
+                        <a href={IMPROVEMENT_HREF}>round {run.round_id}</a>
+                      </>
+                    )}
+                  </span>
+                </td>
+                <td>
+                  <span className="tag">v{run.config_version}</span>
+                </td>
+                <td className="nowrap">
+                  {run.scores ? (
+                    <Share value={run.scores.accuracy} claims={run.scores.claims} />
+                  ) : (
+                    "–"
+                  )}
+                </td>
+                <td className="nowrap">
+                  {run.scores ? (
+                    <Share value={run.scores.payout_accuracy} claims={run.scores.claims} />
+                  ) : (
+                    "–"
+                  )}
+                </td>
+                <td className="nowrap">
+                  {run.scores ? (
+                    <Share value={run.scores.straight_through} claims={run.scores.claims} />
+                  ) : (
+                    "–"
+                  )}
+                </td>
+                <td className="nowrap">
+                  {run.grading ? "Grading…" : run.scores ? gradeOf(run.scores) : "–"}
+                </td>
+                <td className="num">{run.scores ? cost(run.scores.cost_per_claim) : "–"}</td>
+                <td className="nowrap">{when(run.started_at)}</td>
+                <td>
+                  <RunStatus status={run.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableScroll>
+    </div>
+  );
+}
+
 export function ScoreboardPage({ api }: { api: Api }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  const [version, setVersion] = useState<number | null>(null);
+  const [criteria, setCriteria] = useState<SuccessCriteria | null>(null);
+  const [criteriaError, setCriteriaError] = useState<string | null>(null);
+  const [criteriaAttempt, setCriteriaAttempt] = useState(0);
   const heading = useFocusHeading();
   const refresh = useCallback(() => {
     setGeneration((value) => value + 1);
@@ -413,8 +781,39 @@ export function ScoreboardPage({ api }: { api: Api }) {
     };
   }, [api, generation]);
 
+  useEffect(() => {
+    let live = true;
+    api.listConfigurations().then(
+      (found) => {
+        if (live) setVersion(found.find((c) => c.current)?.version ?? null);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api]);
+
   const running = runs?.some((run) => run.status === "running") ?? false;
   const finished = runs?.filter((run) => run.status === "finished").length ?? 0;
+
+  useEffect(() => {
+    let live = true;
+    api.getSuccessCriteria().then(
+      (found) => {
+        if (!live) return;
+        setCriteria(found);
+        setCriteriaError(null);
+      },
+      (caught: unknown) => {
+        if (live) setCriteriaError(caught instanceof Error ? caught.message : String(caught));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, finished, criteriaAttempt]);
+
   useEffect(() => {
     if (!running) return;
     const timer = window.setTimeout(refresh, POLL_MS);
@@ -423,19 +822,31 @@ export function ScoreboardPage({ api }: { api: Api }) {
     };
   }, [running, refresh, runs]);
 
+  const latestExam = runs ? (scored(runs).filter(isExam).at(-1) ?? null) : null;
   return (
     <section className="view" aria-labelledby="scoreboard-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Evaluations</p>
+          <p className="eyebrow">Evals · Evaluations</p>
           <h1 id="scoreboard-heading" ref={heading} tabIndex={-1}>
             Scoreboard
           </h1>
+          <p className="lede">
+            How the agent scores on claims a senior handler already decided. The exam is 25 claims
+            it never learns from; practice runs are for quick checks.
+          </p>
         </div>
       </header>
-      <SuccessCard api={api} refreshKey={finished} />
-      {runs && <Headlines runs={runs} />}
-      <StartRun api={api} onStarted={refresh} />
+      {runs && <ExamPanel runs={runs} version={version} criteria={criteria} />}
+      <SuccessCard
+        api={api}
+        found={criteria}
+        error={criteriaError}
+        onRetry={() => {
+          setCriteriaError(null);
+          setCriteriaAttempt((value) => value + 1);
+        }}
+      />
       {error && (
         <p className="error" role="alert">
           {error}
@@ -450,70 +861,23 @@ export function ScoreboardPage({ api }: { api: Api }) {
           Loading the runs…
         </p>
       )}
+      {runs && runs.length > 0 && (
+        <div className="live-charts">
+          <ByClaimType api={api} exam={latestExam} />
+          <Compare api={api} runs={runs} />
+        </div>
+      )}
+      <StartRun api={api} onStarted={refresh} />
       {runs?.length === 0 && (
         <div className="panel empty">
           <span className="icon-tile">
             <FlaskConical size={19} strokeWidth={1.75} aria-hidden="true" />
           </span>
-          <h2>No evaluations yet</h2>
-          <p className="muted">Start one above to see how the agent compares with the handlers.</p>
+          <h2>No runs yet</h2>
+          <p className="muted">Start a practice run above, or an improvement round for an exam.</p>
         </div>
       )}
-      {runs && runs.length > 0 && (
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Evaluation runs</h2>
-            <p className="panel-note">Newest first. Open a run for its claims.</p>
-          </div>
-          <TableScroll label="Evaluation runs table">
-            <table className="table min-wide">
-              <caption className="visually-hidden">Evaluation runs, newest first</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Run</th>
-                  <th scope="col">Set</th>
-                  <th scope="col">Version</th>
-                  <th scope="col">Accuracy</th>
-                  <th scope="col">Payout accuracy</th>
-                  <th scope="col">Straight through</th>
-                  <th scope="col">Grade</th>
-                  <th scope="col" className="num">
-                    Cost per claim
-                  </th>
-                  <th scope="col">Started</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((run) => (
-                  <tr key={run.run_id}>
-                    <td className="nowrap">
-                      <a href={runHref(run.run_id)}>Run {run.run_id}</a>
-                    </td>
-                    <td className="nowrap">
-                      {SET_LABELS[run.label_set]}, {run.size}
-                    </td>
-                    <td>
-                      <span className="tag">v{run.config_version}</span>
-                    </td>
-                    <td>{run.scores ? <Percent value={run.scores.accuracy} /> : "–"}</td>
-                    <td>{run.scores ? <Percent value={run.scores.payout_accuracy} /> : "–"}</td>
-                    <td>{run.scores ? <Percent value={run.scores.straight_through} /> : "–"}</td>
-                    <td className="nowrap">
-                      {run.grading ? "Grading…" : run.scores ? gradeOf(run.scores) : "–"}
-                    </td>
-                    <td className="num">{run.scores ? cost(run.scores.cost_per_claim) : "–"}</td>
-                    <td className="nowrap">{when(run.started_at)}</td>
-                    <td>
-                      <RunStatus status={run.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableScroll>
-        </div>
-      )}
+      {runs && runs.length > 0 && <RunsTable runs={runs} />}
     </section>
   );
 }

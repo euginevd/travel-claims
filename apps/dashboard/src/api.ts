@@ -48,6 +48,8 @@ export const ClaimSummarySchema = z.object({
   documents_in: z.boolean(),
   // In progress, but the agent stopped working it: a handler can retry it.
   stalled: z.boolean().optional(),
+  // An attack claim the red team made: a test, never a customer's.
+  red_team: z.boolean().optional(),
   claim_id: z.string(),
   customer_name: z.string(),
   plan: z.string(),

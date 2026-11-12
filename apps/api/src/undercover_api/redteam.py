@@ -79,6 +79,13 @@ def start_gate(db: Connection, service: AgentService, round_id: int, version: in
     service.redteam()
 
 
+def version_in_use(db: Connection) -> int | None:
+    # Imported here: evaluations imports this module.
+    from undercover_api.evaluations import current_version  # noqa: PLC0415
+
+    return current_version(db)
+
+
 def clear_running(db: Connection) -> None:
     db.execute(delete(settings).where(settings.c.key == RUNNING))
 
@@ -115,14 +122,24 @@ def record_redteam_report(
     """Keep a red-team run's results, run by the senior handler signed in; the run is over."""
     stamp = now()
     gate = running_value(db)
+    # The version fixed when the run started: a gate run's candidate, or the one then in use.
+    version = gate.get("config_version") if gate else None
+    if version is None:
+        version = version_in_use(db)
     results = [result.model_dump() for result in run.results]
-    db.execute(insert(redteam_reports).values(run_at=stamp, run_by=engineer.name, results=results))
+    db.execute(
+        insert(redteam_reports).values(
+            run_at=stamp, run_by=engineer.name, results=results, config_version=version
+        )
+    )
     clear_running(db)
     if gate and gate.get("round_id") is not None:
         from undercover_api.improvement import finish_gate  # noqa: PLC0415 - improvement imports this
 
         finish_gate(db, int(gate["round_id"]), run.results)
-    return RedTeamReport(run_at=stamp, run_by=engineer.name, results=run.results)
+    return RedTeamReport(
+        run_at=stamp, run_by=engineer.name, results=run.results, config_version=version
+    )
 
 
 @redteam_router.post("/redteam/runs", operation_id="start_redteam_run", status_code=202)
@@ -135,7 +152,11 @@ def start_redteam_run(request: Request, engineer: SignedInEngineer, db: Database
     db.execute(
         insert(settings).values(
             key=RUNNING,
-            value={"started_at": now(), "started_by": engineer.name},
+            value={
+                "started_at": now(),
+                "started_by": engineer.name,
+                "config_version": version_in_use(db),
+            },
             changed_by=engineer.name,
             changed_at=now(),
         )

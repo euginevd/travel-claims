@@ -417,6 +417,8 @@ redteam_reports = Table(
     Column("run_at", String(32), nullable=False),
     Column("run_by", String(200), nullable=False),
     Column("results", JSON, nullable=False),
+    # The claim agent's configuration version the attacks faced; None before it was kept.
+    Column("config_version", Integer),
 )
 
 # What the api loads from the context layer when seeding: the plans and document versions.

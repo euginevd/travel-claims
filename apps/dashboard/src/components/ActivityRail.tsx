@@ -143,7 +143,8 @@ export function ActivityRail({
               onTraceChange(event.target.checked);
             }}
           />
-          Show trace <span className="muted small">(every tool call and its sources · T)</span>
+          Show the details{" "}
+          <span className="muted small">(what the agent asked for and got back, step by step)</span>
         </label>
         {working && (
           <p className="muted small live" role="status">
@@ -171,20 +172,66 @@ export function ActivityRail({
   );
 }
 
+/** A source file as people read it: "claim_rules.yaml" reads "Claim rules". */
+export function sourceName(file: string): string {
+  const name = file.replace(/\.[a-z]+$/i, "").replaceAll("_", " ");
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+interface Entry {
+  step: Step;
+  result?: Step;
+}
+
+/** Each step once, a tool's answer folded into the call that asked for it. */
+export function entriesOf(steps: Step[]): Entry[] {
+  const entries: Entry[] = [];
+  for (const step of steps) {
+    const last = entries.at(-1);
+    if (step.kind === "tool_result" && last?.step.kind === "tool_call" && !last.result) {
+      last.result = step;
+    } else {
+      entries.push({ step });
+    }
+  }
+  return entries;
+}
+
+/** A step's title in plain words: what the agent did, not the tool's name. */
+function titleOf(step: Step): string {
+  const plain = plainStep(step.kind, step.content);
+  if (plain) return plain;
+  if (step.kind === "tool_call") return `Used ${step.content.split(" ", 1)[0] ?? "a tool"}`;
+  if (step.kind === "tool_result") return "What came back";
+  if (step.kind === "lookup" && step.sources[0]) {
+    return `Looked up the ${sourceName(step.sources[0].file).toLowerCase()}`;
+  }
+  return STEP_LABELS[step.kind];
+}
+
 function TraceView({ trace }: { trace: Trace | null }) {
-  if (!trace) return <p className="muted">Loading the trace…</p>;
+  if (!trace) return <p className="muted">Loading the details…</p>;
   return (
     <ol className="trace-steps">
-      {trace.steps.map((step) => (
+      {entriesOf(trace.steps).map(({ step, result }) => (
         <li key={step.step_id}>
           <details open={step.kind === "screening" || step.kind === "refusal"}>
             <summary>
-              <strong>{STEP_LABELS[step.kind]}</strong>{" "}
+              <strong>{titleOf(step)}</strong>{" "}
               <span className="muted small">{when(step.created_at)}</span>
             </summary>
+            {result && <p className="trace-label small muted">What it asked for</p>}
             <pre dir="auto">{pretty(step.content)}</pre>
+            {result && (
+              <>
+                <p className="trace-label small muted">What came back</p>
+                <pre dir="auto">{pretty(result.content)}</pre>
+              </>
+            )}
             {step.sources.length > 0 && (
-              <p className="muted small">From {step.sources.map((s) => s.file).join(", ")}</p>
+              <p className="muted small">
+                From {step.sources.map((s) => sourceName(s.file)).join(", ")}
+              </p>
             )}
           </details>
         </li>

@@ -9,7 +9,7 @@ beforeEach(() => {
   window.location.hash = "";
 });
 
-test("an AI engineer signs in with the test account and sees the scoreboard", async () => {
+test("an AI engineer signs in with the test account and lands on the security posture", async () => {
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
     "POST /api/engineering/dev/test-sign-in": () => [200, { id_token: "t", expires_in: 3600 }],
@@ -19,12 +19,16 @@ test("an AI engineer signs in with the test account and sees the scoreboard", as
   render(<App fetchFn={fetchFn} />);
   expect(screen.getByRole("heading", { name: "Every AI decision, measured." })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Continue as Sam" }));
+  // Evals first: the scoreboard is home, and only the Evals pages show as tabs.
   expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
-  expect(screen.getByText("Sam Carter")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Security: Red team" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Evals" })).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("link", { name: "Evals: Scoreboard" })).toHaveAttribute(
     "href",
-    "#/redteam",
+    "#/scoreboard",
   );
+  expect(screen.getByText("Sam Carter")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Security" })).toHaveAttribute("href", "#/posture");
+  expect(screen.queryByRole("link", { name: "Security: Red team" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Queue" })).not.toBeInTheDocument();
 });
 
@@ -75,5 +79,5 @@ test("each page opens from its route", async () => {
     ],
   });
   render(<App fetchFn={fetchFn} />);
-  expect(await screen.findByRole("heading", { name: "Red-team report" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Red team" })).toBeInTheDocument();
 });

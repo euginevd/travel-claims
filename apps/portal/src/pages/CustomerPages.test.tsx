@@ -159,7 +159,9 @@ test("a decided claim shows its outcome and lets the customer ask for a person",
   expect(screen.getByText(/reason the policy does not cover/)).toBeInTheDocument();
   await user.type(screen.getByLabelText(/Want a person to look at this/), "Please check");
   await user.click(screen.getByRole("button", { name: "Ask a person to review" }));
-  expect(await screen.findByText(/review your claim personally/)).toBeInTheDocument();
+  expect(
+    await screen.findByText(/You asked for a person to review this decision/),
+  ).toBeInTheDocument();
   const asked = fetchFn.calls.find((c) => c.path.endsWith("/review-request"));
   expect(asked?.body).toEqual({ note: "Please check" });
 });

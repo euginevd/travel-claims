@@ -126,7 +126,16 @@ CATALOGUE = (
     ),
 )
 
+# (agent, model, tools, what it reads, the worst it could do if tricked, what stops that)
 AGENTS = (
+    (
+        "Hidden-instruction check",
+        "claude-haiku-5-5",
+        "none: reads and refers",
+        "the claim and its receipts",
+        "Misses an attack, which then reaches the claim agent",
+        "The claim agent's scoped tools, the payout code and a person's sign-off",
+    ),
     (
         "Claim agent",
         "claude-sonnet-5-5",
@@ -134,37 +143,49 @@ AGENTS = (
             "get_claim, get_policy, get_claim_history, calculate_payout, record_decision, "
             "find_duplicate_receipts, search_memory"
         ),
-        "context (MCP): policy wording, claims manual, plans",
-    ),
-    (
-        "Hidden-instruction check",
-        "claude-haiku-5-5",
-        "none: reads and refers",
-        "none",
+        "its own claim and customer; context (MCP): policy wording, claims manual, plans",
+        "Approves a claim it shouldn't, up to the approval limit",
+        "The payout is worked out in code; over the limit waits for a senior handler",
     ),
     (
         "Specialists",
         "claude-haiku-5-5",
         "check_documents, review_medical",
         "the claim's receipts",
+        "Gives the claim agent bad advice",
+        "The claim agent decides; the payout code checks the amounts",
     ),
     (
         "Drafting assistant",
         "claude-haiku-5-5",
         "none: drafts only",
         "the customer's words and receipts",
+        "Drafts a claim that misstates what happened",
+        "The customer checks and confirms the draft; their words stay the record",
+    ),
+    (
+        "Judge",
+        "claude-haiku-5-5",
+        "none: grades only",
+        "two explanations of one claim at a time; keeps nothing",
+        "Gives a wrong grade",
+        "Grades are shown, never used to decide",
     ),
     (
         "Improver",
         "claude-sonnet-5-5",
         "proposes a configuration diff",
         "evaluation-set misses, never held-out answers",
+        "Proposes weaker instructions",
+        "An engineer approves it; it's kept only if it scores better and the red team holds",
     ),
     (
         "Copilot",
         "claude-sonnet-5-5",
         "reads the queue and claims as the handler; signs off only after a confirmation card",
-        "the records",
+        "what the signed-in handler can see",
+        "Starts a sign-off, dispatch or send-back the handler didn't mean",
+        "A confirm card; it acts as the handler, within their role",
     ),
 )
 
@@ -190,6 +211,8 @@ class AgentRow(BaseModel):
     model: str
     tools: str
     sources: str
+    worst_case: str
+    stopped_by: str
 
 
 class ThreatCoverage(BaseModel):
@@ -214,6 +237,13 @@ def guardrail(db: Connection, key: str) -> tuple[int, str | None]:
         ).one()
         return int(count), last
     return 0, None
+
+
+def agent_rows() -> list[AgentRow]:
+    return [
+        AgentRow(agent=a, model=m, tools=t, sources=s, worst_case=w, stopped_by=b)
+        for a, m, t, s, w, b in AGENTS
+    ]
 
 
 @threats_router.get("/threats", operation_id="get_threat_coverage")
@@ -242,6 +272,6 @@ def threat_coverage(_: SignedInEngineer, db: Database) -> ThreatCoverage:
     return ThreatCoverage(
         redteam_run_at=report.run_at if report else None,
         threats=rows,
-        agents=[AgentRow(agent=a, model=m, tools=t, sources=s) for a, m, t, s in AGENTS],
+        agents=agent_rows(),
         payouts=payout_switch(db),
     )

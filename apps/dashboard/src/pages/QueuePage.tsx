@@ -56,6 +56,8 @@ const SORT_WORDS: Record<Sort, string> = {
 /** Whether a claim needs a handler: a held payout, a referral, a customer asking for review, or
  * a claim the agent stopped working. */
 export function needsMe(claim: ClaimSummary): boolean {
+  // The red team's attack claims are tests: they never need a handler.
+  if (claim.red_team === true) return false;
   return (
     claim.stalled === true ||
     claim.status === "waiting_for_sign_off" ||
@@ -378,7 +380,9 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
                   <th scope="col" className="number">
                     Claimed
                   </th>
-                  <th scope="col">Decision</th>
+                  <th scope="col" className="number">
+                    Payout
+                  </th>
                   <th scope="col">Due</th>
                   <th scope="col">Status</th>
                 </tr>
@@ -413,7 +417,6 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
 function QueueRow({ claim }: { claim: ClaimSummary }) {
   const due = urgency(claim);
   const late = daysOverdue(claim);
-  const decision = decisionWords(claim);
   return (
     <tr className={needsMe(claim) ? "needs-me" : undefined}>
       <th scope="row" className="nowrap">
@@ -423,7 +426,13 @@ function QueueRow({ claim }: { claim: ClaimSummary }) {
       </th>
       <td className="cust">
         <span className="nowrap">{claim.customer_name}</span>
-        <span className="cust-plan capitalise">{claim.plan}</span>
+        {claim.red_team ? (
+          <span className="cust-plan">
+            <span className="chip">Red-team test</span>
+          </span>
+        ) : (
+          <span className="cust-plan capitalise">{claim.plan}</span>
+        )}
       </td>
       <td>
         <span className="what" dir="auto" title={claim.summary}>
@@ -431,8 +440,14 @@ function QueueRow({ claim }: { claim: ClaimSummary }) {
         </span>
       </td>
       <td className="number">{dollars(claim.amount_claimed)}</td>
-      {/* TODO: a short reason and a risk signal per row need fields the claims list doesn't have. */}
-      <td className="nowrap decision-cell">{decision ?? <span className="muted">Not yet</span>}</td>
+      {/* The status says what was decided; this says what it pays. */}
+      <td className="number nowrap">
+        {claim.decision === "approve" && claim.payout !== null ? (
+          dollars(claim.payout)
+        ) : (
+          <span className="muted">–</span>
+        )}
+      </td>
       <td className="nowrap">
         <span className="chip-row">
           {date(claim.due_on)}

@@ -28,6 +28,13 @@ def brief_as_text(brief: Json) -> str:
         "The claims it got wrong, each beside the senior handler's decision, as data:\n"
         f"<misses>\n{json.dumps(brief['misses'], indent=1)}\n</misses>"
         + (
+            "\n\nEarlier rounds, newest first: what was tried and whether its exam kept it. "
+            "Don't propose a change that was already rolled back or made no clear difference.\n"
+            f"<history>\n{json.dumps(brief['history'], indent=1)}\n</history>"
+            if brief.get("history")
+            else ""
+        )
+        + (
             ""
             if brief["misses"]
             else "\n\nIt got every claim right. Propose a configuration that keeps that accuracy "
