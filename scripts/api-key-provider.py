@@ -14,34 +14,41 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 
-def aws(*args: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
+def aws(*args: str) -> subprocess.CompletedProcess[str]:
     """One AgentCore control call through the AWS CLI, with fixed arguments and no shell."""
     cli = shutil.which("aws") or sys.exit("The AWS CLI isn't installed")
     return subprocess.run(  # noqa: S603
         [cli, "bedrock-agentcore-control", *args],
-        input=stdin,
         capture_output=True,
         text=True,
         check=False,
     )
 
 
+def with_request(command: str, request: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """A call whose JSON goes through a private temporary file, so the key is never an argument.
+    (The CLI reads `file:///dev/stdin` as empty on GitHub's runners.)"""
+    handle, path = tempfile.mkstemp(suffix=".json")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as file:
+            json.dump(request, file)
+        return aws(command, "--cli-input-json", f"file://{path}")
+    finally:
+        os.remove(path)
+
+
 def put(name: str, key: str) -> str:
     """Update the provider's key, or create the provider when it doesn't exist yet."""
-    # The request goes in on stdin, so the key is never an argument.
-    request = json.dumps({"name": name, "apiKey": key})
-    updated = aws(
-        "update-api-key-credential-provider", "--cli-input-json", "file:///dev/stdin", stdin=request
-    )
+    request = {"name": name, "apiKey": key}
+    updated = with_request("update-api-key-credential-provider", request)
     if updated.returncode == 0:
         return "updated"
     if "ResourceNotFound" not in updated.stderr:
         sys.exit(f"Couldn't update {name}: {updated.stderr.strip()}")
-    created = aws(
-        "create-api-key-credential-provider", "--cli-input-json", "file:///dev/stdin", stdin=request
-    )
+    created = with_request("create-api-key-credential-provider", request)
     if created.returncode != 0:
         sys.exit(f"Couldn't create {name}: {created.stderr.strip()}")
     return "created"
