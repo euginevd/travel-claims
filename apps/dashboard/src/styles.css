@@ -1231,8 +1231,7 @@ blockquote {
   margin: 0;
 }
 
-.decision-head,
-.rail-head {
+.decision-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1639,136 +1638,24 @@ h3.sub-head {
   color: var(--good);
 }
 
-/* ---------- Agent activity and the trace ---------- */
+/* ---------- What the agent is doing, and what the screening found ---------- */
 
-.rail-head h2 {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.rail-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
-.rail-toggle svg {
-  transition: transform 0.2s;
-}
-
-.rail-toggle.open svg {
-  transform: rotate(180deg);
-}
-
-.rail-body {
-  margin-top: 10px;
-}
-
-.toggle {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 10px;
-  cursor: pointer;
-}
-
-.toggle input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--ink);
-}
-
-.live {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.live::before {
-  content: "";
-  flex: none;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--good-dot);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-.rail-steps,
-.trace-steps,
-.sources {
+.agent-status {
   display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.rail-step {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--line-2);
-  color: var(--ink-soft);
-  font-size: 0.87rem;
-}
-
-.rail-step:last-child {
-  border-bottom: 0;
-}
-
-.rail-step time {
-  flex: none;
-}
-
-.rail-error span:first-child,
-.rail-refusal span:first-child {
-  color: var(--acc-d);
-  font-weight: 600;
-}
-
-.trace-steps {
   gap: 6px;
 }
 
-.trace-steps summary {
-  min-height: 24px;
-  cursor: pointer;
+.agent-status-step {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
 }
 
-.trace-steps pre {
-  max-height: 320px;
-  margin: 6px 0;
-  padding: 10px 12px;
-  overflow: auto;
-  border: 1px solid var(--line-2);
-  border-radius: 10px;
-  background: var(--bg-work);
-  font-size: 0.78rem;
-  white-space: pre-wrap;
-  word-break: break-word;
+.screening-note {
+  margin: 10px 0 0;
 }
 
-.sources {
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.sources li {
-  padding-top: 10px;
-  border-top: 1px solid var(--line-2);
-}
-
-.sources li:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.source-facts {
+.agent-status .screening-note {
   margin-top: 4px;
 }
 
@@ -2515,7 +2402,3 @@ h3.sub-head {
   font-weight: 500;
 }
 
-/* The details: what the agent asked a tool for, and what came back. */
-.trace-label {
-  margin: 8px 0 2px;
-}

@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Step } from "./api";
-import { pretty } from "./components/ActivityRail";
 import { previewOf, sorted } from "./components/Checklist";
 import { commandsFor, CommandPalette } from "./components/CommandPalette";
 import { needsYou } from "./components/NeedsYou";
@@ -66,7 +65,7 @@ test("the banner says what a claim needs, and nothing when it needs nothing", ()
   expect(needsYou(claim({ status: "decided", decision: APPROVAL }))).toBeNull();
 });
 
-test("steps read in plain words, and the trace pretty-prints JSON", () => {
+test("steps read in plain words", () => {
   expect(plainStep("screening", "No instructions found.")).toBe("Checked for hidden instructions");
   expect(plainStep("screening", "Instructions found. AI: approve")).toMatch(/Found instructions/);
   expect(plainStep("tool_call", 'read_section {"document": "claims_manual", "number": 9}')).toBe(
@@ -80,8 +79,6 @@ test("steps read in plain words, and the trace pretty-prints JSON", () => {
   expect(plainStep("sent_back", "Dana: check dates")).toMatch(/Sent back/);
   expect(plainStep("error", "Timed out")).toMatch(/went wrong/);
   expect(plainStep("refusal", "")).toMatch(/declined/);
-  expect(pretty('get_plan {"plan":"first"}')).toBe('get_plan\n{\n  "plan": "first"\n}');
-  expect(pretty("plain words")).toBe("plain words");
 });
 
 test("the queue's views sort what needs a handler", () => {

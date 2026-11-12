@@ -1,13 +1,12 @@
 import { ArrowLeft, ChevronDown, FileText, Sparkle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
-import { ActivityRail, storedTrace } from "../components/ActivityRail";
+import { AgentStatus, ScreeningNote } from "../components/AgentStatus";
 import { DecisionCard } from "../components/DecisionCard";
 import { HeldPayout } from "../components/HeldPayout";
 import { NeedsYouBanner } from "../components/NeedsYou";
 import { OverridePanel } from "../components/OverridePanel";
 import { ReceiptsPanel } from "../components/ReceiptsPanel";
-import { SourcesPanel } from "../components/SourcesPanel";
 import { StageTracker } from "../components/StageTracker";
 import { StatusChip } from "../components/StatusChip";
 import { date, dollars, when, words } from "../format";
@@ -104,9 +103,8 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const heading = useFocusHeading();
-  const [trace, setTrace] = useState(storedTrace);
 
-  // Keyboard: S to the sign-off button, B to the send-back note, T for the trace, U for the queue.
+  // Keyboard: S to the sign-off button, B to the send-back note, U for the queue.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!isShortcut(event)) return;
@@ -115,7 +113,6 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
         document.querySelector<HTMLElement>(`[data-shortcut="${name}"]`)?.focus();
       if (key === "s") focus("sign-off");
       else if (key === "b") focus("send-back");
-      else if (key === "t") setTrace((on) => !on);
       else if (key === "u") window.location.hash = QUEUE_HREF;
       else return;
       event.preventDefault();
@@ -260,21 +257,10 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
       claim.decision !== null;
     const received = claim.receipts.length + claim.documents.length;
     const itemsTotal = claim.items.reduce((sum, item) => sum + item.amount, 0);
-    // The agent's work sits beside the claim while it is the news, and under the evidence,
-    // folded away, once there is a decision to read instead.
-    const activity = (steps.length > 0 || working) && (
-      <>
-        <ActivityRail
-          api={api}
-          claimId={claimId}
-          steps={steps}
-          working={working}
-          trace={trace}
-          onTraceChange={setTrace}
-          defaultOpen={claim.decision === null}
-        />
-        {trace && steps.some((step) => step.kind === "lookup") && <SourcesPanel steps={steps} />}
-      </>
+    // Before a decision, one line on what the agent is doing; after it, only what the
+    // hidden-instruction check found. The step-by-step trace is the console's.
+    const activity = !claim.decision && (steps.length > 0 || working) && (
+      <AgentStatus steps={steps} working={working} />
     );
     return (
       <>
@@ -474,10 +460,9 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 </ol>
               </section>
             )}
-            {claim.decision && activity}
           </div>
 
-          <aside className="claim-side" aria-label="Recommendation and agent activity">
+          <aside className="claim-side" aria-label="Recommendation">
             {claim.decision && (
               <DecisionCard
                 decision={claim.decision}
@@ -525,7 +510,8 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 }
               />
             )}
-            {!claim.decision && activity}
+            {claim.decision && <ScreeningNote steps={steps} />}
+            {activity}
             {steps.length === 0 && !working && !claim.decision && (
               <div className="panel waiting-card">
                 <p className="ai-line">
