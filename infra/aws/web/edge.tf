@@ -1,7 +1,10 @@
 # The three apps on CloudFront's flat-rate Free plan (decision 30): WAF and DDoS protection at no cost.
 locals {
   protected = var.free_plan ? toset(["portal", "dashboard", "console"]) : toset([])
-  managed   = { AWSManagedRulesCommonRuleSet = 1, AWSManagedRulesKnownBadInputsRuleSet = 2, AWSManagedRulesAmazonIpReputationList = 3 }
+  # The web ACLs stay while the distributions detach them, as CloudFront won't let an attached one be
+  # deleted and Terraform would delete first; decision 47 removes them once they're detached.
+  web_acls = toset(["portal", "dashboard", "console"])
+  managed  = { AWSManagedRulesCommonRuleSet = 1, AWSManagedRulesKnownBadInputsRuleSet = 2, AWSManagedRulesAmazonIpReputationList = 3 }
 }
 
 # AWS's managed rules and a rate limit per IP; the plan includes them.
@@ -9,7 +12,7 @@ resource "aws_wafv2_web_acl" "app" {
   #checkov:skip=CKV_AWS_192: Log4j is in the known bad inputs rule set below
   #checkov:skip=CKV2_AWS_31: the Free plan has no WAF logs
   provider = aws.us_east_1
-  for_each = local.protected
+  for_each = local.web_acls
 
   name  = "${local.prefix}-${each.key}"
   scope = "CLOUDFRONT"
