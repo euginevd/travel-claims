@@ -504,6 +504,14 @@ Resources:
             Action:
               - aoss:*
               - bedrock:*
+              # Terraform's awscc provider manages through Cloud Control (decision 49).
+              - cloudformation:CreateResource
+              - cloudformation:GetResource
+              - cloudformation:UpdateResource
+              - cloudformation:DeleteResource
+              - cloudformation:ListResources
+              - cloudformation:GetResourceRequestStatus
+              - cloudformation:CancelResourceRequest
               - comprehend:*
               - kendra:*
               - polly:*
@@ -719,6 +727,8 @@ Resources:
                   - bedrock-agentcore:List*
                   - bedrock:Get*
                   - bedrock:List*
+                  - cloudformation:GetResource
+                  - cloudformation:ListResources
                   - budgets:Describe*
                   - budgets:ListTagsForResource
                   - budgets:View*

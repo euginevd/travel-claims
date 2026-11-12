@@ -42,9 +42,12 @@ class Settings(BaseSettings):
     memory_id: str | None = None
     # On AWS: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
-    # On AWS: receipts read into fields by Amazon Textract before any model sees them (decision
-    # 48); off, they reach Claude as images.
-    read_receipts: bool = False
+    # On AWS: receipts read into fields before any model sees them, by Bedrock Data Automation or
+    # Amazon Textract (decisions 48 and 49); none, they reach Claude as images.
+    receipt_reader: Literal["none", "data-automation", "textract"] = "none"
+    # Data Automation's project (made by the agent unit) and its cross-Region profile.
+    data_automation_project_arn: str | None = None
+    data_automation_profile: str = "apac.data-automation-v1"
     # On AWS: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
     code_interpreter_id: str | None = None
     agentcore_runtime: bool = False

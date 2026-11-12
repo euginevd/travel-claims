@@ -42,7 +42,7 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 - **Tool rules the model can't talk its way past:** AgentCore Policy (Cedar, enforced) allows each gateway only its own tools.
 - **A red team** of eight attacks mapped to the OWASP Top 10 for LLMs; the improver's changes are kept only if they score better and the red team still holds.
 - **Answers proven against the policy:** Automated Reasoning turns the policy wording into formal rules, and an answer they contradict is held back; one they prove says so to the customer.
-- **Receipts read before any model sees them:** on AWS, Textract reads each receipt into fields, so the claim checks and the claim agent get text the guardrail can check, not an image; an unreadable receipt falls back to its image.
+- **Receipts read before any model sees them:** on AWS, Bedrock Data Automation (or Textract, which stays in Sydney, by setting) reads each receipt into fields, so the claim checks and the claim agent get text the guardrail can check, not an image; an unreadable receipt falls back to its image.
 - **An audit trail:** Bedrock model invocation logging keeps each model call for 30 days in a bucket only the deploy role can delete from.
 
 **Identity and access**
@@ -132,7 +132,7 @@ Details: [costs.md](docs/costs.md).
 | FastAPI, PostgreSQL | The api, its rules and payments; Aurora DSQL on AWS | [apps/api](apps/api/) |
 | React, Vite | The portal, dashboard and console | [apps/](apps/) |
 | AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [infra/aws/agent](infra/aws/agent/) |
-| Bedrock, Textract | The guardrails with Automated Reasoning checks, the Knowledge Base on S3 Vectors, Textract reading receipts, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
+| Bedrock, Textract | The guardrails with Automated Reasoning checks, the Knowledge Base on S3 Vectors, Data Automation or Textract reading receipts, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
 | Terraform | AWS infrastructure, one root per unit | [infra/aws/](infra/aws/) |
 | GitHub Actions | App checks, security scans, images, Terraform plan and apply | [.github/workflows/](.github/workflows/) |
 | Python, uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
