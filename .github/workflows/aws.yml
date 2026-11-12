@@ -55,7 +55,7 @@ env:
   TF_VAR_anthropic_key_version: ${{ vars.ANTHROPIC_KEY_VERSION || '1' }}
   # CloudFront's Free plan (WAF and DDoS) on the apps: false for an account that can't have it (decision 30).
   # How receipts are read before any model sees them (decision 50).
-  TF_VAR_receipt_reader: ${{ vars.RECEIPT_READER || 'data-automation' }}
+  TF_VAR_receipt_reader: ${{ vars.RECEIPT_READER || 'textract' }}
   TF_VAR_free_plan: ${{ vars.CLOUDFRONT_FREE_PLAN || 'true' }}
   # Where the alarms are emailed (monitoring unit).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}

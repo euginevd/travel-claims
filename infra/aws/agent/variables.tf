@@ -52,9 +52,9 @@ variable "api_gateway" {
 }
 
 variable "receipt_reader" {
-  description = "data-automation (Bedrock Data Automation, may process in Asia Pacific), textract (Sydney only) or none (images to Claude)"
+  description = "textract (Sydney only), none (images to Claude), or data-automation (Bedrock Data Automation, may process in Asia Pacific; needs an asynchronous project first, decision 50)"
   type        = string
-  default     = "data-automation"
+  default     = "textract"
 
   validation {
     condition     = contains(["data-automation", "textract", "none"], var.receipt_reader)

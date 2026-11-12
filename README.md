@@ -42,7 +42,7 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 - **Tool rules the model can't talk its way past:** AgentCore Policy (Cedar, enforced) allows each gateway only its own tools.
 - **A red team** of eight attacks mapped to the OWASP Top 10 for LLMs; the improver's changes are kept only if they score better and the red team still holds.
 - **Answers proven against the policy:** Automated Reasoning turns the policy wording into formal rules, and an answer they contradict is held back; one they prove says so to the customer.
-- **Receipts read before any model sees them:** on AWS, Bedrock Data Automation (or Textract, which stays in Sydney, by setting) reads each receipt into fields, so the claim checks and the claim agent get text the guardrail can check, not an image; an unreadable receipt falls back to its image.
+- **Receipts read before any model sees them:** on AWS, Textract reads each receipt into fields in Sydney, so the claim checks and the claim agent get text the guardrail can check, not an image; an unreadable receipt falls back to its image.
 - **An audit trail:** Bedrock model invocation logging keeps each model call for 30 days in a bucket only the deploy role can delete from.
 
 **Identity and access**
