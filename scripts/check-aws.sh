@@ -16,7 +16,7 @@
   echo "== CloudFront Free plans"
   # CLOUDFRONT_FREE_PLAN=true takes three Free plans, one per app, and an account has three at most.
   if free=$(aws pricing-plan-manager list-subscriptions --region us-east-1 \
-    --query "length(subscriptions[?planFamily=='CloudFront' && planTier=='FREE'])" --output text 2>"$out.err"); then
+    --query "length((subscriptions || \`[]\`)[?planFamily=='CloudFront' && planTier=='FREE'])" --output text 2>"$out.err"); then
     if [ "${free:-0}" -eq 0 ]; then echo "OK    no Free plans in use: keep CLOUDFRONT_FREE_PLAN=true"
     else echo "CHECK $free Free plan(s) in use: unless they're this project's, set CLOUDFRONT_FREE_PLAN=false"; fi
   else
