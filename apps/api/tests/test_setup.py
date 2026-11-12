@@ -103,3 +103,25 @@ def test_seed_reads_from_the_folder_given(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         seed_if_empty(engine, tmp_path)
     engine.dispose()
+
+
+def test_the_agents_issuer_needs_https_and_its_client() -> None:
+    issuer = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_agent"
+    with pytest.raises(ValueError, match="AGENT_CALLER_CLIENT"):
+        make_settings("sqlite://", agent_caller_issuer=issuer)
+    with pytest.raises(ValueError, match="https"):
+        make_settings("sqlite://", agent_caller_issuer="http://x", agent_caller_client="c")
+    found = make_settings("sqlite://", agent_caller_issuer=issuer, agent_caller_client="c")
+    assert found.agent_caller_client == "c"
+
+
+def test_on_aws_with_the_agents_token_no_shared_key_is_needed() -> None:
+    issuer = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_agent"
+    arn = "arn:aws:bedrock-agentcore:ap-southeast-2:111122223333:runtime/agent-abc"
+    aws = {"agent_caller_issuer": issuer, "agent_caller_client": "c", "agent_runtime_arn": arn}
+    found = make_settings("sqlite://", undercover_api_key=None, **aws)
+    assert found.undercover_api_key is None
+    for missing in ("agent_caller_issuer", "agent_runtime_arn"):
+        kept = {k: v for k, v in aws.items() if k != missing}
+        with pytest.raises(ValueError, match="UNDERCOVER_API_KEY"):
+            make_settings("sqlite://", undercover_api_key=None, **kept)

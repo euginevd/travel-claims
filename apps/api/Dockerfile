@@ -22,7 +22,7 @@ COPY data/records/claims.json data/records/policies.json data/records/customers.
 COPY data/evals/decisions.json data/evals/held_out_claims.json data/evals/held_out_decisions.json /app/data/evals/
 COPY data/security/claims.json data/security/policies.json data/security/customers.json /app/data/security/
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data RECEIPTS_DIR=/data/receipts
-# Tier 2: lets the same image run on Lambda; Lambda starts it as an extension, Docker never does.
+# Lets the same image run on Lambda; Lambda starts it as an extension, Docker never does.
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0@sha256:17cfd08eff1dfea3f6a9a1e9c65fdac80aa4919b6085e746615530f43f57d2f1 /lambda-adapter /opt/extensions/lambda-adapter
 ENV AWS_LWA_PORT=8000 AWS_LWA_READINESS_CHECK_PATH=/api/health
 USER 10001

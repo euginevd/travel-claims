@@ -28,3 +28,18 @@ provider "aws" {
     }
   }
 }
+
+# CloudFront's web ACLs and pricing plans live in us-east-1.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Project     = var.project
+      Unit        = "web"
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    }
+  }
+}

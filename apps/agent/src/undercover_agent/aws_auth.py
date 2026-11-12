@@ -1,4 +1,4 @@
-"""Signs the agent's calls to the context layer with its AWS role (tier 2): to AgentCore Gateway,
+"""Signs the agent's calls to the context layer with its AWS role: to AgentCore Gateway,
 or to the context's IAM-only function URL directly. botocore ships without type stubs, so its
 untyped edges stay here."""
 

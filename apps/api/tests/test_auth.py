@@ -138,3 +138,133 @@ def test_the_agent_key_is_compared_whole(client: TestClient) -> None:
         client.get("/api/agent/claims/CLM-1001", headers={"X-API-Key": AGENT_KEY[:-1]}).status_code
         == 401
     )
+
+
+AGENT_ISSUER = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_agent"
+AGENT_CLIENT = "agent-client-id"
+AGENT_SIGNING_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+class AgentKeys:
+    """The agent pool's key set, as RemoteKeys would fetch it."""
+
+    def signing_key(self, token: str) -> Any:  # noqa: ARG002 - the same shape as RemoteKeys
+        return AGENT_SIGNING_KEY.public_key()
+
+
+def agent_token(key: Any = AGENT_SIGNING_KEY, **claims: object) -> dict[str, str]:
+    now = int(time.time())
+    body = {
+        "iss": AGENT_ISSUER,
+        "sub": AGENT_CLIENT,
+        "client_id": AGENT_CLIENT,
+        "token_use": "access",
+        "scope": "undercover-api/agent",
+        "iat": now,
+        "exp": now + 600,
+    } | claims
+    return {"Authorization": f"Bearer {jwt.encode(body, key, algorithm='RS256')}"}
+
+
+@pytest.fixture
+def on_aws(client: TestClient) -> TestClient:
+    """The api as on AWS: the agent's routes take its machine token from the agent's issuer."""
+    from undercover_api.auth import AgentTokenVerifier  # noqa: PLC0415
+
+    app: Any = client.app
+    app.state.agent_verifier = AgentTokenVerifier(AgentKeys(), AGENT_ISSUER, AGENT_CLIENT)
+    return client
+
+
+CLAIM = "/api/agent/claims/CLM-1001"
+
+
+def test_the_agents_machine_token_is_accepted(on_aws: TestClient) -> None:
+    assert on_aws.get(CLAIM, headers=agent_token()).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {"client_id": "someone-else"},
+        {"scope": "undercover-api/other"},
+        {"scope": ""},
+        {"iss": "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_other"},
+        {"token_use": "id"},
+        {"exp": int(time.time()) - 60},
+    ],
+)
+def test_a_token_that_isnt_the_agents_is_refused(
+    on_aws: TestClient, claims: dict[str, object]
+) -> None:
+    assert on_aws.get(CLAIM, headers=agent_token(**claims)).status_code == 401
+
+
+def test_a_token_signed_by_another_key_is_refused_for_the_agent(on_aws: TestClient) -> None:
+    other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    assert on_aws.get(CLAIM, headers=agent_token(other)).status_code == 401
+
+
+def test_on_aws_the_shared_key_is_refused_even_with_a_token(on_aws: TestClient) -> None:
+    assert on_aws.get(CLAIM, headers=AGENT).status_code == 401
+    assert on_aws.get(CLAIM, headers=AGENT | agent_token()).status_code == 401
+    assert on_aws.get(CLAIM).status_code == 401
+
+
+def test_the_agents_token_never_stands_in_for_a_handler(on_aws: TestClient) -> None:
+    assert on_aws.get("/api/staff/me", headers=agent_token()).status_code == 401
+
+
+def test_locally_the_key_works_and_a_token_does_not(client: TestClient) -> None:
+    assert client.get(CLAIM, headers=AGENT).status_code == 200
+    assert client.get(CLAIM, headers=agent_token()).status_code == 401
+
+
+def test_with_no_shared_key_set_no_key_is_the_agents(on_aws: TestClient) -> None:
+    app: Any = on_aws.app
+    app.state.settings = app.state.settings.model_copy(update={"undercover_api_key": None})
+    app.state.agent_verifier = None
+    assert on_aws.get(CLAIM, headers=AGENT).status_code == 401
+
+
+def id_token(key: Any, **claims: object) -> str:
+    now = int(time.time())
+    body = {
+        "iss": "https://issuer.example",
+        "aud": "staff-client",
+        "sub": "s",
+        "email": "dana.whitfield@undercover.example",
+        "cognito:groups": ["handlers"],
+        "token_use": "id",
+        "iat": now,
+        "exp": now + 60,
+    } | claims
+    return jwt.encode(body, key, algorithm="RS256")
+
+
+def test_an_okta_email_counts_as_verified_and_nothing_else_does() -> None:
+    from fastapi import HTTPException  # noqa: PLC0415
+
+    from undercover_api.auth import TokenVerifier  # noqa: PLC0415
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    class Keys:
+        def signing_key(self, token: str) -> Any:  # noqa: ARG002 - the same shape as RemoteKeys
+            return key.public_key()
+
+    verifier = TokenVerifier(Keys(), "https://issuer.example", "staff-client")
+    saml = [{"providerName": "Okta", "providerType": "SAML"}]
+    email = "dana.whitfield@undercover.example"
+    assert verifier.identity(id_token(key, email_verified=False, identities=saml)) == (
+        email,
+        ["handlers"],
+    )
+    assert verifier.identity(id_token(key, email_verified=True))[0] == email
+    for unverified in (
+        {"email_verified": False},
+        {"email_verified": False, "identities": [{"providerType": "Google"}]},
+        {"email_verified": "true", "identities": "SAML"},
+    ):
+        with pytest.raises(HTTPException):
+            verifier.identity(id_token(key, **unverified))

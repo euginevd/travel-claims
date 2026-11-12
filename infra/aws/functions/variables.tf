@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 
@@ -27,8 +27,9 @@ variable "haiku_model" {
   default     = ""
 }
 
+
 variable "model_provider" {
-  description = "Which Claude the apps call: anthropic (the API key in the app secret) or bedrock (Australia's profiles)"
+  description = "Which Claude the apps call: anthropic (the key from GitHub secrets) or bedrock (Australia's profiles)"
   type        = string
   default     = "bedrock"
 
@@ -36,4 +37,10 @@ variable "model_provider" {
     condition     = contains(["anthropic", "bedrock"], var.model_provider)
     error_message = "model_provider is anthropic or bedrock."
   }
+}
+
+variable "database_app_role" {
+  description = "true: the api serves requests through a DSQL role that can only read and write the app's tables, not admin"
+  type        = bool
+  default     = false
 }

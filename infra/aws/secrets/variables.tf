@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 
@@ -13,4 +13,21 @@ variable "region" {
   description = "AWS region"
   type        = string
   default     = "ap-southeast-2"
+}
+
+variable "model_provider" {
+  description = "Which Claude the apps call: anthropic (the key from GitHub secrets) or bedrock (Australia's profiles)"
+  type        = string
+  default     = "bedrock"
+
+  validation {
+    condition     = contains(["anthropic", "bedrock"], var.model_provider)
+    error_message = "model_provider is anthropic or bedrock."
+  }
+}
+
+variable "anthropic_key_version" {
+  description = "Bump to write a new Anthropic key from GitHub secrets into the token vault"
+  type        = string
+  default     = "1"
 }

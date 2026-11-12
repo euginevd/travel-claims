@@ -1,57 +1,56 @@
-"""Fills the app secret's JSON (tier 2 design 8), never overwriting a value. Stdlib and the AWS CLI.
+"""Fills the app's SecureString parameter of JSON settings (decision 30), never overwriting a value.
 
-python3 scripts/fill-secret.py <store> [KEY=VALUE ...]
+python3 scripts/fill-secret.py <name> [KEY=VALUE ...] [--from-env NAME ...] [--remove NAME ...]
+python3 scripts/fill-secret.py --delete <name>
 
-Adds the agent's key (random) and SET-ME placeholders for the values only a person has, keeps
-every value already set, and sets each KEY=VALUE given (such as the agent's runtime ARN). Run by
-Terraform's apply with the deploy role; it prints only whether it changed anything.
+Adds the agent's key (random) when missing, keeps every value already set, and sets each KEY=VALUE
+given (such as the agent's runtime ARN), checking after each write that another unit didn't undo
+it. Run by Terraform's apply with the deploy role, through the AWS CLI; it prints only whether it
+changed anything. --from-env takes each value from the environment (such as an API key from a
+GitHub secret), so it's never on a command line; --remove drops keys.
 """
 
 import json
 import os
-import secrets
+import random
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
-# Filled once and kept; a person overwrites the SET-ME ones in the console.
-DEFAULTS = {
-    "DATABASE_URL": "SET-ME: Supabase session pooler URL as postgresql+psycopg://",
-    "CHECKPOINT_DATABASE_URL": "SET-ME: the same URL as postgresql://",
-    # Read only when the MODEL_PROVIDER repository variable is anthropic.
-    "ANTHROPIC_API_KEY": "SET-ME: an Anthropic API key, when MODEL_PROVIDER is anthropic",
-    "ANTHROPIC_WORKSPACE_ID": "SET-ME: that key's workspace ID",
-}
+ATTEMPTS = 5
 
 
 def aws(*args: str) -> subprocess.CompletedProcess[str]:
-    """One Secrets Manager call through the AWS CLI, with fixed arguments and no shell."""
+    """One SSM call through the AWS CLI, with fixed arguments and no shell."""
     cli = shutil.which("aws") or sys.exit("The AWS CLI isn't installed")
-    command = [cli, "secretsmanager", *args]
-    return subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603
+    return subprocess.run([cli, "ssm", *args], capture_output=True, text=True, check=False)  # noqa: S603
 
 
-def current(store: str) -> dict[str, str]:
-    """The secret's JSON, or nothing when it has no value yet."""
+def current(name: str) -> dict[str, str]:
+    """The parameter's JSON, or nothing when it doesn't exist yet."""
     got = aws(
-        "get-secret-value", "--secret-id", store, "--query", "SecretString", "--output", "text"
+        "get-parameter",
+        "--name",
+        name,
+        "--with-decryption",
+        "--query",
+        "Parameter.Value",
+        "--output",
+        "text",
     )
     if got.returncode != 0:
-        if "ResourceNotFoundException" in got.stderr:
+        if "ParameterNotFound" in got.stderr:
             return {}
-        sys.exit(f"Couldn't read {store}: {got.stderr.strip()}")
+        sys.exit(f"Couldn't read {name}: {got.stderr.strip()}")
     return json.loads(got.stdout or "{}")
 
 
-def fill(values: dict[str, str], given: dict[str, str]) -> list[str]:
-    """Add what's missing and what's given; the names changed."""
-    changed = []
-    wanted = {**DEFAULTS, "UNDERCOVER_API_KEY": secrets.token_hex(32)}
-    for key, value in wanted.items():
-        if key not in values:
-            values[key] = value
-            changed.append(key)
+def fill(values: dict[str, str], given: dict[str, str], remove: tuple[str, ...] = ()) -> list[str]:
+    """Add what's given and drop what's removed; the names changed. No shared agent key: on AWS
+    the agent and api use machine tokens (decision 38)."""
+    changed = [key for key in remove if values.pop(key, None) is not None]
     for key, value in given.items():
         if values.get(key) != value:
             values[key] = value
@@ -59,28 +58,91 @@ def fill(values: dict[str, str], given: dict[str, str]) -> list[str]:
     return changed
 
 
-def write(store: str, values: dict[str, str]) -> None:
-    """Put the JSON through a private temporary file, so it's never on a command line."""
+def write(name: str, values: dict[str, str], key: str | None) -> None:
+    """Put the JSON through a private temporary file, so it's never on a command line, under the
+    given KMS key (an overwrite without one would fall back to SSM's own key)."""
     handle, path = tempfile.mkstemp(suffix=".json")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             json.dump(values, file)
-        put = aws("put-secret-value", "--secret-id", store, "--secret-string", f"file://{path}")
+        put = aws(
+            "put-parameter",
+            "--name",
+            name,
+            "--type",
+            "SecureString",
+            "--overwrite",
+            "--value",
+            f"file://{path}",
+            *(["--key-id", key] if key else []),
+        )
         if put.returncode != 0:
-            sys.exit(f"Couldn't write {store}: {put.stderr.strip()}")
+            sys.exit(f"Couldn't write {name}: {put.stderr.strip()}")
     finally:
         os.remove(path)
 
 
-def main(store: str, pairs: list[str]) -> None:
-    given = dict(pair.split("=", 1) for pair in pairs)
-    values = current(store)
-    changed = fill(values, given)
-    if changed:
-        write(store, values)
-    # Whether it changed, never which values: nothing drawn from the secret reaches the log.
-    print(f"{store}: {'updated' if changed else 'nothing to add'}")
+def key_of(name: str) -> str | None:
+    """The KMS key the parameter is encrypted with, or None when it doesn't exist yet."""
+    got = aws(
+        "describe-parameters",
+        "--parameter-filters",
+        f"Key=Name,Values={name}",
+        "--query",
+        "Parameters[0].KeyId",
+        "--output",
+        "text",
+    )
+    key = got.stdout.strip() if got.returncode == 0 else ""
+    return None if key in ("", "None") else key
+
+
+def delete(name: str) -> None:
+    """Remove the parameter; one already gone is fine."""
+    gone = aws("delete-parameter", "--name", name)
+    if gone.returncode != 0 and "ParameterNotFound" not in gone.stderr:
+        sys.exit(f"Couldn't delete {name}: {gone.stderr.strip()}")
+    print(f"{name}: deleted")
+
+
+def parse(args: list[str]) -> tuple[str, dict[str, str], tuple[str, ...]]:
+    """The parameter's name, the values to set and the keys to remove."""
+    given: dict[str, str] = {}
+    remove: list[str] = []
+    mode = "pairs"
+    for arg in args[1:]:
+        if arg in ("--from-env", "--remove"):
+            mode = arg
+        elif mode == "--from-env":
+            given[arg] = os.environ.get(arg) or sys.exit(f"Set {arg} (a GitHub secret) to use it")
+        elif mode == "--remove":
+            remove.append(arg)
+        else:
+            key, value = arg.split("=", 1)
+            given[key] = value
+    return args[0], given, tuple(remove)
+
+
+def main(args: list[str]) -> None:
+    if args[0] == "--delete":
+        delete(args[1])
+        return
+    name, given, remove = parse(args)
+    # The platform's key with ENCRYPTION_KEYS=platform (decision 45), else the key it already has.
+    wanted = os.environ.get("PARAMETER_KEY_ID") or None
+    # Units can write at once and the last write wins, so check ours survived and merge again.
+    for _ in range(ATTEMPTS):
+        values = current(name)
+        key = key_of(name)
+        rekey = wanted is not None and key != wanted
+        if not fill(values, given, remove) and not rekey:
+            # Whether it changed, never which values: nothing from the parameter reaches the log.
+            print(f"{name}: up to date")
+            return
+        write(name, values, wanted or key)
+        time.sleep(random.uniform(1, 3))  # noqa: S311 - spacing, not security
+    sys.exit(f"{name}: another writer kept overwriting it")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2:])
+    main(sys.argv[1:])

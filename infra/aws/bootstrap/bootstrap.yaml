@@ -1,44 +1,33 @@
-# Deploy once per account as stack <ProjectName>-bootstrap; put its outputs on the aws-<Target>-plan/-apply environments.
+# Deploy once per account as stack <ProjectName>-bootstrap; copy its outputs to the aws-dev-plan/-apply environments.
+# Costs about $0 a month: IAM is free, and the state bucket holds a few small files; it runs nothing itself.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: >-
-  Bootstrap for a project from sdlc-template: everything in the AWS account that Terraform
-  needs before it can run. Deployed by hand as stack <ProjectName>-bootstrap; deleting the stack
-  removes all of it.
+Description: GitHub OIDC, Terraform state, plan and deploy roles, and a role boundary; deployed once.
 
 Parameters:
   ProjectName:
     Type: String
+    Default: travel-claims
     AllowedPattern: '[a-z][a-z0-9-]{1,30}'
     Description: Lowercase kebab-case; prefixes every resource name
-  GitHubOwner:
-    Type: String
-    Description: GitHub user or organisation that owns the repo
   GitHubRepo:
     Type: String
-    Description: Repository name
-  GitHubOwnerId:
+    Default: euginevd/travel-claims
+    AllowedPattern: '[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+'
+    Description: owner/repo; public, so a default is safe (change it for another project)
+  GitHubIds:
     Type: String
-    Default: ''
-    AllowedPattern: '[0-9]*'
-    Description: The owner's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
-  GitHubRepoId:
-    Type: String
-    Default: ''
-    AllowedPattern: '[0-9]*'
-    Description: The repo's numeric ID, for a repo with GitHub's immutable OIDC subject; empty for the name-only subject
-  Target:
-    Type: String
-    Default: dev
-    Description: Deployment target; the GitHub environments are aws-<target>-plan and aws-<target>-apply
+    Default: 55682357/1449903483
+    AllowedPattern: '([0-9]+/[0-9]+)?'
+    Description: ownerId/repoId for GitHub's immutable OIDC subject (public, from GitHub's API); empty for the name-only subject
   CreateOidcProvider:
     Type: String
     AllowedValues: ['true', 'false']
     Default: 'true'
-    Description: An account has one GitHub OIDC provider; set false if another stack already created it
+    Description: One GitHub OIDC provider per account; false if another stack made it
 
 Conditions:
   CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
-  ImmutableSubject: !Not [!Equals [!Ref GitHubRepoId, '']]
+  ImmutableSubject: !Not [!Equals [!Ref GitHubIds, '']]
 
 Resources:
 
@@ -58,7 +47,7 @@ Resources:
       checkov:
         skip:
           - id: CKV_AWS_18
-            comment: Versioning keeps every state change; access logs would need a second bucket. Turn on CloudTrail S3 data events if audits need who made each change
+            comment: Versioning keeps every state change; access logs would need a second bucket
     Properties:
       BucketName: !Sub '${ProjectName}-tfstate-${AWS::AccountId}'
       VersioningConfiguration:
@@ -103,19 +92,18 @@ Resources:
               Bool:
                 aws:SecureTransport: 'false'
 
-  # Apply role for tier 2 (tier 2 design 1-9); everything Terraform creates is named ${ProjectName}-* or ${ProjectName}_*.
+  # Apply role; everything Terraform makes is named ${ProjectName}-* or ${ProjectName}_*.
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-github-deploy'
-      Description: !Sub 'GitHub Actions deploy role for ${GitHubRepo}, aws-${Target}-apply environment'
+      Description: !Sub 'GitHub Actions deploy role for ${GitHubRepo}, aws-dev-apply environment'
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              # Waits for the provider when this stack creates it.
               Federated: !If
                 - CreateOidc
                 - !Ref GitHubOidcProvider
@@ -124,14 +112,22 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                # The immutable subject also names the owner and repo by ID, so a recreated repo can't assume it.
                 token.actions.githubusercontent.com:sub: !If
                   - ImmutableSubject
-                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-apply'
-                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-apply'
+                  - !Sub
+                    - 'repo:${Owner}@${OwnerId}/${Repo}@${RepoId}:environment:aws-dev-apply'
+                    - Owner: !Select [0, !Split ['/', !Ref GitHubRepo]]
+                      Repo: !Select [1, !Split ['/', !Ref GitHubRepo]]
+                      OwnerId: !Select [0, !Split ['/', !Ref GitHubIds]]
+                      RepoId: !Select [1, !Split ['/', !Ref GitHubIds]]
+                  - !Sub 'repo:${GitHubRepo}:environment:aws-dev-apply'
       ManagedPolicyArns:
         - !Ref DeployComputePolicy
-        - !Ref DeployAppPolicy
+        - !Ref DeployDataPolicy
+        - !Ref DeployOpsPolicy
+        - !Ref DeployAiPolicy
+        - !Ref DeployNetworkPolicy
       Policies:
         - PolicyName: terraform-state
           PolicyDocument:
@@ -179,7 +175,6 @@ Resources:
                   - iam:UpdateRole
                   - iam:UpdateRoleDescription
                 Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-*'
-              # Function roles to Lambda, the agent's and gateway's to AgentCore, the knowledge base's to Bedrock.
               - Sid: IamPassProjectRoles
                 Effect: Allow
                 Action: iam:PassRole
@@ -188,10 +183,21 @@ Resources:
                   StringEquals:
                     iam:PassedToService:
                       - lambda.amazonaws.com
+                      - malware-protection-plan.guardduty.amazonaws.com
                       - bedrock-agentcore.amazonaws.com
                       - bedrock.amazonaws.com
-              # AgentCore creates its service-linked roles on first use; only those, by service name.
-              - Sid: IamAgentCoreServiceLinkedRoles
+                      - cloudtrail.amazonaws.com
+                      - states.amazonaws.com
+                      - scheduler.amazonaws.com
+                      - events.amazonaws.com
+                      - apigateway.amazonaws.com
+                      - cognito-identity.amazonaws.com
+                      - comprehend.amazonaws.com
+                      - kendra.amazonaws.com
+                      - textract.amazonaws.com
+                      - transcribe.amazonaws.com
+              # Services that make their own service-linked role on first use; only these.
+              - Sid: IamServiceLinkedRoles
                 Effect: Allow
                 Action: iam:CreateServiceLinkedRole
                 Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*'
@@ -200,7 +206,16 @@ Resources:
                     iam:AWSServiceName:
                       - bedrock-agentcore.amazonaws.com
                       - '*.bedrock-agentcore.amazonaws.com'
-              # Pipeline roles are off limits.
+                      - dsql.amazonaws.com
+                      - access-analyzer.amazonaws.com
+                      - guardduty.amazonaws.com
+                      - malware-protection.guardduty.amazonaws.com
+                      - securityhub.amazonaws.com
+                      - config.amazonaws.com
+                      - wafv2.amazonaws.com
+                      - delivery.logs.amazonaws.com
+                      - observability.aoss.amazonaws.com
+                      - ops.apigateway.amazonaws.com
               - Sid: DenyPipelineRoles
                 Effect: Deny
                 Action: iam:*
@@ -216,23 +231,27 @@ Resources:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
 
-  # Functions, the agent's runtime, images, CDN and logs.
+  # Functions, the agent's runtime, images, CDN and its pricing plan, and logs.
   DeployComputePolicy:
     Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_111
+            comment: Pricing plans and log deliveries have no resource ARN before they exist; paid plans are denied
     Properties:
       ManagedPolicyName: !Sub '${ProjectName}-github-deploy-compute'
-      Description: !Sub 'Lambda, AgentCore Runtime, ECR, CloudFront and logs for the ${ProjectName} deploy role'
+      Description: !Sub 'Lambda, AgentCore, ECR, CloudFront and logs for the ${ProjectName} deploy role'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          # Functions, their URLs and the permissions that let CloudFront call them.
-          - Sid: LambdaProjectFunctions
+          - Sid: LambdaProject
             Effect: Allow
             Action: lambda:*
             Resource:
               - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*:*'
-          # Runtime and workload identity ARNs use generated IDs, so AgentCore is limited to this region.
+              - !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:layer:${ProjectName}-*'
+          # AgentCore ARNs use generated IDs, so it's limited to this region.
           - Sid: AgentCoreRegion
             Effect: Allow
             Action: bedrock-agentcore:*
@@ -240,8 +259,7 @@ Resources:
             Condition:
               StringEquals:
                 aws:RequestedRegion: !Ref AWS::Region
-          # App images pushed by the pipeline; Lambda and Runtime pull them.
-          - Sid: EcrProjectRepositories
+          - Sid: EcrProject
             Effect: Allow
             Action: ecr:*
             Resource: !Sub 'arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}/*'
@@ -257,39 +275,69 @@ Resources:
           - Sid: CloudFrontList
             Effect: Allow
             Action:
-              - cloudfront:ListCachePolicies
-              - cloudfront:ListDistributions
-              - cloudfront:ListFunctions
-              - cloudfront:ListOriginAccessControls
-              - cloudfront:ListResponseHeadersPolicies
+              - cloudfront:List*
+              - cloudfront:Describe*
             Resource: '*'
-          - Sid: LogsProjectGroups
+          # The free flat-rate plan (CloudFront, WAF, DDoS); only a person can approve a paid one.
+          - Sid: PricingPlans
+            Effect: Allow
+            Action: pricingplanmanager:*
+            Resource: '*'
+          - Sid: DenyPaidPlans
+            Effect: Deny
+            Action: pricingplanmanager:ApprovePaidSubscription
+            Resource: '*'
+          # The web ACL for CloudFront lives in us-east-1; regional ones in this region.
+          - Sid: WafProject
+            Effect: Allow
+            Action: wafv2:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:wafv2:us-east-1:${AWS::AccountId}:global/*'
+              - !Sub 'arn:${AWS::Partition}:wafv2:${AWS::Region}:${AWS::AccountId}:regional/*'
+          - Sid: WafList
+            Effect: Allow
+            Action:
+              - wafv2:CheckCapacity
+              - wafv2:Describe*
+              - wafv2:List*
+            Resource: '*'
+          - Sid: LogsProject
             Effect: Allow
             Action: logs:*
             Resource:
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
-              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*'
-          - Sid: LogsRead
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/vendedlogs/*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/cloudtrail/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:aws-waf-logs-${ProjectName}-*'
+          # Log delivery for WAF and AgentCore observability.
+          - Sid: LogsDelivery
             Effect: Allow
-            Action: logs:DescribeLogGroups
+            Action:
+              - logs:*Deliver*
+              - logs:*ResourcePolic*
+              - logs:Describe*
+              - logs:ListTagsForResource
+              - logs:TagResource
+              - logs:UntagResource
             Resource: '*'
 
-  DeployAppPolicy:
+  # Buckets, the database, parameters and secrets, keys and sign-in.
+  DeployDataPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-app'
-      Description: !Sub 'Buckets, secrets, Cognito and Bedrock Guardrails for the ${ProjectName} deploy role'
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-data'
+      Description: !Sub 'S3, DSQL, DynamoDB, SSM, secrets, KMS and Cognito for the ${ProjectName} deploy role'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          # Receipts and the web apps' buckets.
-          - Sid: S3ProjectBuckets
+          - Sid: S3Project
             Effect: Allow
             Action: s3:*
             Resource:
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-*'
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-*/*'
-          # State bucket matches ${ProjectName}-*; only this stack changes it.
+          # The state bucket matches ${ProjectName}-*; only this stack changes it.
           - Sid: DenyStateBucketChanges
             Effect: Deny
             NotAction:
@@ -300,25 +348,74 @@ Resources:
             Resource:
               - !GetAtt StateBucket.Arn
               - !Sub '${StateBucket.Arn}/*'
-          # Terraform creates the secrets empty; their values are set by hand.
+          # Cluster ARNs use generated IDs, so DSQL is limited to this region.
+          - Sid: DsqlRegion
+            Effect: Allow
+            Action: dsql:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          - Sid: DynamoDbProject
+            Effect: Allow
+            Action: dynamodb:*
+            Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-*'
+          - Sid: DynamoDbList
+            Effect: Allow
+            Action:
+              - dynamodb:Describe*
+              - dynamodb:List*
+            Resource: '*'
+          - Sid: SsmProject
+            Effect: Allow
+            Action: ssm:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+              # What the platform team publishes for the workload (decision 41): IDs, not secrets.
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/platform/*'
+          # The project's secrets, and AgentCore Identity's for its credential providers.
           - Sid: SecretsProject
             Effect: Allow
             Action: secretsmanager:*
-            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
-          - Sid: SecretsRead
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
+              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:bedrock-agentcore*'
+          - Sid: ParametersAndSecretsList
             Effect: Allow
             Action:
               - secretsmanager:GetRandomPassword
               - secretsmanager:ListSecrets
+              - ssm:DescribeParameters
             Resource: '*'
-          # AWS managed keys only.
-          - Sid: KmsRead
+          # Customer-managed keys, if ever turned on (decisions): only keys tagged with the project.
+          - Sid: KmsCreateTagged
+            Effect: Allow
+            Action:
+              - kms:CreateKey
+              - kms:TagResource
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestTag/Project: !Ref ProjectName
+          - Sid: KmsProjectKeys
+            Effect: Allow
+            Action: kms:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:ResourceTag/Project: !Ref ProjectName
+          - Sid: KmsProjectAliases
+            Effect: Allow
+            Action: kms:*Alias
+            Resource: !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:alias/${ProjectName}-*'
+          - Sid: KmsList
             Effect: Allow
             Action:
               - kms:DescribeKey
               - kms:ListAliases
+              - kms:ListKeys
             Resource: '*'
-          # User pools have IDs, not names, so it's limited to this region.
+          # User pools have IDs, not names, so Cognito is limited to this region.
           - Sid: CognitoRegion
             Effect: Allow
             Action: cognito-idp:*
@@ -326,78 +423,223 @@ Resources:
             Condition:
               StringEquals:
                 aws:RequestedRegion: !Ref AWS::Region
-          - Sid: BedrockGuardrails
+
+  # Alarms, alerts, budgets and the audit and threat services, free or paid (decisions).
+  DeployOpsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-ops'
+      Description: !Sub 'CloudWatch, SNS, EventBridge, Budgets and the security services for the ${ProjectName} deploy role'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Alarms in this region and in us-east-1, where CloudFront's and the bill's metrics are.
+          - Sid: CloudWatchProject
+            Effect: Allow
+            Action: cloudwatch:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:cloudwatch:*:${AWS::AccountId}:alarm:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:cloudwatch::${AWS::AccountId}:dashboard/${ProjectName}-*'
+          - Sid: CloudWatchRead
             Effect: Allow
             Action:
-              - bedrock:CreateGuardrail
-              - bedrock:CreateGuardrailVersion
-              - bedrock:DeleteGuardrail
-              - bedrock:GetGuardrail
-              - bedrock:ListTagsForResource
-              - bedrock:TagResource
-              - bedrock:UntagResource
-              - bedrock:UpdateGuardrail
-            Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*'
-          # The policy wording's knowledge base, its data source and ingestion.
-          - Sid: BedrockKnowledgeBases
+              - cloudwatch:Describe*
+              - cloudwatch:Get*
+              - cloudwatch:List*
+            Resource: '*'
+          - Sid: SnsProject
+            Effect: Allow
+            Action: sns:*
+            Resource: !Sub 'arn:${AWS::Partition}:sns:*:${AWS::AccountId}:${ProjectName}-*'
+          - Sid: EventsProject
+            Effect: Allow
+            Action: events:*
+            Resource: !Sub 'arn:${AWS::Partition}:events:*:${AWS::AccountId}:rule/${ProjectName}-*'
+          - Sid: BudgetsProject
+            Effect: Allow
+            Action: budgets:*
+            Resource: !Sub 'arn:${AWS::Partition}:budgets::${AWS::AccountId}:budget/${ProjectName}-*'
+          - Sid: CloudTrailProject
+            Effect: Allow
+            Action: cloudtrail:*
+            Resource: !Sub 'arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${ProjectName}-*'
+          - Sid: OpsList
             Effect: Allow
             Action:
-              - bedrock:CreateDataSource
-              - bedrock:CreateKnowledgeBase
-              - bedrock:DeleteDataSource
-              - bedrock:DeleteKnowledgeBase
-              - bedrock:GetDataSource
-              - bedrock:GetIngestionJob
-              - bedrock:GetKnowledgeBase
-              - bedrock:ListDataSources
-              - bedrock:ListTagsForResource
-              - bedrock:StartIngestionJob
-              - bedrock:TagResource
-              - bedrock:UntagResource
-              - bedrock:UpdateDataSource
-              - bedrock:UpdateKnowledgeBase
-            Resource: !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
-          # The knowledge base's vector store.
+              - budgets:Describe*
+              - budgets:View*
+              - cloudtrail:Describe*
+              - cloudtrail:List*
+              - cloudtrail:LookupEvents
+              - events:Describe*
+              - events:List*
+              - sns:List*
+            Resource: '*'
+          # Account-wide services with generated IDs, so they're limited to this region.
+          - Sid: SecurityServicesRegion
+            Effect: Allow
+            Action:
+              - access-analyzer:*
+              - config:*
+              - guardduty:*
+              - securityhub:*
+              - xray:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+
+  # All of Bedrock and AgentCore, AWS's AI services and the pieces agent workflows are built from.
+  DeployAiPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-ai'
+      Description: !Sub 'Bedrock, AI services and workflow services for the ${ProjectName} deploy role'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Guardrails, knowledge bases, evaluations, prompts, flows, agents, batch and custom models; IDs are generated.
+          - Sid: AiRegion
+            Effect: Allow
+            Action:
+              - aoss:*
+              - bedrock:*
+              - comprehend:*
+              - kendra:*
+              - polly:*
+              - rekognition:*
+              - textract:*
+              - transcribe:*
+              - translate:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          # Monthly commitments are for a person to buy, never the pipeline.
+          - Sid: DenyCommitments
+            Effect: Deny
+            Action:
+              - aws-marketplace:Subscribe
+              - bedrock:CreateProvisionedModelThroughput
+              - bedrock:UpdateProvisionedModelThroughput
+            Resource: '*'
           - Sid: S3VectorsProject
             Effect: Allow
-            Action:
-              - s3vectors:CreateIndex
-              - s3vectors:CreateVectorBucket
-              - s3vectors:DeleteIndex
-              - s3vectors:DeleteVectorBucket
-              - s3vectors:DeleteVectors
-              - s3vectors:GetIndex
-              - s3vectors:GetVectorBucket
-              - s3vectors:ListIndexes
-              - s3vectors:ListTagsForResource
-              - s3vectors:ListVectors
-              - s3vectors:TagResource
-              - s3vectors:UntagResource
+            Action: s3vectors:*
             Resource:
               - !Sub 'arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/${ProjectName}-*'
               - !Sub 'arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/${ProjectName}-*/index/*'
-          # Guardrails, and the inference profiles the units pick Claude's model IDs from.
-          - Sid: BedrockList
+          # Queues, state machines and schedules for agent workflows, by name.
+          - Sid: WorkflowProject
             Effect: Allow
             Action:
-              - bedrock:GetInferenceProfile
-              - bedrock:ListGuardrails
-              - bedrock:ListInferenceProfiles
+              - scheduler:*
+              - sqs:*
+              - states:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/*/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/${ProjectName}-*'
+          # API Gateway and identity pools have generated IDs, so they're limited to this region.
+          - Sid: ApisRegion
+            Effect: Allow
+            Action:
+              - apigateway:*
+              - cognito-identity:*
+              - scheduler:List*
+              - sqs:ListQueues
+              - states:List*
             Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
 
-  # Read-only plan role; can't read secrets, so keep secret values out of Terraform state.
+  # Read-only plan role; can't read secrets, parameters' values, objects or items.
+  # The workload's side of the platform's network (decisions 36 and 41): its security groups and DSQL's
+  # endpoint in the platform's VPC, in this region only. The VPC itself is the platform team's.
+  DeployNetworkPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_111
+            comment: Security groups and endpoints have generated IDs, so they're limited to this region and these actions
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-github-deploy-network'
+      Description: !Sub 'Security groups and VPC endpoints for the ${ProjectName} deploy role'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: NetworkRegion
+            Effect: Allow
+            Action:
+              - ec2:Describe*
+              - ec2:*SecurityGroup
+              - ec2:*SecurityGroupIngress
+              - ec2:*SecurityGroupEgress
+              - ec2:*VpcEndpoint
+              - ec2:*VpcEndpoints
+              - ec2:CreateTags
+              - ec2:DeleteTags
+              - ec2:DeleteNetworkInterface
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          # DOMAIN_NAME (decision 45): certificates for CloudFront (us-east-1) and records in the
+          # zone the platform delegates.
+          - Sid: Certificates
+            Effect: Allow
+            Action: acm:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion:
+                  - us-east-1
+                  - !Ref AWS::Region
+          - Sid: DnsRecords
+            Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+              - route53:GetChange
+              - route53:GetHostedZone
+              - route53:ListHostedZones
+              - route53:ListHostedZonesByName
+              - route53:ListResourceRecordSets
+              - route53:ListTagsForResource
+            Resource: '*'
+          # ENCRYPTION_KEYS=platform (decision 45): the platform's data key, only through the services
+          # that hold the workload's data.
+          - Sid: PlatformKeyThroughServices
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:ViaService:
+                  - !Sub 'dsql.${AWS::Region}.amazonaws.com'
+                  - !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+                  - !Sub 's3.${AWS::Region}.amazonaws.com'
+                  - !Sub 'ssm.${AWS::Region}.amazonaws.com'
+                  - !Sub 'logs.${AWS::Region}.amazonaws.com'
+
   PlanRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${ProjectName}-github-plan'
-      Description: !Sub 'GitHub Actions read-only plan role for ${GitHubRepo}, aws-${Target}-plan environment'
+      Description: !Sub 'GitHub Actions read-only plan role for ${GitHubRepo}, aws-dev-plan environment'
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              # Waits for the provider when this stack creates it.
               Federated: !If
                 - CreateOidc
                 - !Ref GitHubOidcProvider
@@ -406,11 +648,16 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                # The immutable subject names the owner and repo by ID too, so a recreated repo of the same name can't assume it.
+                # The immutable subject also names the owner and repo by ID, so a recreated repo can't assume it.
                 token.actions.githubusercontent.com:sub: !If
                   - ImmutableSubject
-                  - !Sub 'repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:environment:aws-${Target}-plan'
-                  - !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:aws-${Target}-plan'
+                  - !Sub
+                    - 'repo:${Owner}@${OwnerId}/${Repo}@${RepoId}:environment:aws-dev-plan'
+                    - Owner: !Select [0, !Split ['/', !Ref GitHubRepo]]
+                      Repo: !Select [1, !Split ['/', !Ref GitHubRepo]]
+                      OwnerId: !Select [0, !Split ['/', !Ref GitHubIds]]
+                      RepoId: !Select [1, !Split ['/', !Ref GitHubIds]]
+                  - !Sub 'repo:${GitHubRepo}:environment:aws-dev-plan'
       Policies:
         - PolicyName: terraform-plan
           PolicyDocument:
@@ -448,6 +695,10 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject*
                 Resource: !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-knowledge-*/*'
+              # And the IDs the platform publishes for the workload network (decision 36).
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/platform/*'
               - Effect: Allow
                 Action:
                   - s3vectors:Get*
@@ -455,20 +706,31 @@ Resources:
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/${ProjectName}-*'
                   - !Sub 'arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/${ProjectName}-*/index/*'
+              # Settings only: no GetSecretValue, GetParameter, GetItem or kms:Decrypt.
               - Effect: Allow
                 Action:
+                  - access-analyzer:Get*
+                  - aoss:BatchGet*
+                  - aoss:Get*
+                  - aoss:List*
+                  - apigateway:GET
+                  - access-analyzer:List*
                   - bedrock-agentcore:Get*
                   - bedrock-agentcore:List*
-                  - bedrock:GetDataSource
-                  - bedrock:GetGuardrail
-                  - bedrock:GetInferenceProfile
-                  - bedrock:GetKnowledgeBase
-                  - bedrock:ListGuardrails
-                  - bedrock:ListInferenceProfiles
-                  - bedrock:ListTagsForResource
-                  - cloudfront:DescribeFunction
+                  - bedrock:Get*
+                  - bedrock:List*
+                  - budgets:Describe*
+                  - budgets:ListTagsForResource
+                  - budgets:View*
+                  - cloudfront:Describe*
                   - cloudfront:Get*
                   - cloudfront:List*
+                  - cloudtrail:Describe*
+                  - cloudtrail:Get*
+                  - cloudtrail:List*
+                  - cloudwatch:Describe*
+                  - cloudwatch:Get*
+                  - cloudwatch:List*
                   - cognito-idp:AdminGetUser
                   - cognito-idp:AdminListGroupsForUser
                   - cognito-idp:Describe*
@@ -476,20 +738,78 @@ Resources:
                   - cognito-idp:GetLogDeliveryConfiguration
                   - cognito-idp:GetUserPoolMfaConfig
                   - cognito-idp:List*
+                  - cognito-identity:Describe*
+                  - cognito-identity:GetIdentityPoolRoles
+                  - cognito-identity:List*
+                  - comprehend:Describe*
+                  - comprehend:List*
+                  - config:Describe*
+                  - config:List*
+                  - dsql:Get*
+                  - dsql:List*
+                  - dynamodb:Describe*
+                  - dynamodb:List*
+                  - acm:Describe*
+                  - acm:List*
+                  - ec2:Describe*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy
                   - ecr:GetRepositoryPolicy
                   - ecr:List*
-                  - kms:DescribeKey
-                  - kms:ListAliases
+                  - kendra:Describe*
+                  - kendra:List*
+                  - events:Describe*
+                  - events:List*
+                  - guardduty:Describe*
+                  - guardduty:Get*
+                  - guardduty:List*
+                  - kms:Describe*
+                  - kms:GetKeyPolicy
+                  - kms:GetKeyRotationStatus
+                  - kms:List*
                   - lambda:Get*
                   - lambda:List*
                   - logs:Describe*
+                  - logs:Get*Deliver*
+                  - logs:GetDataProtectionPolicy
                   - logs:ListTagsForResource
                   - logs:ListTagsLogGroup
+                  - polly:GetLexicon
+                  - route53:Get*
+                  - route53:List*
+                  - polly:List*
+                  - pricingplanmanager:Get*
+                  - pricingplanmanager:List*
+                  - rekognition:Describe*
+                  - rekognition:List*
+                  - scheduler:Get*
+                  - scheduler:List*
                   - secretsmanager:DescribeSecret
                   - secretsmanager:GetResourcePolicy
                   - secretsmanager:ListSecrets
+                  - securityhub:Describe*
+                  - securityhub:Get*
+                  - securityhub:List*
+                  - sns:Get*
+                  - sns:List*
+                  - sqs:GetQueueAttributes
+                  - sqs:ListQueue*
+                  - ssm:DescribeParameters
+                  - ssm:ListTagsForResource
+                  - states:DescribeStateMachine*
+                  - states:List*
+                  - textract:GetAdapter*
+                  - textract:List*
+                  - transcribe:Describe*
+                  - transcribe:Get*Vocabulary*
+                  - transcribe:List*
+                  - translate:GetTerminology
+                  - translate:List*
+                  - wafv2:Describe*
+                  - wafv2:Get*
+                  - wafv2:List*
+                  - xray:Get*
+                  - xray:List*
                 Resource: '*'
               - Effect: Deny
                 Action: sts:AssumeRole
@@ -498,17 +818,19 @@ Resources:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
 
-  # Caps every role Terraform creates (the functions' roles and the agent's runtime role); renaming it fails on the fixed name.
+  # Caps every role Terraform makes; renaming it fails on the fixed name.
   ProjectBoundary:
     Type: AWS::IAM::ManagedPolicy
     Metadata:
       checkov:
         skip:
           - id: CKV_AWS_111
-            comment: A boundary grants nothing on its own; it caps roles whose own policies are scoped. ECR login and the runtime's metrics have no resource-level scoping
+            comment: A boundary grants nothing on its own; it caps roles whose own policies are scoped
+          - id: CKV_AWS_109
+            comment: A boundary grants nothing on its own; wide for AI features while building, narrowed by the permissions audit (TODO)
     Properties:
       ManagedPolicyName: !Sub '${ProjectName}-boundary'
-      Description: !Sub 'Permissions boundary for roles created by ${ProjectName} Terraform'
+      Description: !Sub 'Permissions boundary for roles made by ${ProjectName} Terraform'
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -522,8 +844,9 @@ Resources:
             Resource:
               - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-*'
               - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*'
-          # The runtime pulls the agent's image and reports its metrics.
-          - Sid: RuntimeImageAndMetrics
+              - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/cloudtrail/${ProjectName}-*'
+          # The runtime pulls the agent's image and reports metrics and traces.
+          - Sid: ImageMetricsTraces
             Effect: Allow
             Action:
               - cloudwatch:PutMetricData
@@ -533,55 +856,146 @@ Resources:
               - xray:PutTelemetryRecords
               - xray:PutTraceSegments
             Resource: '*'
-          # The api starts the agent's work; the agent gets its workload identity, calls its gateway
-          # keeps its customers' memory and runs lookup programs.
-          - Sid: AgentCore
+          # Online evaluations read the agent's spans and runtime logs (decision 38).
+          - Sid: EvaluationReads
             Effect: Allow
             Action:
-              - bedrock-agentcore:BatchCreateMemoryRecords
-              - bedrock-agentcore:InvokeCodeInterpreter
-              - bedrock-agentcore:ListMemoryRecords
-              - bedrock-agentcore:StartCodeInterpreterSession
-              - bedrock-agentcore:StopCodeInterpreterSession
-              - bedrock-agentcore:GetWorkloadAccessToken
-              - bedrock-agentcore:GetWorkloadAccessTokenForJWT
-              - bedrock-agentcore:GetWorkloadAccessTokenForUserId
-              - bedrock-agentcore:InvokeAgentRuntime
-              - bedrock-agentcore:InvokeGateway
+              - logs:DescribeLogGroups
+              - logs:FilterLogEvents
+              - logs:GetLogEvents
+              - logs:GetQueryResults
+              - logs:StartQuery
+              - logs:StopQuery
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+          # MALWARE_SCANNING (decision 45): GuardDuty's role watches the receipts bucket through its
+          # own events rule, then reads and tags each upload.
+          - Sid: MalwareScan
+            Effect: Allow
+            Action:
+              - events:DeleteRule
+              - events:DescribeRule
+              - events:ListTargetsByRule
+              - events:PutRule
+              - events:PutTargets
+              - events:RemoveTargets
+              - s3:GetBucketNotification
+              - s3:GetObjectTagging
+              - s3:GetObjectVersion
+              - s3:GetObjectVersionTagging
+              - s3:PutBucketNotification
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-receipts-*'
+          # Lambda's network interfaces in the platform's private subnets (decision 36); no resource ARN.
+          - Sid: LambdaNetwork
+            Effect: Allow
+            Action:
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeSubnets
+              - ec2:DeleteNetworkInterface
+              - ec2:AssignPrivateIpAddresses
+              - ec2:UnassignPrivateIpAddresses
+            Resource: '*'
+          # Every AgentCore feature: Runtime, Gateway, Memory, Identity, Code Interpreter and Browser.
+          - Sid: AgentCore
+            Effect: Allow
+            Action: bedrock-agentcore:*
             Resource: !Sub 'arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*'
-          # The context layer's gateway calls the context's IAM-only function URL.
+          # The gateways invoke the context function by its ARN.
           - Sid: LambdaUrls
             Effect: Allow
             Action:
               - lambda:InvokeFunction
               - lambda:InvokeFunctionUrl
             Resource: !Sub 'arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${ProjectName}-*'
-          # Agent, copilot and assistants call Claude through a guardrail.
-          - Sid: Bedrock
+          # Bedrock's runtime calls (models, guardrails, knowledge bases, agents, flows, prompts, evaluations)
+          # and AWS's AI services; cross-region inference reaches models in other regions.
+          - Sid: AiCalls
             Effect: Allow
             Action:
-              - bedrock:ApplyGuardrail
-              - bedrock:InvokeModel
-              - bedrock:InvokeModelWithResponseStream
-              - bedrock:Retrieve
+              - aoss:APIAccessAll
+              - bedrock:*
+              - comprehend:*
+              - kendra:Query
+              - kendra:Retrieve
+              - polly:SynthesizeSpeech
+              - rekognition:*
+              - textract:*
+              - transcribe:*
+              - translate:*
+            Resource: '*'
+          - Sid: DenyCommitments
+            Effect: Deny
+            Action:
+              - bedrock:CreateProvisionedModelThroughput
+              - bedrock:UpdateProvisionedModelThroughput
+            Resource: '*'
+          # Agent workflows: queues, state machines, events and alerts, by name.
+          - Sid: Workflows
+            Effect: Allow
+            Action:
+              - events:PutEvents
+              - sns:Publish
+              - sqs:ChangeMessageVisibility
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:ReceiveMessage
+              - sqs:SendMessage
+              - states:Describe*
+              - states:SendTask*
+              - states:Start*
+              - states:StopExecution
             Resource:
-              - !Sub 'arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*'
-              - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
-              - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
-              - !Sub 'arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*'
-              - !Sub 'arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*'
-          # The api's demo test buttons set a test account's password just before signing it in.
+              - !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:event-bus/*'
+              - !Sub 'arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:sqs:${AWS::Region}:${AWS::AccountId}:${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:*:${ProjectName}-*'
+          # The database by IAM token; admin runs the migrations (decisions).
+          - Sid: Dsql
+            Effect: Allow
+            Action:
+              - dsql:DbConnect
+              - dsql:DbConnectAdmin
+            Resource: !Sub 'arn:${AWS::Partition}:dsql:${AWS::Region}:${AWS::AccountId}:cluster/*'
+          - Sid: DynamoDb
+            Effect: Allow
+            Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:UpdateItem
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-*'
+              - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ProjectName}-*/index/*'
+          # The demo's test buttons set a test account's password just before signing it in.
           - Sid: CognitoTestSignIn
             Effect: Allow
             Action: cognito-idp:AdminSetUserPassword
             Resource: !Sub 'arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
-          - Sid: Secrets
+          - Sid: ParametersAndSecrets
             Effect: Allow
             Action:
               - secretsmanager:DescribeSecret
               - secretsmanager:GetSecretValue
-            Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
-          # The knowledge base reads the policy wording and keeps its vectors.
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}/*'
+              - !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:bedrock-agentcore*'
+              - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ProjectName}/*'
+          # Reads the policy wording; the vector store keeps its vectors.
           - Sid: Knowledge
             Effect: Allow
             Action:
@@ -599,7 +1013,8 @@ Resources:
               - s3vectors:PutVectors
               - s3vectors:QueryVectors
             Resource: !Sub 'arn:${AWS::Partition}:s3vectors:${AWS::Region}:${AWS::AccountId}:bucket/${ProjectName}-*/index/*'
-          - Sid: Receipts
+          # Receipts, and checkpoints too large for DynamoDB.
+          - Sid: AppBuckets
             Effect: Allow
             Action:
               - s3:DeleteObject
@@ -609,6 +1024,8 @@ Resources:
             Resource:
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-receipts-*'
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-receipts-*/*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-checkpoints-*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-checkpoints-*/*'
           - Sid: KmsThroughServices
             Effect: Allow
             Action:
@@ -619,21 +1036,21 @@ Resources:
               StringEquals:
                 kms:ViaService:
                   - !Sub 'secretsmanager.${AWS::Region}.amazonaws.com'
+                  - !Sub 'ssm.${AWS::Region}.amazonaws.com'
                   - !Sub 's3.${AWS::Region}.amazonaws.com'
+                  - !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+                  - !Sub 'dsql.${AWS::Region}.amazonaws.com'
 
 Outputs:
   BoundaryArn:
-    Description: permissions_boundary for roles Terraform creates
+    Description: permissions_boundary for roles Terraform makes
     Value: !Ref ProjectBoundary
-
   StateBucketName:
-    Description: GitHub variable TF_STATE_BUCKET on both environments, such as aws-dev-plan and aws-dev-apply
+    Description: GitHub variable TF_STATE_BUCKET on both environments
     Value: !Ref StateBucket
-
   DeployRoleArn:
-    Description: GitHub variable AWS_DEPLOY_ROLE_ARN on the apply environment, such as aws-dev-apply
+    Description: GitHub variable AWS_DEPLOY_ROLE_ARN on aws-dev-apply
     Value: !GetAtt DeployRole.Arn
-
   PlanRoleArn:
-    Description: GitHub variable AWS_PLAN_ROLE_ARN on the plan environment, such as aws-dev-plan
+    Description: GitHub variable AWS_PLAN_ROLE_ARN on aws-dev-plan
     Value: !GetAtt PlanRole.Arn

@@ -12,11 +12,13 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import Connection, Engine, delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
 from undercover_api.agent_service import (
+    DRAFT_TIMEOUT_SECONDS,
     AgentRefusedError,
     AgentService,
     AgentUnavailableError,
@@ -30,6 +32,7 @@ from undercover_api.auth import (
     CUSTOMERS_GROUP,
     ENGINEERS_GROUP,
     HANDLERS_GROUP,
+    AgentTokenVerifier,
     Database,
     LocalKeys,
     RemoteKeys,
@@ -76,6 +79,7 @@ from undercover_api.db import (
 from undercover_api.demo import demo_router
 from undercover_api.demo_sign_in import CognitoTestSignIn
 from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_router
+from undercover_api.dsql import is_conflict
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.feedback import feedback_router
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
@@ -155,7 +159,7 @@ staff_router = APIRouter(prefix="/api/staff")
 staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
 customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
 engineering_sign_in_router = APIRouter(prefix="/api/engineering/dev")
-# Tier 2's test-account buttons, at the same paths as the stand-in's.
+# The AWS demo's test-account buttons, at the same paths as the stand-in's.
 staff_demo_router = APIRouter(prefix="/api/staff/dev")
 customer_demo_router = APIRouter(prefix="/api/customer/dev")
 engineering_demo_router = APIRouter(prefix="/api/engineering/dev")
@@ -751,7 +755,7 @@ def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Databas
 def demo_sign_in(
     request: Request, accounts: dict[str, str], account: str, issuer: str, client_id: str
 ) -> SignIn:
-    """A fixed test account signed in through Cognito; tier 2's demo only. The pool's ID ends
+    """A fixed test account signed in through Cognito; the AWS demo only. The pool's ID ends
     its issuer."""
     email = accounts.get(account)
     if email is None:
@@ -834,20 +838,42 @@ def load_names_to_redact(engine: Engine) -> None:
 
 
 def make_agent_service(settings: Settings) -> AgentService:
-    """The agent on AgentCore Runtime when its ARN is set (tier 2), else over HTTP."""
-    key = settings.undercover_api_key.get_secret_value()
+    """The agent on AgentCore Runtime when its ARN is set (AWS), with the api's machine token
+    when its identity is set, else over HTTP."""
+    if settings.agent_runtime_arn and settings.workload_name and settings.agent_token_provider:
+        from undercover_api.agent_identity import bearer_runtime  # noqa: PLC0415 - AWS only
+
+        runtime = bearer_runtime(
+            settings.workload_name,
+            settings.agent_token_provider,
+            settings.agent_token_scope,
+            DRAFT_TIMEOUT_SECONDS,
+        )
+        return RuntimeAgentService(settings.agent_runtime_arn, runtime)
     if settings.agent_runtime_arn:
         return RuntimeAgentService(settings.agent_runtime_arn, runtime_client())
-    return HttpAgentService(settings.agent_url, key)
+    if settings.undercover_api_key is None:
+        raise RuntimeError("The agent over HTTP needs UNDERCOVER_API_KEY")
+    return HttpAgentService(settings.agent_url, settings.undercover_api_key.get_secret_value())
 
 
 def make_receipts(settings: Settings) -> Receipts | None:
-    """The receipts bucket when one is set (tier 2); the folder is used otherwise."""
+    """The receipts bucket when one is set (AWS); the folder is used otherwise."""
     if not settings.receipts_bucket:
         return None
-    from undercover_api.aws import aws_client  # noqa: PLC0415 - only tier 2 needs it
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only AWS needs it
 
     return S3ReceiptStore(settings.receipts_bucket, aws_client("s3"))
+
+
+async def lost_race(_: Request, error: Exception) -> JSONResponse:
+    """A write that lost a race on DSQL was rolled back whole, so nothing was paid or saved:
+    409 asks the caller to try again. Any other database error stays a 500."""
+    if not is_conflict(error):
+        raise error
+    return JSONResponse(
+        {"detail": "Someone else changed this at the same time. Try again."}, status_code=409
+    )
 
 
 def create_app(
@@ -858,7 +884,7 @@ def create_app(
     """Build the api for the settings, database and agent given, or those in the environment."""
     configure_logging()
     settings = settings or get_settings()
-    database = engine or make_engine(settings.database_url)
+    database = engine or make_engine(settings.database_url, settings.database_app_role)
     load_names_to_redact(database)
 
     @asynccontextmanager
@@ -867,6 +893,7 @@ def create_app(
         database.dispose()
 
     app = FastAPI(title="UnderCover api", lifespan=lifespan)
+    app.add_exception_handler(OperationalError, lost_race)
     app.state.settings = settings
     app.state.engine = database
     app.state.agent = agent_service or make_agent_service(settings)
@@ -874,6 +901,16 @@ def create_app(
     staff = (settings.staff_token_issuer, settings.staff_token_audience)
     customer = (settings.customer_token_issuer, settings.customer_token_audience)
     engineering = (settings.engineering_token_issuer, settings.engineering_token_audience)
+    # On AWS the agent's routes take its machine token; locally, its key.
+    app.state.agent_verifier = (
+        AgentTokenVerifier(
+            RemoteKeys(settings.agent_caller_issuer),
+            settings.agent_caller_issuer,
+            settings.agent_caller_client or "",
+        )
+        if settings.agent_caller_issuer
+        else None
+    )
     if settings.local_sign_in:
         app.state.staff_issuer = LocalIssuer(*staff)
         app.state.customer_issuer = LocalIssuer(*customer)

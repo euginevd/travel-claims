@@ -43,7 +43,7 @@ class StoreMemory:
 
 
 class AgentCoreMemory:
-    """Memory on AgentCore Memory (tier 2): one long-term record per decided claim, written as
+    """Memory on AgentCore Memory: one long-term record per decided claim, written as
     is under the customer's own namespace, so no model extracts anything from their words.
     Memory only informs the agent, so a failure to reach it is logged and recalls nothing."""
 

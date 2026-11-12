@@ -1,6 +1,6 @@
 """The agent's HTTP service, which the api calls to work or resume a claim, to the contract in
 undercover_api.agent_service. It answers at once and works in the background. On AgentCore
-Runtime (tier 2) the same routes are reached through /invocations, and /ping tells Runtime to
+Runtime the same routes are reached through /invocations, and /ping tells Runtime to
 keep the session while work is going."""
 
 import json
@@ -425,13 +425,43 @@ def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
     )
 
 
-def build_app() -> FastAPI:
-    """The service wired to the real api, Claude, the context layer and PostgreSQL."""
+# A week of a claim's saved progress, compressed to stay under DynamoDB's item size.
+CHECKPOINT_TTL_SECONDS = 7 * 24 * 3600
+
+
+def checkpoints(settings: Any, region: str | None) -> tuple[Any, Any]:
+    """The saver for each claim's progress, and the Postgres store when there is one:
+    DynamoDB when CHECKPOINT_TABLE is set (AWS), PostgreSQL otherwise (locally)."""
+    if settings.checkpoint_table:
+        from langgraph_checkpoint_aws import DynamoDBSaver  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+        saver = DynamoDBSaver(
+            table_name=settings.checkpoint_table,
+            region_name=region,
+            ttl_seconds=CHECKPOINT_TTL_SECONDS,
+            enable_checkpoint_compression=True,
+        )
+        return saver, None
+    if settings.checkpoint_database_url is None:
+        raise RuntimeError("Set CHECKPOINT_TABLE or CHECKPOINT_DATABASE_URL")
     from langgraph.checkpoint.postgres import PostgresSaver  # noqa: PLC0415
     from langgraph.store.postgres import PostgresStore  # noqa: PLC0415
 
+    pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
+    pool.open()
+    saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
+    saver.setup()
+    store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
+    store.setup()
+    return saver, store
+
+
+def build_app() -> FastAPI:
+    """The service wired to the real api, Claude, the context layer and PostgreSQL."""
     from undercover_agent.api_client import ApiClient, ApiError  # noqa: PLC0415
     from undercover_agent.graph import INSTRUCTIONS, build_graph  # noqa: PLC0415
+    from undercover_agent.guardrail import output_guardrail_for  # noqa: PLC0415
+    from undercover_agent.identity import api_token  # noqa: PLC0415
     from undercover_agent.knowledge import KnowledgeBase  # noqa: PLC0415
     from undercover_agent.memory import AgentCoreMemory, Memory, StoreMemory  # noqa: PLC0415
     from undercover_agent.models import AnthropicClaude, plain_name  # noqa: PLC0415
@@ -449,14 +479,22 @@ def build_app() -> FastAPI:
 
         signer = SigV4Signer(region or os.environ["AWS_REGION"], settings.context_aws_service)
 
+    # On AWS one machine token, shared by every client and reused until it nearly expires.
+    token = api_token(
+        settings.workload_name, settings.api_token_provider, settings.api_token_scope, region
+    )
+
+    shared = settings.undercover_api_key
+    # Without a shared key (on Runtime with the machine token) the routes behind /invocations take
+    # a key made for this process alone: Runtime forwards only /invocations and /ping.
+    inbound = shared.get_secret_value() if shared else secrets.token_hex(32)
+
+    def api_client() -> ApiClient:
+        return ApiClient(settings.undercover_api, inbound, token=token)
+
     def make_runner() -> Runner:
-        pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
-        pool.open()
-        saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
-        saver.setup()
-        store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
-        store.setup()
-        api = ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
+        saver, store = checkpoints(settings, region)
+        api = api_client()
         first = {
             "instructions": INSTRUCTIONS,
             # Configurations hold the plain name, so they work on either provider.
@@ -467,12 +505,13 @@ def build_app() -> FastAPI:
             api.register_configuration(first)
         except ApiError:
             log.warning("couldn't register the first configuration; using the built-in one")
-        # AgentCore Memory on AWS when named; the Postgres store otherwise (tier 1).
-        memory: Memory = (
-            AgentCoreMemory(settings.memory_id, region)
-            if settings.memory_id
-            else StoreMemory(store)
-        )
+        # AgentCore Memory on AWS when named; the Postgres store otherwise (locally).
+        if settings.memory_id:
+            memory: Memory = AgentCoreMemory(settings.memory_id, region)
+        elif store is not None:
+            memory = StoreMemory(store)
+        else:
+            raise RuntimeError("Checkpoints in DynamoDB need MEMORY_ID for the customers' memory")
         graph = build_graph(
             api,
             AnthropicClaude(settings),
@@ -491,12 +530,9 @@ def build_app() -> FastAPI:
         )
         return Runner(graph, api)
 
-    def api_client() -> ApiClient:
-        return ApiClient(settings.undercover_api, settings.undercover_api_key.get_secret_value())
-
     return create_app(
         make_runner,
-        settings.undercover_api_key.get_secret_value,
+        lambda: inbound,
         lambda: AnthropicClaude(settings),
         lambda runner: Dispatcher(runner, api_client()),
         lambda: RoundImprover(AnthropicClaude(settings), api_client()),
@@ -507,6 +543,11 @@ def build_app() -> FastAPI:
             KnowledgeBase(settings.knowledge_base_id, region)
             if settings.knowledge_base_id
             else None,
+            output_guardrail_for(
+                settings.bedrock_answer_guardrail_id,
+                settings.bedrock_answer_guardrail_version,
+                region,
+            ),
         ),
         make_explainer=lambda: Explainer(AnthropicClaude(settings), settings.drafting_model),
         make_judge=lambda: RunJudge(AnthropicClaude(settings), api_client()),

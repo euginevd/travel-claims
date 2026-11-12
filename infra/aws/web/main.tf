@@ -1,4 +1,4 @@
-# Each web app in a private bucket behind its own CloudFront distribution (tier 2 design 1), forwarding only its api prefixes.
+# Each web app in a private bucket behind its own CloudFront distribution, forwarding only its api prefixes.
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -18,7 +18,7 @@ locals {
   # The apps reach only themselves and Cognito; the project page pings the three apps' sites.
   connect = {
     app  = "'self' https://cognito-idp.${local.region}.amazonaws.com"
-    home = "'self' https://*.cloudfront.net"
+    home = var.domain_name != "" ? "'self' https://*.${var.domain_name}" : "'self' https://*.cloudfront.net"
   }
 
   # AWS's managed policies: cache static files, never cache the api, and send the origin its own host.
@@ -27,10 +27,24 @@ locals {
   all_viewer_but_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
 }
 
+# The api's and Copilot's origin: the functions unit's API Gateway, or each function's URL (decision 39).
 data "aws_lambda_function_url" "origin" {
-  for_each = toset(["api", "copilot"])
+  for_each = var.api_gateway ? toset([]) : toset(["api", "copilot"])
 
   function_name = "${local.prefix}-${each.key}"
+}
+
+data "aws_api_gateway_rest_api" "api" {
+  count = var.api_gateway ? 1 : 0
+  name  = "${local.prefix}-api"
+}
+
+locals {
+  origin_domains = {
+    for name in ["api", "copilot"] : name => (var.api_gateway
+      ? "${data.aws_api_gateway_rest_api.api[0].id}.execute-api.${local.region}.amazonaws.com"
+    : trimsuffix(trimprefix(data.aws_lambda_function_url.origin[name].function_url, "https://"), "/"))
+  }
 }
 
 resource "aws_s3_bucket" "web" {
@@ -141,20 +155,21 @@ resource "aws_cloudfront_function" "spa" {
   JS
 }
 
-# trivy:ignore:AWS-0011 no WAF in the demo; every api route authenticates, and the api throttles what costs money
+# trivy:ignore:AWS-0011 the apps get WAF through the Free plan (edge.tf); the project page is static
 resource "aws_cloudfront_distribution" "web" {
-  #checkov:skip=CKV_AWS_68: no WAF in the demo; every api route authenticates, and the api throttles what costs money
+  #checkov:skip=CKV_AWS_68: the apps get WAF through the Free plan (edge.tf); the project page is static
   #checkov:skip=CKV_AWS_86: access logs need a bucket and cost; turn them on before real users
   #checkov:skip=CKV_AWS_174: the default certificate allows only CloudFront's own TLS policy; a custom domain would set TLSv1.2_2021
   #checkov:skip=CKV_AWS_310: one origin per path is enough for a demo
   #checkov:skip=CKV_AWS_374: no geo restriction: the demo is for anyone with a test account
   #checkov:skip=CKV2_AWS_32: the response headers policy is attached to every behaviour below
   #checkov:skip=CKV2_AWS_42: no custom domain in the demo, so CloudFront's own certificate
-  #checkov:skip=CKV2_AWS_47: no WAF in the demo, as above
+  #checkov:skip=CKV2_AWS_47: the common rules include Log4j through the Free plan; the project page is static
   for_each = local.apps
 
   enabled             = true
   comment             = "${local.prefix}-${each.key}"
+  web_acl_id          = try(aws_wafv2_web_acl.app[each.key].arn, null)
   default_root_object = "index.html"
   price_class         = "PriceClass_All"
   http_version        = "http2and3"
@@ -169,7 +184,9 @@ resource "aws_cloudfront_distribution" "web" {
     for_each = toset(values(each.value))
     content {
       origin_id   = origin.value
-      domain_name = trimsuffix(trimprefix(data.aws_lambda_function_url.origin[origin.value].function_url, "https://"), "/")
+      domain_name = local.origin_domains[origin.value]
+      # A REST API's stage is the first part of its path.
+      origin_path = var.api_gateway ? "/${var.environment}" : ""
       custom_origin_config {
         http_port                = 80
         https_port               = 443
@@ -217,8 +234,14 @@ resource "aws_cloudfront_distribution" "web" {
     }
   }
 
+  # The company's domain with its certificate (domain.tf), or CloudFront's own.
+  aliases = local.custom_domain ? [local.site_names[each.key]] : []
+
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = !local.custom_domain
+    acm_certificate_arn            = local.custom_domain ? aws_acm_certificate_validation.sites[0].certificate_arn : null
+    ssl_support_method             = local.custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.custom_domain ? "TLSv1.2_2021" : null
   }
 }
 

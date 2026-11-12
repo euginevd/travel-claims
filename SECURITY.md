@@ -23,7 +23,7 @@
 ## Scope
 
 1. **In scope:** the `main` branch only: the code, workflows, scripts and infrastructure as code.
-2. **Out of scope:** findings already accepted in [guides/02-security-trade-offs.md](guides/02-security-trade-offs.md), the fictional course data in `data/`, and anything that needs a compromised GitHub or AWS account to begin with.
+2. **Out of scope:** findings already accepted in [guides/04-security-trade-offs.md](guides/04-security-trade-offs.md), the fictional course data in `data/`, and anything that needs a compromised GitHub or AWS account to begin with.
 3. **Testing:** test against your own copy, never someone else's deployment, and don't access or keep anyone's data. Research in good faith under this policy won't be pursued.
 
 To contribute a fix, read [CONTRIBUTING.md](CONTRIBUTING.md).

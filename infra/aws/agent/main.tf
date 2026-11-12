@@ -1,4 +1,4 @@
-# The claim agent on AgentCore Runtime (tier 2 design 3), from the newest arm64 image; applied after the functions unit.
+# The claim agent on AgentCore Runtime, from the newest arm64 image; applied after the functions unit.
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 data "aws_region" "current" {}
@@ -11,7 +11,7 @@ data "aws_bedrock_inference_profiles" "system" {
 locals {
   profiles = data.aws_bedrock_inference_profiles.system.inference_profile_summaries[*].inference_profile_id
   bedrock  = var.model_provider == "bedrock"
-  # The API takes plain names; Bedrock takes the Australian profiles.
+  # The API takes plain names; Bedrock takes Australia's inference profiles.
   sonnet = local.bedrock ? coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none")) : "claude-sonnet-5-5"
   haiku  = local.bedrock ? coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none")) : "claude-haiku-5-5"
 }
@@ -35,16 +35,57 @@ data "aws_ecr_image" "newest" {
   most_recent     = true
 }
 
-data "aws_secretsmanager_secret" "app" {
-  name = "${var.project}/${var.environment}/app"
+# The app's settings parameter (secrets unit), named here so the plan never reads its value.
+locals {
+  app_parameter     = "/${var.project}/${var.environment}/app"
+  app_parameter_arn = "arn:${local.partition}:ssm:${local.region}:${local.account}:parameter${local.app_parameter}"
 }
 
+# Where the agent reaches the api: the functions unit's API Gateway, or the api's URL (decision 39).
 data "aws_lambda_function_url" "api" {
+  count         = var.api_gateway ? 0 : 1
   function_name = "${local.prefix}-api"
 }
 
-data "aws_lambda_function_url" "context" {
+data "aws_api_gateway_rest_api" "api" {
+  count = var.api_gateway ? 1 : 0
+  name  = "${local.prefix}-api"
+}
+
+locals {
+  api_endpoint = (var.api_gateway
+    ? "https://${data.aws_api_gateway_rest_api.api[0].id}.execute-api.${local.region}.amazonaws.com/${var.environment}"
+  : trimsuffix(data.aws_lambda_function_url.api[0].function_url, "/"))
+}
+
+# The context server has no URL: the gateways invoke it by ARN (Lambda targets).
+data "aws_lambda_function" "context" {
   function_name = "${local.prefix}-context"
+}
+
+# AgentCore Identity (identity unit): the api's machine client signs in to the runtime, and
+# handlers' own tokens sign in to the Copilot's gateway.
+data "aws_cognito_user_pools" "pool" {
+  for_each = toset(["services", "staff"])
+
+  name = "${local.prefix}-${each.key}"
+}
+
+data "aws_cognito_user_pool_clients" "pool" {
+  for_each = data.aws_cognito_user_pools.pool
+
+  user_pool_id = one(each.value.ids)
+}
+
+# The services pool's clients by name: the api's invokes the runtime; the agent's calls the api.
+locals {
+  service_clients = zipmap(data.aws_cognito_user_pool_clients.pool["services"].client_names, data.aws_cognito_user_pool_clients.pool["services"].client_ids)
+}
+
+locals {
+  discovery = { for name, pool in data.aws_cognito_user_pools.pool : name => "https://cognito-idp.${local.region}.amazonaws.com/${one(pool.ids)}/.well-known/openid-configuration" }
+  # The Anthropic key's provider in the token vault (secrets unit), when the apps use the API.
+  key_provider = local.bedrock ? "" : "${local.prefix}-anthropic"
 }
 
 resource "aws_iam_role" "agent" {
@@ -91,7 +132,7 @@ resource "aws_iam_role_policy" "agent" {
         Action = ["bedrock-agentcore:GetWorkloadAccessToken", "bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
-          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/*",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },
       {
@@ -103,7 +144,43 @@ resource "aws_iam_role_policy" "agent" {
           "arn:${local.partition}:bedrock:${local.region}:${local.account}:guardrail/*",
         ]
       },
-      { Effect = "Allow", Action = "secretsmanager:GetSecretValue", Resource = data.aws_secretsmanager_secret.app.arn },
+      { Effect = "Allow", Action = "ssm:GetParameter", Resource = local.app_parameter_arn },
+      # The Anthropic key from the token vault, through the agent's workload identity.
+      {
+        Effect = "Allow"
+        Action = "bedrock-agentcore:GetResourceApiKey"
+        Resource = [
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/apikeycredentialprovider/*",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = "arn:${local.partition}:secretsmanager:${local.region}:${local.account}:secret:bedrock-agentcore-identity!default/apikey/${local.prefix}-*"
+      },
+      # A machine token for the agent's calls back to the api, from the vault (decision 38).
+      {
+        Effect = "Allow"
+        Action = "bedrock-agentcore:GetResourceOauth2Token"
+        Resource = [
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/oauth2credentialprovider/${local.prefix}-api-access",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = "arn:${local.partition}:secretsmanager:${local.region}:${local.account}:secret:bedrock-agentcore-identity!default/oauth2/${local.prefix}-api-access*"
+      },
+      # Each claim's saved progress (database unit).
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:BatchGetItem", "dynamodb:BatchWriteItem"]
+        Resource = "arn:${local.partition}:dynamodb:${local.region}:${local.account}:table/${local.prefix}-checkpoints"
+      },
       # The context layer only through its gateway, which alone may call the context's URL.
       { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
       # The customers' memory: write a decided claim's record, list one customer's.
@@ -116,6 +193,13 @@ resource "aws_iam_role_policy" "agent" {
         Effect   = "Allow"
         Action   = ["bedrock-agentcore:StartCodeInterpreterSession", "bedrock-agentcore:InvokeCodeInterpreter", "bedrock-agentcore:StopCodeInterpreterSession"]
         Resource = ci.code_interpreter_arn
+      }],
+      # The platform's key with ENCRYPTION_KEYS=platform, only through the settings and checkpoints (decision 45).
+      local.data_key == null ? [] : [{
+        Effect    = "Allow"
+        Action    = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource  = local.data_key
+        Condition = { StringLike = { "kms:ViaService" = ["ssm.*.amazonaws.com", "dynamodb.*.amazonaws.com"] } }
     }])
   })
 }
@@ -379,16 +463,24 @@ resource "aws_bedrockagentcore_code_interpreter" "programs" {
   description        = "Runs the ${var.project} claim agent's lookup programs"
   execution_role_arn = aws_iam_role.programs[0].arn
 
-  # Public, so a program can reach the gateway; its role can call nothing else.
+  # Private: the VPC endpoints only (network.tf); public: the internet, with a role that can call
+  # only the gateway.
   network_configuration {
-    network_mode = "PUBLIC"
+    network_mode = local.private ? "VPC" : "PUBLIC"
+    dynamic "vpc_config" {
+      for_each = local.private ? [1] : []
+      content {
+        subnets         = local.subnets
+        security_groups = [aws_security_group.programs[0].id]
+      }
+    }
   }
 
   depends_on = [aws_iam_role_policy.programs]
 }
 
 # AgentCore Gateway in front of the context layer (plan phase 3): the agent reaches its lookups as
-# managed MCP tools, and the gateway signs each call to the context's IAM-only URL with its own role.
+# managed MCP tools, and the gateway invokes the context Lambda by its ARN with its own role.
 resource "aws_iam_role" "gateway" {
   name                 = "${local.prefix}-gateway"
   description          = "Signs the ${var.project} gateway's calls to the context layer"
@@ -414,15 +506,68 @@ resource "aws_iam_role_policy" "gateway" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # The context's URL takes only IAM-signed calls, and only this role may make them.
+      # Only this role may invoke the context server, which has no URL.
+      { Effect = "Allow", Action = "lambda:InvokeFunction", Resource = data.aws_lambda_function.context.arn },
+      # AgentCore Policy: the gateways ask the engine before each tool call (gateway/* avoids a cycle).
       {
-        Effect    = "Allow"
-        Action    = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
-        Resource  = "arn:${local.partition}:lambda:${local.region}:${local.account}:function:${local.prefix}-context"
-        Condition = { StringEquals = { "lambda:FunctionUrlAuthType" = "AWS_IAM" } }
+        Effect = "Allow"
+        Action = ["bedrock-agentcore:GetPolicyEngine", "bedrock-agentcore:AuthorizeAction", "bedrock-agentcore:PartiallyAuthorizeActions"]
+        Resource = [
+          aws_bedrockagentcore_policy_engine.tools.policy_engine_arn,
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:gateway/*",
+        ]
       },
     ]
   })
+}
+
+# The context server's seven lookups, as its MCP server defines them (apps/context server.py).
+locals {
+  tools = {
+    lookup_term           = { description = "Look up a term the policy wording defines: its definition and sections.", arguments = { term = { type = "string", description = "The term, 1 to 100 characters" } } }
+    describe_fields       = { description = "Describe a record the claim agent reads and what each of its fields means.", arguments = { record = { type = "string", description = "claim, policy or previous_claim" } } }
+    get_plan              = { description = "Get a plan's limits, waiting periods and deductible, and the add-ons.", arguments = { plan = { type = "string", description = "economy, premium or first" } } }
+    get_claim_rules       = { description = "Get the rules claims operations applies to every claim.", arguments = {} }
+    search_reference_data = { description = "Find outside facts, such as storms, strikes and prices, holding every word.", arguments = { query = { type = "string", description = "The words to find, 1 to 200 characters" } } }
+    search_documents      = { description = "Find sections of the wording and the manual holding a word or phrase.", arguments = { query = { type = "string", description = "The words to find, 1 to 200 characters" } } }
+    read_section          = { description = "Read one section of the policy wording or the claims manual in full.", arguments = { document = { type = "string", description = "policy_wording or claims_manual" }, number = { type = "integer", description = "The section's number" } } }
+  }
+  # What each gateway's callers may use (AgentCore Policy): the Copilot only reads the documents.
+  allowed = {
+    context       = keys(local.tools)
+    staff_context = ["search_documents", "read_section"]
+  }
+}
+
+# AgentCore Policy: Cedar rules outside the model's reach, checked before each tool call; anything
+# not permitted is denied.
+resource "aws_bedrockagentcore_policy_engine" "tools" {
+  # Names allow letters, digits and underscores only.
+  name        = "${replace(local.prefix, "-", "_")}_tools"
+  description = "Which context lookups each ${var.project} gateway's callers may use"
+}
+
+resource "aws_bedrockagentcore_policy" "tools" {
+  for_each = local.allowed
+
+  name             = "${each.key}_tools"
+  policy_engine_id = aws_bedrockagentcore_policy_engine.tools.policy_engine_id
+  description      = "The lookups the ${each.key} gateway allows"
+
+  definition {
+    cedar {
+      statement = <<-EOT
+        permit(
+          principal,
+          action in [${join(", ", [for tool in each.value : "AgentCore::Action::\"context___${tool}\""])}],
+          resource == AgentCore::Gateway::"${each.key == "context" ? aws_bedrockagentcore_gateway.context.gateway_arn : aws_bedrockagentcore_gateway.staff_context.gateway_arn}"
+        );
+      EOT
+    }
+  }
+
+  # Policies are checked against the gateway's tools, so the targets come first.
+  depends_on = [aws_bedrockagentcore_gateway_target.context, aws_bedrockagentcore_gateway_target.staff_context]
 }
 
 resource "aws_bedrockagentcore_gateway" "context" {
@@ -438,6 +583,11 @@ resource "aws_bedrockagentcore_gateway" "context" {
     }
   }
 
+  policy_engine_configuration {
+    arn  = aws_bedrockagentcore_policy_engine.tools.policy_engine_arn
+    mode = "ENFORCE"
+  }
+
   depends_on = [aws_iam_role_policy.gateway]
 }
 
@@ -445,7 +595,7 @@ resource "aws_bedrockagentcore_gateway" "context" {
 resource "aws_bedrockagentcore_gateway_target" "context" {
   name               = "context"
   gateway_identifier = aws_bedrockagentcore_gateway.context.gateway_id
-  description        = "The context layer's MCP server on Lambda"
+  description        = "The context layer's lookups, invoked on Lambda by ARN"
 
   credential_provider_configuration {
     gateway_iam_role {
@@ -455,8 +605,110 @@ resource "aws_bedrockagentcore_gateway_target" "context" {
 
   target_configuration {
     mcp {
-      mcp_server {
-        endpoint = "${trimsuffix(data.aws_lambda_function_url.context.function_url, "/")}/mcp"
+      lambda {
+        lambda_arn = data.aws_lambda_function.context.arn
+        tool_schema {
+          dynamic "inline_payload" {
+            for_each = local.tools
+            content {
+              name        = inline_payload.key
+              description = inline_payload.value.description
+              input_schema {
+                type = "object"
+                dynamic "property" {
+                  for_each = inline_payload.value.arguments
+                  content {
+                    name        = property.key
+                    type        = property.value.type
+                    description = property.value.description
+                    required    = true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# The same context layer for the Copilot, behind a gateway that takes a handler's own Cognito ID
+# token instead of IAM: each lookup is tied to the handler who asked, and only handlers get in.
+resource "aws_bedrockagentcore_gateway" "staff_context" {
+  name            = "${local.prefix}-staff-context"
+  description     = "The ${var.project} context layer's lookups for the Copilot, as the signed-in handler"
+  role_arn        = aws_iam_role.gateway.arn
+  authorizer_type = "CUSTOM_JWT"
+  protocol_type   = "MCP"
+
+  authorizer_configuration {
+    custom_jwt_authorizer {
+      discovery_url    = local.discovery.staff
+      allowed_audience = data.aws_cognito_user_pool_clients.pool["staff"].client_ids
+      custom_claim {
+        inbound_token_claim_name       = "cognito:groups"
+        inbound_token_claim_value_type = "STRING_ARRAY"
+        authorizing_claim_match_value {
+          claim_match_operator = "CONTAINS_ANY"
+          claim_match_value {
+            match_value_string_list = ["handlers"]
+          }
+        }
+      }
+    }
+  }
+
+  protocol_configuration {
+    mcp {
+      supported_versions = ["2026-07-28", "2025-11-25"]
+    }
+  }
+
+  policy_engine_configuration {
+    arn  = aws_bedrockagentcore_policy_engine.tools.policy_engine_arn
+    mode = "ENFORCE"
+  }
+
+  depends_on = [aws_iam_role_policy.gateway]
+}
+
+resource "aws_bedrockagentcore_gateway_target" "staff_context" {
+  name               = "context"
+  gateway_identifier = aws_bedrockagentcore_gateway.staff_context.gateway_id
+  description        = "The context layer's lookups, invoked on Lambda by ARN"
+
+  credential_provider_configuration {
+    gateway_iam_role {
+      service = "lambda"
+    }
+  }
+
+  target_configuration {
+    mcp {
+      lambda {
+        lambda_arn = data.aws_lambda_function.context.arn
+        tool_schema {
+          dynamic "inline_payload" {
+            for_each = local.tools
+            content {
+              name        = inline_payload.key
+              description = inline_payload.value.description
+              input_schema {
+                type = "object"
+                dynamic "property" {
+                  for_each = inline_payload.value.arguments
+                  content {
+                    name        = property.key
+                    type        = property.value.type
+                    description = property.value.description
+                    required    = true
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -473,12 +725,29 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     }
   }
 
+  # In the platform's private subnets unless NETWORK_MODE=public (network.tf).
   network_configuration {
-    network_mode = "PUBLIC"
+    network_mode = local.private ? "VPC" : "PUBLIC"
+    dynamic "network_mode_config" {
+      for_each = local.private ? [1] : []
+      content {
+        subnets         = local.subnets
+        security_groups = [aws_security_group.workload[0].id]
+      }
+    }
   }
 
   protocol_configuration {
     server_protocol = "HTTP"
+  }
+
+  # Only the api's machine client, with the invoke scope, from the services pool (identity unit).
+  authorizer_configuration {
+    custom_jwt_authorizer {
+      discovery_url   = local.discovery.services
+      allowed_clients = [local.service_clients["${local.prefix}-api"]]
+      allowed_scopes  = ["undercover-agent/invoke"]
+    }
   }
 
   # An idle session ends after 2 minutes, freeing its connections; /ping keeps it while working, up to 8 hours.
@@ -489,7 +758,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
 
   environment_variables = {
     ENVIRONMENT      = var.environment
-    APP_SECRET       = data.aws_secretsmanager_secret.app.name
+    APP_SECRET       = local.app_parameter
     MODEL_PROVIDER   = var.model_provider
     CONTEXT_AWS_AUTH = "true"
     # The context layer through its gateway, signed for AgentCore, with Gateway's tool names.
@@ -501,21 +770,25 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     SCREENING_MODEL     = local.haiku
     SPECIALIST_MODEL    = local.haiku
     DRAFTING_MODEL      = local.haiku
-    UNDERCOVER_API      = trimsuffix(data.aws_lambda_function_url.api.function_url, "/")
+    UNDERCOVER_API      = local.api_endpoint
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
     KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
     CODE_INTERPRETER_ID = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
+    # The agent's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
+    WORKLOAD_NAME          = "${local.prefix}-agent"
+    ANTHROPIC_KEY_PROVIDER = local.key_provider
+    # Its machine token for the api, in place of the shared key (decision 38).
+    API_TOKEN_PROVIDER = "${local.prefix}-api-access"
+    #checkov:skip=CKV_SECRET_6: an OAuth scope name, not a secret
+    API_TOKEN_SCOPE = "undercover-api/agent"
+    # Traces with AWS Distro for OpenTelemetry; the runtime sets the exporter's settings (decision 38).
+    AGENT_OBSERVABILITY_ENABLED = "true"
   }
 
   depends_on = [aws_iam_role_policy.agent, aws_bedrockagentcore_gateway_target.context]
 
   lifecycle {
-    # Spec 26: prod sends claim data only to Bedrock in Australia.
-    precondition {
-      condition     = var.environment != "prod" || local.bedrock
-      error_message = "prod uses Bedrock only (spec 26): set the MODEL_PROVIDER variable to bedrock."
-    }
     precondition {
       condition     = !local.bedrock || (local.sonnet != "none" && local.haiku != "none")
       error_message = "No Australian inference profile for Claude Sonnet 5.5 or Haiku 5.5 here: turn on model access in the Bedrock console, or set sonnet_model and haiku_model."
@@ -523,28 +796,15 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   }
 }
 
-# Tells the api where the agent runs, and the Copilot where the context gateway is, through the
-# app secret they read at start.
+# Tells the api where the agent runs, and the Copilot where its context gateway is, through the
+# app settings they read at start.
 resource "terraform_data" "runtime_arn" {
   triggers_replace = [
     aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn,
-    aws_bedrockagentcore_gateway.context.gateway_url,
+    aws_bedrockagentcore_gateway.staff_context.gateway_url,
   ]
 
   provisioner "local-exec" {
-    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${data.aws_secretsmanager_secret.app.name} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn} CONTEXT_GATEWAY=${aws_bedrockagentcore_gateway.context.gateway_url}"
+    command = "python3 ${path.module}/../../../scripts/fill-secret.py ${local.app_parameter} AGENT_RUNTIME_ARN=${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_arn} CONTEXT_GATEWAY=${aws_bedrockagentcore_gateway.staff_context.gateway_url}"
   }
-}
-
-# The Copilot's role (made by the functions unit) may call the context gateway, and nothing else
-# here: its policy and wording lookups go through the gateway, as the agent's do.
-resource "aws_iam_role_policy" "copilot_gateway" {
-  name = "context-gateway"
-  role = "${local.prefix}-copilot"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      { Effect = "Allow", Action = "bedrock-agentcore:InvokeGateway", Resource = aws_bedrockagentcore_gateway.context.gateway_arn },
-    ]
-  })
 }

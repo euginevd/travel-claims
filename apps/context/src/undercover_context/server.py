@@ -1,8 +1,13 @@
 """The context layer's MCP server: seven read-only lookups over streamable HTTP at /mcp,
-stateless and answering in JSON, with a health check at /health."""
+stateless and answering in JSON, with a health check at /health.
 
+On Lambda AgentCore Gateway invokes the function directly, by its ARN, so it has no
+URL: the Lambda Web Adapter passes each invocation to /events, with the tool's arguments as the
+body and the tool's name in the Lambda context's client context."""
+
+import json
 import os
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -69,6 +74,8 @@ def build_server() -> MCPServer:
         except files.NotFoundError as error:
             raise ToolError(str(error)) from error
 
+    add_gateway_events(server)
+
     @server.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
         """Say the context layer is up."""
@@ -77,10 +84,56 @@ def build_server() -> MCPServer:
     return server
 
 
+def add_gateway_events(server: MCPServer) -> None:
+    """The route AgentCore Gateway's Lambda target reaches, through the Lambda Web Adapter;
+    only on Lambda, where CONTEXT_GATEWAY_EVENTS is set."""
+    if os.environ.get("CONTEXT_GATEWAY_EVENTS") != "true":
+        return
+
+    @server.custom_route("/events", methods=["POST"])
+    async def events(request: Request) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """One tool call from AgentCore Gateway's Lambda target."""
+        return JSONResponse(await gateway_event(server, request))
+
+
+async def gateway_event(server: MCPServer, request: Request) -> Json:
+    """Answer one gateway invocation with the lookup's structured answer, or an error."""
+    name = gateway_tool(request.headers.get("x-amzn-lambda-context", ""))
+    try:
+        arguments = await request.json()
+    except ValueError:
+        arguments = None
+    if name is None or not isinstance(arguments, dict):
+        return {"error": "Not a tool call from the gateway"}
+    try:
+        result = await server.call_tool(name, cast(Json, arguments))
+    except ToolError as error:
+        return {"error": str(error)}
+    structured = getattr(result, "structured_content", None)
+    if getattr(result, "is_error", False) or not isinstance(structured, dict):
+        return {"error": "The lookup failed"}
+    return cast(Json, structured)
+
+
+def gateway_tool(lambda_context: str) -> str | None:
+    """The lookup a gateway invocation names: Gateway puts <target>___<tool> in the client
+    context's custom bedrockAgentCoreToolName; None when it isn't there."""
+    try:
+        context = json.loads(lambda_context)
+    except ValueError:
+        return None
+    client = cast(Json, context).get("client_context") if isinstance(context, dict) else None
+    custom = cast(Json, client).get("custom") if isinstance(client, dict) else None
+    full = cast(Json, custom).get("bedrockAgentCoreToolName") if isinstance(custom, dict) else None
+    if not isinstance(full, str) or not full:
+        return None
+    return full.split("___", 1)[-1]
+
+
 def build_app() -> Starlette:
     """The server as an ASGI app, guarding against DNS rebinding with the allowed hosts."""
     allowed = os.environ.get("CONTEXT_ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
-    # "*" on Lambda (tier 2): its URL is generated, and rebinding only threatens a laptop's server.
+    # "*" on Lambda: its URL is generated, and rebinding only threatens a laptop's server.
     if allowed.strip() == "*":
         security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
     else:

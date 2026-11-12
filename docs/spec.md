@@ -2,9 +2,9 @@
 
 `travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from the UnderCover project in Ed Donner's AI FDE course ([`week3day5-end`](https://github.com/ed-donner/undercover) is the reference for behaviour and data; the code is written fresh, with credit).
 
-Profile: `prototype` (no real users, customer data or payments; every record is made up). What that changes is in [AGENTS.md](../AGENTS.md) rule 24, and the path to `production` in decision 28.
+Profile: `prototype`, for the whole project (decision 31): no real users, customer data or payments, every record made up, and `dev` the only environment. What that changes is in [AGENTS.md](../AGENTS.md) rule 24.
 
-The business and the app at a high level. What each app does: [features.md](features.md); what's next: [TODO.md](../TODO.md), where new requirements start; why: [decisions.md](decisions.md); risks: [threat-model.md](threat-model.md); tier 2's design: [infra/aws/README.md](../infra/aws/README.md).
+The business and the app at a high level. What each app does: [features.md](features.md); what's next: [TODO.md](../TODO.md), where new requirements start; why: [decisions.md](decisions.md); risks: [threat-model.md](threat-model.md); the design: [the AWS architecture](../guides/03-aws-architecture.md).
 
 ## Business
 
@@ -14,8 +14,8 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 - Plans: Economy, Premium and First. A small claims team works the queue by hand.
 - Regulators and laws: APRA (CPS 234 information security, CPS 230 operational risk), ASIC, the Privacy Act (including the automated decision-making rules from 10 December 2026) and the Notifiable Data Breaches scheme.
 - Data: customer data stays in Australia.
-- Risk appetite: low for customer data and payments. Changes ship to `dev` first, and to `prod` after sign-off.
-- Systems: the policy and claims records are the system of record; payments are simulated; handlers sign in with Amazon Cognito (a local stand-in in tier 1).
+- Risk appetite: low for customer data and payments. Changes ship to `dev`, the only environment while the profile is `prototype` (decision 28).
+- Systems: the policy and claims records are the system of record; payments are simulated; handlers sign in with Amazon Cognito (a stand-in locally).
 - People: the head of claims operations owns the claims rules and the approval limit; data governance owns the context layer; the security team approves new data flows.
 - Tone: plain, friendly English; no insurance jargon.
 
@@ -25,10 +25,12 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 2. Goal: an AI agent decides routine claims as accurately as a handler, so handlers spend their time only on claims that need judgement.
 3. Users: customers make and track claims; handlers work the queue, and senior handlers sign off large payouts and can pause payouts; AI engineers evaluate, improve and red-team the agent.
 
-## Tiers
+## Where it runs
 
-4. **Tier 1, local (Docker), built:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only.
-5. **Tier 2, AWS serverless:** built cost-optimised (S3 and CloudFront, Lambda, AgentCore Runtime, Cognito and Bedrock in `ap-southeast-2`, with Supabase and the Anthropic API outside AWS), checked with made-up data, then torn down to save cost; and a planned secure target, AWS-native with Claude on Bedrock only, for real data (decisions 13 and 29). Both are in [infra/aws/README.md](../infra/aws/README.md).
+One design, on AWS (decision 37); Docker only tests it locally.
+
+4. **Locally, to test:** every app on a laptop with `docker compose up`, Claude through the Anthropic API, made-up data only, before a change is deployed.
+5. **On AWS, the design:** S3 and CloudFront, Lambda, AgentCore, Cognito, Aurora DSQL, DynamoDB and Claude on Bedrock only, all in `ap-southeast-2`, in private subnets behind VPC endpoints, with a regulated insurer's platform controls assumed in place; deployed to `dev`, tested with made-up data, then torn down (decisions 30, 36 and 37). Every piece is in the code, and settings decide what's deployed: the default is cost-optimized, and the recommended settings deploy the whole design (decision 39). Design: [the AWS architecture](../guides/03-aws-architecture.md).
 
 ## Apps
 
@@ -39,8 +41,8 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 
 ## Done when
 
-18. **Tier 1:** `docker compose up` runs every feature in [features.md](features.md) end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; the README documents the stack.
-19. **Tier 2:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
+18. **Locally:** `docker compose up` runs every feature in [features.md](features.md) end to end; all checks, injection tests and the red team pass; building and testing costs under $10 of Claude, with spending limits on evaluations and improvement; the README documents the stack.
+19. **On AWS:** the pipeline deploys every app to AWS, every app passes its health check, claim data stays in Australia, and the threat model's controls are in place before the repo goes public.
 
 ## Rules
 
@@ -52,7 +54,7 @@ The limits every feature keeps, whatever else changes.
 23. The agent acts only on its own claim and customer; customer memories are used only for that customer and never in evaluations. The Copilot's memory holds a handler's preferences only, never claim or customer data.
 24. The claim agent and the improver never see the held-out set's answers; only the judge reads a handler's reason, one claim at a time, and keeps nothing.
 25. Every decision is logged with its reasons; personal data is redacted.
-26. Tier 1, and tier 2's `dev` while `MODEL_PROVIDER` is `anthropic`, send only made-up data to the Anthropic API; `prod` sends claim data only to Bedrock in Australia.
+26. Locally, and on AWS while `MODEL_PROVIDER` is `anthropic`, the apps send only made-up data to the Anthropic API; real claim data would go only to Bedrock in Australia.
 27. A payout held for sign-off is never paid without a handler.
 28. Amounts are in US dollars; the drafting assistant converts a receipt in another currency and marks it for the customer to check. Security baseline: OWASP ASVS 5.0 Level 2.
 

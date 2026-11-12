@@ -6,7 +6,7 @@ import { Logo } from "../components/Logo";
 import { prefersStill, SignInScene } from "../components/SignInScene";
 
 // The test accounts: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
-// or the tier 2 demo built with VITE_TEST_SIGN_IN=true. The api signs in a fixed test account.
+// or the AWS demo built with VITE_TEST_SIGN_IN=true. The api signs in a fixed test account.
 export const LOCAL_SIGN_IN =
   import.meta.env.DEV ||
   import.meta.env.VITE_LOCAL_SIGN_IN === "true" ||

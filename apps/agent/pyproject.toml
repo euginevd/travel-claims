@@ -5,10 +5,12 @@ description = "UnderCover's claim agent"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "anthropic[bedrock]==2.4.0",
+    "aws-opentelemetry-distro==0.22.0",
     "boto3==1.43.123",
     "fastapi==0.162.0",
     "httpx2==2.16.0",
     "langgraph==1.2.19",
+    "langgraph-checkpoint-aws==1.2.6",
     "langgraph-checkpoint-postgres==3.2.0",
     "mcp==2.3.0",
     "psycopg[binary]==3.3.7",

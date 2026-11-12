@@ -1,4 +1,4 @@
-"""Tier 2's model switch: Bedrock when MODEL_PROVIDER=bedrock, the Anthropic API otherwise."""
+"""The model switch: Bedrock when MODEL_PROVIDER=bedrock, the Anthropic API otherwise."""
 
 import os
 
@@ -8,7 +8,7 @@ from anthropic.lib.bedrock import AnthropicBedrock
 from pydantic import ValidationError
 
 from undercover_agent.models import claude_client
-from undercover_agent.settings import Settings
+from undercover_agent.settings import Settings, load_vaulted_key
 
 BASE = {"undercover_api_key": "k" * 40, "checkpoint_database_url": "postgresql://x"}
 
@@ -103,3 +103,18 @@ def test_the_first_configuration_holds_the_plain_name() -> None:
     assert plain_name("au.anthropic.claude-sonnet-5-5-v1:0") == "claude-sonnet-5-5"
     assert plain_name("claude-haiku-5-5") == "claude-haiku-5-5"
     assert plain_name("au.anthropic.claude-sonnet-4-5-20250929-v1:0") == "claude-sonnet-4-5"
+
+
+def test_the_vaulted_key_is_fetched_only_with_a_provider_and_workload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_KEY_PROVIDER", raising=False)
+    monkeypatch.setenv("WORKLOAD_NAME", "travel-claims-dev-app")
+    load_vaulted_key(lambda workload, provider: "never")
+    assert "ANTHROPIC_API_KEY" not in os.environ
+    monkeypatch.setenv("ANTHROPIC_KEY_PROVIDER", "travel-claims-dev-anthropic")
+    asked: list[tuple[str, str]] = []
+    load_vaulted_key(lambda workload, provider: asked.append((workload, provider)) or "sk-vault")
+    assert os.environ["ANTHROPIC_API_KEY"] == "sk-vault"
+    assert asked == [("travel-claims-dev-app", "travel-claims-dev-anthropic")]

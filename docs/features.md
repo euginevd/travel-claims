@@ -2,7 +2,7 @@
 
 The agreed features, by app and audience; the agent adds a row when you approve one and updates its status with the work. New requirements start in [TODO.md](../TODO.md), and so do known gaps. Each row here is what the feature does; the rules every feature keeps are in [spec.md](spec.md). How to run it: the [README](../README.md#quick-start). Numbered across the file so reviews can cite them (features 12); the last column is the pull request that first built it.
 
-| App | For | Link (tier 1) |
+| App | For | Link (locally) |
 |---|---|---|
 | [Project page](#project-page-home) | Anyone looking at the project | http://127.0.0.1:5172 |
 | [Customer portal](#customer-portal-portal) | Customers (Oliver Grant) | http://127.0.0.1:5173 |
@@ -27,7 +27,7 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 5 | Receipts in another currency converted to US dollars, the original kept in the description and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
 | 7 | A tracker per claim (received, checked, assessed, decided, paid) with a plain-English reason and an AI disclosure; upload each document asked for, ask a person to review any decision, and get paid to a PayID | Done | #37 |
-| 8 | **Updates**: every email and text, with filters (an outbox in tier 1) | Done | #37 |
+| 8 | **Updates**: every email and text, with filters (an outbox locally) | Done | #37 |
 | 9 | **Wattle AI**: questions about the customer's cover, answered with the policy wording cited; cover per trip | Done | #39 |
 | 10 | Thumbs up or down on Wattle's answers and on each decision's explanation, with an optional comment (spec 21) | Done | #72 |
 
@@ -64,7 +64,13 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 |---|---|---|---|
 | 28 | The hidden-instruction check reads every claim and receipt first, on a separate model; a flagged claim goes to a handler unseen by the claim agent | Done | #2 |
 | 29 | The claim agent with the context layer, specialists (document checker, duplicate receipts, medical reviewer), the customer's earlier claims and claim recovery (heartbeats, retry, a watchdog) | Done | #2 |
-| 30 | Tier 2: the same apps serverless on AWS (spec 5) | Done, torn down to save cost | #46 |
-| 31 | Tier 2's secure target: AWS-native, Claude on Bedrock only, a private network (spec 5) | Planned | |
+| 30 | The same apps serverless on AWS (spec 5) | Done, torn down to save cost | #46 |
+| 31 | Fully AWS-native: Aurora DSQL, DynamoDB checkpoints, Claude on Bedrock only, CloudFront's Free plan with WAF, free-tier alarms and budget (decision 30) | Built, to deploy and test | |
+| 32 | Agent identity on AWS: the Anthropic key in AgentCore Identity's vault, the api's machine token for the agent's runtime, and the Copilot's tools as the signed-in handler (decision 33) | Built, to deploy and test | |
+| 33 | Tool rules and audit on AWS: AgentCore Policy allow-lists per gateway, the context server reached by ARN with no URL, and Bedrock model invocation logging (decision 34) | Built, to deploy and test | |
+| 34 | A private network: the Lambdas, AgentCore Runtime and Code Interpreter in the platform's private subnets behind VPC endpoints, deployed with `NETWORK_MODE=private` (decisions 36 and 39) | Built, to deploy and test | |
+| 35 | Enterprise controls on AWS: DSQL through its own endpoint, output guardrails (grounding and personal data), the agent's machine token for the api, traces and online evaluations, tagged for the platform's backups (decision 38) | Built, to deploy and test | |
+| 36 | Settings for the rest of the enterprise design: API Gateway with JWT authorizers in place of function URLs (off unless set), and staff federation with the company's Okta as reference code, never switched on (decisions 39 and 41) | Built, defaults only to deploy | |
+| 37 | More enterprise patterns, each off unless set: the platform's KMS key on the data, the company's domain on the sites, malware scanning of receipts, personal data masked in logs, and the api's own database role; backup tags on every store with personal data (decision 45) | Built, defaults only to deploy | |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

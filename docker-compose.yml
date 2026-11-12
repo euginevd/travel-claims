@@ -28,7 +28,7 @@ services:
       HANDLER_PASSWORD: ${HANDLER_PASSWORD:-}
       AGENT_URL: http://agent:8080
     volumes:
-      # Customers' receipts, kept under random names; a private S3 bucket in tier 2.
+      # Customers' receipts, kept under random names; a private S3 bucket on AWS.
       - receipts:/data/receipts
     depends_on:
       postgres: { condition: service_healthy }

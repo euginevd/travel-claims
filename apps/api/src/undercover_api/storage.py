@@ -1,5 +1,5 @@
 """Where receipts are kept: a folder locally, or a private S3 bucket when RECEIPTS_BUCKET is set
-(tier 2). Files are stored under random names, never the customer's own, and read back by
+on AWS. Files are stored under random names, never the customer's own, and read back by
 those names."""
 
 import secrets

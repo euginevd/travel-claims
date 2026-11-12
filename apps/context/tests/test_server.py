@@ -117,3 +117,27 @@ async def test_every_lookup_names_its_sources(tool: str, arguments: dict[str, ob
     assert result.structured_content is not None
     for source in result.structured_content["sources"]:
         assert set(source) >= {"file", "system", "owner", "reviewed"}
+
+
+def gateway_call(tool: str, arguments: object) -> dict[str, object]:
+    """One invocation as the Lambda Web Adapter passes it on from AgentCore Gateway."""
+    context = {"client_context": {"custom": {"bedrockAgentCoreToolName": f"context___{tool}"}}}
+    with TestClient(build_app()) as client:
+        response = client.post(
+            "/events", json=arguments, headers={"x-amzn-lambda-context": json.dumps(context)}
+        )
+    return response.json()
+
+
+def test_the_gateways_lambda_target_reaches_the_same_lookups(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CONTEXT_GATEWAY_EVENTS", "true")
+    answer = gateway_call("read_section", {"document": "policy_wording", "number": 1})
+    assert answer["sources"][0]["file"] == "policy_wording.md"  # pyright: ignore[reportIndexIssue]
+    assert "error" in gateway_call("get_plan", {"plan": "platinum"})
+
+
+def test_events_are_off_unless_switched_on() -> None:
+    with TestClient(build_app()) as client:
+        assert client.post("/events", json={}).status_code != 200  # noqa: PLR2004

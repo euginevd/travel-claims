@@ -1,4 +1,4 @@
-# A second tier 1 stack for the browser tests, beside the usual one: every port plus 100, and
+# A second Docker Compose stack for the browser tests, beside the usual one: every port plus 100, and
 # its own database and receipts (the project name keeps the volumes apart).
 services:
   postgres:

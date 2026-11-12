@@ -1,6 +1,6 @@
 # Checklist
 
-The guardrails in DevSecOps stage order. Clear it before real users, customer data, payments or a `prod` deploy (decision 28). How each one works: sdlc-template's [guide 04](https://github.com/euginevd/sdlc-template/blob/main/guides/04-the-guardrails.md); risks accepted instead: [guides/02-security-trade-offs.md](../guides/02-security-trade-offs.md). Tier 2 is torn down, so its rows describe what the code deploys.
+The guardrails in DevSecOps stage order. This project is a prototype throughout (decision 31); clear it before any real users, customer data or payments. How each one works: sdlc-template's [guide 04](https://github.com/euginevd/sdlc-template/blob/main/guides/04-the-guardrails.md); risks accepted instead: [guides/04-security-trade-offs.md](../guides/04-security-trade-offs.md). Tier 2 is torn down, so its rows describe what the code deploys.
 
 | # | Stage | Control | Tool | Profile | Here |
 |---|---|---|---|---|---|
@@ -19,10 +19,10 @@ The guardrails in DevSecOps stage order. Clear it before real users, customer da
 | 13 | Release | Peer review | Second reviewer | Production | Open: one owner (trade-offs 12, decision 28) |
 | 14 | Release | Cost review | Infracost | Both | Done: the cost comment on PRs |
 | 15 | Deploy | AWS account baseline | Root MFA, IAM Identity Center | Both | The owner's account, outside the repo |
-| 16 | Deploy | Least privilege | OIDC, read-only role, `main` only | Both | Done: the bootstrap's plan and deploy roles |
+| 16 | Deploy | Least privilege | OIDC, read-only role, `main` only | Both | Partly: OIDC, a read-only plan role and a boundary on every app role, but the deploy role and boundary are wide for AI features while building; narrowed by the permissions audit once built (decision 32) |
 | 17 | Deploy | Deploy approval | Second reviewer | Production | Open: `dev` deploys unattended |
-| 18 | Deploy | Runtime secrets | Secrets Manager, SSM | Both | Done in tier 2: one secret per environment |
-| 19 | Deploy | API protection | Authoriser, WAF, CORS | Production | Partly: the api checks every token, CloudFront forwards one prefix per app; WAF in tier 2's secure target |
+| 18 | Deploy | Runtime secrets | Secrets Manager, SSM | Both | Done on AWS: one SecureString of settings per environment |
+| 19 | Deploy | API protection | Authoriser, WAF, CORS | Production | Partly: the api checks every token, CloudFront forwards one prefix per app; WAF on the three apps through CloudFront's Free plan (decision 30) |
 | 20 | Operate | Weekly re-scans | `security`, `codeql`, Dependabot | Both | Done |
 | 21 | Operate | Budget alert | AWS Budgets | Both | Open: not in the repo |
 | 22 | Monitor | Access logs, throttling | API Gateway, CloudWatch | Both | Partly: function logs in CloudWatch; no throttling on the function URLs |

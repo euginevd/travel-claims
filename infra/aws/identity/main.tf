@@ -1,4 +1,4 @@
-# One user pool per audience (decisions 10 and 12, tier 2 design 6), email and password, accounts made by an admin.
+# One user pool per audience (decisions 10 and 12), email and password, accounts made by an admin.
 locals {
   audiences = {
     customers   = { group = "customers", description = "Customers of the portal" }
@@ -14,7 +14,7 @@ resource "aws_cognito_user_pool" "audience" {
   user_pool_tier           = "LITE"
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
-  deletion_protection      = var.environment == "prod" ? "ACTIVE" : "INACTIVE"
+  deletion_protection      = "INACTIVE"
 
   admin_create_user_config {
     allow_admin_create_user_only = true
@@ -35,27 +35,60 @@ resource "aws_cognito_user_pool" "audience" {
       priority = 1
     }
   }
+
+  # With company sign-in (staff_sign_in.tf): Okta's groups, then the trigger that turns
+  # them into cognito:groups. Cognito can add a custom attribute but never remove one.
+  dynamic "schema" {
+    for_each = contains(local.sso_pools, each.key) ? ["groups"] : []
+    content {
+      name                = schema.value
+      attribute_data_type = "String"
+      mutable             = true
+
+      string_attribute_constraints {
+        min_length = 0
+        max_length = 2048
+      }
+    }
+  }
+
+  dynamic "lambda_config" {
+    for_each = contains(local.sso_pools, each.key) ? [each.key] : []
+    content {
+      pre_token_generation = aws_lambda_function.sso_groups[lambda_config.value].arn
+    }
+  }
 }
 
 # The web app's client: no secret, since it runs in the browser; the ID token's audience is its ID.
 resource "aws_cognito_user_pool_client" "web" {
   for_each = aws_cognito_user_pool.audience
 
-  name                          = "${var.project}-${var.environment}-${each.key}-web"
-  user_pool_id                  = each.value.id
-  generate_secret               = false
-  explicit_auth_flows           = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
-  prevent_user_existence_errors = "ENABLED"
-  enable_token_revocation       = true
-  id_token_validity             = 1
-  access_token_validity         = 1
-  refresh_token_validity        = 1
+  name                = "${var.project}-${var.environment}-${each.key}-web"
+  user_pool_id        = each.value.id
+  generate_secret     = false
+  explicit_auth_flows = ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
+
+  # With company sign-in: the hosted page's authorization code with PKCE, and no secret.
+  allowed_oauth_flows_user_pool_client = contains(local.sso_pools, each.key) ? true : null
+  allowed_oauth_flows                  = contains(local.sso_pools, each.key) ? ["code"] : null
+  allowed_oauth_scopes                 = contains(local.sso_pools, each.key) ? ["openid", "email", "profile"] : null
+  callback_urls                        = contains(local.sso_pools, each.key) ? local.sso_urls : null
+  logout_urls                          = contains(local.sso_pools, each.key) ? local.sso_urls : null
+  supported_identity_providers         = contains(local.sso_pools, each.key) ? ["COGNITO", local.sso_provider] : null
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  id_token_validity                    = 1
+  access_token_validity                = 1
+  refresh_token_validity               = 1
 
   token_validity_units {
     id_token      = "hours"
     access_token  = "hours"
     refresh_token = "days"
   }
+
+  depends_on = [aws_cognito_identity_provider.sso]
 }
 
 # The api checks the token's group as well as its issuer and audience.

@@ -5,7 +5,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Deployment target, such as dev or prod"
+  description = "Deployment target: dev"
   type        = string
 }
 
@@ -16,7 +16,7 @@ variable "region" {
 }
 
 variable "enabled" {
-  description = "Whether the agent screens customer text with the guardrail; on since the red team held 8 of 8 on AWS (2026-11-10)"
+  description = "Whether the agent applies the guardrails (customer text, answers, letters); on since the red team held 8 of 8 on AWS (2026-11-10)"
   type        = bool
   default     = true
 }

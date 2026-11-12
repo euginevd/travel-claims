@@ -3,7 +3,7 @@ name: aws
 # One Terraform root per deployable unit in infra/aws/<unit>/: plan with a read-only role, apply after approval
 # in the apply environment.
 # dev: a PR plans the units it changes, a merge to main plans every unit and applies the ones with
-# changes; prod: a manual run with target prod promotes main.
+# changes. dev is the only target: a prototype (decision 28).
 # Repository variables: PROJECT_NAME, and optionally AWS_REGION (default ap-southeast-2).
 # Environment variables, set on each aws-<target>-plan and aws-<target>-apply environment from that
 # account's bootstrap stack: AWS_PLAN_ROLE_ARN (plan), AWS_DEPLOY_ROLE_ARN (apply), TF_STATE_BUCKET (both).
@@ -19,7 +19,7 @@ on:
       target:
         description: Environment to deploy to
         type: choice
-        options: [dev, prod]
+        options: [dev]
         default: dev
       unit:
         description: Unit folder under infra/aws/, or all
@@ -49,8 +49,32 @@ env:
   # Optional: Bedrock IDs for Claude; the agent and functions units find Australia's profiles when unset.
   TF_VAR_sonnet_model: ${{ vars.SONNET_MODEL }}
   TF_VAR_haiku_model: ${{ vars.HAIKU_MODEL }}
-  # Which Claude the apps call on AWS: anthropic (the key in the app secret) or bedrock, the default.
+  # Which Claude the apps call on AWS: anthropic (the ANTHROPIC_* secrets, dev only) or bedrock, the default.
   TF_VAR_model_provider: ${{ vars.MODEL_PROVIDER || 'bedrock' }}
+  # Bump to write a new Anthropic key into the settings.
+  TF_VAR_anthropic_key_version: ${{ vars.ANTHROPIC_KEY_VERSION || '1' }}
+  # CloudFront's Free plan (WAF and DDoS) on the apps: false for an account that can't have it (decision 30).
+  TF_VAR_free_plan: ${{ vars.CLOUDFRONT_FREE_PLAN || 'true' }}
+  # Where the alarms are emailed (monitoring unit).
+  TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+  # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the
+  # platform team's private subnets, found by its /platform/network/* parameters (database, functions and agent units).
+  TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
+  # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
+  TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
+  # Staff sign in with the company's Okta through the staff pools (decision 44); empty: off.
+  TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
+  TF_VAR_staff_sign_in_urls: ${{ vars.STAFF_SIGN_IN_URLS }}
+  # Enterprise patterns, each off unless set (decision 45): the platform's KMS data key on the data
+  # stores, settings and logs; the company's domain on the sites; malware scanning of receipts; personal
+  # data masked in the functions' logs; the api's own database role.
+  TF_VAR_encryption_keys: ${{ vars.ENCRYPTION_KEYS || 'aws' }}
+  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+  TF_VAR_malware_scanning: ${{ vars.MALWARE_SCANNING || 'false' }}
+  TF_VAR_log_masking: ${{ vars.LOG_MASKING || 'false' }}
+  TF_VAR_database_app_role: ${{ vars.DATABASE_APP_ROLE || 'false' }}
+  # The share of the agent's live sessions AgentCore Evaluations scores online; 0, the default, turns it off (decision 38).
+  TF_VAR_evaluation_sampling: ${{ vars.EVALUATION_SAMPLING || '0' }}
   # Lookup programs on AgentCore Code Interpreter (plan phase 5): true to switch them on.
   TF_VAR_code_execution: ${{ vars.CODE_EXECUTION || 'false' }}
 
@@ -264,9 +288,12 @@ jobs:
     defaults:
       run:
         working-directory: infra/aws/${{ matrix.unit }}
-    # Passed to the shell as a variable, never pasted into the script.
+    # Passed to the shell as a variable, never pasted into the script. Only the secrets unit gets the
+    # Anthropic key, which its fill script reads from the environment into the settings.
     env:
       UNIT: ${{ matrix.unit }}
+      ANTHROPIC_API_KEY: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_API_KEY || '' }}
+      ANTHROPIC_WORKSPACE_ID: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_WORKSPACE_ID || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

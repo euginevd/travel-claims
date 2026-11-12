@@ -13,7 +13,7 @@
 <img src="https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white" alt="uv">
 <img src="https://img.shields.io/badge/Trivy-1904DA?style=flat-square&logo=trivy&logoColor=white" alt="Trivy">
 
-[Quick start](#quick-start) · [What you get](#what-you-get) · [Built with](#built-with) · [Guides](#guides)
+[Quick start](#quick-start) · [What you get](#what-you-get) · [Architecture](#architecture) · [Built with](#built-with) · [Guides](#guides)
 
 <br>
 
@@ -26,6 +26,9 @@ The full walkthrough, three minutes with captions, plays on the project page ([t
 > Based on the UnderCover project from Ed Donner's AI FDE course ([ed-donner/undercover](https://github.com/ed-donner/undercover)), including its fictional sample data. Built with a secure agentic SDLC from [sdlc-template](https://github.com/euginevd/sdlc-template).
 
 ## Quick start
+
+Docker runs every app on a laptop, to try it or test a change before deploying to AWS ([the runbook](guides/02-aws-runbook.md)).
+
 
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), then clone the repo and run `bash scripts/setup.sh`.
 2. Copy `.env.example` to `.env`, and add an Anthropic API key with its workspace ID.
@@ -40,7 +43,7 @@ The full walkthrough, three minutes with captions, plays on the project page ([t
 5. Browser tests: in [e2e](e2e), `npm ci` and `npx playwright install chromium` once, then `npm run stack` (a second stack on every port plus 100), `npm test` and `npm run stack:down`. The other checks are in [AGENTS.md](AGENTS.md) → Commands.
 6. Start over from a clean queue: `docker compose down -v`, then `up` again (this deletes the local database).
 
-Each claim costs 2 to 4 cents of Claude. On AWS, the pipeline deploys the same apps (tiers below); what was added on 2026-11-11 runs locally and isn't deployed yet.
+Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the design is the AWS build below, which the pipeline deploys. What was added on 2026-11-11 runs locally and isn't deployed yet.
 
 ## What you get
 
@@ -51,50 +54,14 @@ Each claim costs 2 to 4 cents of Claude. On AWS, the pipeline deploys the same a
 | **AI engineers** | A separate assurance console: evaluations against handlers' decisions with a judge's grade, success criteria worked out in code, a **Live** page (straight through, how often handlers disagree, cost, customer feedback) whose disagreements can join the evaluation set, the improver's proposals kept only if they score better and the red team holds, and the red team's eight attacks mapped to the OWASP Top 10 for LLMs |
 | **Security** | A hidden-instruction check and a Bedrock guardrail before any model reads a claim; payments and limits in code, never in a prompt; separate sign-ins and token audiences per app; a [threat model](docs/threat-model.md) with every control |
 
-<img src="docs/assets/dashboard-claim.webp" width="880" alt="A claim in the handlers' dashboard: the stage tracker, the agent's referral with its reason, the customer's words and items, and what the agent checked with the source of each check.">
+## Architecture
 
-```mermaid
-flowchart LR
-  customer([Customers])
-  handler([Handlers])
-  engineer([AI engineers])
+<img src="docs/assets/architecture-overview.png" width="880" alt="UnderCover on AWS, in Sydney: customers, handlers and AI engineers sign in with Cognito and reach the apps through CloudFront and WAF; API Gateway, with its own WAF, checks every token; Lambda (the api, the copilot and the tools) and AgentCore (the agent runtime, a tool gateway under Cedar policy, memory and identity) run in private subnets and call Claude, guardrails and the knowledge base on Amazon Bedrock; data in Aurora DSQL, DynamoDB, S3 and AgentCore Memory, encrypted with the platform's key and backed up, with uploads scanned for malware; staff sign in with the company's Okta; the platform team provides Identity Center, Control Tower, the network, CloudTrail, GuardDuty, Security Hub, backup and keys.">
 
-  portal["<b>portal</b><br/>make claims"]
-  dashboard["<b>dashboard</b><br/>review claims"]
-  console["<b>console</b><br/>evaluate the agent"]
-  api["<b>api</b><br/>claims, payments"]
-  copilot["<b>copilot</b><br/>chat agent"]
-  agent["<b>agent</b><br/>claim agent"]
-  context["<b>context</b><br/>policy wording"]
-  data[("PostgreSQL<br/>and receipts")]
-  claude{{"Claude"}}
+The full diagram, with each step and control: [the AWS architecture guide](guides/03-aws-architecture.md).
 
-  customer --> portal --> api
-  handler --> dashboard --> api
-  engineer --> console --> api
-  dashboard --> copilot --> api
-  copilot -->|lookups| context
-  api -->|decide| agent
-  agent -->|lookups| context
-  agent --> claude
-  copilot --> claude
-  api --> data
-
-  classDef person fill:#fef3c7,stroke:#d97706,color:#1f2937
-  classDef app fill:#dbeafe,stroke:#2563eb,color:#1f2937
-  classDef ai fill:#fde8df,stroke:#d97757,color:#1f2937
-  classDef store fill:#dcfce7,stroke:#16a34a,color:#1f2937
-  classDef external fill:#f3f4f6,stroke:#6b7280,color:#1f2937,stroke-dasharray:4 3
-
-  class customer,handler,engineer person
-  class portal,dashboard,console,api,context app
-  class agent,copilot ai
-  class data store
-  class claude external
-```
-
-| App | What | Runs on (tier 2) |
-|-----|------|------------------|
+| App | What | Runs on (AWS) |
+|-----|------|---------------|
 | `portal` | Customers make and track claims | S3 and CloudFront |
 | `dashboard` | Handlers work the queue, ask customers for documents, sign off payouts and keep the settings | S3 and CloudFront |
 | `console` | AI assurance: evaluations, live monitoring and improvements (quality), the red team and threat coverage (security) | S3 and CloudFront |
@@ -104,15 +71,17 @@ flowchart LR
 | `copilot` | The handlers' chat agent, with confirm cards, a memory of each handler's preferences and each turn's cost | Lambda |
 | `context` | Policy wording, claims manual and reference data as an MCP server | Lambda, behind AgentCore Gateway |
 
-The same apps run two ways (decisions 14 and 29). Rough monthly cost in USD:
+One design, the one a regulated insurer would run, with its platform team's controls assumed in place (decision 37): S3 and CloudFront with WAF, Lambda and AgentCore (Runtime, Gateway with Policy, Memory, Identity, Observability, Evaluations) in private subnets behind VPC endpoints, a Bedrock Knowledge Base and guardrails on what goes in and what comes out, Claude on Bedrock or the Anthropic API, Cognito, Aurora DSQL through its own endpoint and backed up daily, and DynamoDB, all in Sydney. Every piece is managed and scales on its own. The [AWS architecture](guides/03-aws-architecture.md) walks through it end to end.
 
-| Tier | Runs on | Status | Cost a month |
-|------|---------|--------|-------------:|
-| 1 · Local (Docker) | Docker Compose on a laptop, Claude through the Anthropic API | Built | Tokens only |
-| 2 · AWS serverless, as built | S3 and CloudFront, Lambda, AgentCore (Runtime, Gateway, Memory), a Bedrock Knowledge Base and guardrail, Cognito, Supabase | Built, deployed and checked, then torn down to save cost | ≈ $10 (≈ $2 idle) |
-| 2 · AWS serverless, secure target | The same, AWS-native: Aurora in Sydney, Claude on Bedrock only, private subnets, WAF, a multi-account landing zone | Planned: to build, then test | ≈ $100–200 before Claude |
+Rough monthly cost in USD:
 
-The secure target adds control, not scale: tier 2 already scales ([infra/aws/README.md](infra/aws/README.md)). As built, tier 2 is mostly free tiers and pay-per-use, so it can stay up; Supabase's free project pauses after a week without use. Details: [costs.md](docs/costs.md).
+| Deployed as | What changes | Cost a month |
+|------|---------|-------------:|
+| Default (cost-optimized) | No VPC, no API Gateway, no online evaluations | ≈ $0 idle, plus Claude |
+| Recommended (the full design) | `NETWORK_MODE=private`, `API_GATEWAY=true`, `EVALUATION_SAMPLING=10` and the other [settings](guides/03-aws-architecture.md#settings) | ≈ $165 to $220 while up, plus Claude |
+| Locally, to test | Docker Compose on a laptop, Claude through the Anthropic API | Tokens only |
+
+Details: [costs.md](docs/costs.md).
 
 ## Built with
 
@@ -121,7 +90,7 @@ The secure target adds control, not scale: tier 2 already scales ([infra/aws/REA
 | Claude (Sonnet, Haiku) | Decides claims, checks for hidden instructions, drafts, answers questions | [apps/agent](apps/agent/), [apps/copilot](apps/copilot/) |
 | LangGraph | The claim agent and the Copilot, with progress saved after every step | [apps/agent](apps/agent/) |
 | MCP | The context layer's seven lookups, used by the claim agent and the Copilot | [apps/context](apps/context/) |
-| FastAPI, PostgreSQL | The api, its rules and payments; Supabase on AWS | [apps/api](apps/api/) |
+| FastAPI, PostgreSQL | The api, its rules and payments; Aurora DSQL on AWS | [apps/api](apps/api/) |
 | React, Vite | The portal, dashboard and console | [apps/](apps/) |
 | AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [infra/aws/agent](infra/aws/agent/) |
 | Bedrock | The guardrail, the Knowledge Base on S3 Vectors, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
@@ -138,7 +107,8 @@ The secure target adds control, not scale: tier 2 already scales ([infra/aws/REA
 ## Guides
 
 1. [Findings](guides/01-findings.md): what the build found, and what was fixed.
-2. [Security trade-offs](guides/02-security-trade-offs.md): the risks this project accepts, and the fix for production.
-3. [Cleaning up AWS](guides/03-aws-cleanup.md): remove everything from AWS so nothing is charged, prove it, and redeploy.
+2. [Deploying to AWS, and tearing it down](guides/02-aws-runbook.md): from nothing to running in `dev`, and back to nothing, step by step.
+3. [AWS architecture](guides/03-aws-architecture.md): the design end to end, layer by layer, and where the platform team's controls take over.
+4. [Security trade-offs](guides/04-security-trade-offs.md): the risks this project accepts, and the fix for production.
 
-Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); tiers and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).
+Developers start with [AGENTS.md](AGENTS.md), then [docs/](docs/): what's built is in [features.md](docs/features.md), what's next in [TODO.md](TODO.md), and what's left before real users in [checklist.md](docs/checklist.md); where it runs and what done means are in [spec.md](docs/spec.md). To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities through [SECURITY.md](SECURITY.md).

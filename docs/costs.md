@@ -1,20 +1,25 @@
 # Costs
 
-Approximate monthly figures, by tier.
+Approximate monthly figures: locally, where Docker tests the apps, and on AWS, the design.
 
-## Tier 1, local (Docker)
+## Locally (Docker)
 
 1. Claude through the Anthropic API: the only cost, driven by tokens per claim and how often dispatches and evaluations run. A full evaluation and an improvement round cost the most. Cut it with token limits (code-standards 19), prompt caching, Claude Haiku for the hidden-instruction check and the judge, and the five tiny claims for quick runs.
 2. Each improvement round has its own spending limit, and the Anthropic Console's spend limit caps the key.
 3. The judge grades each evaluated claim on Claude Haiku, about $0.002 a claim ($0.05 for all 25). A dispatch costs what its claims do, 2 to 4 cents each (about $0.50 to $1 for the seeded queue), and takes only the claims waiting when it starts.
 3a. The Copilot (Claude Sonnet) shows each turn's steps, time and cost under its answer, about a cent a question; 25 model calls a turn at most. Similar claims, the success criteria, the Live page and feedback are worked out in code and cost nothing. The Live page shows the average cost and time per live claim, and Settings holds a round's spending limit ($0.50 to $10).
 
-## Tier 2, AWS serverless, cost-optimised
+## On AWS
 
-4. Serverless (decision 13): Lambda, AgentCore and Bedrock are paid per use and Supabase's free tier holds the database, so `dev` costs about $2 a month idle and about $10 with demo use, and can stay up. Bedrock tokens are the main cost.
+4. Serverless (decisions 13 and 30): everything but the private network (item 11) is paid per use or free, so with the default settings (decision 39) `dev` costs a few cents a month idle. In use, AgentCore Runtime is the main cost: about $3 to $6 a day of demo use (measured November 2026, findings 7), because each agent task holds a session open while it works, plus Claude tokens.
 5. `dev` budget: under $20 a month, watched by the account's AWS Budgets.
 6. Each PR that changes `infra/aws/` gets a cost comment: the monthly estimate, the change and the top drivers, each with a saving where one applies. It warns above the `MONTHLY_COST_LIMIT` variable and excludes usage, such as model tokens and data transfer.
 
-## Tier 2, secure target *(planned: to build, then test)*
-
-7. AWS-native ([infra/aws/README.md](../infra/aws/README.md) 12 to 19): Aurora Serverless v2 at its minimum, VPC endpoints in two zones, WAF and the landing zone's logging run all the time, so roughly $100 to $200 a month before Bedrock tokens, whether used or not. A rough estimate, not priced against AWS; the PR that builds it gets the cost comment.
+7. Close to $0 idle without the private network (AgentCore Runtime aside while in use, item 4): Aurora DSQL, DynamoDB, Lambda, AgentCore, Cognito and Bedrock are paid per use within free tiers; the app settings are a free SSM parameter; WAF and DDoS protection come with CloudFront's flat-rate Free plan on the three apps; alarms (six of the ten free), SNS email, the budget alert and IAM Access Analyzer are free. A few cents a month for images, logs and stored data, plus Bedrock tokens. Not in this repo's bill, as a platform team runs them for every account (the architecture guide's platform boundary): Firewall Manager and Shield Advanced, GuardDuty, Security Hub, AWS Config, an organization CloudTrail trail, customer-managed KMS keys and Control Tower.
+8. Agent identity (decision 33): AgentCore Identity is free through Runtime and Gateway, and $0.010 per 1,000 token or key requests from the api's and Copilot's Lambdas; Cognito charges about $0.00225 per machine token (the US East rate), with no free tier, and the api reuses each for 50 minutes, so cents a month.
+9. Tool rules and the model-call audit trail (decision 34): AgentCore Policy is $0.000025 per tool call checked; model invocation logs are a few cents of S3 a month, kept 30 days.
+10. The budget alert, backups and Transaction Search are the platform team's, so they aren't in this bill (decision 41).
+11. The private network (decision 36), `NETWORK_MODE=private`, recommended but off by default: the VPC, its endpoints and egress are the platform team's (about $150 to $200 a month in an account of its own, at US East rates); the workload adds DSQL's endpoint, about $15 to $20 a month. `NETWORK_MODE=public` removes it all, so deploy, test, then switch or tear down. Set `MONTHLY_BUDGET` to about 250 while it's up.
+12. Decision 38's controls: the DSQL endpoint about $15 to $20 a month while the private network is up; the output guardrail per text unit checked (a few cents a day of demo use); traces in CloudWatch Logs at its ingestion rate (cents); online evaluations per judge token on `EVALUATION_SAMPLING` per cent of sessions (default 0, off; 10 recommended, cents a day); backups per GB-month of the database, kept 7 days (cents).
+13. Off unless set (decisions 39 and 43): API Gateway's REST API about $3.50 per million requests, and its WAF about $10 a month ($5 for the web ACL, $1 per rule) plus $0.60 per million requests; staff sign-in through the company's Okta is under its existing licence, and Cognito bills federated users at its own per-user rate.
+14. Off unless set (decision 45): the platform's KMS key about $0.03 per 10,000 requests (the key itself is the platform's); a domain's hosted zone about $0.50 a month, certificates free; malware scanning about $0.60 per GB scanned; log masking about $0.12 per GB of logs scanned; the database role free. The backup tags cost nothing here; the platform's backups bill per GB stored.

@@ -20,7 +20,7 @@ it afresh when nothing was saved; the api has already taken the claim for it (re
                                "kind": "run" | "dispatch"}
     POST {AGENT_URL}/improve  {"round_id": 1}
 
-On AgentCore Runtime (tier 2, AGENT_RUNTIME_ARN set) the same requests go through
+On AgentCore Runtime (AGENT_RUNTIME_ARN set) the same requests go through
 invoke_agent_runtime as {"path": "/work", "body": {...}}, with no key: AWS checks the api's
 IAM role first. The agent's /invocations answers {"status": 202, "body": {...}}.
 
@@ -230,7 +230,7 @@ class RuntimeAgentService(HttpAgentService):
 
 def runtime_client(timeout: float = DRAFT_TIMEOUT_SECONDS) -> Any:
     """A Bedrock AgentCore client that tries once: a retry could start the same work twice."""
-    from undercover_api.aws import aws_client  # noqa: PLC0415 - only tier 2 needs it
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only AWS needs it
 
     return aws_client("bedrock-agentcore", read_timeout=timeout)
 

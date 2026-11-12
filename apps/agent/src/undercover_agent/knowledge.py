@@ -1,4 +1,4 @@
-"""The one place the agent reaches the Bedrock Knowledge Base (tier 2): a meaning-based search
+"""The one place the agent reaches the Bedrock Knowledge Base: a meaning-based search
 of the policy wording, one document per section, answered in the context layer's own shape so
 each answer still cites its section."""
 

@@ -4,7 +4,7 @@ import json
 import os
 from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self, cast
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,32 +15,47 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    # Anthropic API locally, Bedrock on AWS (tier 2), where the model settings are Bedrock ids.
+    # Anthropic API locally, Bedrock on AWS, where the model settings are Bedrock ids.
     model_provider: Literal["anthropic", "bedrock"] = "anthropic"
     anthropic_api_key: SecretStr | None = None
     anthropic_workspace_id: str | None = Field(default=None, min_length=1)
     aws_region: str | None = None
-    # Tier 2: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
+    # On AWS: a Bedrock guardrail on customer text before any model reads it, when its ID is set.
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str = "1"
-    # Tier 2: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
+    # On AWS: Ask UnderCover's answers checked against what it read, and letters and drafts
+    # checked for card, bank, tax and identity numbers, before anyone sees them, when set.
+    bedrock_answer_guardrail_id: str | None = None
+    bedrock_answer_guardrail_version: str = "1"
+    bedrock_letter_guardrail_id: str | None = None
+    bedrock_letter_guardrail_version: str = "1"
+    # On AWS: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
     # The service the signature is for: bedrock-agentcore through Gateway, lambda to the URL.
     context_aws_service: Literal["bedrock-agentcore", "lambda"] = "lambda"
     # Gateway names each tool after its target (context___get_claim_rules); none locally.
     context_tool_prefix: str = ""
-    # Tier 2: the customers' memory on AgentCore Memory when set; the Postgres store otherwise.
+    # On AWS: the customers' memory on AgentCore Memory when set; the Postgres store otherwise.
     memory_id: str | None = None
-    # Tier 2: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
+    # On AWS: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
-    # Tier 2: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
+    # On AWS: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
     code_interpreter_id: str | None = None
     agentcore_runtime: bool = False
-    undercover_api_key: SecretStr = Field(min_length=32)
+    # The key the api and the agent share locally. On Runtime with the machine token there's none:
+    # the api calls through Runtime's token check, and the agent calls the api with its token.
+    undercover_api_key: Annotated[SecretStr, Field(min_length=32)] | None = None
+    # On AWS: the agent calls the api with a machine token, which AgentCore Identity fetches from
+    # its vault through this workload identity; with the key above when unset (locally).
+    workload_name: str | None = None
+    api_token_provider: str | None = None
+    api_token_scope: str = "undercover-api/agent"  # noqa: S105 - a scope, not a secret
     undercover_api: str = "http://127.0.0.1:8000"
     undercover_context: str = "http://127.0.0.1:8006/mcp"
-    # psycopg's own form (postgresql://...), where the agent saves each claim's progress.
-    checkpoint_database_url: SecretStr
+    # Where the agent saves each claim's progress: DynamoDB on AWS (decision 30), else PostgreSQL
+    # in psycopg's own form (postgresql://...), which also holds the customers' memory.
+    checkpoint_table: str | None = None
+    checkpoint_database_url: SecretStr | None = None
 
     claim_model: str = "claude-sonnet-5-5"
     claim_effort: str = "medium"
@@ -74,12 +89,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 "MODEL_PROVIDER=anthropic needs ANTHROPIC_API_KEY and ANTHROPIC_WORKSPACE_ID"
             )
+        machine_token = self.workload_name and self.api_token_provider
+        if self.undercover_api_key is None and not (self.agentcore_runtime and machine_token):
+            raise ValueError(
+                "UNDERCOVER_API_KEY is needed unless on Runtime with WORKLOAD_NAME and "
+                "API_TOKEN_PROVIDER"
+            )
         return self
 
 
 def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
-    """On AWS (tier 2), fill in settings from the JSON secret named by APP_SECRET; anything already
-    in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
+    """On AWS, fill in settings from the JSON parameter named by APP_SECRET; what is
+    already in the environment wins. Off AWS there's no APP_SECRET and nothing happens."""
     name = os.environ.get("APP_SECRET")
     if not name:
         return
@@ -89,15 +110,39 @@ def load_app_secret(fetch: Callable[[str], str] | None = None) -> None:
 
 
 def fetch_secret(name: str) -> str:
-    """A secret's value from Secrets Manager, with the role's credentials."""
+    """The settings parameter's decrypted value from SSM, with the role's credentials."""
     import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
-    client = cast(Any, boto3).client("secretsmanager")
-    return str(client.get_secret_value(SecretId=name)["SecretString"])
+    client = cast(Any, boto3).client("ssm")
+    return str(client.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"])
+
+
+def load_vaulted_key(fetch: Callable[[str, str], str] | None = None) -> None:
+    """On AWS with the Anthropic API, the key from AgentCore Identity's token vault,
+    fetched with this app's workload identity; it's in no shared settings. Off AWS, or on
+    Bedrock, ANTHROPIC_KEY_PROVIDER is unset and nothing happens."""
+    provider = os.environ.get("ANTHROPIC_KEY_PROVIDER")
+    workload = os.environ.get("WORKLOAD_NAME")
+    if not provider or not workload or os.environ.get("ANTHROPIC_API_KEY"):
+        return
+    os.environ["ANTHROPIC_API_KEY"] = (fetch or fetch_api_key)(workload, provider)
+
+
+def fetch_api_key(workload: str, provider: str) -> str:
+    """The provider's API key, through a workload access token for this app's identity."""
+    import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+
+    client = cast(Any, boto3).client("bedrock-agentcore")
+    token = client.get_workload_access_token(workloadName=workload)["workloadAccessToken"]
+    reply = client.get_resource_api_key(
+        workloadIdentityToken=token, resourceCredentialProviderName=provider
+    )
+    return str(reply["apiKey"])
 
 
 @lru_cache
 def get_settings() -> Settings:
     """The settings, read once."""
     load_app_secret()
+    load_vaulted_key()
     return Settings()  # pyright: ignore[reportCallIssue] - pydantic-settings fills them in
