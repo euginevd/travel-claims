@@ -1283,17 +1283,6 @@ main.page {
   }
 }
 
-/* Nine links in two groups: a little less padding keeps them on one line beside Wattle.
-   Scoped to the top bar to win over brand.css, which loads after this file. */
-.topbar .topnav a {
-  padding: 0 8px;
-}
-
-.topbar .nav-group + .nav-group {
-  margin-left: 6px;
-  padding-left: 10px;
-}
-
 /* ---------- Trace: outcome, one timeline, security and cost ---------- */
 
 .trace-decision {
@@ -1644,5 +1633,71 @@ main.page {
   .measure-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
+  }
+}
+
+/* ---------- Two-level navigation: Evals or Security up top, that section's pages below ---------- */
+
+.section-switch {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--soft);
+}
+
+.section-switch a {
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.section-switch a:hover {
+  color: var(--ink);
+}
+
+.section-switch a[aria-current="true"] {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(31 30 28 / 8%);
+}
+
+.section-switch a:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
+.topbar .subnav {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 28px 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.topbar .subnav ul {
+  width: max-content;
+}
+
+.topbar .subnav a {
+  padding: 0 12px;
+  min-height: 32px;
+}
+
+@media (max-width: 640px) {
+  .topbar .subnav {
+    padding: 0 16px 6px;
+  }
+
+  .section-switch a {
+    padding: 6px 10px;
   }
 }

@@ -15,7 +15,7 @@ import type { Api, Posture, Severity } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { AGENTS_HREF, COVERAGE_HREF, DETECTIONS_HREF, REDTEAM_HREF } from "../useHashRoute";
+import { COVERAGE_HREF, DETECTIONS_HREF, REDTEAM_HREF } from "../useHashRoute";
 
 const SEVERITY: Record<Severity, { label: string; chip: string; icon: ReactNode }> = {
   high: {
@@ -175,7 +175,7 @@ function Stages({ posture }: { posture: Posture }) {
         title="What we run"
         value={String(inventory.agents)}
         unit="AI agents"
-        link={{ href: AGENTS_HREF, label: "What each could do if tricked" }}
+        link={{ href: COVERAGE_HREF, label: "What each could do if tricked" }}
       >
         <Row label="Claude models">{inventory.models}</Row>
         <Row label="Risks catalogued">{inventory.risks}</Row>

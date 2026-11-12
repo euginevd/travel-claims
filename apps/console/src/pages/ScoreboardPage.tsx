@@ -827,7 +827,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="scoreboard-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Evaluations</p>
+          <p className="eyebrow">Evals · Evaluations</p>
           <h1 id="scoreboard-heading" ref={heading} tabIndex={-1}>
             Scoreboard
           </h1>

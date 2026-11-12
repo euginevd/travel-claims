@@ -1,4 +1,5 @@
 import { CircleCheck, CircleX, LoaderCircle, Lock, Zap } from "lucide-react";
+import { AgentsTable } from "../components/AgentsTable";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, ThreatCoverage } from "../api";
 import { TableScroll } from "../components/TableScroll";
@@ -60,7 +61,7 @@ function Summary({ coverage }: { coverage: ThreatCoverage }) {
 }
 
 /** Each OWASP risk for LLM and agentic apps, its control, the attacks that test it and their last
- * result, when its guardrail last fired, and the payouts switch. The agents have their own page. */
+ * result, when its guardrail last fired, and the payouts switch. Then the agents: what each could do if tricked. */
 export function ThreatsPage({ api }: { api: Api }) {
   const heading = useFocusHeading();
   const [coverage, setCoverage] = useState<ThreatCoverage | null>(null);
@@ -203,6 +204,7 @@ export function ThreatsPage({ api }: { api: Api }) {
               . Read-only here.
             </span>
           </p>
+          <AgentsTable agents={coverage.agents} />
         </>
       )}
     </section>

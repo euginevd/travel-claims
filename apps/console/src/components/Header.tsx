@@ -2,7 +2,7 @@ import { LogOut } from "lucide-react";
 import { Logo } from "./Logo";
 import { ProjectLink, WattleButton } from "./Wattle";
 
-export interface NavGroup {
+export interface NavSection {
   label: string;
   links: { href: string; label: string }[];
 }
@@ -11,7 +11,7 @@ interface HeaderProps {
   name: string;
   detail: string;
   home: string;
-  groups: NavGroup[];
+  sections: NavSection[];
   /** The link for the page the engineer is on. */
   current?: string;
   onSignOut: () => void;
@@ -28,47 +28,37 @@ export function initials(name: string): string {
     .join("");
 }
 
-// The top bar: logo, the navigation in its two groups, Wattle AI, the engineer signed in,
-// sign-out and the way back to the project page. On small screens the navigation takes its own
-// row and scrolls sideways, so nothing pushes the page wide.
+// The top bar: logo, a switch between the two sections, Wattle AI, the engineer signed in,
+// sign-out and the way back to the project page. Under it, the chosen section's pages as tabs:
+// only four at a time. On small screens the tabs scroll sideways, so nothing pushes the page wide.
 export function Header({
   name,
   detail,
   home,
-  groups,
+  sections,
   current,
   onSignOut,
   onAssistant,
 }: HeaderProps) {
+  // The section the page belongs to; the first one when it belongs to none.
+  const active = sections.find((section) => section.links.some((link) => link.href === current)) ??
+    sections[0] ?? { label: "", links: [] };
   return (
     <header className="topbar">
       <div className="topbar-in">
         <a className="brand" href={home} aria-label="UnderCover Claims, home">
           <Logo />
         </a>
-        <nav aria-label="Main" className="topnav">
-          <ul>
-            {groups.map((group) => (
-              <li key={group.label} className="nav-group">
-                <span className="nav-group-label" aria-hidden="true">
-                  {group.label}
-                </span>
-                <ul>
-                  {group.links.map(({ href, label }) => (
-                    <li key={href}>
-                      <a
-                        href={href}
-                        aria-label={`${group.label}: ${label}`}
-                        aria-current={href === current ? "page" : undefined}
-                      >
-                        {label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label="Sections" className="section-switch">
+          {sections.map((section) => (
+            <a
+              key={section.label}
+              href={section.links[0]?.href}
+              aria-current={section === active ? "true" : undefined}
+            >
+              {section.label}
+            </a>
+          ))}
         </nav>
         <div className="topbar-right">
           {onAssistant && <WattleButton onClick={onAssistant} />}
@@ -93,6 +83,21 @@ export function Header({
           <ProjectLink />
         </div>
       </div>
+      <nav aria-label={`${active.label} pages`} className="topnav subnav">
+        <ul>
+          {active.links.map(({ href, label }) => (
+            <li key={href}>
+              <a
+                href={href}
+                aria-label={`${active.label}: ${label}`}
+                aria-current={href === current ? "page" : undefined}
+              >
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </header>
   );
 }

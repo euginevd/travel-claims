@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import { saveToken } from "./session";
-import { fakeFetch, POSTURE, SAM } from "./testing";
+import { fakeFetch, SAM } from "./testing";
 
 beforeEach(() => {
   saveToken(null);
@@ -14,23 +14,21 @@ test("an AI engineer signs in with the test account and lands on the security po
   const fetchFn = fakeFetch({
     "POST /api/engineering/dev/test-sign-in": () => [200, { id_token: "t", expires_in: 3600 }],
     "GET /api/engineering/me": () => [200, SAM],
-    "GET /api/engineering/posture": () => [200, POSTURE],
+    "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
   expect(screen.getByRole("heading", { name: "Every AI decision, measured." })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Continue as Sam" }));
-  expect(
-    await screen.findByRole("heading", { name: "Would we stop an attack?" }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Quality: Scoreboard" })).toHaveAttribute(
+  // Evals first: the scoreboard is home, and only the Evals pages show as tabs.
+  expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Evals" })).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("link", { name: "Evals: Scoreboard" })).toHaveAttribute(
     "href",
     "#/scoreboard",
   );
   expect(screen.getByText("Sam Carter")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Security: Red team" })).toHaveAttribute(
-    "href",
-    "#/redteam",
-  );
+  expect(screen.getByRole("link", { name: "Security" })).toHaveAttribute("href", "#/posture");
+  expect(screen.queryByRole("link", { name: "Security: Red team" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Queue" })).not.toBeInTheDocument();
 });
 
@@ -47,15 +45,13 @@ test("a sign-in check that can't reach the server can be tried again", async () 
   let fail = true;
   const fetchFn = fakeFetch({
     "GET /api/engineering/me": () => (fail ? [500, { detail: "Down" }] : [200, SAM]),
-    "GET /api/engineering/posture": () => [200, POSTURE],
+    "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Down");
   fail = false;
   await user.click(screen.getByRole("button", { name: "Try again" }));
-  expect(
-    await screen.findByRole("heading", { name: "Would we stop an attack?" }),
-  ).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
 });
 
 test("the email sign-in says when the password is wrong, and signing out returns", async () => {

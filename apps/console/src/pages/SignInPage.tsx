@@ -138,7 +138,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               </span>
             </h1>
             <p className="signin-lede rise d4">
-              Quality and security for the claims agent: score it against handlers&apos; decisions,
+              Evals and security for the claims agent: score it against handlers&apos; decisions,
               approve its improvements and attack it with the red team.
             </p>
             <div className="rise d5">

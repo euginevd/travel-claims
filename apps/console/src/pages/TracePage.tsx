@@ -323,7 +323,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
     <section className="view" aria-labelledby="trace-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Trace</p>
+          <p className="eyebrow">Evals · Trace</p>
           <h1 id="trace-heading" ref={heading} tabIndex={-1}>
             Claim trace
           </h1>

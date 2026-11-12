@@ -665,7 +665,7 @@ export function ImprovementPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="improvement-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Improvement</p>
+          <p className="eyebrow">Evals · Improvement</p>
           <h1 id="improvement-heading" ref={heading} tabIndex={-1}>
             Improvement
           </h1>

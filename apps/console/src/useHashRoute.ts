@@ -5,7 +5,6 @@ export type Route =
   | { page: "detections" }
   | { page: "coverage" }
   | { page: "redteam" }
-  | { page: "agents" }
   | { page: "scoreboard" }
   | { page: "live" }
   | { page: "run"; runId: number }
@@ -15,24 +14,27 @@ export type Route =
 const RUN_PATH = /^#\/runs\/(\d+)$/;
 const TRACE_PATH = /^#\/trace\/(CLM-\d{1,10})$/i;
 
-export const POSTURE_HREF = "#/";
+export const HOME_HREF = "#/";
+export const POSTURE_HREF = "#/posture";
 export const DETECTIONS_HREF = "#/detections";
 export const COVERAGE_HREF = "#/coverage";
 export const REDTEAM_HREF = "#/redteam";
-export const AGENTS_HREF = "#/agents";
 export const SCOREBOARD_HREF = "#/scoreboard";
 export const LIVE_HREF = "#/live";
 export const IMPROVEMENT_HREF = "#/improvement";
 export const TRACE_HREF = "#/trace";
-// Threat coverage's old address, kept so saved links still open it.
+// Old addresses, kept so saved links still open their page: threat coverage, and the agents,
+// now a part of coverage.
 const OLD_THREATS_HREF = "#/threats";
+const OLD_AGENTS_HREF = "#/agents";
 
 const PAGES: Record<string, Route> = {
   [DETECTIONS_HREF]: { page: "detections" },
   [COVERAGE_HREF]: { page: "coverage" },
   [OLD_THREATS_HREF]: { page: "coverage" },
   [REDTEAM_HREF]: { page: "redteam" },
-  [AGENTS_HREF]: { page: "agents" },
+  [OLD_AGENTS_HREF]: { page: "coverage" },
+  [POSTURE_HREF]: { page: "posture" },
   [SCOREBOARD_HREF]: { page: "scoreboard" },
   [LIVE_HREF]: { page: "live" },
   [IMPROVEMENT_HREF]: { page: "improvement" },
@@ -46,7 +48,7 @@ export function parseHash(hash: string): Route {
   if (run?.[1]) return { page: "run", runId: Number(run[1]) };
   const trace = TRACE_PATH.exec(hash);
   if (trace?.[1]) return { page: "trace", claimId: trace[1].toUpperCase() };
-  return { page: "posture" };
+  return { page: "scoreboard" };
 }
 
 export function runHref(runId: number): string {

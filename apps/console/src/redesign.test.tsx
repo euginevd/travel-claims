@@ -178,11 +178,11 @@ test("the navigation marks the page the engineer is on", async () => {
     "GET /api/engineering/threats": () => [500, { detail: "Down" }],
   });
   const pages: [string, string][] = [
-    ["#/runs/3", "Quality: Scoreboard"],
-    ["#/improvement", "Quality: Improvement"],
-    ["#/trace", "Quality: Trace"],
+    ["#/runs/3", "Evals: Scoreboard"],
+    ["#/improvement", "Evals: Improvement"],
+    ["#/trace", "Evals: Trace"],
     ["#/threats", "Security: Coverage"],
-    ["#/agents", "Security: Agents"],
+    ["#/agents", "Security: Coverage"],
   ];
   for (const [hash, name] of pages) {
     window.location.hash = hash;

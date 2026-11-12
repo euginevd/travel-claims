@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
 import { AskWattle } from "./components/AskWattle";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Header, type NavGroup } from "./components/Header";
+import { Header, type NavSection } from "./components/Header";
 import { Logo } from "./components/Logo";
-import { AgentsPage } from "./pages/AgentsPage";
 import { DetectionsPage } from "./pages/DetectionsPage";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { LivePage } from "./pages/LivePage";
@@ -17,9 +16,9 @@ import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
-  AGENTS_HREF,
   COVERAGE_HREF,
   DETECTIONS_HREF,
+  HOME_HREF,
   IMPROVEMENT_HREF,
   LIVE_HREF,
   POSTURE_HREF,
@@ -57,8 +56,9 @@ function guarded(api: Api, signOut: () => void): Api {
   return wrapped as unknown as Api;
 }
 
-/** The AI assurance console, security first. Security: the posture, detections, coverage, the red
- * team and the agents. Quality: evaluations, live behaviour, improvement rounds and traces. */
+/** The AI assurance console, evals first. Evals: the scoreboard, live behaviour, improvement
+ * rounds and traces. Security: the posture, detections, coverage with the agents, and the red
+ * team. */
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [person, setPerson] = useState<Engineer | null>(null);
@@ -102,7 +102,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   const signedIn = useCallback((newToken: string) => {
     saveToken(newToken);
     setToken(newToken);
-    window.location.hash = POSTURE_HREF;
+    window.location.hash = HOME_HREF;
   }, []);
 
   if (token && !person && meError) {
@@ -139,8 +139,8 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
       <Header
         name={person.name}
         detail={person.role}
-        home={POSTURE_HREF}
-        groups={NAV}
+        home={HOME_HREF}
+        sections={NAV}
         current={currentHref(route)}
         onSignOut={signOut}
         onAssistant={() => {
@@ -163,7 +163,16 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   );
 }
 
-const NAV: NavGroup[] = [
+const NAV: NavSection[] = [
+  {
+    label: "Evals",
+    links: [
+      { href: SCOREBOARD_HREF, label: "Scoreboard" },
+      { href: LIVE_HREF, label: "Live" },
+      { href: IMPROVEMENT_HREF, label: "Improvement" },
+      { href: TRACE_HREF, label: "Trace" },
+    ],
+  },
   {
     label: "Security",
     links: [
@@ -171,16 +180,6 @@ const NAV: NavGroup[] = [
       { href: DETECTIONS_HREF, label: "Detections" },
       { href: COVERAGE_HREF, label: "Coverage" },
       { href: REDTEAM_HREF, label: "Red team" },
-      { href: AGENTS_HREF, label: "Agents" },
-    ],
-  },
-  {
-    label: "Quality",
-    links: [
-      { href: SCOREBOARD_HREF, label: "Scoreboard" },
-      { href: LIVE_HREF, label: "Live" },
-      { href: IMPROVEMENT_HREF, label: "Improvement" },
-      { href: TRACE_HREF, label: "Trace" },
     ],
   },
 ];
@@ -190,7 +189,6 @@ const HREFS: Record<Exclude<Route["page"], "run">, string> = {
   detections: DETECTIONS_HREF,
   coverage: COVERAGE_HREF,
   redteam: REDTEAM_HREF,
-  agents: AGENTS_HREF,
   scoreboard: SCOREBOARD_HREF,
   live: LIVE_HREF,
   improvement: IMPROVEMENT_HREF,
@@ -218,8 +216,6 @@ function page(route: Route, api: Api) {
       return <ThreatsPage api={api} />;
     case "redteam":
       return <RedTeamPage api={api} />;
-    case "agents":
-      return <AgentsPage api={api} />;
     case "scoreboard":
       return <ScoreboardPage api={api} />;
     case "live":

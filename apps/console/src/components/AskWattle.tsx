@@ -27,7 +27,6 @@ export function startersFor(route: Route): string[] {
       return ["Which risks have no test yet?", "How many hidden instructions were screened?"];
     case "posture":
     case "detections":
-    case "agents":
       return [
         "Would an attack get past the hidden-instruction check?",
         "Which OWASP risks have no red-team attack?",

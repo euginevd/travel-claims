@@ -18,7 +18,7 @@ const APPS = [
   {
     name: "console",
     url: CONSOLE,
-    heading: "Would we stop an attack?",
+    heading: "Scoreboard",
     signIn: /Continue as Sam/,
   },
 ];

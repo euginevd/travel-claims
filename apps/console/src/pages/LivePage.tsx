@@ -552,7 +552,7 @@ export function LivePage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="live-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Live</p>
+          <p className="eyebrow">Evals · Live</p>
           <h1 id="live-heading" ref={heading} tabIndex={-1}>
             Live
           </h1>
