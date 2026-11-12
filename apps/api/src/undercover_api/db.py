@@ -1,6 +1,8 @@
 """The api's tables, written once in SQLAlchemy Core for PostgreSQL and, in tests, SQLite."""
 
+import json
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -18,10 +20,39 @@ from sqlalchemy import (
     create_engine,
     text,
 )
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import Dialect, make_url
+from sqlalchemy.types import TypeDecorator, TypeEngine
 
 # Money is held to the cent and read back as a float.
 Money = Numeric(12, 2, asdecimal=False)
+
+# Set on a DSQL engine's dialect (make_engine), which has no JSON column type.
+DSQL_FLAG = "undercover_dsql"
+
+
+class Document(TypeDecorator[Any]):
+    """A JSON document: a JSON column on PostgreSQL and SQLite, and text holding the JSON on
+    Aurora DSQL, which has JSON only at query time. Nothing queries inside a document, so the
+    two behave alike."""
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        if getattr(dialect, DSQL_FLAG, False):
+            return Text()
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value: Any, dialect: Dialect) -> Any:
+        if getattr(dialect, DSQL_FLAG, False) and value is not None:
+            return json.dumps(value)
+        return value
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> Any:
+        if getattr(dialect, DSQL_FLAG, False) and isinstance(value, str):
+            return json.loads(value)
+        return value
+
 
 metadata = MetaData()
 
@@ -32,7 +63,7 @@ customers = Table(
     Column("name", String(200), nullable=False),
     # The email a customer signs in with, lower-cased.
     Column("email", String(320), unique=True),
-    Column("record", JSON, nullable=False),
+    Column("record", Document(), nullable=False),
     # Where the customer's payouts go: a PayID (an email, a mobile number or an ABN).
     Column("payid", String(320)),
 )
@@ -42,7 +73,7 @@ policies = Table(
     metadata,
     Column("policy_id", String(20), primary_key=True),
     Column("customer_id", String(20), ForeignKey("customers.customer_id"), nullable=False),
-    Column("record", JSON, nullable=False),
+    Column("record", Document(), nullable=False),
 )
 
 # The AI engineers who evaluate, improve and red-team the agent, in their own console.
@@ -77,9 +108,9 @@ claims = Table(
     Column("incident_location", String(200), nullable=False),
     Column("summary", Text, nullable=False),
     Column("story", Text, nullable=False),
-    Column("items", JSON, nullable=False),
+    Column("items", Document(), nullable=False),
     Column("amount_claimed", Money, nullable=False),
-    Column("documents", JSON, nullable=False),
+    Column("documents", Document(), nullable=False),
     Column("status", String(30), nullable=False),
     # The thread of the attempt in progress, and how many attempts there have been.
     Column("thread_id", String(100)),
@@ -107,8 +138,8 @@ labelled_claims = Table(
     Column("claim_id", String(20), primary_key=True),
     Column("label_set", String(20), nullable=False),
     Column("tiny", Boolean, nullable=False),
-    Column("claim", JSON, nullable=False),
-    Column("label", JSON, nullable=False),
+    Column("claim", Document(), nullable=False),
+    Column("label", Document(), nullable=False),
     # The AI engineer who added a live claim a handler disagreed on, and when; none if seeded.
     Column("added_by", String(200)),
     Column("added_at", String(32)),
@@ -146,7 +177,7 @@ runs = Table(
     Column("started_by", String(200), nullable=False),
     Column("started_at", String(32), nullable=False),
     Column("finished_at", String(32)),
-    Column("scores", JSON),
+    Column("scores", Document()),
     # When the judge took the run's explanations to grade; none if it was never asked.
     Column("grading_since", String(32)),
 )
@@ -157,7 +188,7 @@ dispatches = Table(
     metadata,
     Column("dispatch_id", Integer, primary_key=True, autoincrement=True),
     Column("concurrency", Integer, nullable=False),
-    Column("claim_ids", JSON, nullable=False),
+    Column("claim_ids", Document(), nullable=False),
     # running, finished or stopped
     Column("status", String(20), nullable=False),
     Column("started_by", String(200), nullable=False),
@@ -192,9 +223,9 @@ rounds = Table(
     Column("baseline_eval_run", Integer),
     Column("baseline_held_run", Integer),
     Column("candidate_held_run", Integer),
-    Column("proposal", JSON),
-    Column("review", JSON),
-    Column("verdict", JSON),
+    Column("proposal", Document()),
+    Column("review", Document()),
+    Column("verdict", Document()),
     Column("improver_cost", Numeric(12, 6, asdecimal=False), nullable=False, default=0),
     Column("spend_limit", Money, nullable=False),
     Column("started_by", String(200), nullable=False),
@@ -224,7 +255,7 @@ decisions = Table(
     Column("claim_id", String(20), ForeignKey("claims.claim_id"), primary_key=True),
     Column("decision", String(10), nullable=False),
     Column("payout", Money, nullable=False),
-    Column("calculation", JSON),
+    Column("calculation", Document()),
     Column("section", Text, nullable=False),
     Column("reason", Text, nullable=False),
     Column("decided_by", String(200), nullable=False),
@@ -236,9 +267,9 @@ decisions = Table(
     Column("signed_off_at", String(32)),
     Column("signed_off_by_id", String(20)),
     # What the agent checked, each line with its result and the source it relied on.
-    Column("checklist", JSON),
+    Column("checklist", Document()),
     # A senior handler's override: the decision before, the reason code, note, who and when.
-    Column("override", JSON),
+    Column("override", Document()),
 )
 
 sent_back = Table(
@@ -246,7 +277,7 @@ sent_back = Table(
     metadata,
     Column("sent_back_id", Integer, primary_key=True, autoincrement=True),
     Column("claim_id", String(20), ForeignKey("claims.claim_id"), nullable=False, index=True),
-    Column("decision", JSON, nullable=False),
+    Column("decision", Document(), nullable=False),
     Column("note", Text, nullable=False),
     Column("sent_back_by", String(200), nullable=False),
     Column("sent_back_at", String(32), nullable=False),
@@ -340,7 +371,7 @@ claim_drafts = Table(
     "claim_drafts",
     metadata,
     Column("customer_id", String(20), ForeignKey("customers.customer_id"), primary_key=True),
-    Column("data", JSON, nullable=False),
+    Column("data", Document(), nullable=False),
     Column("updated_at", String(32), nullable=False),
 )
 
@@ -350,7 +381,7 @@ calculations = Table(
     metadata,
     Column("claim_id", String(20), ForeignKey("claims.claim_id"), primary_key=True),
     Column("thread_id", String(100), nullable=False),
-    Column("lines", JSON, nullable=False),
+    Column("lines", Document(), nullable=False),
     Column("payout", Money, nullable=False),
     Column("calculated_at", String(32), nullable=False),
 )
@@ -363,7 +394,7 @@ steps = Table(
     Column("thread_id", String(100)),
     Column("kind", String(20), nullable=False),
     Column("content", Text, nullable=False),
-    Column("sources", JSON, nullable=False),
+    Column("sources", Document(), nullable=False),
     Column("created_at", String(32), nullable=False),
 )
 
@@ -386,7 +417,7 @@ settings = Table(
     "settings",
     metadata,
     Column("key", String(50), primary_key=True),
-    Column("value", JSON, nullable=False),
+    Column("value", Document(), nullable=False),
     Column("changed_by", String(200), nullable=False),
     Column("changed_at", String(32), nullable=False),
 )
@@ -397,12 +428,12 @@ setting_changes = Table(
     metadata,
     Column("change_id", Integer, primary_key=True, autoincrement=True),
     Column("key", String(50), nullable=False),
-    Column("value", JSON, nullable=False),
+    Column("value", Document(), nullable=False),
     Column("changed_by", String(200), nullable=False),
     Column("changed_by_id", String(20), nullable=False),
     Column("changed_at", String(32), nullable=False),
     # The value before, and why it changed; the payouts switch keeps its reason in its value.
-    Column("old_value", JSON),
+    Column("old_value", Document()),
     Column("reason", String(200)),
 )
 
@@ -413,7 +444,7 @@ redteam_reports = Table(
     Column("report_id", Integer, primary_key=True, autoincrement=True),
     Column("run_at", String(32), nullable=False),
     Column("run_by", String(200), nullable=False),
-    Column("results", JSON, nullable=False),
+    Column("results", Document(), nullable=False),
 )
 
 # What the api loads from the context layer when seeding: the plans and document versions.
@@ -421,7 +452,7 @@ reference = Table(
     "reference",
     metadata,
     Column("key", String(50), primary_key=True),
-    Column("value", JSON, nullable=False),
+    Column("value", Document(), nullable=False),
 )
 
 
@@ -454,5 +485,7 @@ def make_engine(url: str, role: str | None = None) -> Engine:
         # nothing here uses hstore.
         use_native_hstore=False,
     )
+    # Documents are stored as text there (Document).
+    setattr(engine.dialect, DSQL_FLAG, True)
     sign_in_with_iam(engine)
     return engine

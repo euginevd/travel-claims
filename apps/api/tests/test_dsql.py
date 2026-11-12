@@ -62,10 +62,17 @@ def test_a_lost_race_is_a_409_and_other_errors_stay_errors() -> None:
         asyncio.run(lost_race(request, ValueError("other")))
 
 
+def dsql_dialect() -> Any:
+    """PostgreSQL's dialect, marked as a DSQL engine's is."""
+    dialect = postgresql.dialect()  # pyright: ignore[reportUnknownMemberType]
+    setattr(dialect, db_module.DSQL_FLAG, True)
+    return dialect
+
+
 class FakeDsql:
     """Records each statement; an index build returns a job that finishes."""
 
-    dialect = postgresql.dialect()  # pyright: ignore[reportUnknownMemberType]
+    dialect = dsql_dialect()
 
     def __init__(self) -> None:
         self.statements: list[str] = []
@@ -88,6 +95,29 @@ def test_a_failed_index_build_stops_the_schema(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
     with pytest.raises(RuntimeError, match="couldn't build index"):
         dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
+
+
+def test_the_dsql_schema_has_no_json_columns_or_foreign_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # DSQL has JSON only at query time, and no foreign keys.
+    db = FakeDsql()
+    monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
+    dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
+    tables = [s for s in db.statements if "CREATE TABLE" in s]
+    assert not any(" JSON" in s or "FOREIGN KEY" in s for s in tables)
+    assert any("record TEXT NOT NULL" in s for s in tables)
+
+
+def test_a_document_is_text_holding_json_on_dsql_only() -> None:
+    document = db_module.Document()
+    on_dsql, on_postgres = dsql_dialect(), postgresql.dialect()  # pyright: ignore[reportUnknownMemberType]
+    value = {"amount": 12.5, "items": ["taxi"]}
+    stored = document.process_bind_param(value, on_dsql)
+    assert isinstance(stored, str)
+    assert document.process_result_value(stored, on_dsql) == value
+    assert document.process_bind_param(value, on_postgres) is value
+    assert document.process_result_value(value, on_postgres) is value
 
 
 def inspector(stamped: bool) -> Any:

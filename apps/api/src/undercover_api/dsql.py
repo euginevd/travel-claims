@@ -100,7 +100,14 @@ def create_schema(db: Connection, head: str) -> bool:
     dialect = db.dialect
     for table in metadata.sorted_tables:
         db.exec_driver_sql(
-            dsql_ddl(str(CreateTable(table, if_not_exists=True).compile(dialect=dialect)))
+            dsql_ddl(
+                str(
+                    # DSQL has no foreign keys; the api keeps those links itself.
+                    CreateTable(
+                        table, if_not_exists=True, include_foreign_key_constraints=[]
+                    ).compile(dialect=dialect)
+                )
+            )
         )
         for index in table.indexes:
             ddl = dsql_ddl(str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect)))
