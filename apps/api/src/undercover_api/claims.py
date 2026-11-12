@@ -51,6 +51,7 @@ from undercover_api.models import (
 from undercover_api.notices import announce, announce_requests
 from undercover_api.payout import PolicyTerms
 from undercover_api.redteam import REDTEAM_CUSTOMER
+from undercover_api.seed import QUEUE_LOADED_ON
 
 APPROVAL_LIMIT = "approval_limit"
 PLANS = "plans"
@@ -210,6 +211,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             claims.c.summary,
             claims.c.amount_claimed,
             claims.c.submitted_on,
+            claims.c.source,
             claims.c.status,
             decisions.c.decision,
             decisions.c.payout,
@@ -233,6 +235,9 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             ).group_by(customer_requests.c.claim_id)
         ).all()
     }
+    loaded_on = db.execute(
+        select(reference.c.value).where(reference.c.key == QUEUE_LOADED_ON)
+    ).scalar_one_or_none()
     return [
         ClaimSummary.model_validate(
             dict(r)
@@ -241,7 +246,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
                 "review_requested": r["review_requested_at"] is not None,
                 "stalled": is_stalled(r["status"], r["heartbeat_at"]),
                 "red_team": r["customer_id"] == REDTEAM_CUSTOMER,
-                "due_on": business_days_after(r["submitted_on"], SERVICE_DAYS),
+                "due_on": due_on(r["submitted_on"], r["source"], loaded_on),
                 "documents_in": r["claim_id"] in asked
                 and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]
                 and r["decision"] == DecisionKind.REFER,
@@ -254,6 +259,15 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
 # How long a claim may take before it's overdue, in business days.
 SERVICE_DAYS = 10
 SATURDAY = 5
+
+
+def due_on(submitted_on: str, source: str, loaded_on: str | None) -> str:
+    """Ten business days after a claim was submitted; for a seeded claim, after the later of
+    that and the day the queue was loaded, since its submission date is from the data."""
+    start = submitted_on
+    if source == "seeded" and isinstance(loaded_on, str) and loaded_on > start:
+        start = loaded_on
+    return business_days_after(start, SERVICE_DAYS)
 
 
 def business_days_after(day: str, days: int) -> str:

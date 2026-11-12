@@ -35,8 +35,8 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 11 | **Queue** that opens on what needs the handler, with screened claims flagged; the red team's attack claims are tagged as tests and kept out of what needs the handler | Done | #2 |
-| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and the agent's activity live in plain words; its details, every lookup with what came back, also in plain words | Done | #5 |
+| 11 | **Queue** that opens on what needs the handler, with screened claims flagged; the red team's attack claims are tagged as tests and kept out of what needs the handler; each claim is due ten business days after it was submitted, a seeded claim's clock starting on the day the queue was loaded, so a demo queue isn't overdue months later | Done | #2 |
+| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and what the hidden-instruction check found; while the agent works, one line with its latest step in plain words (the step-by-step trace is the AI assurance console's) | Done | #5 |
 | 13 | **Sign off**, **send back** or **override** with a reason code; approvals under the approval limit pay at once, larger ones wait for a senior handler (spec 27) | Done | #2 |
 | 14 | Ask the customer for documents, and send an AI-drafted letter after editing it | Done | #39 |
 | 15 | **Similar claims**: up to five decided claims of the same type nearest in amount | Done | #72 |

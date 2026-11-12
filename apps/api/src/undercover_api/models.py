@@ -212,7 +212,10 @@ class ClaimSummary(BaseModel):
     decision: DecisionKind | None
     payout: float | None
     review_requested: bool
-    due_on: str = Field(description="Ten business days after it was submitted")
+    due_on: str = Field(
+        description="Ten business days after it was submitted, or for a seeded claim after the "
+        "day the queue was loaded"
+    )
     documents_in: bool = Field(description="The customer has sent everything asked for")
     stalled: bool = Field(
         default=False, description="In progress, but the agent stopped working it"
