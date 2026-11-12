@@ -95,6 +95,7 @@ export const RunSchema = z.object({
 export const RunClaimSchema = z.object({
   claim_id: z.string(),
   original_claim_id: z.string(),
+  claim_type: z.string().optional(),
   summary: z.string(),
   status: StatusSchema,
   decision: DecisionKindSchema.nullable(),

@@ -112,6 +112,7 @@ class RunClaim(BaseModel):
     claim_id: str
     original_claim_id: str
     summary: str
+    claim_type: str = ""
     status: Status
     decision: DecisionKind | None
     payout: float | None
@@ -428,7 +429,10 @@ AgentCalls = Annotated[AgentService, Depends(agent)]
 def start_run(
     body: StartRunRequest, engineer: SignedInEngineer, db: Database, service: AgentCalls
 ) -> Run:
-    """Start an evaluation of the current configuration on a labelled set."""
+    """Start a practice run of the current configuration on the evaluation set. The held-out
+    set is the exam: only an improvement round runs it, so it isn't worn out by hand."""
+    if body.label_set != "evaluation":
+        raise HTTPException(409, "The held-out set is the exam: only an improvement round runs it")
     run_id, ids = create_run(db, body, need_current(db), engineer.name)
     dispatch(db, service, run_id, ids, body.concurrency)
     return run_of(db, run_row(db, run_id))
@@ -553,6 +557,7 @@ def run_claims(db: Connection, run_id: int) -> tuple[list[RunClaim], list[float]
                 claim_id=row["claim_id"],
                 original_claim_id=row["original_claim_id"],
                 summary=row["summary"],
+                claim_type=row["claim_type"],
                 status=row["status"],
                 decision=decision.decision if decision else None,
                 payout=decision.payout if decision else None,

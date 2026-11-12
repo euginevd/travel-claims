@@ -1526,3 +1526,123 @@ main.page {
 .version-list li:first-child {
   border-top: 0;
 }
+
+/* Scoreboard: the exam with each score's likely range, and every version's exam. */
+.score-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 28px;
+}
+
+.measure-list {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.measure-row {
+  display: grid;
+  grid-template-columns: minmax(0, 12em) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.measure-row dt {
+  color: var(--ink-2);
+}
+
+.measure-row dd {
+  margin: 0;
+}
+
+.rangebar {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+  overflow: visible;
+}
+
+.range-band {
+  fill: var(--good-soft);
+  opacity: 0.55;
+}
+
+.range-dot {
+  fill: var(--good);
+}
+
+.range-target {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.range-cell .rangebar {
+  max-width: 200px;
+}
+
+.versionchart {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  overflow: visible;
+}
+
+.vc-axis {
+  stroke: var(--line);
+}
+
+.vc-target {
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+  stroke: var(--ink-2);
+}
+
+.vc-whisker {
+  stroke: var(--good-soft);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.vc-name,
+.vc-value {
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+
+.vc-value {
+  fill: var(--ink);
+}
+
+.compare-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.compare-pick select {
+  max-width: 100%;
+}
+
+.run-more summary {
+  cursor: pointer;
+  color: var(--ink-2);
+}
+
+.tag-exam {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+@media (max-width: 900px) {
+  .score-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .measure-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

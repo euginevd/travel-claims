@@ -12,14 +12,15 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { Api, Configuration, Round, Run, RunClaim, Scores } from "../api";
+import type { Api, Configuration, Round, Run, Scores } from "../api";
 import { AiMark } from "../components/AiMark";
 import { Meter } from "../components/Charts";
+import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
 import { modelName } from "../traceTimeline";
 import { useFocusHeading } from "../useFocusHeading";
-import { runHref, traceHref } from "../useHashRoute";
+import { runHref } from "../useHashRoute";
 import { cost } from "./ScoreboardPage";
 
 const POLL_MS = 3000;
@@ -312,102 +313,18 @@ function BeforeAfter({ round, verdict }: { round: Round; verdict: Verdict }) {
   );
 }
 
-const DECIDED: Record<string, string> = {
-  approve: "Approve",
-  decline: "Decline",
-  refer: "Refer",
-};
-
-function decided(claim: RunClaim | undefined): string {
-  if (!claim?.decision) return "Not decided";
-  return DECIDED[claim.decision] ?? claim.decision;
-}
-
 /** Each exam claim the two versions decided differently, lost ones first. */
 function ClaimByClaim({ api, round }: { api: Api; round: Round }) {
-  const [pairs, setPairs] = useState<[RunClaim | undefined, RunClaim][] | null>(null);
-  const before = round.baseline_held_run;
-  const after = round.candidate_held_run;
-
-  useEffect(() => {
-    if (before === null || after === null) return;
-    let live = true;
-    Promise.all([api.getRun(before), api.getRun(after)]).then(
-      ([old, next]) => {
-        if (!live) return;
-        const byClaim = new Map(old.claims.map((c) => [c.original_claim_id, c]));
-        setPairs(next.claims.map((c) => [byClaim.get(c.original_claim_id), c]));
-      },
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [api, before, after]);
-
-  if (!pairs) return null;
-  const changed = pairs.filter(([old, next]) => old?.decision !== next.decision);
-  const lost = changed.filter(([old, next]) => old?.matched && !next.matched);
-  const gained = changed.filter(([old, next]) => !old?.matched && next.matched);
-  const other = changed.filter((pair) => !lost.includes(pair) && !gained.includes(pair));
+  if (round.baseline_held_run === null || round.candidate_held_run === null) return null;
   return (
-    <section className="claim-by-claim" aria-labelledby={`pairs-${String(round.round_id)}`}>
-      <h3 id={`pairs-${String(round.round_id)}`}>Claim by claim</h3>
-      <p className="small muted">
-        {pairs.length - changed.length} of {pairs.length} claims decided the same. {lost.length} got
-        worse, {gained.length} got better.
-      </p>
-      {changed.length > 0 && (
-        <TableScroll label="Claims decided differently table">
-          <table className="table min-mid">
-            <thead>
-              <tr>
-                <th scope="col">Claim</th>
-                <th scope="col">Handler</th>
-                <th scope="col">v{round.baseline_version}</th>
-                <th scope="col">v{round.candidate_version}</th>
-                <th scope="col">Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...lost, ...gained, ...other].map(([old, next]) => (
-                <tr key={next.original_claim_id}>
-                  <th scope="row" className="prose">
-                    {next.summary}
-                    <span className="sub mono">{next.original_claim_id}</span>
-                  </th>
-                  <td>{next.handler_decision ? (DECIDED[next.handler_decision] ?? "–") : "–"}</td>
-                  <td>
-                    {old ? <a href={traceHref(old.claim_id)}>{decided(old)}</a> : decided(old)}
-                  </td>
-                  <td>
-                    <a href={traceHref(next.claim_id)}>{decided(next)}</a>
-                  </td>
-                  <td>
-                    {old?.matched && !next.matched ? (
-                      <span className="chip chip-bad">
-                        <TrendingDown size={13} strokeWidth={1.75} aria-hidden="true" />
-                        Worse
-                      </span>
-                    ) : !old?.matched && next.matched ? (
-                      <span className="chip chip-good">
-                        <TrendingUp size={13} strokeWidth={1.75} aria-hidden="true" />
-                        Better
-                      </span>
-                    ) : (
-                      <span className="chip">
-                        <CircleMinus size={13} strokeWidth={1.75} aria-hidden="true" />
-                        Different, both wrong
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableScroll>
-      )}
-    </section>
+    <RunDiff
+      api={api}
+      before={round.baseline_held_run}
+      after={round.candidate_held_run}
+      beforeLabel={`v${String(round.baseline_version)}`}
+      afterLabel={`v${String(round.candidate_version)}`}
+      headingId={`pairs-${String(round.round_id)}`}
+    />
   );
 }
 

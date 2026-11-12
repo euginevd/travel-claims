@@ -207,19 +207,20 @@ test("the scoreboard shows the latest scored run's measures and starts the chose
     "POST /api/engineering/runs": () => [200, RUN],
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
-  const headlines = await screen.findByRole("list", { name: "Run 2's headline measures" });
-  expect(within(headlines).getByText("100%")).toBeInTheDocument();
-  // Run 1 is on the evaluation set, so it stays off the held-out run's trend: one point, no line.
-  expect(within(headlines).queryByRole("img", { name: /^Accuracy over/ })).toBeNull();
+  // Run 2 is the only exam: it heads the page, with how sure its score is, and charts alone.
+  expect(await screen.findByRole("heading", { name: /exam/ })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /v1 100% \(likely/ })).toBeInTheDocument();
+  expect(screen.getAllByText("Exam")).toHaveLength(1);
   expect(screen.getByText("Running…")).toBeInTheDocument();
   expect(screen.getByText("Stopped")).toBeInTheDocument();
   expect(screen.getAllByText("Finished")).toHaveLength(2);
 
-  await user.click(screen.getByRole("radio", { name: "Held-out set" }));
+  // A practice run only: the exam is left to improvement rounds.
+  expect(screen.queryByRole("radio", { name: "Held-out set" })).toBeNull();
   await user.click(screen.getByRole("radio", { name: /All 25/ }));
-  await user.click(screen.getByRole("button", { name: "Start the run" }));
+  await user.click(screen.getByRole("button", { name: "Start the practice run" }));
   expect(fetchFn.calls.find((call) => call.method === "POST")?.body).toEqual({
-    label_set: "held_out",
+    label_set: "evaluation",
     size: "whole",
     concurrency: 5,
   });

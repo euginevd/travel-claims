@@ -10,6 +10,7 @@ from test_evaluations import finish, register, start_run, work_all
 from test_flow import approve, claim, pay
 
 from undercover_api.db import payments, setting_changes
+from undercover_api.evaluations import StartRunRequest, create_run, need_current
 
 SETTINGS = "/api/staff/settings"
 CRITERIA = "/api/staff/success-criteria"
@@ -134,7 +135,10 @@ def test_the_criteria_have_no_data_until_a_held_out_run_finishes(
     assert before["signed_off"]["met"] is True
 
     register(client)
-    run_id = start_run(client, sam, "held_out").json()["run_id"]
+    assert start_run(client, sam, "held_out").status_code == 409  # the exam isn't run by hand
+    with engine_of(client).begin() as db:
+        body = StartRunRequest(label_set="held_out", size="tiny", concurrency=5)
+        run_id, _ = create_run(db, body, need_current(db), "Sam Carter")
     work_all(client, run_id, sam, "decline")
     scores = finish(client, run_id)["scores"]
     after = criteria(client, dana)

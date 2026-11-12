@@ -73,7 +73,7 @@ test("criteria with no held-out run say so and what to do", async () => {
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findAllByText("No data")).toHaveLength(2);
   expect(screen.getAllByText("No held-out run yet")).toHaveLength(2);
-  expect(screen.getByText(/Run the held-out set below/)).toBeInTheDocument();
+  expect(screen.getByText(/exam measures the rest/)).toBeInTheDocument();
 });
 
 test("criteria that can't be loaded say so and load on a retry", async () => {
@@ -108,7 +108,7 @@ test("the run form starts from the handlers' number of agents at once", async ()
     ],
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByDisplayValue("8")).toHaveAccessibleName("Claim agents at once");
+  expect(await screen.findByDisplayValue("8")).toHaveAccessibleName("Claims worked at once");
 });
 
 test("figures read as percentages or counts, and the overall line counts them", () => {

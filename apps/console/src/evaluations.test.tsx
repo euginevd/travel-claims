@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createApi, type Round, type Run, type RunClaim, type RunInFull } from "./api";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { RunPage } from "./pages/RunPage";
 import { measures, ScoreboardPage } from "./pages/ScoreboardPage";
+import { rangeText, wilson } from "./stats";
 import { fakeFetch } from "./testing";
 
 const SCORES = {
@@ -86,7 +87,7 @@ test("the measures read as percentages, dollars and seconds", () => {
     "80%",
     "60%",
     "80%",
-    "2.00 of 3",
+    "2.0 of 3",
     "$0.031",
     "22s",
   ]);
@@ -102,7 +103,7 @@ test("an AI engineer starts a run from the scoreboard", async () => {
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("link", { name: "Run 3" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Start the run" }));
+  await userEvent.click(screen.getByRole("button", { name: "Start the practice run" }));
   expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === "/api/engineering/runs")).toBe(
     true,
   );
@@ -265,4 +266,55 @@ test("a run that can't load says why, and a resume that fails says so", async ()
   render(<RunPage api={createApi(failing, () => "t")} runId={3} />);
   await user.click(await screen.findByRole("button", { name: /Carry on/ }));
   expect(await screen.findByText("Already running")).toBeInTheDocument();
+});
+
+test("the scoreboard charts each version's exam, scores claim types and compares two runs", async () => {
+  const user = userEvent.setup();
+  const exam = (run_id: number, version: number, accuracy: number): Run => ({
+    ...RUN,
+    run_id,
+    label_set: "held_out",
+    size: "whole",
+    config_version: version,
+    round_id: 1,
+    scores: { ...SCORES, claims: 25, accuracy },
+  });
+  const typed = (decision: "approve" | "refer", matched: boolean): RunInFull["claims"] =>
+    RUN_IN_FULL.claims.map((claim, index) => ({
+      ...claim,
+      claim_type: index === 0 ? "baggage" : "trip_delay",
+      decision: index === 0 ? claim.decision : decision,
+      matched: index === 0 ? claim.matched : matched,
+    }));
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/runs": () => [200, [exam(6, 2, 0.84), exam(5, 1, 0.6), RUN]],
+    "GET /api/engineering/configuration": () => [200, []],
+    "GET /api/engineering/runs/6": () => [
+      200,
+      { ...exam(6, 2, 0.84), claims: typed("refer", true) },
+    ],
+    "GET /api/engineering/runs/5": () => [
+      200,
+      { ...exam(5, 1, 0.6), claims: typed("approve", false) },
+    ],
+  });
+  render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
+
+  // Both versions' exams on one chart, each with its likely range; claim types weakest first.
+  expect(await screen.findByRole("img", { name: /v1 60% .*v2 84%/ })).toBeInTheDocument();
+  const types = await screen.findByRole("region", { name: "By claim type table" });
+  const [, first] = within(types).getAllByRole("row");
+  expect(first).toHaveTextContent("Baggage");
+
+  // The latest two exams compared: the trip delay claim went from wrong to right.
+  const diff = await screen.findByRole("region", { name: "Claims decided differently table" });
+  expect(within(diff).getByText("Better")).toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Before"), "6");
+  expect(screen.getByText("Pick two different runs.")).toBeInTheDocument();
+});
+
+test("a range stays honest at the edges of a small test", () => {
+  expect(rangeText(wilson(1, 5))).toBe("57–100%");
+  expect(rangeText(wilson(0.84, 25))).toBe("65–94%");
+  expect(wilson(0.5, 0)).toBeNull();
 });
