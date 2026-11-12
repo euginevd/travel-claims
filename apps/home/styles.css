@@ -351,7 +351,7 @@ h1 em {
   border: 1px solid var(--ring);
   border-radius: 28px;
   background: radial-gradient(120% 90% at 100% 100%, var(--wash-blush) 0%, var(--bg) 60%);
-  box-shadow: 0 40px 80px -40px rgb(120 80 60 / 35%);
+  box-shadow: var(--lift);
 }
 
 .dots {
@@ -380,7 +380,71 @@ h1 em {
 
 video.screen {
   aspect-ratio: 16 / 9;
+  background: var(--soft);
+}
+
+/* One play button on the poster; the browser's controls come only once it plays. */
+.browser {
+  position: relative;
+}
+
+.play {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 8px;
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  background: var(--bg);
+  box-shadow: var(--lift-hover);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.25s var(--ease);
+}
+
+.play:hover {
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+.play:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+
+.play[hidden] {
+  display: none;
+}
+
+.play b {
+  font-weight: 600;
+}
+
+.play small {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.play-tile {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   background: var(--ink);
+  color: var(--bg);
+}
+
+.play-tile svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .screen[hidden] {

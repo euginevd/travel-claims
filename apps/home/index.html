@@ -7,12 +7,13 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-MUfvSwZooqwyvokaTx856BLW/F2V7r/Rh0+CXNxZkGHKSIGQbPVI38EieZq2DH5w" />
-    <script src="app.js" integrity="sha384-ugu5nfe2laqFYM4KIM3WRu8GSIMYXM0puthKAl75EkHnC2hErx+VsM7o0B2UuONK" defer></script>
+    <link rel="stylesheet" href="styles.css" integrity="sha384-mfwWyxUbTy2/HGc0ErOQcmel9egdYQkMPXDMi6sVv+FBAn8Xqn5gMuPVlCtss9o/" />
+    <script src="app.js" integrity="sha384-eucSglE+ZIZCo7MxFkrIGD9SM0VFnaAQzDuCRsLq7NDT/Jsx5QRKzCyMuLpjZSiJ" defer></script>
   </head>
   <body>
     <svg width="0" height="0" class="sprite" aria-hidden="true">
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></symbol>
     </svg>
     <div class="page-glow" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
 
@@ -29,16 +30,17 @@
       <!-- What it is -->
       <section class="hero">
         <div class="wrap">
-          <p class="pill-eb rise">Working pilot</p>
+          <p class="pill-eb rise">Working prototype</p>
           <h1 class="rise d1">AI agents decide the routine claims. <em>Claims experts decide the rest.</em></h1>
-          <p class="lede rise d2">UnderCover is an end-to-end AI agents system for travel insurance claims. Customers claim online, each AI decision cites its sources, and a person signs off the larger payouts. Every decision is traced end to end and tested against unseen claims and attack claims.</p>
+          <p class="lede rise d2">UnderCover is an AI agents system for travel insurance claims, built end to end on AWS. Customers claim online, every AI decision cites its sources, and a person signs off the larger payouts. Each decision is traced, scored against claims the agent has never seen, and tested with attack claims.</p>
 
-          <!-- The walkthrough: a still for now, a player once app.js names the recording -->
+          <!-- The walkthrough: a still, or once app.js names the recording, its poster and one play button -->
           <figure class="stage rise d3">
             <div class="browser">
               <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
               <img class="screen" id="walkthrough-still" src="img/portal.jpg" alt="The customer portal" width="1280" height="800" />
               <video class="screen" id="walkthrough" hidden playsinline preload="metadata" poster="img/walkthrough-poster.jpg" width="1600" height="900" aria-label="A walkthrough of the apps, end to end"></video>
+              <button type="button" class="play" id="walkthrough-play" hidden><span class="play-tile"><svg aria-hidden="true"><use href="#i-play" /></svg></span><b>Watch the walkthrough</b><small>3 minutes</small></button>
           </div>
             <figcaption class="soon" id="walkthrough-soon">Walkthrough video coming soon</figcaption>
           </figure>
