@@ -53,10 +53,13 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 21 | **Scoreboard**: evaluation runs on the evaluation or held-out set, tiny (5 claims) or full (25), 1 to 25 agents at once, restart-safe, with scores and misses against the handlers' decisions | Done | #9 |
 | 22 | The judge's grade of each explanation against the handler's: 0 to 3, same grounds, same section (spec 24) | Done | #70 |
 | 23 | **Success criteria** worked out in code: straight through and held-out accuracy against their objectives, and no payment over the limit without a person | Done | #72 |
-| 24 | **Trace**: any claim's steps, model calls, tokens and cost | Done | #38 |
+| 24 | **Trace**: any claim's steps, model calls, tokens and cost; it suggests the live claim with the most model calls lately, and every claim number on Detections, Red team and Live opens its trace | Done | #38 |
 | 25 | **Live**: straight through, handler disagreement, referrals, flags, cost and time by day, and customer feedback; **Add to evaluation set** turns an override or send-back into a labelled evaluation claim | Done | #72 |
 | 26 | **Improvement**: the improver's prompt proposals, kept only if they score better and the red team still holds | Done | #9 |
-| 27 | **Red team**: eight attacks against the agent, each mapped to the OWASP Top 10 for LLMs; **Threats**: each risk with its controls | Done | #8 |
+| 27 | **Red team**: eight attacks against the agent, each mapped to the OWASP Top 10 for LLMs, each run tagged with the claim agent version it attacked; **Coverage**: each risk with its controls | Done | #8 |
+| 37 | **Posture**, the console's home, for an AI security engineer: a verdict, four stage cards (what runs, controls, gaps, detections with readiness), defence in depth (which layer stopped each of the latest run's attacks, untested layers marked) and the gaps to close, all worked out in code | Done | |
+| 38 | **Detections**: each control that fired on a live claim (hidden-instruction check, Bedrock guardrail, model refusal, payout held), by period and control, the record's reason as text | Done | |
+| 39 | **Agents**: each model's tools, what it reads, the worst it could do if tricked and what stops it | Done | |
 
 ## Behind every app
 

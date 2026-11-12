@@ -386,6 +386,7 @@ class RedTeamReport(BaseModel):
     run_at: str
     run_by: str
     results: list[RedTeamResult]
+    config_version: int | None = None
 
 
 class Source(Strict):

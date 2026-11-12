@@ -1137,3 +1137,159 @@ main.page {
   padding: 5px 12px;
   font-size: 0.85rem;
 }
+
+/* ---------- Security posture ---------- */
+
+.kpis.stages {
+  margin: 4px 0;
+}
+
+.stage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.stage-step {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 0.76rem;
+}
+
+.stage-rows {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+}
+
+.stage-rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.stage-rows dt {
+  color: var(--ink-2);
+}
+
+.stage-rows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stage-link {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.layers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+}
+
+/* No attack reached it: a faint coral hatch, with the word "Untested" saying so. */
+.layer.untested {
+  border-color: var(--acc-edge);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bg),
+    var(--bg) 8px,
+    var(--acc-tint) 8px,
+    var(--acc-tint) 16px
+  );
+}
+
+.layer h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.layer p {
+  margin: 0;
+}
+
+.layer-step {
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.layer-meter {
+  display: flex;
+  gap: 3px;
+  margin: auto 0 0;
+  padding: 10px 0 2px;
+  list-style: none;
+}
+
+.layer-meter li {
+  flex: 1;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--line-2);
+}
+
+.layer-meter li.stopped {
+  background: var(--good);
+}
+
+.layer-meter li.passed {
+  background: var(--edge);
+}
+
+.layer-result {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.layer .chip {
+  align-self: flex-start;
+  white-space: normal;
+}
+
+@media (max-width: 1050px) {
+  .layers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .layers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Nine links in two groups: a little less padding keeps them on one line beside Wattle.
+   Scoped to the top bar to win over brand.css, which loads after this file. */
+.topbar .topnav a {
+  padding: 0 8px;
+}
+
+.topbar .nav-group + .nav-group {
+  margin-left: 6px;
+  padding-left: 10px;
+}

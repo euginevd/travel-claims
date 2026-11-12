@@ -5,6 +5,7 @@ import { RingChart } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
+import { traceHref } from "../useHashRoute";
 
 // How often the page checks on a run while it's going.
 export const REDTEAM_POLL_MS = 3000;
@@ -104,7 +105,10 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                 </strong>
               </p>
               <p className="muted">
-                Run by {report.run_by}, {when(report.run_at)}.{" "}
+                Run by {report.run_by}, {when(report.run_at)}
+                {report.config_version === null
+                  ? "."
+                  : `, against claim agent version ${String(report.config_version)}.`}{" "}
                 {dollars(report.results.reduce((sum, result) => sum + result.paid, 0))} paid across
                 the attack claims.
               </p>
@@ -190,7 +194,11 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                   <tr key={result.attack_id}>
                     <th scope="row" className="nowrap">
                       <span className="tag mono">{result.attack_id}</span>
-                      {result.claim_id && <span className="sub mono">{result.claim_id}</span>}
+                      {result.claim_id && (
+                        <a className="sub mono" href={traceHref(result.claim_id)}>
+                          {result.claim_id}
+                        </a>
+                      )}
                     </th>
                     <td className="prose">
                       <strong>{result.name}</strong>

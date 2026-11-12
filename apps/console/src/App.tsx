@@ -4,8 +4,11 @@ import { AskWattle } from "./components/AskWattle";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header, type NavGroup } from "./components/Header";
 import { Logo } from "./components/Logo";
+import { AgentsPage } from "./pages/AgentsPage";
+import { DetectionsPage } from "./pages/DetectionsPage";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { LivePage } from "./pages/LivePage";
+import { PosturePage } from "./pages/PosturePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
@@ -14,11 +17,14 @@ import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
+  AGENTS_HREF,
+  COVERAGE_HREF,
+  DETECTIONS_HREF,
   IMPROVEMENT_HREF,
   LIVE_HREF,
+  POSTURE_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
-  THREATS_HREF,
   TRACE_HREF,
   useHashRoute,
   type Route,
@@ -51,7 +57,8 @@ function guarded(api: Api, signOut: () => void): Api {
   return wrapped as unknown as Api;
 }
 
-/** The AI assurance console. Quality: evaluations and improvement rounds. Security: the red team. */
+/** The AI assurance console, security first. Security: the posture, detections, coverage, the red
+ * team and the agents. Quality: evaluations, live behaviour, improvement rounds and traces. */
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [person, setPerson] = useState<Engineer | null>(null);
@@ -95,7 +102,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   const signedIn = useCallback((newToken: string) => {
     saveToken(newToken);
     setToken(newToken);
-    window.location.hash = SCOREBOARD_HREF;
+    window.location.hash = POSTURE_HREF;
   }, []);
 
   if (token && !person && meError) {
@@ -132,7 +139,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
       <Header
         name={person.name}
         detail={person.role}
-        home={SCOREBOARD_HREF}
+        home={POSTURE_HREF}
         groups={NAV}
         current={currentHref(route)}
         onSignOut={signOut}
@@ -158,43 +165,70 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
 
 const NAV: NavGroup[] = [
   {
+    label: "Security",
+    links: [
+      { href: POSTURE_HREF, label: "Posture" },
+      { href: DETECTIONS_HREF, label: "Detections" },
+      { href: COVERAGE_HREF, label: "Coverage" },
+      { href: REDTEAM_HREF, label: "Red team" },
+      { href: AGENTS_HREF, label: "Agents" },
+    ],
+  },
+  {
     label: "Quality",
     links: [
       { href: SCOREBOARD_HREF, label: "Scoreboard" },
       { href: LIVE_HREF, label: "Live" },
       { href: IMPROVEMENT_HREF, label: "Improvement" },
-      { href: TRACE_HREF, label: "Claim trace" },
-    ],
-  },
-  {
-    label: "Security",
-    links: [
-      { href: REDTEAM_HREF, label: "Red team" },
-      { href: THREATS_HREF, label: "Threat coverage" },
+      { href: TRACE_HREF, label: "Trace" },
     ],
   },
 ];
 
+const HREFS: Record<Exclude<Route["page"], "run">, string> = {
+  posture: POSTURE_HREF,
+  detections: DETECTIONS_HREF,
+  coverage: COVERAGE_HREF,
+  redteam: REDTEAM_HREF,
+  agents: AGENTS_HREF,
+  scoreboard: SCOREBOARD_HREF,
+  live: LIVE_HREF,
+  improvement: IMPROVEMENT_HREF,
+  trace: TRACE_HREF,
+};
+
 /** The navigation link for a route; a run belongs to the scoreboard. */
 function currentHref(route: Route): string {
-  if (route.page === "live") return LIVE_HREF;
-  if (route.page === "improvement") return IMPROVEMENT_HREF;
-  if (route.page === "redteam") return REDTEAM_HREF;
-  if (route.page === "trace") return TRACE_HREF;
-  if (route.page === "threats") return THREATS_HREF;
-  return SCOREBOARD_HREF;
+  return route.page === "run" ? SCOREBOARD_HREF : HREFS[route.page];
 }
 
 function routeKey(route: Route): string {
-  return route.page === "run" ? `run:${String(route.runId)}` : route.page;
+  if (route.page === "run") return `run:${String(route.runId)}`;
+  if (route.page === "trace") return `trace:${route.claimId ?? ""}`;
+  return route.page;
 }
 
 function page(route: Route, api: Api) {
-  if (route.page === "run") return <RunPage key={route.runId} api={api} runId={route.runId} />;
-  if (route.page === "live") return <LivePage api={api} />;
-  if (route.page === "improvement") return <ImprovementPage api={api} />;
-  if (route.page === "redteam") return <RedTeamPage api={api} />;
-  if (route.page === "trace") return <TracePage api={api} />;
-  if (route.page === "threats") return <ThreatsPage api={api} />;
-  return <ScoreboardPage api={api} />;
+  switch (route.page) {
+    case "run":
+      return <RunPage key={route.runId} api={api} runId={route.runId} />;
+    case "detections":
+      return <DetectionsPage api={api} />;
+    case "coverage":
+      return <ThreatsPage api={api} />;
+    case "redteam":
+      return <RedTeamPage api={api} />;
+    case "agents":
+      return <AgentsPage api={api} />;
+    case "scoreboard":
+      return <ScoreboardPage api={api} />;
+    case "live":
+      return <LivePage api={api} />;
+    case "improvement":
+      return <ImprovementPage api={api} />;
+    case "trace":
+      return <TracePage api={api} claimId={route.claimId} />;
+    case "posture":
+      return <PosturePage api={api} />;
+  }
 }

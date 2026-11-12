@@ -13,7 +13,7 @@ test("a page that fails to render shows a way back, not a blank app", () => {
     </ErrorBoundary>,
   );
   expect(screen.getByRole("alert")).toHaveTextContent("Something went wrong");
-  expect(screen.getByRole("link", { name: "back to the scoreboard" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "back to the posture page" })).toHaveAttribute(
     "href",
     "#/",
   );

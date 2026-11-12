@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { SCOREBOARD_HREF } from "../useHashRoute";
+import { POSTURE_HREF } from "../useHashRoute";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <div className="panel" role="alert">
         <h1>Something went wrong showing this page</h1>
         <p>
-          Try reloading, or go <a href={SCOREBOARD_HREF}>back to the scoreboard</a>.
+          Try reloading, or go <a href={POSTURE_HREF}>back to the posture page</a>.
         </p>
       </div>
     );

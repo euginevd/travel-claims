@@ -240,6 +240,40 @@ def engineer_trace(claim_id: ClaimId, _: SignedInEngineer, db: Database) -> Trac
     return claim_trace(db, claim_id)
 
 
+class TraceSuggestion(BaseModel):
+    claim_id: str | None
+    model_calls: int
+
+
+# How far back the suggested trace may come from.
+SUGGESTION_DAYS = 90
+
+
+@staff_eval_router.get("/trace-suggestion", operation_id="suggest_trace")
+def suggest_trace(_: SignedInEngineer, db: Database) -> TraceSuggestion:
+    """A live claim worth tracing: the one with the most model calls lately, so the most steps
+    to read. Never an evaluation copy or a red-team claim."""
+    from undercover_api.redteam import REDTEAM_CUSTOMER  # noqa: PLC0415 - redteam imports this
+
+    since = (datetime.now(UTC) - timedelta(days=SUGGESTION_DAYS)).isoformat()
+    calls = func.count(model_calls.c.call_id)
+    row = db.execute(
+        select(model_calls.c.claim_id, calls)
+        .select_from(model_calls.join(claims, claims.c.claim_id == model_calls.c.claim_id))
+        .where(
+            claims.c.source != EVALUATION,
+            claims.c.customer_id != REDTEAM_CUSTOMER,
+            model_calls.c.created_at >= since,
+        )
+        .group_by(model_calls.c.claim_id)
+        .order_by(calls.desc(), model_calls.c.claim_id.desc())
+        .limit(1)
+    ).first()
+    if row is None:
+        return TraceSuggestion(claim_id=None, model_calls=0)
+    return TraceSuggestion(claim_id=str(row[0]), model_calls=int(row[1]))
+
+
 @staff_eval_router.get("/configuration", operation_id="list_configurations")
 def list_configurations(_: SignedInEngineer, db: Database) -> list[Configuration]:
     """Every version of the claim agent's configuration, newest first."""

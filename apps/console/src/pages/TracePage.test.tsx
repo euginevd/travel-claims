@@ -52,3 +52,27 @@ test("shows a claim's model calls, tokens and cost, or why it can't", async () =
   await user.click(screen.getByRole("button", { name: /Show/ }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Claim CLM-9 not found");
 });
+
+test("fills in the suggested claim, ready to show", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/trace-suggestion": () => [200, { claim_id: "CLM-1017", model_calls: 9 }],
+    "GET /api/engineering/claims/CLM-1017/trace": () => [200, TRACE],
+  });
+  render(<TracePage api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByDisplayValue("CLM-1017")).toBeInTheDocument();
+  expect(
+    screen.getByText(/the live claim with the most model calls lately \(9\)/),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: /Show/ }));
+  expect(await screen.findByText(/2 model calls/)).toBeInTheDocument();
+});
+
+test("a claim's link opens its trace straight away", async () => {
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/claims/CLM-1017/trace": () => [200, TRACE],
+  });
+  render(<TracePage api={createApi(fetchFn, () => "t")} claimId="CLM-1017" />);
+  expect(await screen.findByText(/2 model calls/)).toBeInTheDocument();
+  expect(fetchFn.calls.some((c) => c.path.includes("trace-suggestion"))).toBe(false);
+});

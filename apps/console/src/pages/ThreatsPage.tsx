@@ -60,7 +60,7 @@ function Summary({ coverage }: { coverage: ThreatCoverage }) {
 }
 
 /** Each OWASP risk for LLM and agentic apps, its control, the attacks that test it and their last
- * result, when its guardrail last fired, the agents with their tools, and the payouts switch. */
+ * result, when its guardrail last fired, and the payouts switch. The agents have their own page. */
 export function ThreatsPage({ api }: { api: Api }) {
   const heading = useFocusHeading();
   const [coverage, setCoverage] = useState<ThreatCoverage | null>(null);
@@ -90,7 +90,7 @@ export function ThreatsPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="threats-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Security · Threat coverage</p>
+          <p className="eyebrow">Security · Coverage</p>
           <h1 id="threats-heading" ref={heading} tabIndex={-1}>
             Threat coverage
           </h1>
@@ -186,36 +186,6 @@ export function ThreatsPage({ api }: { api: Api }) {
                           "–"
                         )}
                       </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableScroll>
-          </div>
-          <div className="panel">
-            <div className="panel-head">
-              <h2>Agents</h2>
-              <p className="panel-note">Model, tools and what each can read</p>
-            </div>
-            <TableScroll label="Agents table">
-              <table className="table min-mid">
-                <thead>
-                  <tr>
-                    <th scope="col">Agent</th>
-                    <th scope="col">Model</th>
-                    <th scope="col">Tools</th>
-                    <th scope="col">Reads</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {coverage.agents.map((agent) => (
-                    <tr key={agent.agent}>
-                      <th scope="row">{agent.agent}</th>
-                      <td>
-                        <span className="tag mono">{agent.model}</span>
-                      </td>
-                      <td className="prose">{agent.tools}</td>
-                      <td className="prose">{agent.sources}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -180,8 +180,9 @@ test("the navigation marks the page the engineer is on", async () => {
   const pages: [string, string][] = [
     ["#/runs/3", "Quality: Scoreboard"],
     ["#/improvement", "Quality: Improvement"],
-    ["#/trace", "Quality: Claim trace"],
-    ["#/threats", "Security: Threat coverage"],
+    ["#/trace", "Quality: Trace"],
+    ["#/threats", "Security: Coverage"],
+    ["#/agents", "Security: Agents"],
   ];
   for (const [hash, name] of pages) {
     window.location.hash = hash;

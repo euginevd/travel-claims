@@ -66,3 +66,4 @@ When you or the user find a mistake an agent made, add a one-line fix here in th
 27. An internal service on a public URL still needs auth: the context server's function URL was left open (travel-claims #46). Make service-to-service URLs IAM-only.
 28. AWS can't use a new IAM role for a few seconds after it's made: a Gateway target failed its first apply (travel-claims #60). Expect it, rerun the apply, and don't change a trust policy that's right.
 29. `apps/home/index.html` pins `styles.css` and `app.js` by integrity hash: an edit to either without recomputing its `sha384` leaves the page unstyled or dead. Recompute after the last edit and load the page in a browser.
+30. Run the web apps' tests from an upper-case `C:\` path (PowerShell `Set-Location C:\travel-claims\apps\<app>`): from `c:` Vitest loads twice and every jest-dom matcher fails as "Invalid Chai property".

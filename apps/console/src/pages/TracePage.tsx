@@ -1,5 +1,5 @@
 import { ChevronDown, LoaderCircle, ScrollText, Search } from "lucide-react";
-import { useState, type SubmitEvent } from "react";
+import { useCallback, useEffect, useState, type SubmitEvent } from "react";
 import type { Api, Trace } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
@@ -42,33 +42,66 @@ function Totals({ trace }: { trace: Trace }) {
   );
 }
 
-/** One claim's model calls, tokens, cost and steps: what the agent spent and did. */
-export function TracePage({ api }: { api: Api }) {
+/** One claim's model calls, tokens, cost and steps: what the agent spent and did. Opened from a
+ * claim's link it loads straight away; otherwise it suggests the live claim with the most model
+ * calls lately, ready to show. */
+export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string }) {
   const heading = useFocusHeading();
-  const [claimId, setClaimId] = useState("");
+  const [claimId, setClaimId] = useState(opened ?? "");
+  const [suggested, setSuggested] = useState<{ claimId: string; calls: number } | null>(null);
   const [shown, setShown] = useState<{ claimId: string; trace: Trace } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(opened));
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch a trace and show it; the caller has already set it loading.
+  const fetchTrace = useCallback(
+    (wanted: string, live: () => boolean) => {
+      api
+        .getTrace(wanted)
+        .then(
+          (trace) => {
+            if (live()) setShown({ claimId: wanted, trace });
+          },
+          (caught: unknown) => {
+            if (!live()) return;
+            setShown(null);
+            setError(caught instanceof Error ? caught.message : String(caught));
+          },
+        )
+        .finally(() => {
+          if (live()) setLoading(false);
+        });
+    },
+    [api],
+  );
+
+  useEffect(() => {
+    let live = true;
+    if (opened) {
+      // Opened from a claim's link: it starts loading.
+      fetchTrace(opened, () => live);
+    } else {
+      // A suggestion is a convenience: if it can't load, the box is simply left empty.
+      api.suggestTrace().then(
+        (found) => {
+          if (!live || found.claim_id === null) return;
+          const id = found.claim_id;
+          setSuggested({ claimId: id, calls: found.model_calls });
+          setClaimId((now) => now || id);
+        },
+        () => undefined,
+      );
+    }
+    return () => {
+      live = false;
+    };
+  }, [api, opened, fetchTrace]);
 
   function look(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const wanted = claimId.trim().toUpperCase();
     setError(null);
     setLoading(true);
-    api
-      .getTrace(wanted)
-      .then(
-        (trace) => {
-          setShown({ claimId: wanted, trace });
-        },
-        (caught: unknown) => {
-          setShown(null);
-          setError(caught instanceof Error ? caught.message : String(caught));
-        },
-      )
-      .finally(() => {
-        setLoading(false);
-      });
+    fetchTrace(claimId.trim().toUpperCase(), () => true);
   }
 
   const trace = shown?.trace;
@@ -118,8 +151,9 @@ export function TracePage({ api }: { api: Api }) {
           </span>
           <h2>No claim open</h2>
           <p className="muted">
-            Enter a claim number above to see each model call and step the agent made on it, and
-            what it cost.
+            {suggested
+              ? `${suggested.claimId} is filled in: the live claim with the most model calls lately (${String(suggested.calls)}), so the fullest trace to read. Press Show, or enter another claim number.`
+              : "Enter a claim number above to see each model call and step the agent made on it, and what it cost."}
           </p>
         </div>
       )}

@@ -12,6 +12,7 @@ import { BarSeries, MiniBar, Sparkline } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { date, dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
+import { traceHref } from "../useHashRoute";
 
 const DECISIONS: Record<string, string> = {
   approve: "Approve",
@@ -232,7 +233,9 @@ function Disagreements({ api, rows }: { api: Api; rows: Disagreement[] }) {
               {rows.map((row) => (
                 <tr key={row.claim_id}>
                   <th scope="row">
-                    <span className="mono nowrap">{row.claim_id}</span>
+                    <a className="mono nowrap" href={traceHref(row.claim_id)}>
+                      {row.claim_id}
+                    </a>
                     <span className="sub">
                       {row.claim_type.replaceAll("_", " ")} · {dollars(row.amount_claimed)} claimed
                     </span>

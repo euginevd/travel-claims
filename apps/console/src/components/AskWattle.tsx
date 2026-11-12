@@ -23,8 +23,16 @@ export function startersFor(route: Route): string[] {
       return ["Which attack got closest?", "Which OWASP risks does the red team test?"];
     case "trace":
       return ["Explain the trace for CLM-1001", "Which step costs the most on CLM-1001?"];
-    case "threats":
+    case "coverage":
       return ["Which risks have no test yet?", "How many hidden instructions were screened?"];
+    case "posture":
+    case "detections":
+    case "agents":
+      return [
+        "Would an attack get past the hidden-instruction check?",
+        "Which OWASP risks have no red-team attack?",
+        "Which guardrails have fired, and when?",
+      ];
     default:
       return [
         "How accurate is the agent right now?",

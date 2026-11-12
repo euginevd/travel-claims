@@ -30,7 +30,14 @@ const COVERAGE = {
     },
   ],
   agents: [
-    { agent: "Claim agent", model: "claude-sonnet-5-5", tools: "get_claim", sources: "context" },
+    {
+      agent: "Claim agent",
+      model: "claude-sonnet-5-5",
+      tools: "get_claim",
+      sources: "context",
+      worst_case: "Approves a claim it shouldn't",
+      stopped_by: "The payout code",
+    },
   ],
   payouts: {
     paused: true,
