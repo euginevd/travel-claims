@@ -32,7 +32,7 @@ from undercover_api.db import (
     policies,
     receipts,
 )
-from undercover_api.fingerprints import NEAR, distance, exact, perceptual
+from undercover_api.fingerprints import NEAR, distance, exact, perceptual, unreadable
 from undercover_api.models import (
     AgentReceipt,
     CaseChip,
@@ -330,6 +330,8 @@ async def save_files(
         media_type = sniff(content)
         if media_type is None:
             raise HTTPException(415, "Receipts must be JPEG, PNG or PDF files")
+        if problem := unreadable(content, media_type):
+            raise HTTPException(422, problem)
         checked.append((content, media_type))
     for content, media_type in checked:
         db.execute(
@@ -561,6 +563,8 @@ async def draft_claim(  # noqa: PLR0913, PLR0917 - the form's fields
         media_type = sniff(content)
         if media_type is None:
             raise HTTPException(415, "Receipts must be JPEG, PNG or PDF files")
+        if problem := unreadable(content, media_type):
+            raise HTTPException(422, problem)
         sent.append({"media_type": media_type, "data": base64.b64encode(content).decode()})
     request: dict[str, object] = {
         "text": text.strip(),

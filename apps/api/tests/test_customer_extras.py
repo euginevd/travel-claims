@@ -5,12 +5,12 @@ only their own."""
 from typing import Any
 
 import pytest
-from api_helpers import AGENT, MAYA, OLIVER, line, payout, sign_in, start
+from api_helpers import AGENT, MAYA, OLIVER, line, payout, png, sign_in, start
 from fastapi.testclient import TestClient
 
 from undercover_api.payments import mask_payid
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+PNG = png()
 NEW_CLAIM: dict[str, Any] = {
     "policy_id": "POL-2001",
     "claim_type": "trip_delay",

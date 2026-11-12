@@ -95,6 +95,27 @@ def test_a_crashed_claim_carries_on_from_its_last_saved_step() -> None:
     assert [kind for kind, _ in api.steps_recorded].count("screening") == screened
 
 
+class ImageRefusingClaude(FakeClaude):
+    """Claude refusing a receipt image it can't open, as the API does with a 400."""
+
+    def turn(self, *args: Any, **kwargs: Any) -> tuple[Message, Call]:
+        self.turns_taken += 1
+        raise RuntimeError(
+            "Error code: 400 - {'error': {'type': 'invalid_request_error', "
+            "'message': 'Could not process image'}}"
+        )
+
+
+def test_a_receipt_the_model_cant_open_refers_the_claim_instead_of_stalling_it() -> None:
+    api = BeatingApi()
+    Runner(graph_for(api, ImageRefusingClaude([])), api).work("CLM-1001", THREAD).join(5)
+    assert api.decision is not None
+    assert api.decision["decision"] == "refer"
+    assert "clearer copy" in api.decision["reason"]
+    assert api.status == "decided"
+    assert not any(content.startswith("The agent stopped") for _, content in api.steps_recorded)
+
+
 def graph_for_saver(api: FakeApi, claude: FakeClaude, old: Any) -> Any:
     """A graph with new Claude over the old graph's saved progress."""
     return build_graph(api, claude, FakeContext(), old.checkpointer, max_model_calls=10)

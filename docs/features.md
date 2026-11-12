@@ -22,7 +22,7 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | # | Feature | Status | PR |
 |---|---|---|---|
 | 2 | **My claims**: only the customer's own claims, in progress and completed, each with its stage, the stage's usual time and a **Send it** link when something is asked for | Done | #37 |
-| 3 | **Make a claim** in three steps, photo first: what happened, up to five receipts (JPEG, PNG or PDF, 5 MB each), then check what the AI drafted; the customer's words stay the record. A document checklist per claim type, and saving to finish later | Done | #5 |
+| 3 | **Make a claim** in three steps, photo first: what happened, up to five receipts (JPEG, PNG or PDF, 5 MB each; an image too small or damaged to read is refused with a plain message, and one the model still can't open refers the claim to a person instead of stalling it), then check what the AI drafted; the customer's words stay the record. A document checklist per claim type, and saving to finish later | Done | #5 |
 | 4 | **Rather just tell us?**: one sentence to the drafting assistant, which fills in the claim | Done | #71 |
 | 5 | Receipts in another currency converted to US dollars, the original kept in the description and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
