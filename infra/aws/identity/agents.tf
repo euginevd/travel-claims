@@ -33,7 +33,7 @@ resource "aws_cognito_user_pool_domain" "services" {
 
 resource "aws_cognito_resource_server" "agent" {
   identifier   = "undercover-agent"
-  name         = "The claim agent's runtime"
+  name         = "The claim agent runtime"
   user_pool_id = aws_cognito_user_pool.services.id
 
   scope {
@@ -84,12 +84,12 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "agent" {
 # is left on AWS. The api accepts only access tokens from this client with this scope.
 resource "aws_cognito_resource_server" "api" {
   identifier   = "undercover-api"
-  name         = "The api's agent routes"
+  name         = "The api agent routes"
   user_pool_id = aws_cognito_user_pool.services.id
 
   scope {
     scope_name        = "agent"
-    scope_description = "Read and record the claim agent's work"
+    scope_description = "Read and record what the claim agent does"
   }
 }
 
