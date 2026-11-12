@@ -172,9 +172,17 @@ class FakeContext:
         return {"text": "Section text", "sources": [source]}, False
 
 
-def graph_for(api: FakeApi, claude: FakeClaude, memory: Memory | None = None):  # noqa: ANN201
+def graph_for(  # noqa: ANN201
+    api: FakeApi, claude: FakeClaude, memory: Memory | None = None, receipts: Any = None
+):
     return build_graph(
-        api, claude, FakeContext(), InMemorySaver(), max_model_calls=10, memory=memory
+        api,
+        claude,
+        FakeContext(),
+        InMemorySaver(),
+        max_model_calls=10,
+        memory=memory,
+        receipts=receipts,
     )
 
 

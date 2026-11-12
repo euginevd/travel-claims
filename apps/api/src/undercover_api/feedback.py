@@ -7,11 +7,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import Connection, RowMapping, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, RowMapping, select, update
 
 from undercover_api.auth import Database, SignedInCustomer
-from undercover_api.db import feedback, now
+from undercover_api.db import feedback, insert_if_new, now
 from undercover_api.evaluations import new_id
 from undercover_api.models import ClaimId, Status, Strict
 from undercover_api.portal import DraftLimiter, own_claim
@@ -71,17 +70,10 @@ def first_vote(
     db: Connection, customer_id: str, body: FeedbackRequest, values: dict[str, str | bool | None]
 ) -> int | None:
     """Keep a new vote; None when the same customer's vote on the same decision beat it in."""
-    try:
-        with db.begin_nested():
-            return new_id(
-                db.execute(
-                    insert(feedback).values(
-                        customer_id=customer_id, subject=body.subject, created_at=now(), **values
-                    )
-                )
-            )
-    except IntegrityError:
-        return None
+    kept = insert_if_new(
+        db, feedback, customer_id=customer_id, subject=body.subject, created_at=now(), **values
+    )
+    return None if kept is None else new_id(kept)
 
 
 def save_vote(

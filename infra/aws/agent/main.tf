@@ -152,6 +152,8 @@ resource "aws_iam_role_policy" "agent" {
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/apikeycredentialprovider/*",
+          # The directory too: AgentCore checks the call against it as well as the workload.
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },
@@ -167,6 +169,8 @@ resource "aws_iam_role_policy" "agent" {
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:token-vault/default/oauth2credentialprovider/${local.prefix}-api-access",
+          # The directory too: AgentCore checks the call against it as well as the workload.
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },
@@ -187,6 +191,14 @@ resource "aws_iam_role_policy" "agent" {
       { Effect = "Allow", Action = ["bedrock-agentcore:BatchCreateMemoryRecords", "bedrock-agentcore:ListMemoryRecords"], Resource = aws_bedrockagentcore_memory.customers.arn },
       # Ask UnderCover searches the policy wording in its knowledge base.
       { Effect = "Allow", Action = "bedrock:Retrieve", Resource = aws_bedrockagent_knowledge_base.wording.arn },
+      # Ask UnderCover's answers against the wording's rules: the reasoning guardrail evaluates
+      # this project's Automated Reasoning policy as the agent (decision 48).
+      { Effect = "Allow", Action = "bedrock:InvokeAutomatedReasoningPolicy", Resource = "arn:${local.partition}:bedrock:${local.region}:${local.account}:automated-reasoning-policy/*" },
+      # Through Australia's guardrail profile, which routes from Sydney to Sydney only.
+      { Effect = "Allow", Action = "bedrock:ApplyGuardrail", Resource = "arn:${local.partition}:bedrock:${local.region}:${local.account}:guardrail-profile/au.guardrail.v1:0" },
+      # Receipts read into fields before any model sees them (decision 48); Textract has no
+      # resource-level permissions, and the region condition keeps it in this one.
+      { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },
       ],
       # Lookup programs, only while they're on: one short session each on their own interpreter.
       [for ci in aws_bedrockagentcore_code_interpreter.programs : {
@@ -597,10 +609,10 @@ resource "aws_bedrockagentcore_gateway_target" "context" {
   gateway_identifier = aws_bedrockagentcore_gateway.context.gateway_id
   description        = "The context layer's lookups, invoked on Lambda by ARN"
 
+  # A Lambda target is invoked with the gateway's own role; a service name is for MCP, OpenAPI and
+  # inference targets only, and AgentCore refuses it here.
   credential_provider_configuration {
-    gateway_iam_role {
-      service = "lambda"
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {
@@ -678,10 +690,10 @@ resource "aws_bedrockagentcore_gateway_target" "staff_context" {
   gateway_identifier = aws_bedrockagentcore_gateway.staff_context.gateway_id
   description        = "The context layer's lookups, invoked on Lambda by ARN"
 
+  # A Lambda target is invoked with the gateway's own role; a service name is for MCP, OpenAPI and
+  # inference targets only, and AgentCore refuses it here.
   credential_provider_configuration {
-    gateway_iam_role {
-      service = "lambda"
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {
@@ -774,6 +786,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
     KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
+    READ_RECEIPTS       = "true"
     CODE_INTERPRETER_ID = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
     # The agent's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
     WORKLOAD_NAME          = "${local.prefix}-agent"

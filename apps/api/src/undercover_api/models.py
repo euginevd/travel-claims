@@ -857,3 +857,5 @@ class QuestionAnswer(BaseModel):
     sources: list[str]
     suggest: Literal["", "start_claim", "ask_person"]
     screened: bool
+    # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
+    verified: bool = False

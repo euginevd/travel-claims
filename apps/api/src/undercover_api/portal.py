@@ -12,7 +12,6 @@ from fastapi import Path as FastPath
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
-from sqlalchemy.exc import IntegrityError
 
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedIn, SignedInCustomer, require_agent
@@ -24,7 +23,15 @@ from undercover_api.claims import (
     list_receipts,
     list_requests,
 )
-from undercover_api.db import claim_drafts, claims, customer_requests, now, policies, receipts
+from undercover_api.db import (
+    claim_drafts,
+    claims,
+    customer_requests,
+    insert_if_new,
+    now,
+    policies,
+    receipts,
+)
 from undercover_api.fingerprints import NEAR, distance, exact, perceptual
 from undercover_api.models import (
     AgentReceipt,
@@ -266,10 +273,7 @@ def make_claim(body: NewClaimRequest, customer: SignedInCustomer, db: Database) 
     }
     for _ in range(CLAIM_ID_ATTEMPTS):
         claim_id = next_claim_id(db)
-        try:
-            with db.begin_nested():
-                db.execute(insert(claims).values(claim_id=claim_id, **values))
-        except IntegrityError:
+        if insert_if_new(db, claims, claim_id=claim_id, **values) is None:
             continue
         db.execute(delete(claim_drafts).where(claim_drafts.c.customer_id == customer.customer_id))
         row = own_claim(db, customer, claim_id)

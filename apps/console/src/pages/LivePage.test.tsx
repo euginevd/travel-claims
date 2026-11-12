@@ -15,6 +15,16 @@ function withRow(changes: Partial<Live["disagreements"][number]>): Live {
   return {
     ...LIVE,
     days: 14,
+    // The api's fixture has no finished exam, so the version in use and its exam are set here.
+    version: 3,
+    exam: {
+      version: 3,
+      claims: 25,
+      accuracy: 0.84,
+      cost_per_claim: 0.009,
+      finished_at: "2026-11-12T08:05:00Z",
+    },
+    by_version: LIVE.by_version.map((slice) => ({ ...slice, name: "v3" })),
     feedback: {
       ...LIVE.feedback,
       comments: [

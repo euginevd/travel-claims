@@ -4,6 +4,7 @@ the app's least-privilege role."""
 import asyncio
 from collections.abc import Generator, MutableMapping
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,6 +13,7 @@ import pytest
 from api_helpers import make_settings
 from fastapi import Request
 from pydantic import ValidationError
+from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -77,7 +79,17 @@ class FakeDsql:
 
     def execute(self, statement: Any, params: dict[str, str]) -> Any:
         self.statements.append(str(statement))
-        return SimpleNamespace(scalar=lambda: True)
+        return SimpleNamespace(returns_rows=True, scalar=lambda: self.succeeds)
+
+    succeeds = True
+
+
+def test_a_failed_index_build_stops_the_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = FakeDsql()
+    db.succeeds = False
+    monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
+    with pytest.raises(RuntimeError, match="couldn't build index"):
+        dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
 
 
 def inspector(stamped: bool) -> Any:
@@ -97,7 +109,8 @@ def test_the_schema_is_built_once_then_stamped(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
     assert dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
     assert sum("CREATE TABLE" in s for s in db.statements) == len(metadata.tables) + 1
-    assert any("wait_for_job" in s for s in db.statements)
+    # A procedure on DSQL, so CALLed; SELECT is refused.
+    assert any(s.startswith("CALL sys.wait_for_job") for s in db.statements)
     assert "INSERT INTO alembic_version" in db.statements[-1]
     monkeypatch.setattr(dsql, "inspect", inspector(stamped=True))
     assert not dsql.create_schema(FakeDsql(), "0016")  # pyright: ignore[reportArgumentType]
@@ -237,6 +250,16 @@ def test_without_an_app_role_the_engine_signs_in_as_admin(monkeypatch: pytest.Mo
     assert calls == ["admin"]
 
 
+def test_a_dsql_engine_skips_the_hstore_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The lookup runs inside a SAVEPOINT on first connect, which DSQL doesn't support.
+    def client(_service: str, region_name: str) -> FakeTokens:
+        return FakeTokens()
+
+    monkeypatch.setattr(boto3, "client", client)
+    engine = make_engine(f"postgresql+psycopg://admin@{ENDPOINT}:5432/postgres")
+    assert getattr(engine.dialect, "use_native_hstore", None) is False
+
+
 def test_off_dsql_the_app_role_changes_nothing() -> None:
     engine = make_engine("sqlite://", ROLE)
     assert engine.url.username is None
@@ -273,3 +296,20 @@ def test_migrating_dsql_grants_the_app_role_only_when_set(
     monkeypatch.setattr(dsql, "grant_app_role", grant)
     upgrade(f"postgresql+psycopg://admin@{ENDPOINT}:5432/postgres", role, ROLE_ARN)
     assert granted == ([(ROLE, ROLE_ARN)] if role else [])
+
+
+def test_insert_if_new_says_when_a_row_was_there_first() -> None:
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    with engine.begin() as db:
+        row: dict[str, Any] = {"customer_id": "CUS-1", "name": "Oliver Grant", "record": {}}
+        assert db_module.insert_if_new(db, db_module.customers, **row) is not None
+        assert db_module.insert_if_new(db, db_module.customers, **row) is None
+        # The transaction carries on after the conflict: no savepoint, which DSQL refuses.
+        assert db.execute(db_module.customers.select()).all()
+
+
+def test_the_api_never_opens_a_savepoint() -> None:
+    # DSQL refuses SAVEPOINT; insert_if_new is the way to keep the first row.
+    source = Path(db_module.__file__).parent
+    assert not [p.name for p in source.rglob("*.py") if "begin_nested(" in p.read_text("utf-8")]

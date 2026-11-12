@@ -80,6 +80,8 @@ export interface WattleAnswer {
   sources: string[];
   suggest: string;
   screened: boolean;
+  /** Checked against the policy wording's rules by Automated Reasoning (on AWS). */
+  verified?: boolean;
 }
 
 interface WattleProps {

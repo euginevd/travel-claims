@@ -7,14 +7,12 @@ the held-out set is never read or written here.
 
 import logging
 from collections.abc import Callable, Iterable
-from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import Connection, RowMapping, func, insert, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, RowMapping, func, select
 
 from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.claims import find_claim, find_decision
@@ -22,6 +20,7 @@ from undercover_api.db import (
     claims,
     decisions,
     feedback,
+    insert_if_new,
     labelled_claims,
     now,
     payments,
@@ -622,20 +621,20 @@ def add_to_evaluation(claim_id: ClaimId, engineer: SignedInEngineer, db: Databas
         ],
     }
     # Two engineers pressing at once: the first one's row stands, and only it says "added".
-    inserted = False
-    with suppress(IntegrityError), db.begin_nested():
-        db.execute(
-            insert(labelled_claims).values(
-                claim_id=claim_id,
-                label_set=EVALUATION,
-                tiny=False,
-                claim={k: claim[k] for k in CLAIM_FIELDS},
-                label=label,
-                added_by=engineer.name,
-                added_at=now(),
-            )
+    inserted = (
+        insert_if_new(
+            db,
+            labelled_claims,
+            claim_id=claim_id,
+            label_set=EVALUATION,
+            tiny=False,
+            claim={k: claim[k] for k in CLAIM_FIELDS},
+            label=label,
+            added_by=engineer.name,
+            added_at=now(),
         )
-        inserted = True
+        is not None
+    )
     row = labelled_row(db, claim_id)
     if row is None or row["label_set"] != EVALUATION:
         raise HTTPException(409, f"Claim {claim_id} can't be added to the evaluation set")

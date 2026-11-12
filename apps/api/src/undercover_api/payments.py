@@ -2,8 +2,7 @@
 the payments table's key means a claim is paid once at most."""
 
 from fastapi import HTTPException
-from sqlalchemy import Connection, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, select, update
 
 from undercover_api.claims import (
     approval_limit,
@@ -12,7 +11,7 @@ from undercover_api.claims import (
     find_payment,
     move_claim,
 )
-from undercover_api.db import customers, decisions, now, payments
+from undercover_api.db import customers, decisions, insert_if_new, now, payments
 from undercover_api.kill_switch import refuse_while_paused
 from undercover_api.models import DecisionKind, Status
 from undercover_api.notices import announce
@@ -54,20 +53,18 @@ def record_payment(
     payid = db.execute(
         select(customers.c.payid).where(customers.c.customer_id == claim["customer_id"])
     ).scalar_one_or_none()
-    try:
-        with db.begin_nested():
-            db.execute(
-                insert(payments).values(
-                    claim_id=claim_id,
-                    amount=amount,
-                    paid_at=now(),
-                    signed_off_by=signed_off_by,
-                    signed_off_by_id=signed_off_by_id,
-                    paid_to=f"PayID {mask_payid(payid)}" if payid else None,
-                )
-            )
-    except IntegrityError as error:
-        raise HTTPException(409, f"Claim {claim_id} has already been paid") from error
+    paid = insert_if_new(
+        db,
+        payments,
+        claim_id=claim_id,
+        amount=amount,
+        paid_at=now(),
+        signed_off_by=signed_off_by,
+        signed_off_by_id=signed_off_by_id,
+        paid_to=f"PayID {mask_payid(payid)}" if payid else None,
+    )
+    if paid is None:
+        raise HTTPException(409, f"Claim {claim_id} has already been paid")
     announce(db, find_claim(db, claim_id))
 
 
