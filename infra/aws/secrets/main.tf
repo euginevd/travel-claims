@@ -17,7 +17,8 @@ resource "terraform_data" "app" {
   }
 }
 
-# Creates it and adds what's missing, never overwriting a value; no shared agent key (decision 38).
+# Adds what's missing, never overwriting a value; the Anthropic step below, or on Bedrock the database
+# unit, creates the parameter. No shared agent key (decision 38).
 resource "terraform_data" "fill" {
   triggers_replace = [terraform_data.app.input, filesha256(local.script)]
 

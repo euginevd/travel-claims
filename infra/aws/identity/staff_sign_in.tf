@@ -1,9 +1,9 @@
 # Reference code, never switched on here (decision 41): how the handlers' and AI engineers' pools
-# would federate with the platform team's IAM Identity Center (SAML) when STAFF_SAML_METADATA_URL is
+# would federate with the company's Okta (SAML) when STAFF_SAML_METADATA_URL is
 # set, and the api would accept those sign-ins. The apps' sign-in pages don't change. Customers keep
 # their own pool's email and password.
 locals {
-  sso_provider = "IdentityCenter"
+  sso_provider = "Okta"
   sso_pools    = var.staff_saml_metadata_url == "" ? toset([]) : toset(["staff", "engineering"])
   sso_urls     = [for url in split(",", var.staff_sign_in_urls) : trimspace(url) if trimspace(url) != ""]
   boundary     = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:policy/${var.project}-boundary"
@@ -22,7 +22,8 @@ resource "aws_cognito_identity_provider" "sso" {
     MetadataURL = var.staff_saml_metadata_url
   }
 
-  # Identity Center's application sends these attribute names; groups may hold several values.
+  # The Okta app's attribute statements send these names; its group attribute statement sends the
+  # person's group names, several values.
   attribute_mapping = {
     email           = "email"
     "custom:groups" = "groups"
@@ -37,7 +38,7 @@ resource "aws_cognito_user_pool_domain" "sso" {
   user_pool_id = aws_cognito_user_pool.audience[each.key].id
 }
 
-# The trigger that turns a federated person's Identity Center groups into cognito:groups, kept to
+# The trigger that turns a federated person's Okta groups into cognito:groups, kept to
 # the pool's own group; the code is the api's, since those are the api's gates.
 data "archive_file" "sso_groups" {
   count = length(local.sso_pools) > 0 ? 1 : 0

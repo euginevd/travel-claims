@@ -1,20 +1,23 @@
 """The one client the agent uses to reach the api: with its machine token on AWS, with the
 agent's key locally."""
 
-from collections.abc import Callable
+from http import HTTPStatus
 from typing import Any, cast
 
 import httpx2
 
+from undercover_agent.identity import Token
 from undercover_agent.models import Call
 
 Json = dict[str, Any]
 STEP_LENGTH = 20_000
 FIRST_ERROR_STATUS = 400
+# The api's answers to a token it won't take: worth one retry with a fresh token.
+REFUSED = {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
 
 
 class ApiError(Exception):
-    """The api refused a request, with its reason."""
+    """The api refused a request, or the agent couldn't get its token to ask, with the reason."""
 
     def __init__(self, status: int, detail: str) -> None:
         super().__init__(detail)
@@ -30,20 +33,30 @@ class ApiClient:
         base_url: str,
         key: str,
         http: httpx2.Client | None = None,
-        token: Callable[[], str] | None = None,
+        token: Token | None = None,
     ) -> None:
         self._http = http or httpx2.Client(base_url=base_url, timeout=30.0)
         self._key = key
         self._token = token
 
-    def _headers(self) -> dict[str, str]:
-        """The machine token when there is one (AWS), and then never the key; the key otherwise."""
-        if self._token is not None:
-            return {"Authorization": f"Bearer {self._token()}"}
-        return {"X-API-Key": self._key}
+    def _headers(self, fresh: bool = False) -> dict[str, str]:
+        """The machine token when there is one (AWS), and then never the key; the key otherwise.
+        A token the vault can't give is an ApiError, so callers handle it as any other refusal."""
+        if self._token is None:
+            return {"X-API-Key": self._key}
+        try:
+            token = self._token(fresh)
+        except Exception as error:  # botocore's errors share no base worth naming here
+            raise ApiError(
+                HTTPStatus.SERVICE_UNAVAILABLE, "The agent's machine token couldn't be fetched"
+            ) from error
+        return {"Authorization": f"Bearer {token}"}
 
     def _call(self, method: str, path: str, body: Json | None = None) -> Any:
         response = self._http.request(method, path, json=body, headers=self._headers())
+        if response.status_code in REFUSED and self._token is not None:
+            # Refused at the door, so the api did nothing: one retry with a fresh token is safe.
+            response = self._http.request(method, path, json=body, headers=self._headers(True))
         if response.status_code >= FIRST_ERROR_STATUS:
             raise ApiError(response.status_code, detail_of(response))
         return response.json()

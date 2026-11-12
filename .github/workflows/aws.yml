@@ -62,7 +62,7 @@ env:
   TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
   # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
   TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
-  # Staff sign in with the company's IAM Identity Center through the staff pools (decision 39); empty: off.
+  # Staff sign in with the company's Okta through the staff pools (decision 44); empty: off.
   TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
   TF_VAR_staff_sign_in_urls: ${{ vars.STAFF_SIGN_IN_URLS }}
   # The share of the agent's live sessions AgentCore Evaluations scores online; 0, the default, turns it off (decision 38).

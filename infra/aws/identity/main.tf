@@ -36,7 +36,7 @@ resource "aws_cognito_user_pool" "audience" {
     }
   }
 
-  # With company sign-in (staff_sign_in.tf): Identity Center's groups, then the trigger that turns
+  # With company sign-in (staff_sign_in.tf): Okta's groups, then the trigger that turns
   # them into cognito:groups. Cognito can add a custom attribute but never remove one.
   dynamic "schema" {
     for_each = contains(local.sso_pools, each.key) ? ["groups"] : []

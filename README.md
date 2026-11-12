@@ -56,8 +56,9 @@ Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the desi
 
 ## Architecture
 
-<!-- Architecture diagram to come: docs/assets/architecture.png -->
-*(Architecture diagram to come.)*
+<img src="docs/assets/architecture-overview.png" width="880" alt="UnderCover on AWS, in Sydney: customers, handlers and AI engineers sign in with Cognito and reach the apps through CloudFront and WAF; API Gateway, with its own WAF, checks every token; Lambda (the api, the copilot and the tools) and AgentCore (the agent runtime, a tool gateway under Cedar policy, memory and identity) run in private subnets and call Claude, guardrails and the knowledge base on Amazon Bedrock; data in Aurora DSQL, DynamoDB, S3 and AgentCore Memory; staff sign in with the company's Okta; the platform team provides Identity Center, Control Tower, the network, CloudTrail, GuardDuty, Security Hub, backup and keys.">
+
+The full diagram, with each step and control: [the AWS architecture guide](guides/03-aws-architecture.md).
 
 | App | What | Runs on (AWS) |
 |-----|------|---------------|

@@ -15,9 +15,9 @@ variable "region" {
   default     = "ap-southeast-2"
 }
 
-# Staff sign-in through IAM Identity Center, off until the pipeline names its SAML metadata.
+# Staff sign-in through the company's Okta, off until the pipeline names its SAML metadata (decision 44).
 variable "staff_saml_metadata_url" {
-  description = "IAM Identity Center's SAML metadata URL for the staff and engineering pools; off when empty"
+  description = "The Okta SAML app's metadata URL for the staff and engineering pools; off when empty"
   type        = string
   default     = ""
 }
@@ -29,7 +29,7 @@ variable "staff_sign_in_urls" {
 }
 
 variable "staff_sso_group_ids" {
-  description = "Comma-separated id=group pairs naming Identity Center group IDs as the apps' groups (handlers, engineers); empty when it sends names"
+  description = "Comma-separated id=group pairs naming the identity provider's group IDs as the apps' groups (handlers, engineers); empty when it sends names, as Okta does"
   type        = string
   default     = ""
 }

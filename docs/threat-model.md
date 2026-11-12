@@ -61,7 +61,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 | D7 | Customers' feedback: a vote, and up to 300 characters each of comment and question | Sensitive in production (free text); made up here | PostgreSQL (`feedback`); engineers see it without a name or customer id; never sent to a model |
 | D8 | The Copilot's conversations and each handler's remembered preferences | Internal | PostgreSQL (`copilot` schema), one handler's only |
 | D9 | Settings and their change history: the approval limit, spending limit and objectives | Confidential | PostgreSQL (`settings`, `setting_changes`) |
-| D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged; on AWS the Anthropic key and both machine clients' secrets stay in AgentCore Identity's token vault, and the agent's key is refused (decision 38) |
+| D5 | The Anthropic key, the agent's key and the two sign-in signing keys | Secret | `.env` and memory, never logged; on AWS the Anthropic key and both machine clients' secrets stay in AgentCore Identity's token vault (the clients' secrets also in the identity unit's Terraform state, trade-off 14), and the agent's key is refused (decision 38) |
 
 ## Trust boundaries
 

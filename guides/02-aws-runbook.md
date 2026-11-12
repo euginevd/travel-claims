@@ -64,7 +64,7 @@ It runs each workflow in turn and waits for it, in this order, because each unit
 | 3 | `database` | Amazon Aurora DSQL for the records (through its own endpoint with `NETWORK_MODE=private`), tagged for the platform's backups; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
 | 4 | `storage` | An Amazon S3 bucket for customers' receipts |
 | 5 | `identity` | Amazon Cognito user pools for customers, handlers and AI engineers, with test accounts, and a services pool for the api's machine sign-in; AgentCore Identity's workload identities and token vault |
-| 6 | `guardrail` | An Amazon Bedrock Guardrail on customers' text |
+| 6 | `guardrail` | Amazon Bedrock Guardrails: one on customers' text, and two on the model's output (answers checked for grounding, letters for personal data) |
 | 7 | `images` | A workflow, not a unit: builds the four app images and pushes them to Amazon ECR |
 | 8 | `functions` | AWS Lambda functions (in the platform's private subnets with `NETWORK_MODE=private`): the api, the context server and the Copilot |
 | 9 | `agent` | Amazon Bedrock AgentCore Runtime (the claim agent; in the private subnets with `NETWORK_MODE=private`), two AgentCore Gateways (tools: IAM for the agent, handlers' tokens for the Copilot) with AgentCore Policy allow-lists, AgentCore Memory (customer memory) and a Bedrock Knowledge Base on S3 Vectors (policy search) |
@@ -84,7 +84,7 @@ If a run fails, the script stops: fix it, run that unit alone, then the rest. If
    ```
 2. Open the project page and each app, and sign in with **Use test account**.
 3. Make a claim in the portal, and watch the agent work it in the dashboard.
-4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start.
+4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start, which can take a minute, so the first page or sign-in may fail once; reload after a minute.
 
 Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); the agent's calls back carry its machine token and the output guardrail answers (decision 38); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
 
@@ -93,7 +93,7 @@ Not yet proven on AWS, so check these first: the schema builds on DSQL and claim
 Removes everything the build put in AWS. The code, the repo and its GitHub environments stay (free), so steps 3 to 5 bring it back.
 
 1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`, so the workflows skip AWS. If a run fails, it stops: fix it, destroy that unit alone, then run it again. With `NETWORK_MODE=private`, AgentCore keeps its network interfaces for up to 8 hours after the agent goes, so the agent's security group may not delete at once: destroy `agent` again later.
-2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes the state bucket, the bootstrap, leftover `travel-claims` buckets, the `cf-templates-*` buckets the console makes for uploaded templates, and AgentCore's log groups, then prints `Clean` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
+2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes the state bucket, the bootstrap, leftover `travel-claims` buckets, the bootstrap template the console uploaded to a `cf-templates-*` bucket (and that bucket, if nothing else is in it), and AgentCore's log groups, then prints `Clean` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
 
 ## Switching to Claude on Bedrock
 

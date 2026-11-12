@@ -47,14 +47,14 @@ data "aws_lambda_function_url" "api" {
   function_name = "${local.prefix}-api"
 }
 
-data "aws_apigatewayv2_apis" "api" {
+data "aws_api_gateway_rest_api" "api" {
   count = var.api_gateway ? 1 : 0
   name  = "${local.prefix}-api"
 }
 
 locals {
   api_endpoint = (var.api_gateway
-    ? "https://${one(data.aws_apigatewayv2_apis.api[0].ids)}.execute-api.${local.region}.amazonaws.com"
+    ? "https://${data.aws_api_gateway_rest_api.api[0].id}.execute-api.${local.region}.amazonaws.com/${var.environment}"
   : trimsuffix(data.aws_lambda_function_url.api[0].function_url, "/"))
 }
 
@@ -132,7 +132,7 @@ resource "aws_iam_role_policy" "agent" {
         Action = ["bedrock-agentcore:GetWorkloadAccessToken", "bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
         Resource = [
           "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default",
-          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/*",
+          "arn:${local.partition}:bedrock-agentcore:${local.region}:${local.account}:workload-identity-directory/default/workload-identity/${local.prefix}-agent",
         ]
       },
       {

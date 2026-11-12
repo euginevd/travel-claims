@@ -70,6 +70,6 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 33 | Tool rules and audit on AWS: AgentCore Policy allow-lists per gateway, the context server reached by ARN with no URL, and Bedrock model invocation logging (decision 34) | Built, to deploy and test | |
 | 34 | A private network: the Lambdas, AgentCore Runtime and Code Interpreter in the platform's private subnets behind VPC endpoints, deployed with `NETWORK_MODE=private` (decisions 36 and 39) | Built, to deploy and test | |
 | 35 | Enterprise controls on AWS: DSQL through its own endpoint, output guardrails (grounding and personal data), the agent's machine token for the api, traces and online evaluations, tagged for the platform's backups (decision 38) | Built, to deploy and test | |
-| 36 | Settings for the rest of the enterprise design: API Gateway with JWT authorizers in place of function URLs (off unless set), and staff federation with IAM Identity Center as reference code, never switched on (decisions 39 and 41) | Built, defaults only to deploy | |
+| 36 | Settings for the rest of the enterprise design: API Gateway with JWT authorizers in place of function URLs (off unless set), and staff federation with the company's Okta as reference code, never switched on (decisions 39 and 41) | Built, defaults only to deploy | |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

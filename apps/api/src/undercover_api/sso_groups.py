@@ -1,10 +1,10 @@
-"""Cognito's pre-token-generation trigger for staff signed in through IAM Identity Center: their
-Identity Center groups become the token's cognito:groups, kept to the one group the pool's app
+"""Cognito's pre-token-generation trigger for staff signed in through the company's Okta: their
+Okta groups become the token's cognito:groups, kept to the one group the pool's app
 checks. Anyone else's token is left as it is. Deployed alone as a Lambda function, so it uses the
 standard library only.
 
 Settings, from the identity unit: ALLOWED_GROUPS (the pool's group, such as handlers),
-GROUP_IDS (optional, id=group pairs, since Identity Center may send group IDs, not names) and
+GROUP_IDS (optional, id=group pairs, for a provider that sends group IDs, not names) and
 PROVIDER (the SAML identity provider's name in the pool)."""
 
 import json
@@ -49,7 +49,7 @@ def federated(attributes: Mapping[str, str], provider: str) -> bool:
 def groups_for(
     attributes: Mapping[str, str], allowed: set[str], names: Mapping[str, str]
 ) -> list[str]:
-    """The user's Identity Center groups, as names, kept to those allowed."""
+    """The user's Okta groups, as names, kept to those allowed."""
     mapped = {names.get(value, value) for value in values(attributes.get(GROUPS_ATTRIBUTE, ""))}
     return sorted(mapped & allowed)
 

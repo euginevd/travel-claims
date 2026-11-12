@@ -29,10 +29,20 @@
     aws cloudformation wait stack-delete-complete --region $R --stack-name $P-bootstrap && echo "Deleted the bootstrap stack"
   fi
 
-  # Leftover project buckets, and the cf-templates-* buckets the CloudFormation console makes for uploaded templates.
-  for b in $(aws s3api list-buckets --query "Buckets[?contains(Name,'$P') || starts_with(Name,'cf-templates-')].Name" --output text); do
+  # Leftover project buckets. The model logs' bucket denies deletes to all but the deploy role, so its
+  # policy goes first (an account admin may remove a bucket policy).
+  for b in $(aws s3api list-buckets --query "Buckets[?contains(Name,'$P')].Name" --output text); do
+    aws s3api delete-bucket-policy --bucket "$b" 2>/dev/null
     empty "$b"
     aws s3api delete-bucket --bucket "$b" && echo "Deleted bucket $b"
+  done
+  # The console's cf-templates-* buckets: only the uploaded bootstrap template, and the bucket only if that leaves it empty,
+  # so other projects' templates stay.
+  for b in $(aws s3api list-buckets --query "Buckets[?starts_with(Name,'cf-templates-')].Name" --output text); do
+    for k in $(aws s3api list-objects-v2 --bucket "$b" --query "Contents[?ends_with(Key,'bootstrap.yaml')].Key" --output text); do
+      [ "$k" != None ] && aws s3api delete-object --bucket "$b" --key "$k" >/dev/null && echo "Deleted $b/$k"
+    done
+    [ "$(aws s3api list-objects-v2 --bucket "$b" --max-keys 1 --query 'KeyCount' --output text)" = 0 ] && aws s3api delete-bucket --bucket "$b" && echo "Deleted bucket $b"
   done
 
   # AgentCore's own log groups, which no unit owns (a few cents a month if left).

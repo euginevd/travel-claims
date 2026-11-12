@@ -26,7 +26,8 @@ locals {
 
   # Size and time for each function; the copilot's chat turns take longest.
   functions = {
-    api     = { memory = 1024, timeout = 30 }
+    # The api's first start builds DSQL's schema, so it has as long as CloudFront waits.
+    api     = { memory = 1024, timeout = 60 }
     context = { memory = 512, timeout = 30 }
     copilot = { memory = 1024, timeout = 60 }
   }
@@ -127,7 +128,7 @@ locals {
       { actions = ["ssm:GetParameter"], resources = [local.app_parameter_arn] },
       # The Anthropic key from the vault, through the Copilot's workload identity.
       { actions = ["bedrock-agentcore:GetWorkloadAccessToken"], resources = [local.workloads, "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
-      { actions = ["bedrock-agentcore:GetResourceApiKey"], resources = [local.vault, "${local.vault}/apikeycredentialprovider/*", "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
+      { actions = ["bedrock-agentcore:GetResourceApiKey"], resources = [local.vault, "${local.vault}/apikeycredentialprovider/${local.prefix}-anthropic", "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
       { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/apikey/${local.prefix}-*"] },
       # Conversations, their saved progress and handlers' notes (database unit).
       {
@@ -209,7 +210,7 @@ resource "aws_lambda_function" "service" {
   #checkov:skip=CKV_AWS_115: Lambda's account limit caps the load; reserved concurrency can fail in new accounts
   #checkov:skip=CKV_AWS_50: tracing is off in the demo; turn on X-Ray when debugging calls across apps
   #checkov:skip=CKV_AWS_272: code signing applies to zip packages; these run signed-by-digest images from the project's ECR
-  #checkov:skip=CKV_AWS_173: the environment holds names, not secrets; secrets come from Secrets Manager at start
+  #checkov:skip=CKV_AWS_173: the environment holds names, not secrets; settings come from Parameter Store at start
   for_each = { for name, size in local.functions : name => size if name != "copilot" }
 
   function_name = "${local.prefix}-${each.key}"
@@ -247,7 +248,7 @@ resource "aws_lambda_function" "copilot" {
   #checkov:skip=CKV_AWS_115: Lambda's account limit caps the load; reserved concurrency can fail in new accounts
   #checkov:skip=CKV_AWS_50: tracing is off in the demo; turn on X-Ray when debugging calls across apps
   #checkov:skip=CKV_AWS_272: code signing applies to zip packages; these run signed-by-digest images from the project's ECR
-  #checkov:skip=CKV_AWS_173: the environment holds names, not secrets; secrets come from Secrets Manager at start
+  #checkov:skip=CKV_AWS_173: the environment holds names, not secrets; settings come from Parameter Store at start
   function_name = "${local.prefix}-copilot"
   role          = aws_iam_role.function["copilot"].arn
   package_type  = "Image"

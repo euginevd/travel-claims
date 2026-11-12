@@ -34,7 +34,7 @@ data "aws_lambda_function_url" "origin" {
   function_name = "${local.prefix}-${each.key}"
 }
 
-data "aws_apigatewayv2_apis" "api" {
+data "aws_api_gateway_rest_api" "api" {
   count = var.api_gateway ? 1 : 0
   name  = "${local.prefix}-api"
 }
@@ -42,7 +42,7 @@ data "aws_apigatewayv2_apis" "api" {
 locals {
   origin_domains = {
     for name in ["api", "copilot"] : name => (var.api_gateway
-      ? "${one(data.aws_apigatewayv2_apis.api[0].ids)}.execute-api.${local.region}.amazonaws.com"
+      ? "${data.aws_api_gateway_rest_api.api[0].id}.execute-api.${local.region}.amazonaws.com"
     : trimsuffix(trimprefix(data.aws_lambda_function_url.origin[name].function_url, "https://"), "/"))
   }
 }
@@ -185,6 +185,8 @@ resource "aws_cloudfront_distribution" "web" {
     content {
       origin_id   = origin.value
       domain_name = local.origin_domains[origin.value]
+      # A REST API's stage is the first part of its path.
+      origin_path = var.api_gateway ? "/${var.environment}" : ""
       custom_origin_config {
         http_port                = 80
         https_port               = 443

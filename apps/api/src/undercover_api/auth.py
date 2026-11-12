@@ -66,7 +66,7 @@ class RemoteKeys:
 
 
 def from_saml(claims: dict[str, Any]) -> bool:
-    """Whether Cognito signed the person in through a SAML provider (IAM Identity Center), which
+    """Whether Cognito signed the person in through a SAML provider (the company's Okta), which
     vouches for the email itself; Cognito marks such emails unverified."""
     identities = claims.get("identities")
     if not isinstance(identities, list):

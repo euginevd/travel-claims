@@ -242,7 +242,7 @@ def id_token(key: Any, **claims: object) -> str:
     return jwt.encode(body, key, algorithm="RS256")
 
 
-def test_an_identity_center_email_counts_as_verified_and_nothing_else_does() -> None:
+def test_an_okta_email_counts_as_verified_and_nothing_else_does() -> None:
     from fastapi import HTTPException  # noqa: PLC0415
 
     from undercover_api.auth import TokenVerifier  # noqa: PLC0415
@@ -254,7 +254,7 @@ def test_an_identity_center_email_counts_as_verified_and_nothing_else_does() -> 
             return key.public_key()
 
     verifier = TokenVerifier(Keys(), "https://issuer.example", "staff-client")
-    saml = [{"providerName": "IdentityCenter", "providerType": "SAML"}]
+    saml = [{"providerName": "Okta", "providerType": "SAML"}]
     email = "dana.whitfield@undercover.example"
     assert verifier.identity(id_token(key, email_verified=False, identities=saml)) == (
         email,
