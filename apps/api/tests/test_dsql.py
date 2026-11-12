@@ -237,6 +237,16 @@ def test_without_an_app_role_the_engine_signs_in_as_admin(monkeypatch: pytest.Mo
     assert calls == ["admin"]
 
 
+def test_a_dsql_engine_skips_the_hstore_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The lookup runs inside a SAVEPOINT on first connect, which DSQL doesn't support.
+    def client(_service: str, region_name: str) -> FakeTokens:
+        return FakeTokens()
+
+    monkeypatch.setattr(boto3, "client", client)
+    engine = make_engine(f"postgresql+psycopg://admin@{ENDPOINT}:5432/postgres")
+    assert getattr(engine.dialect, "use_native_hstore", None) is False
+
+
 def test_off_dsql_the_app_role_changes_nothing() -> None:
     engine = make_engine("sqlite://", ROLE)
     assert engine.url.username is None

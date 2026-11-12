@@ -450,6 +450,9 @@ def make_engine(url: str, role: str | None = None) -> Engine:
         pool_recycle=RECYCLE_SECONDS,
         hide_parameters=True,
         connect_args=extra,
+        # On first connect the dialect looks up hstore inside a SAVEPOINT, which DSQL refuses;
+        # nothing here uses hstore.
+        use_native_hstore=False,
     )
     sign_in_with_iam(engine)
     return engine
