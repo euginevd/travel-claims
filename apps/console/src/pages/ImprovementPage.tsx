@@ -450,6 +450,8 @@ function CurrentVersion(props: {
     try {
       await api.restoreVersion(chosen, reason.trim());
       setReason("");
+      // The version restored is now the one in use, so it's no longer a choice.
+      setTarget(null);
       onChange();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));

@@ -163,6 +163,30 @@ def test_a_round_proposes_reviews_and_rolls_back_a_version_that_doesnt_help(
     configurations = client.get("/api/engineering/configuration", headers=sam).json()
     assert next(c for c in configurations if c["current"])["version"] == 1
 
+    # A round whose improver failed has no candidate; the next round's brief still works and
+    # learns only what was tried and whether it was kept, never a held-out score.
+    failed = client.post("/api/engineering/rounds", headers=sam).json()
+    for run_id in (failed["baseline_eval_run"], failed["baseline_held_run"]):
+        work_all(client, run_id, sam, "decline")
+        finish(client, run_id)
+    stop = {"approve": False, "reason": "The improver couldn't produce a proposal"}
+    client.post(f"/api/agent/rounds/{failed['round_id']}/failed", json=stop, headers=AGENT)
+    later = client.post("/api/engineering/rounds", headers=sam).json()
+    for run_id in (later["baseline_eval_run"], later["baseline_held_run"]):
+        work_all(client, run_id, sam, "decline")
+        finish(client, run_id)
+    found = client.get(f"/api/agent/rounds/{later['round_id']}/brief", headers=AGENT)
+    assert found.status_code == 200, found.text
+    assert found.json()["history"] == [
+        {
+            "round": round_["round_id"],
+            "model": "claude-sonnet-5-5",
+            "effort": "high",
+            "change": "More care on thin documents",
+            "outcome": "unclear",
+        }
+    ]
+
 
 def test_a_rejected_proposal_ends_the_round(
     client: TestClient, sam: dict[str, str], dana: dict[str, str]

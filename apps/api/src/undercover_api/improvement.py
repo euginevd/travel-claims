@@ -128,24 +128,31 @@ class Brief(BaseModel):
     misses: list[Miss]
     models: list[str]
     efforts: list[str]
-    # Earlier rounds' proposals and how they ended, so it doesn't repeat a change that failed.
-    # Only the outcome and headline scores, never a held-out claim.
+    # Earlier rounds' proposals and whether their exam kept them, so it doesn't repeat a change
+    # that failed. Only the outcome: no held-out score, reason or claim, so it can't tune itself
+    # to the exam.
     history: list[dict[str, Any]] = []
 
 
 def history_of(db: Connection, before: int) -> list[dict[str, Any]]:
-    """The last few finished rounds: what was tried, and whether the exam kept it."""
+    """The last few rounds whose candidate took its exam: what was tried, and whether it was
+    kept. A round that stopped before a candidate or an exam has nothing to learn from."""
     rows = db.execute(
         select(rounds.c.round_id, rounds.c.candidate_version, rounds.c.verdict)
-        .where(rounds.c.round_id < before, rounds.c.verdict.is_not(None))
+        .where(
+            rounds.c.round_id < before,
+            rounds.c.verdict.is_not(None),
+            rounds.c.candidate_version.is_not(None),
+        )
         .order_by(rounds.c.round_id.desc())
         .limit(10)
     ).mappings()
     found: list[dict[str, Any]] = []
     for row in rows:
-        tried = configuration(db, row["candidate_version"])
         verdict = row["verdict"]
-        candidate = verdict.get("candidate", {})
+        if "candidate" not in verdict:
+            continue
+        tried = configuration(db, row["candidate_version"])
         found.append(
             {
                 "round": row["round_id"],
@@ -153,9 +160,6 @@ def history_of(db: Connection, before: int) -> list[dict[str, Any]]:
                 "effort": tried.effort,
                 "change": tried.reason,
                 "outcome": verdict.get("outcome", "better" if verdict.get("kept") else "worse"),
-                "why": verdict.get("why"),
-                "exam_accuracy": candidate.get("accuracy"),
-                "exam_cost_per_claim": candidate.get("cost_per_claim"),
             }
         )
     return found

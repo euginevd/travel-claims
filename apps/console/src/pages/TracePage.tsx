@@ -8,7 +8,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type SubmitEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react";
 import type { Api, Trace } from "../api";
 import { Sparkline } from "../components/Charts";
 import { dollars, when } from "../format";
@@ -266,6 +266,9 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
   const [shown, setShown] = useState<{ claimId: string; trace: Trace } | null>(null);
   const [loading, setLoading] = useState(Boolean(opened));
   const [error, setError] = useState<string | null>(null);
+  // Each lookup's number: only the latest one may show its answer, so a slow earlier lookup
+  // never replaces a later claim's trace.
+  const latest = useRef(0);
 
   // Fetch a trace and show it; the caller has already set it loading.
   const fetchTrace = useCallback(
@@ -315,7 +318,9 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
     event.preventDefault();
     setError(null);
     setLoading(true);
-    fetchTrace(claimId.trim().toUpperCase(), () => true);
+    latest.current += 1;
+    const mine = latest.current;
+    fetchTrace(claimId.trim().toUpperCase(), () => latest.current === mine);
   }
 
   const trace = shown?.trace;

@@ -35,7 +35,12 @@ POSTURE_DAYS = 14
 MOST_EVENTS = 200
 # How a screening step reads when the guardrail, not the check, referred the claim: a block, or
 # the guardrail failing closed.
-GUARDRAIL_REASONS = ("%Bedrock guardrail%", "%guardrail couldn't check%")
+# The guardrail's own reasons start the screening step's text, right after the verdict, so a
+# claim that merely quotes these words is never counted as the guardrail's.
+GUARDRAIL_REASONS = (
+    f"{FLAGGED}. The Bedrock guardrail %",
+    f"{FLAGGED}. The guardrail couldn't check%",
+)
 HELD = "Held for sign-off"
 # Risks a build check covers rather than an attack: no gap when nothing attacks them.
 BUILD_CHECKED = {"LLM03"}
