@@ -297,18 +297,6 @@ main {
   text-align: center;
 }
 
-.pill-eb {
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--acc-tint);
-  color: var(--acc-d);
-  font-size: 12.5px;
-  font-weight: 500;
-}
-
 h1,
 h2 {
   font-family: var(--font-head);
