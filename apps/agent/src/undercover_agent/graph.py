@@ -22,12 +22,14 @@ from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.memory import Memory, memory_of, uses_memory
 from undercover_agent.models import Call, Claude, SpecialistKind
 from undercover_agent.programs import PROGRAM_TOOL, ProgramRunner
+from undercover_agent.receipts import ReceiptReader
 from undercover_agent.tools import (
     TOOLS,
     Context,
     Result,
     as_text,
     claim_as_read,
+    receipt_content,
     run_tool,
     with_receipts,
 )
@@ -67,9 +69,11 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
     max_model_calls: int,
     memory: Memory | None = None,
     programs: ProgramRunner | None = None,
+    receipts: ReceiptReader | None = None,
 ) -> CompiledStateGraph[ClaimState, None, ClaimState, ClaimState]:
     """The claim graph, wired to the api, Claude, the context layer, a checkpointer and,
-    when there are, the memory of each customer and a sandbox for lookup programs."""
+    when there are, the memory of each customer, a sandbox for lookup programs and a reader
+    that turns receipts into fields before any model sees them."""
     tools = [*TOOLS, PROGRAM_TOOL] if programs else TOOLS
 
     def recall(claim_id: str) -> str:
@@ -105,8 +109,9 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
     def screen(state: ClaimState, config: RunnableConfig) -> Json:
         claim_id, thread_id = ids(config)
         claim = claim_as_read(api.claim(claim_id))
-        receipts = api.receipts(claim_id)
-        found, call = claude.screen(with_receipts(as_text(claim), receipts))
+        # Each receipt read once: the check and the claim agent get the same content.
+        attached = receipt_content(api.receipts(claim_id), receipts)
+        found, call = claude.screen([{"type": "text", "text": as_text(claim)}, *attached])
         record_call(claim_id, thread_id, call)
         if found is None:
             found_reason = "The check couldn't read the claim, so a person should look at it."
@@ -128,7 +133,7 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             refer(claim_id, reason, "hidden_instruction_check", SCREEN_SECTION, [check])
             return {"outcome": "referred"}
         start = f"Your claim is {claim_id}. Work it and record your decision."
-        first = {"role": "user", "content": with_receipts(start, receipts)}
+        first = {"role": "user", "content": [{"type": "text", "text": start}, *attached]}
         return {
             "messages": [first],
             "outcome": "",
@@ -177,7 +182,8 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
         claim = claim_as_read(api.claim(claim_id))
         trip = api.policy(claim_id).get("trip", {})
         facts = as_text({"claim": claim, "trip": trip})
-        found, call = claude.specialist(specialist, with_receipts(facts, api.receipts(claim_id)))
+        content = with_receipts(facts, api.receipts(claim_id), receipts)
+        found, call = claude.specialist(specialist, content)
         record_call(claim_id, thread_id, call)
         if found is None:
             return Result(f"The {kind} specialist couldn't review this claim.", is_error=True)

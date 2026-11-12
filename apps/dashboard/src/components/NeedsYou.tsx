@@ -23,7 +23,7 @@ export function needsYou(claim: Claim): string | null {
   if (settled && decision?.decision === "refer" && !decision.override) {
     return decision.by_screening
       ? "Referred to you: the claim contains text that tries to instruct whoever assesses it."
-      : `Referred to you: ${decision.reason}`;
+      : "Referred to you: the agent couldn't decide this one alone. Its reason is in the recommendation.";
   }
   return null;
 }

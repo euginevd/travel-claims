@@ -1,6 +1,7 @@
 """The api's tables, written once in SQLAlchemy Core for PostgreSQL and, in tests, SQLite."""
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -18,7 +19,9 @@ from sqlalchemy import (
     create_engine,
     text,
 )
-from sqlalchemy.engine import make_url
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.engine import Connection, CursorResult, make_url
 
 # Money is held to the cent and read back as a float.
 Money = Numeric(12, 2, asdecimal=False)
@@ -414,6 +417,8 @@ redteam_reports = Table(
     Column("run_at", String(32), nullable=False),
     Column("run_by", String(200), nullable=False),
     Column("results", JSON, nullable=False),
+    # The claim agent's configuration version the attacks faced; None before it was kept.
+    Column("config_version", Integer),
 )
 
 # What the api loads from the context layer when seeding: the plans and document versions.
@@ -450,6 +455,19 @@ def make_engine(url: str, role: str | None = None) -> Engine:
         pool_recycle=RECYCLE_SECONDS,
         hide_parameters=True,
         connect_args=extra,
+        # On first connect the dialect looks up hstore inside a SAVEPOINT, which DSQL refuses;
+        # nothing here uses hstore.
+        use_native_hstore=False,
     )
     sign_in_with_iam(engine)
     return engine
+
+
+def insert_if_new(db: Connection, table: Table, **values: Any) -> CursorResult[Any] | None:
+    """Insert a row unless one already holds its key or a unique value, and say so: the
+    result, or None when a row was there first (a race lost, a retry, a second press).
+    ON CONFLICT DO NOTHING rather than catching the error in a SAVEPOINT, which Aurora DSQL
+    doesn't support; the transaction carries on either way."""
+    insert_into = sqlite_insert if db.dialect.name == "sqlite" else postgresql_insert
+    result = db.execute(insert_into(table).values(**values).on_conflict_do_nothing())
+    return result if result.rowcount else None

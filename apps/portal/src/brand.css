@@ -3267,3 +3267,35 @@ select.unsure {
   font: inherit;
   font-size: 0.875rem;
 }
+
+/* On a phone the menu stays one row and scrolls sideways, never wrapping under itself. */
+@media (max-width: 640px) {
+  .topnav,
+  .topnav ul {
+    flex-wrap: nowrap;
+  }
+
+  .topnav {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .topnav a {
+    white-space: nowrap;
+  }
+}
+
+/* A resumed draft is good news, not a warning: a quiet note. */
+.notice.resume-note {
+  border-color: var(--line);
+  background: var(--soft);
+}
+
+/* Updates: each message's first lines; a claim's page holds the whole letter. */
+.notice-list .notice-body {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}

@@ -145,3 +145,100 @@ export function RingChart({ part, whole }: { part: number; whole: number }) {
     </svg>
   );
 }
+
+function at(value: number): string {
+  return `${String(Math.round(Math.min(Math.max(value, 0), 1) * 1000) / 10)}%`;
+}
+
+/** A score on a 0 to 100% track: its likely range shaded, the score as a dot, and the target as
+ * a tick. Decorative: the figures are written beside it. */
+export function RangeBar({
+  value,
+  range,
+  target,
+}: {
+  value: number;
+  range: [number, number] | null;
+  target?: number;
+}) {
+  return (
+    <svg className="rangebar" height="14" aria-hidden="true" focusable="false">
+      <rect className="bar-track" y="5" width="100%" height="4" rx="2" />
+      {range && (
+        <rect
+          className="range-band"
+          x={at(range[0])}
+          y="3"
+          width={at(range[1] - range[0])}
+          height="8"
+          rx="4"
+        />
+      )}
+      {target !== undefined && (
+        <line className="range-target" x1={at(target)} x2={at(target)} y1="0" y2="14" />
+      )}
+      <circle className="range-dot" cx={at(value)} cy="7" r="4" />
+    </svg>
+  );
+}
+
+const VC_WIDTH = 320;
+const VC_HEIGHT = 150;
+const VC_TOP = 14;
+const VC_BOTTOM = 22;
+
+/** One point a version, oldest first: its exam score as a dot, its likely range as a whisker,
+ * and the target as a dashed line. */
+export function VersionChart({
+  points,
+  target,
+  label,
+}: {
+  points: { name: string; value: number; range: [number, number] | null }[];
+  target?: number;
+  label: string;
+}) {
+  if (points.length === 0) return null;
+  const plot = VC_HEIGHT - VC_TOP - VC_BOTTOM;
+  const y = (value: number) => Math.round((VC_TOP + (1 - value) * plot) * 10) / 10;
+  const slot = VC_WIDTH / points.length;
+  return (
+    <svg
+      className="versionchart"
+      viewBox={`0 0 ${String(VC_WIDTH)} ${String(VC_HEIGHT)}`}
+      role="img"
+      aria-label={label}
+    >
+      <line className="vc-axis" x1="0" x2={VC_WIDTH} y1={y(0)} y2={y(0)} />
+      {target !== undefined && (
+        <g>
+          <line
+            className="range-target vc-target"
+            x1="0"
+            x2={VC_WIDTH}
+            y1={y(target)}
+            y2={y(target)}
+          />
+        </g>
+      )}
+      {points.map(({ name, value, range }, index) => {
+        const x = Math.round((index + 0.5) * slot * 10) / 10;
+        return (
+          <g key={name}>
+            <title>{`${name}: ${String(Math.round(value * 100))}%`}</title>
+            {range && (
+              <line className="vc-whisker" x1={x} x2={x} y1={y(range[1])} y2={y(range[0])} />
+            )}
+            <circle className="range-dot" cx={x} cy={y(value)} r="4.5" />
+            <text className="vc-value" x={x + 8} y={y(value) + 4}>
+              {Math.round(value * 100)}%
+            </text>
+            <text className="vc-name" x={x} y={VC_HEIGHT - 6} textAnchor="middle">
+              {name}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}

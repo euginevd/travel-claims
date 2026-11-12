@@ -119,7 +119,7 @@ locals {
       { actions = ["cognito-idp:AdminSetUserPassword"], resources = [for name, _ in local.audiences : "arn:${local.partition}:cognito-idp:${local.region}:${local.account}:userpool/${one(data.aws_cognito_user_pools.audience[name].ids)}"] },
       # A machine token for the agent's runtime, from the vault through the api's workload identity.
       { actions = ["bedrock-agentcore:GetWorkloadAccessToken"], resources = [local.workloads, "${local.workloads}/workload-identity/${local.prefix}-api"] },
-      { actions = ["bedrock-agentcore:GetResourceOauth2Token"], resources = [local.vault, "${local.vault}/oauth2credentialprovider/${local.agent_provider}", "${local.workloads}/workload-identity/${local.prefix}-api"] },
+      { actions = ["bedrock-agentcore:GetResourceOauth2Token"], resources = [local.vault, "${local.vault}/oauth2credentialprovider/${local.agent_provider}", local.workloads, "${local.workloads}/workload-identity/${local.prefix}-api"] },
       { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/oauth2/${local.agent_provider}*"] },
       # The records in DSQL, signed in as admin with an IAM token (decision 30).
       { actions = ["dsql:DbConnectAdmin"], resources = ["arn:${local.partition}:dsql:${local.region}:${local.account}:cluster/*"] },
@@ -132,7 +132,7 @@ locals {
       { actions = ["ssm:GetParameter"], resources = [local.app_parameter_arn] },
       # The Anthropic key from the vault, through the Copilot's workload identity.
       { actions = ["bedrock-agentcore:GetWorkloadAccessToken"], resources = [local.workloads, "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
-      { actions = ["bedrock-agentcore:GetResourceApiKey"], resources = [local.vault, "${local.vault}/apikeycredentialprovider/${local.prefix}-anthropic", "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
+      { actions = ["bedrock-agentcore:GetResourceApiKey"], resources = [local.vault, "${local.vault}/apikeycredentialprovider/${local.prefix}-anthropic", local.workloads, "${local.workloads}/workload-identity/${local.prefix}-copilot"] },
       { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/apikey/${local.prefix}-*"] },
       # Conversations, their saved progress and handlers' notes (database unit).
       {

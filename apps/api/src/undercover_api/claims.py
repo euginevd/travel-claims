@@ -50,6 +50,7 @@ from undercover_api.models import (
 )
 from undercover_api.notices import announce, announce_requests
 from undercover_api.payout import PolicyTerms
+from undercover_api.redteam import REDTEAM_CUSTOMER
 
 APPROVAL_LIMIT = "approval_limit"
 PLANS = "plans"
@@ -203,6 +204,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
     query = (
         select(
             claims.c.claim_id,
+            claims.c.customer_id,
             customers.c.name.label("customer_name"),
             claims.c.claim_type,
             claims.c.summary,
@@ -238,6 +240,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
                 "plan": r["policy"]["plan"],
                 "review_requested": r["review_requested_at"] is not None,
                 "stalled": is_stalled(r["status"], r["heartbeat_at"]),
+                "red_team": r["customer_id"] == REDTEAM_CUSTOMER,
                 "due_on": business_days_after(r["submitted_on"], SERVICE_DAYS),
                 "documents_in": r["claim_id"] in asked
                 and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]

@@ -94,5 +94,5 @@ UnderCover's brand, "Canopy" (decision 21): subtle and premium. White pages, fai
 
 36. **Portal:** the roomiest. A greeting ("Hi Oliver"), single-column flows that work at 390px, a sign-in page with the animated route map.
 37. **Dashboard:** `--bg-work`, denser tables, 44px buttons; wide tables scroll inside their card.
-38. **Console:** the dashboard's density, for AI engineers: the Scoreboard, Live, Improvement, Claim trace, the red team and threat coverage.
+38. **Console:** the dashboard's density, for AI engineers, evals first. Two levels of navigation: the top bar holds a segmented switch, **Evals | Security**, and a row under it holds only the chosen section's pages as tabs (Scoreboard, the home, Live, Improvement and Trace; or Posture, Detections and Red team, which holds each risk and agent too); a link into the other section flips the switch. A tile can be its own filter, pressed to show only its rows. A score from a small test set shows its likely range as a shaded band, with the target as a tick. Posture's figures are four plain stat tiles; its defence-in-depth layers are bordered cards in a row, an untested one hatched in `--acc-tint` with an "Untested" chip.
 39. **Project page:** one screen that fits a large monitor without scrolling: the headline, a brief, the walkthrough video and the three apps' links.

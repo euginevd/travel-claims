@@ -1506,7 +1506,7 @@ h3.sub-head {
 
 .check {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr);
   align-items: start;
   gap: 9px;
   padding: 8px 0;
@@ -1534,8 +1534,11 @@ h3.sub-head {
   color: var(--acc-d);
 }
 
+/* The source sits under the check's words, so the words get the column's full width. */
 .source-chip-wrap {
   position: relative;
+  grid-column: 2;
+  justify-self: start;
 }
 
 .source-chip {
@@ -1558,7 +1561,7 @@ h3.sub-head {
 .source-preview {
   display: none;
   position: absolute;
-  right: 0;
+  left: 0;
   top: calc(100% + 6px);
   z-index: 5;
   width: min(320px, 70vw);
@@ -2510,4 +2513,9 @@ h3.sub-head {
 .similar-section {
   color: var(--ink-soft);
   font-weight: 500;
+}
+
+/* The details: what the agent asked a tool for, and what came back. */
+.trace-label {
+  margin: 8px 0 2px;
 }

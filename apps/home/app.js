@@ -2,7 +2,8 @@
 
 // THE WALKTHROUGH VIDEO. null shows the still and "coming soon". Once the end-to-end recording
 // exists, set this to its path, for example "media/walkthrough.mp4", and the frame becomes a
-// player with the browser's own controls. (Then recompute app.js's integrity hash in index.html.)
+// poster with one play button; the browser's own controls appear once it plays, so a paused
+// video shows no dark control bar. (Then recompute app.js's integrity hash in index.html.)
 const WALKTHROUGH = "media/walkthrough.mp4";
 
 // Each app's address: on AWS from links.json, which the deploy writes; locally this host and its port.
@@ -28,9 +29,17 @@ function setUpLinks() {
 function setUpWalkthrough() {
   if (!WALKTHROUGH) return;
   const video = document.getElementById("walkthrough");
+  const play = document.getElementById("walkthrough-play");
   video.src = WALKTHROUGH;
-  video.controls = true;
   video.hidden = false;
+  play.hidden = false;
+  play.addEventListener("click", () => {
+    play.hidden = true;
+    video.controls = true;
+    video.play().catch(() => {
+      // The browser blocked playing: its controls are there to start it.
+    });
+  });
   document.getElementById("walkthrough-still").hidden = true;
   document.getElementById("walkthrough-soon").hidden = true;
 }

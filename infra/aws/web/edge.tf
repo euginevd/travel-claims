@@ -1,4 +1,4 @@
-# CloudFront WAF (decision 47): `off`, the prototype's cost-optimized default, or `on`, the enterprise
+# CloudFront WAF (decision 51): `off`, the prototype's cost-optimized default, or `on`, the enterprise
 # pattern, where the platform team's AWS Firewall Manager applies its centrally managed WAF policy
 # (AWS managed rule groups and rate limits it owns) to every distribution in the policy's scope.
 # The workload never builds or edits that web ACL: it tags its distributions into scope and leaves

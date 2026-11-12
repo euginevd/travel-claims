@@ -204,6 +204,9 @@ def test_live_counts_what_happened_on_live_claims(
     assert totals["hidden_instruction_flags"] == 1
     assert totals["cost_per_claim"] == 0.02
     assert found["series"][-1]["decided"] == 3
+    assert sum(s["decided"] for s in found["by_version"]) == 3
+    types = {s["name"]: s["disagreements"] for s in found["by_claim_type"]}
+    assert sum(types.values()) == 1  # CLM-1013's override; CLM-1003 is still undecided
     assert found["feedback"]["answers"] == {"count": 1, "helpful": 1, "helpful_share": 1.0}
     assert found["feedback"]["decisions"]["helpful_share"] == 0.0
     comment = found["feedback"]["comments"][0]

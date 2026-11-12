@@ -8,7 +8,7 @@ from anthropic.types import Message
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
 
-from undercover_copilot.graph import INSTRUCTIONS, build_graph
+from undercover_copilot.graph import INSTRUCTIONS, build_graph, why_needed
 from undercover_copilot.memory import LocalMemory
 from undercover_copilot.server import create_app
 from undercover_copilot.staff_api import ApiError, StaffApi
@@ -394,3 +394,9 @@ def test_memory_keeps_only_the_newest_notes() -> None:
         memory.remember("HND-1", f"note {n}")
     assert len(memory.notes("HND-1")) == 20
     assert memory.notes("HND-1")[0] == "note 24"
+
+
+def test_a_red_team_test_claim_never_needs_a_handler() -> None:
+    referred = {"status": "decided", "decision": "refer"}
+    assert why_needed(referred) == ["referred"]
+    assert why_needed(referred | {"red_team": True}) == []

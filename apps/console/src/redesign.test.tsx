@@ -8,7 +8,6 @@ import { ImprovementPage } from "./pages/ImprovementPage";
 import { owaspIds } from "./pages/RedTeamPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
-import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { saveToken } from "./session";
 import { fakeFetch, SAM } from "./testing";
@@ -178,10 +177,11 @@ test("the navigation marks the page the engineer is on", async () => {
     "GET /api/engineering/threats": () => [500, { detail: "Down" }],
   });
   const pages: [string, string][] = [
-    ["#/runs/3", "Quality: Scoreboard"],
-    ["#/improvement", "Quality: Improvement"],
-    ["#/trace", "Quality: Claim trace"],
-    ["#/threats", "Security: Threat coverage"],
+    ["#/runs/3", "Evals: Scoreboard"],
+    ["#/improvement", "Evals: Improvement"],
+    ["#/trace", "Evals: Trace"],
+    ["#/threats", "Security: Red team"],
+    ["#/agents", "Security: Red team"],
   ];
   for (const [hash, name] of pages) {
     window.location.hash = hash;
@@ -206,19 +206,20 @@ test("the scoreboard shows the latest scored run's measures and starts the chose
     "POST /api/engineering/runs": () => [200, RUN],
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
-  const headlines = await screen.findByRole("list", { name: "Run 2's headline measures" });
-  expect(within(headlines).getByText("100%")).toBeInTheDocument();
-  // Run 1 is on the evaluation set, so it stays off the held-out run's trend: one point, no line.
-  expect(within(headlines).queryByRole("img", { name: /^Accuracy over/ })).toBeNull();
+  // Run 2 is the only exam: it heads the page, with how sure its score is, and charts alone.
+  expect(await screen.findByRole("heading", { name: /exam/ })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: /v1 100% \(likely/ })).toBeInTheDocument();
+  expect(screen.getAllByText("Exam")).toHaveLength(1);
   expect(screen.getByText("Running…")).toBeInTheDocument();
   expect(screen.getByText("Stopped")).toBeInTheDocument();
   expect(screen.getAllByText("Finished")).toHaveLength(2);
 
-  await user.click(screen.getByRole("radio", { name: "Held-out set" }));
+  // A practice run only: the exam is left to improvement rounds.
+  expect(screen.queryByRole("radio", { name: "Held-out set" })).toBeNull();
   await user.click(screen.getByRole("radio", { name: /All 25/ }));
-  await user.click(screen.getByRole("button", { name: "Start the run" }));
+  await user.click(screen.getByRole("button", { name: "Start the practice run" }));
   expect(fetchFn.calls.find((call) => call.method === "POST")?.body).toEqual({
-    label_set: "held_out",
+    label_set: "evaluation",
     size: "whole",
     concurrency: 5,
   });
@@ -241,24 +242,18 @@ test("improvement shows each round's stage, its diff by line and what happens ne
     "GET /api/engineering/configuration": () => [200, versions],
   });
   const { container } = render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByText("(no change to the text)")).toBeInTheDocument();
+  // The latest round is open: its path shows the exam as the step it's on.
+  const path = await screen.findByRole("list", { name: "Where the round is" });
+  expect(path.querySelector("[aria-current='step']")).toHaveTextContent("Exam (25 claims)");
+  expect(path.querySelectorAll("li.done")).toHaveLength(3);
+  // The full change sits behind "Show the full change", diffed by line.
   expect(container.querySelector(".diff-line.del")).toHaveTextContent("-model: sonnet");
   expect(container.querySelector(".diff-line.add")).toHaveTextContent("+model: haiku");
-  expect(container.querySelectorAll(".diff-line.hunk")).toHaveLength(6);
-  expect(screen.getByText("Red teaming")).toBeInTheDocument();
-  expect(screen.getByText("Rolled back")).toBeInTheDocument();
+  // Earlier rounds are one line each.
+  const earlier = screen.getByRole("region", { name: "Earlier rounds table" });
+  expect(within(earlier).getAllByRole("row")).toHaveLength(4);
+  expect(within(earlier).getByText("Stopped")).toBeInTheDocument();
   expect(screen.getByText("Proposed")).toBeInTheDocument();
-  // The side column is about the open round; the others keep their budget in their own panel.
-  const side = screen.getByRole("complementary", { name: "About the round" });
-  expect(
-    within(side).getByRole("heading", { name: "Round 3: budget and runs" }),
-  ).toBeInTheDocument();
-  expect(screen.getAllByText("Spent $0.50 of the round's $2.00 limit")).toHaveLength(3);
-  expect(
-    within(side).getByText("The approved version runs on the held-out set"),
-  ).toBeInTheDocument();
-  expect(side.querySelector("[aria-current='step']")).toHaveTextContent("held-out set");
-  expect(side.querySelectorAll("li.done")).toHaveLength(1);
   expect(screen.queryByRole("button", { name: /Start an improvement round/ })).toBeNull();
 });
 
@@ -276,57 +271,16 @@ test("improvement with no rounds says what to do, and a round awaiting review is
   expect(await screen.findByText("No improvement rounds yet")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Start an improvement round/ }));
   expect(await screen.findByText("Round 1 needs your review.")).toBeInTheDocument();
-  expect(screen.getByText("Awaiting review")).toBeInTheDocument();
+  expect(screen.getByText("Needs your review")).toBeInTheDocument();
 });
 
-test("threat coverage sums up what is tested, and says when nothing is", async () => {
-  const threat = {
-    owasp: "LLM01",
-    risk: "Prompt injection",
-    atlas: "AML.T0051",
-    control: "Hidden-instruction check",
-    attacks: [{ attack_id: "RT-01", name: "Receipt", passed: true }],
-    last_fired: "2026-11-09T01:00:00Z",
-    fired: 1,
-  };
-  const quiet = { ...threat, owasp: "LLM03", risk: "Supply chain", attacks: [], fired: 0 };
-  const coverage = {
-    redteam_run_at: "2026-11-09T01:00:00Z",
-    threats: [threat, { ...threat, owasp: "ASI01", risk: "Goal hijack" }, quiet],
-    agents: [],
-    payouts: { paused: false, changed_by: null, changed_at: null, reason: null },
-  };
-  const first = render(
-    <ThreatsPage
-      api={createApi(
-        fakeFetch({ "GET /api/engineering/threats": () => [200, coverage] }),
-        () => "t",
-      )}
-    />,
-  );
-  const summary = await screen.findByRole("list", { name: "Coverage at a glance" });
-  expect(within(summary).getByText("3 of 3")).toBeInTheDocument();
-  expect(within(summary).getByText("1 of 1")).toBeInTheDocument();
-  expect(within(summary).getByText("2 of 3")).toBeInTheDocument();
-  expect(within(summary).getByText("Tested by the red team (2)")).toBeInTheDocument();
-  expect(screen.getAllByText(/^1 time, last/)).toHaveLength(2);
-  expect(screen.getByText("Not red-teamed yet")).toBeInTheDocument();
-  expect(screen.getAllByRole("link", { name: /RT-01/ })[0]).toHaveAttribute("href", "#/redteam");
-  expect(screen.getByText("on")).toBeInTheDocument();
-  first.unmount();
-
-  const untested = { ...coverage, redteam_run_at: null, threats: [quiet] };
-  render(
-    <ThreatsPage
-      api={createApi(
-        fakeFetch({ "GET /api/engineering/threats": () => [200, untested] }),
-        () => "t",
-      )}
-    />,
-  );
-  expect(await screen.findByText("Not run yet")).toBeInTheDocument();
-  expect(screen.getByText("None has fired yet")).toBeInTheDocument();
-});
+const UNDECIDED = {
+  summary: "Bag delayed",
+  status: "in_progress",
+  outcome: null,
+  config_version: null,
+  average_cost: null,
+};
 
 test("the claim trace starts empty and totals what it loads", async () => {
   const user = userEvent.setup();
@@ -341,7 +295,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
   const fetchFn = fakeFetch({
     "GET /api/engineering/claims/CLM-1/trace": () => [
       200,
-      { steps: [], model_calls: [call], total_cost: 0.0125, total_tokens: 1500 },
+      { steps: [], model_calls: [call], total_cost: 0.0125, total_tokens: 1500, ...UNDECIDED },
     ],
     "GET /api/engineering/claims/CLM-2/trace": () => [
       200,
@@ -350,6 +304,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
         model_calls: [call, { ...call, latency_ms: 1500 }],
         total_cost: 0.025,
         total_tokens: 3000,
+        ...UNDECIDED,
       },
     ],
   });
@@ -358,7 +313,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
   await user.type(screen.getByLabelText("Claim"), "clm-1");
   await user.click(screen.getByRole("button", { name: "Show" }));
   expect(await screen.findByRole("heading", { name: "CLM-1" })).toBeInTheDocument();
-  expect(screen.getByText("No steps were recorded for this claim.")).toBeInTheDocument();
+  expect(screen.getByText("Not decided yet (in progress).")).toBeInTheDocument();
   const totals = screen.getByRole("list", { name: "The trace's totals" });
   expect(within(totals).getByText("1,200")).toBeInTheDocument();
   expect(within(totals).getByText("–")).toBeInTheDocument();

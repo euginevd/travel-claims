@@ -41,6 +41,8 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 - **Money never in a prompt:** the model can't reach a payment. Code pays after the api checks the approval limit and the pause switch, and a lost write race is refused, so a payout can't run twice.
 - **Tool rules the model can't talk its way past:** AgentCore Policy (Cedar, enforced) allows each gateway only its own tools.
 - **A red team** of eight attacks mapped to the OWASP Top 10 for LLMs; the improver's changes are kept only if they score better and the red team still holds.
+- **Answers proven against the policy:** Automated Reasoning turns the policy wording into formal rules, and an answer they contradict is held back; one they prove says so to the customer.
+- **Receipts read before any model sees them:** on AWS, Textract reads each receipt into fields in Sydney, so the claim checks and the claim agent get text the guardrail can check, not an image; an unreadable receipt falls back to its image.
 - **An audit trail:** Bedrock model invocation logging keeps each model call for 30 days in a bucket only the deploy role can delete from.
 
 **Identity and access**
@@ -92,7 +94,7 @@ Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the desi
 |---|---|
 | **Customers** | Make a claim in three steps (what happened, receipts, check what the AI drafted, your words stay the record); claim a delayed flight in one tap; follow it on a tracker with every email and text under **Updates**; get paid to your PayID; ask **Wattle AI** about your policy, with the wording cited; ask a person to review any decision; rate Wattle's answers and each decision's explanation |
 | **Handlers** | The queue opens on what needs them; a case brief with the agent's recommendation, a checklist with sources and the payout line by line; approvals under the approval limit ($1,000 to start) pay automatically, larger ones wait for sign-off, send-back or an override with a reason; similar past claims and risk signals beside each claim; AI drafts the customer's letter; **Wattle AI** says what needs them, looks up the wording, and starts a dispatch, a send-back or a sign-off only after they confirm on a card; **Retry** carries on a claim the agent stopped working; a senior handler can pause every payout and change the limits under **Settings**, each change recorded |
-| **AI engineers** | A separate assurance console: evaluations against handlers' decisions with a judge's grade, success criteria worked out in code, a **Live** page (straight through, how often handlers disagree, cost, customer feedback) whose disagreements can join the evaluation set, the improver's proposals kept only if they score better and the red team holds, and the red team's eight attacks mapped to the OWASP Top 10 for LLMs |
+| **AI engineers** | A separate assurance console in two sections. **Evals** first: a scoreboard of exams against handlers' decisions, each score with its likely range, a judge's grade and success criteria worked out in code; a **Live** page that sets real claims against the exam and turns disagreements into evaluation claims; improvement rounds whose proposals are kept only if they're clearly better on a 25-claim exam and the red team holds; and a readable trace of any claim. Then **Security**: **Posture** answers "would we stop an attack?" with the layer that stopped each red-team attack and the gaps to close; **Detections** lists each control that fired on a live claim; the red team's eight attacks are mapped to the OWASP Top 10 for LLMs, with what each agent could do if tricked |
 | **Security** | A hidden-instruction check and a Bedrock guardrail before any model reads a claim; payments and limits in code, never in a prompt; separate sign-ins and token audiences per app; a [threat model](docs/threat-model.md) with every control |
 
 ## Apps and cost
@@ -101,7 +103,7 @@ Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the desi
 |-----|------|---------------|
 | `portal` | Customers make and track claims | S3 and CloudFront |
 | `dashboard` | Handlers work the queue, ask customers for documents, sign off payouts and keep the settings | S3 and CloudFront |
-| `console` | AI assurance: evaluations, live monitoring and improvements (quality), the red team and threat coverage (security) | S3 and CloudFront |
+| `console` | AI assurance: evaluations, live monitoring, improvements and traces (evals), the red team and threat coverage (security) | S3 and CloudFront |
 | `home` | The project page | S3 and CloudFront |
 | `api` | Claims, decisions, payments, settings, feedback, live figures and sign-in | Lambda |
 | `agent` | Claim agent with a hidden-instruction check and specialists, dispatcher, improver and drafting assistant | AgentCore Runtime |
@@ -130,7 +132,7 @@ Details: [costs.md](docs/costs.md).
 | FastAPI, PostgreSQL | The api, its rules and payments; Aurora DSQL on AWS | [apps/api](apps/api/) |
 | React, Vite | The portal, dashboard and console | [apps/](apps/) |
 | AgentCore | Runtime for the agent, Gateway in front of the context layer, Memory for customers | [infra/aws/agent](infra/aws/agent/) |
-| Bedrock | The guardrail, the Knowledge Base on S3 Vectors, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
+| Bedrock, Textract | The guardrails with Automated Reasoning checks, the Knowledge Base on S3 Vectors, Data Automation or Textract reading receipts, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
 | Terraform | AWS infrastructure, one root per unit | [infra/aws/](infra/aws/) |
 | GitHub Actions | App checks, security scans, images, Terraform plan and apply | [.github/workflows/](.github/workflows/) |
 | Python, uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |

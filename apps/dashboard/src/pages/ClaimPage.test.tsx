@@ -86,13 +86,15 @@ test("refusals and failures stand out, and sources are listed once per file", as
   });
   expect(await screen.findByText("The model declined to continue")).toBeInTheDocument();
   // The trace shows every step's raw content, with the sources looked up.
-  await userEvent.setup().click(screen.getByRole("switch", { name: /Show trace/ }));
+  await userEvent.setup().click(screen.getByRole("switch", { name: /Show the details/ }));
 
   const sources = screen.getByRole("region", { name: "What the agent looked up" });
-  expect(within(sources).getAllByText("policy_wording.md")).toHaveLength(1);
+  expect(within(sources).getAllByText("Policy wording")).toHaveLength(1);
   expect(within(sources).getByText(/2 lookups/)).toBeInTheDocument();
   expect(within(sources).getByText("Legal")).toBeInTheDocument();
-  expect(screen.getAllByText("Tool result").length).toBeGreaterThan(0);
+  // Each step in plain words, a tool's answer folded into the call that asked for it.
+  expect(screen.queryByText("Tool result")).toBeNull();
+  expect(screen.getAllByText("What came back").length).toBeGreaterThan(0);
 });
 
 test("a decided claim shows the calculation line by line and the payment", async () => {

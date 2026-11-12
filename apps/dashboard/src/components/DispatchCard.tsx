@@ -283,7 +283,7 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
               }}
             >
               <div>
-                <label htmlFor={`${ids}-agents`}>Claim agents at once</label>
+                <label htmlFor={`${ids}-agents`}>Claims worked at once</label>
                 <input
                   id={`${ids}-agents`}
                   type="number"
@@ -340,9 +340,9 @@ export function DispatchCard({ api, handler, onProgress }: Props) {
           )}
           {dispatch && (
             <p className="muted small dispatch-last">
-              Last dispatch: #{dispatch.dispatch_id}, {dispatch.status}{" "}
-              {when(dispatch.finished_at ?? dispatch.started_at)} by {dispatch.started_by} ·{" "}
-              {dispatch.claims.length} claims · {dollars(dispatch.total_cost)}
+              Last time claim agents worked the queue: {dispatch.status}{" "}
+              {when(dispatch.finished_at ?? dispatch.started_at)} by {dispatch.started_by},{" "}
+              {dispatch.claims.length} {dispatch.claims.length === 1 ? "claim" : "claims"}
               {dispatch.stopped_reason ? ` · ${dispatch.stopped_reason}` : ""}
             </p>
           )}

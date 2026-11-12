@@ -2402,6 +2402,14 @@ a.claim-card,
   color: #4a5b73;
 }
 
+/* An answer Automated Reasoning found consistent with the policy wording's rules. */
+.wattle-verified {
+  margin: 0.5rem 0 0;
+  color: var(--good);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
 .wattle-sources {
   list-style: none;
   display: flex;

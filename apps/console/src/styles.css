@@ -1137,3 +1137,612 @@ main.page {
   padding: 5px 12px;
   font-size: 0.85rem;
 }
+
+/* ---------- Security posture ---------- */
+
+.kpis.stages {
+  margin: 4px 0;
+}
+
+.stage-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.stage-step {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 0.76rem;
+}
+
+.stage-rows {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+}
+
+.stage-rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.stage-rows dt {
+  color: var(--ink-2);
+}
+
+.stage-rows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stage-link {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.layers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+}
+
+/* No attack reached it: a faint coral hatch, with the word "Untested" saying so. */
+.layer.untested {
+  border-color: var(--acc-edge);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bg),
+    var(--bg) 8px,
+    var(--acc-tint) 8px,
+    var(--acc-tint) 16px
+  );
+}
+
+.layer h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.layer p {
+  margin: 0;
+}
+
+.layer-step {
+  color: var(--ink-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.layer-meter {
+  display: flex;
+  gap: 3px;
+  margin: auto 0 0;
+  padding: 10px 0 2px;
+  list-style: none;
+}
+
+.layer-meter li {
+  flex: 1;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--line-2);
+}
+
+.layer-meter li.stopped {
+  background: var(--good);
+}
+
+.layer-meter li.passed {
+  background: var(--edge);
+}
+
+.layer-result {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.layer .chip {
+  align-self: flex-start;
+  white-space: normal;
+}
+
+@media (max-width: 1050px) {
+  .layers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .layers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Trace: outcome, one timeline, security and cost ---------- */
+
+.trace-decision {
+  margin: 12px 0 4px;
+  font-size: 1.05rem;
+}
+
+.trace-decision strong {
+  font-weight: 600;
+}
+
+.trace-outcome .prose {
+  margin: 0 0 6px;
+}
+
+.trace-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-timeline > li {
+  border-bottom: 1px solid var(--line-2);
+}
+
+.trace-timeline > li:last-child {
+  border-bottom: 0;
+}
+
+.trace-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px 6px 10px;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trace-step summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-radius: 8px;
+  list-style: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.trace-step summary::-webkit-details-marker {
+  display: none;
+}
+
+.trace-step .chevron {
+  color: var(--ink-3);
+  transition: transform 0.2s;
+}
+
+.trace-step details[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.trace-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.trace-step.warn .trace-label {
+  color: var(--acc-d);
+}
+
+.trace-step.ok .trace-label {
+  color: var(--good);
+}
+
+.trace-result-label {
+  margin: 8px 0 4px;
+}
+
+.trace-checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-checks .chip {
+  white-space: normal;
+}
+
+/* ---------- Improvement: the round's path, before and after, rollback ---------- */
+
+.round-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 4px 0 14px;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+
+.round-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.round-steps li.done {
+  color: var(--ink-2);
+}
+
+.round-steps li.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.round-steps .step-dot {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--soft);
+  font-size: 0.72rem;
+}
+
+.round-steps li.done .step-dot {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.round-steps li.now .step-dot {
+  background: var(--acc-tint);
+  color: var(--acc-d);
+}
+
+.round-verdict {
+  margin: 0 0 14px;
+  font-family: var(--font-head);
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.proposal-change {
+  margin: 6px 0 4px;
+  font-weight: 600;
+}
+
+.proposal-diff summary,
+.rollback summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.change.up {
+  color: var(--good);
+}
+
+.change.down {
+  color: var(--acc-d);
+}
+
+.claim-by-claim {
+  margin-top: 16px;
+}
+
+.claim-by-claim h3 {
+  margin: 0 0 4px;
+}
+
+.round-budget {
+  margin-top: 14px;
+}
+
+.round-budget p {
+  margin: 0;
+}
+
+.current-panel .panel-head h2 .tag {
+  margin-left: 4px;
+}
+
+.rollback-form {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.rollback-form textarea {
+  min-height: 64px;
+}
+
+.version-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.version-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.88rem;
+}
+
+.version-list li:first-child {
+  border-top: 0;
+}
+
+/* Scoreboard: the exam with each score's likely range, and every version's exam. */
+.score-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 28px;
+}
+
+.measure-list {
+  display: grid;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.measure-row {
+  display: grid;
+  grid-template-columns: minmax(0, 12em) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.measure-row dt {
+  color: var(--ink-2);
+}
+
+.measure-row dd {
+  margin: 0;
+}
+
+.rangebar {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+  overflow: visible;
+}
+
+.range-band {
+  fill: var(--good-soft);
+  opacity: 0.55;
+}
+
+.range-dot {
+  fill: var(--good);
+}
+
+.range-target {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.range-cell .rangebar {
+  max-width: 200px;
+}
+
+.versionchart {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  overflow: visible;
+}
+
+.vc-axis {
+  stroke: var(--line);
+}
+
+.vc-target {
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+  stroke: var(--ink-2);
+}
+
+.vc-whisker {
+  stroke: var(--good-soft);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.vc-name,
+.vc-value {
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+
+.vc-value {
+  fill: var(--ink);
+}
+
+.compare-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.compare-pick select {
+  max-width: 100%;
+}
+
+.run-more summary {
+  cursor: pointer;
+  color: var(--ink-2);
+}
+
+.tag-exam {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+@media (max-width: 900px) {
+  .score-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .measure-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+/* ---------- Two-level navigation: Evals or Security up top, that section's pages below ---------- */
+
+.section-switch {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--soft);
+}
+
+.section-switch a {
+  padding: 6px 14px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+.section-switch a:hover {
+  color: var(--ink);
+}
+
+.section-switch a[aria-current="true"] {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgb(31 30 28 / 8%);
+}
+
+.section-switch a:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 1px;
+}
+
+.topbar .subnav {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 28px 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.topbar .subnav ul {
+  width: max-content;
+}
+
+.topbar .subnav a {
+  padding: 0 12px;
+  min-height: 32px;
+}
+
+@media (max-width: 640px) {
+  .topbar .subnav {
+    padding: 0 16px 6px;
+  }
+
+  .section-switch a {
+    padding: 6px 10px;
+  }
+}
+
+/* Detections: each tile is also its control's filter. */
+.kpis > li:has(> .kpi-filter) {
+  display: flex;
+  min-width: 0;
+}
+
+.kpi-filter {
+  flex: 1;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.kpi-filter:hover {
+  border-color: var(--edge);
+}
+
+.kpi-filter[aria-pressed="true"] {
+  border-color: var(--ink);
+}
+
+.kpi-filter:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.test-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

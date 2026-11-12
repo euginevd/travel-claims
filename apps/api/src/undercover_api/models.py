@@ -217,6 +217,9 @@ class ClaimSummary(BaseModel):
     stalled: bool = Field(
         default=False, description="In progress, but the agent stopped working it"
     )
+    red_team: bool = Field(
+        default=False, description="An attack claim the red team made to test the defences"
+    )
 
 
 # A name to look customers up by: a few letters, no more than a full name.
@@ -306,6 +309,30 @@ class Trace(BaseModel):
     total_tokens: int
 
 
+class TraceOutcome(BaseModel):
+    """How the claim ended up: its decision, as recorded."""
+
+    decision: DecisionKind
+    payout: float
+    section: str
+    reason: str
+    decided_by: str
+    decided_at: str
+
+
+class EngineerTrace(Trace):
+    """A claim's trace with what the engineers read it against: the claim, its outcome, the
+    agent version that worked it and what a live claim costs on average."""
+
+    summary: str
+    status: Status
+    outcome: TraceOutcome | None
+    config_version: int | None = Field(description="The claim agent version that worked it")
+    average_cost: float | None = Field(
+        description="What a live claim's model calls cost on average, over the last 30 days"
+    )
+
+
 class Trip(BaseModel):
     destination: str
     departs_on: str
@@ -386,6 +413,7 @@ class RedTeamReport(BaseModel):
     run_at: str
     run_by: str
     results: list[RedTeamResult]
+    config_version: int | None = None
 
 
 class Source(Strict):
@@ -829,3 +857,5 @@ class QuestionAnswer(BaseModel):
     sources: list[str]
     suggest: Literal["", "start_claim", "ask_person"]
     screened: bool
+    # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
+    verified: bool = False

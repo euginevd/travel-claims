@@ -53,8 +53,10 @@ env:
   TF_VAR_model_provider: ${{ vars.MODEL_PROVIDER || 'bedrock' }}
   # Bump to write a new Anthropic key into the settings.
   TF_VAR_anthropic_key_version: ${{ vars.ANTHROPIC_KEY_VERSION || '1' }}
-  # on: the platform's Firewall Manager applies its WAF policy to the sites; off: no WAF (decision 47).
+  # on: the platform's Firewall Manager applies its WAF policy to the sites; off: no WAF (decision 51).
   TF_VAR_cloudfront_waf: ${{ vars.CLOUDFRONT_WAF || 'off' }}
+  # How receipts are read before any model sees them (decision 50).
+  TF_VAR_receipt_reader: ${{ vars.RECEIPT_READER || 'textract' }}
   # Where the alarms are emailed (monitoring unit).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the

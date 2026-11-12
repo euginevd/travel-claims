@@ -14,7 +14,7 @@
   [ "$(echo $plan)" = "PAID ACTIVE" ]; result $? "account plan $(echo ${plan:-unknown})"
 
   echo "== CloudFront WAF"
-  # CLOUDFRONT_WAF=on needs the platform's Firewall Manager policy, published as a parameter (decision 47).
+  # CLOUDFRONT_WAF=on needs the platform's Firewall Manager policy, published as a parameter (decision 51).
   if aws ssm get-parameter --region "$R" --name /platform/waf/cloudfront-policy-id >/dev/null 2>&1; then
     echo "OK    the platform's Firewall Manager policy is published: CLOUDFRONT_WAF=on can be used"
   else

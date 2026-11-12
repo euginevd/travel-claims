@@ -58,7 +58,9 @@ test("the banner says what a claim needs, and nothing when it needs nothing", ()
   );
   expect(needsYou(claim({ status: "decided", decision: REFERRAL }))).toMatch(/instruct/);
   const referred = { ...REFERRAL, by_screening: false, reason: "Needs a medical report." };
-  expect(needsYou(claim({ status: "decided", decision: referred }))).toMatch(/medical report/);
+  expect(needsYou(claim({ status: "decided", decision: referred }))).toMatch(
+    /couldn't decide this one alone/,
+  );
   const asked = claim({ status: "decided", decision: APPROVAL, review_requested_at: "2026-11-08" });
   expect(needsYou(asked)).toMatch(/asked for a person/);
   expect(needsYou(claim({ status: "decided", decision: APPROVAL }))).toBeNull();

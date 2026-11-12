@@ -29,7 +29,7 @@ test("answers an engineer's question with its sources", async () => {
 
 test("the starters fit the page", () => {
   expect(startersFor({ page: "run", runId: 7 })[0]).toBe("Summarise run 7");
-  for (const page of ["improvement", "redteam", "trace", "threats"] as const) {
+  for (const page of ["improvement", "redteam", "trace", "posture", "detections"] as const) {
     expect(startersFor({ page }).length).toBeGreaterThan(1);
   }
 });

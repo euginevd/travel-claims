@@ -26,6 +26,8 @@ from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
 from undercover_agent.judge import JudgeRequest, RunJudge
 from undercover_agent.models import Draft, Drafter, Letter
+from undercover_agent.reasoning import reasoning_check_for
+from undercover_agent.receipts import reader_for
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner, Watchdog
 from undercover_agent.tools import receipt_block
@@ -527,6 +529,12 @@ def build_app() -> FastAPI:
             )
             if settings.code_interpreter_id
             else None,
+            receipts=reader_for(
+                settings.receipt_reader,
+                settings.data_automation_project_arn,
+                settings.data_automation_profile,
+                region,
+            ),
         )
         return Runner(graph, api)
 
@@ -546,6 +554,11 @@ def build_app() -> FastAPI:
             output_guardrail_for(
                 settings.bedrock_answer_guardrail_id,
                 settings.bedrock_answer_guardrail_version,
+                region,
+            ),
+            reasoning_check_for(
+                settings.bedrock_reasoning_guardrail_id,
+                settings.bedrock_reasoning_guardrail_version,
                 region,
             ),
         ),

@@ -1,5 +1,6 @@
 import type { Source, Step } from "../api";
 import { date } from "../format";
+import { sourceName } from "./ActivityRail";
 
 interface Looked {
   source: Source;
@@ -30,13 +31,13 @@ export function SourcesPanel({ steps }: { steps: Step[] }) {
         <ul className="sources">
           {looked.map(({ source, lookups }) => (
             <li key={source.file}>
-              <strong>{source.file}</strong>
+              <strong title={source.file}>{sourceName(source.file)}</strong>
               <span className="muted small">
                 {" "}
                 · {lookups} {lookups === 1 ? "lookup" : "lookups"}
               </span>
               <dl className="source-facts">
-                <dt>System</dt>
+                <dt>Kept in</dt>
                 <dd>{source.system}</dd>
                 <dt>Owner</dt>
                 <dd>{source.owner}</dd>

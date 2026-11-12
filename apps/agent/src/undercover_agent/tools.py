@@ -6,6 +6,7 @@ customer, so it can't reach another customer's records.
 
 import asyncio
 import json
+from base64 import b64decode
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
@@ -15,6 +16,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
 from undercover_agent.api_client import ApiClient, ApiError
+from undercover_agent.receipts import ReadReceipt, ReceiptReader
 
 Json = dict[str, Any]
 
@@ -331,10 +333,37 @@ def receipt_block(receipt: Json) -> Json:
     return {"type": kind, "source": source}
 
 
-def with_receipts(text: str, receipts: list[Json]) -> list[Json]:
-    """A message's content: the text, then any receipts after a line marking them as data."""
-    content: list[Json] = [{"type": "text", "text": text}]
-    if receipts:
-        content.append({"type": "text", "text": RECEIPTS_FOLLOW})
-        content.extend(receipt_block(receipt) for receipt in receipts)
+UNREAD = "Receipt {number} couldn't be read into fields, so its image follows."
+
+
+def receipt_content(receipts: list[Json], reader: ReceiptReader | None = None) -> list[Json]:
+    """The receipts as content blocks after a line marking them as data: each one's fields as
+    text when the reader reads it (on AWS), its image otherwise (locally, or unreadable)."""
+    if not receipts:
+        return []
+    content: list[Json] = [{"type": "text", "text": RECEIPTS_FOLLOW}]
+    for number, receipt in enumerate(receipts, start=1):
+        read = read_with(reader, receipt) if reader else None
+        if read is not None:
+            content.append({"type": "text", "text": read.as_text(number)})
+            continue
+        if reader is not None:
+            content.append({"type": "text", "text": UNREAD.format(number=number)})
+        content.append(receipt_block(receipt))
     return content
+
+
+def read_with(reader: ReceiptReader, receipt: Json) -> ReadReceipt | None:
+    """The receipt's fields, or None when it can't be read, its data included."""
+    try:
+        data = b64decode(str(receipt["data"]), validate=True)
+    except ValueError:
+        return None
+    return reader.read(str(receipt["receipt_id"]), data, str(receipt["media_type"]))
+
+
+def with_receipts(
+    text: str, receipts: list[Json], reader: ReceiptReader | None = None
+) -> list[Json]:
+    """A message's content: the text, then any receipts after a line marking them as data."""
+    return [{"type": "text", "text": text}, *receipt_content(receipts, reader)]

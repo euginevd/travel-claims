@@ -126,7 +126,14 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
           <div className="claim-pair">
             <div className="panel outcome-card">
               <h2>Where it stands</h2>
-              <p>{claim.status_text}</p>
+              <p>
+                {claim.letter && claim.reason && claim.outcome && claim.outcome !== "refer"
+                  ? claim.status_text.replace(
+                      "The reason is below.",
+                      "The letter above explains why.",
+                    )
+                  : claim.status_text}
+              </p>
               {claim.paid !== null && (
                 <p className="payout">
                   {dollars(claim.paid)}
@@ -139,11 +146,16 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
                   )}
                 </p>
               )}
-              {/* A referred claim's reason only repeats where it stands. */}
+              {/* A referred claim's reason only repeats where it stands, and a letter already
+                  explains the decision. */}
               {claim.reason && claim.outcome && claim.outcome !== "refer" && (
                 <>
-                  <h3>Why</h3>
-                  <p dir="auto">{claim.reason}</p>
+                  {!claim.letter && (
+                    <>
+                      <h3>Why</h3>
+                      <p dir="auto">{claim.reason}</p>
+                    </>
+                  )}
                   <Feedback
                     api={api}
                     subject="decision"
@@ -158,10 +170,11 @@ export function MyClaimPage({ api, claimId }: MyClaimPageProps) {
                   Decided with help from our AI claims agent
                 </p>
               )}
-              {claim.review_requested && (
+              {/* A referred claim already says a handler has it; only a decision needs this. */}
+              {claim.review_requested && claim.outcome && claim.outcome !== "refer" && (
                 <p className="notice" role="status">
-                  <UserRound size={16} strokeWidth={1.75} aria-hidden="true" /> A claims handler
-                  will review your claim personally and contact you.
+                  <UserRound size={16} strokeWidth={1.75} aria-hidden="true" /> You asked for a
+                  person to review this decision. A claims handler will contact you.
                 </p>
               )}
               {claim.can_request_review && (

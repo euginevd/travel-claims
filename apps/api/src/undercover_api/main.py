@@ -14,7 +14,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import Connection, Engine, delete, func, insert, select, update
-from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
 from undercover_api.agent_service import (
@@ -70,6 +70,7 @@ from undercover_api.db import (
     decisions,
     engineers,
     handlers,
+    insert_if_new,
     make_engine,
     model_calls,
     now,
@@ -130,6 +131,7 @@ from undercover_api.models import (
 from undercover_api.payments import pay, record_payment
 from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
+from undercover_api.posture import posture_router
 from undercover_api.records import check_calculation, check_request
 from undercover_api.recovery import (
     agent_claim_router,
@@ -278,11 +280,8 @@ def record_decision(
         approval_limit=limit,
         checklist=[check.model_dump() for check in request.checklist],
     )
-    try:
-        with db.begin_nested():
-            db.execute(insert(decisions).values(claim_id=claim_id, **record))
-    except IntegrityError as error:
-        raise HTTPException(409, f"Claim {claim_id} has already been decided") from error
+    if insert_if_new(db, decisions, claim_id=claim_id, **record) is None:
+        raise HTTPException(409, f"Claim {claim_id} has already been decided")
     if request.decision != DecisionKind.APPROVE or claim["source"] == EVALUATION:
         # An evaluation's copy is never paid or signed off: its approval is finished here.
         set_status(db, claim_id, Status.DECIDED)
@@ -950,6 +949,7 @@ def create_app(
         agent_dispatch_router,
         redteam_router,
         threats_router,
+        posture_router,
         risk_router,
         letters_router,
         ask_router,
