@@ -16,7 +16,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
 from undercover_agent.api_client import ApiClient, ApiError
-from undercover_agent.receipts import ReceiptReader
+from undercover_agent.receipts import ReadReceipt, ReceiptReader
 
 Json = dict[str, Any]
 
@@ -343,12 +343,7 @@ def receipt_content(receipts: list[Json], reader: ReceiptReader | None = None) -
         return []
     content: list[Json] = [{"type": "text", "text": RECEIPTS_FOLLOW}]
     for number, receipt in enumerate(receipts, start=1):
-        media_type = str(receipt["media_type"])
-        read = (
-            reader.read(str(receipt["receipt_id"]), b64decode(str(receipt["data"])), media_type)
-            if reader
-            else None
-        )
+        read = read_with(reader, receipt) if reader else None
         if read is not None:
             content.append({"type": "text", "text": read.as_text(number)})
             continue
@@ -356,6 +351,15 @@ def receipt_content(receipts: list[Json], reader: ReceiptReader | None = None) -
             content.append({"type": "text", "text": UNREAD.format(number=number)})
         content.append(receipt_block(receipt))
     return content
+
+
+def read_with(reader: ReceiptReader, receipt: Json) -> ReadReceipt | None:
+    """The receipt's fields, or None when it can't be read, its data included."""
+    try:
+        data = b64decode(str(receipt["data"]), validate=True)
+    except ValueError:
+        return None
+    return reader.read(str(receipt["receipt_id"]), data, str(receipt["media_type"]))
 
 
 def with_receipts(

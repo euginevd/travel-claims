@@ -9,8 +9,9 @@ changed (its hash is kept in the policy's description), prints each rule for rev
 then finds or creates the guardrail <name> using that version, versions it, and writes its ID and
 version into the app's settings. delete removes both and the settings. Run by the guardrail unit's
 Terraform with the deploy role, through the AWS CLI, as fill-secret.py is; the Terraform provider
-has no Automated Reasoning resources yet. Automated Reasoning in Sydney processes only in
-Australia. A build takes several minutes.
+has no Automated Reasoning resources yet. From Sydney, Automated Reasoning processes only in
+Australia, and the guardrail uses Australia's guardrail profile (Sydney only). A build takes
+several minutes.
 """
 
 import base64
@@ -32,6 +33,9 @@ BUILD_MINUTES = 30
 # The guardrail only reports (detect mode); these messages are never shown.
 BLOCKED = "Checked against the policy's rules."
 THRESHOLD = 0.8
+# Automated Reasoning guardrails need a cross-Region guardrail profile; Australia's routes from
+# Sydney to Sydney only, so answers stay in Australia.
+PROFILE = "au.guardrail.v1:0"
 DESCRIPTION = (
     "Travel insurance cover: plan limits, waiting periods, deductibles, what is and isn't paid,"
     " exclusions and how payouts are worked out."
@@ -180,6 +184,7 @@ def apply(name: str, wording_path: str, parameter: str) -> None:
         "blockedInputMessaging": BLOCKED,
         "blockedOutputsMessaging": BLOCKED,
         "automatedReasoningPolicyConfig": config,
+        "crossRegionConfig": {"guardrailProfileIdentifier": PROFILE},
     }
     guardrail = find_guardrail(name)
     if guardrail is None:

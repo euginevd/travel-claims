@@ -1,7 +1,9 @@
 # Ask UnderCover's Automated Reasoning check (decision 48): formal rules built from the policy
 # wording, and a guardrail that checks answers against them, kept by scripts/reasoning-policy.py
 # as the Terraform provider has no Automated Reasoning resources yet. A changed wording or script
-# rebuilds both; tear down deletes them. In Sydney it processes only in Australia.
+# replaces this resource, so both are deleted and rebuilt; the script's own check of the wording
+# only saves a rebuild when a failed apply is run again. Tear down deletes both. From Sydney it
+# processes only in Australia.
 locals {
   wording   = "${path.module}/../../../apps/context/src/undercover_context/data/policy_wording.md"
   reasoning = "${path.module}/../../../scripts/reasoning-policy.py"

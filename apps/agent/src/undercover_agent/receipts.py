@@ -66,8 +66,11 @@ class TextractReader:
     def __init__(self, region: str | None, client: Any = None) -> None:
         if client is None:
             import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+            from botocore.config import Config  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
-            client = cast(Any, boto3).client("textract", region_name=region)
+            # Short limits: an unreachable Textract falls back to the image in seconds.
+            limits = Config(connect_timeout=5, read_timeout=30, retries={"max_attempts": 2})
+            client = cast(Any, boto3).client("textract", region_name=region, config=limits)
         self._client = client
         self._read: OrderedDict[str, ReadReceipt | None] = OrderedDict()
 
@@ -78,12 +81,12 @@ class TextractReader:
         try:
             reply = self._client.analyze_expense(Document={"Bytes": data})
         except Exception as error:  # noqa: BLE001 - the image still reaches the claim's checks
+            # Not kept: a throttle or a blip is tried again next time.
             log.warning(
                 "receipt %s not read (%s): %s", receipt_id, media_type, type(error).__name__
             )
-            read = None
-        else:
-            read = read_expense(reply)
+            return None
+        read = read_expense(reply)
         self._read[receipt_id] = read
         if len(self._read) > CACHED:
             self._read.popitem(last=False)

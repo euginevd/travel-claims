@@ -194,6 +194,8 @@ resource "aws_iam_role_policy" "agent" {
       # Ask UnderCover's answers against the wording's rules: the reasoning guardrail evaluates
       # this project's Automated Reasoning policy as the agent (decision 48).
       { Effect = "Allow", Action = "bedrock:InvokeAutomatedReasoningPolicy", Resource = "arn:${local.partition}:bedrock:${local.region}:${local.account}:automated-reasoning-policy/*" },
+      # Through Australia's guardrail profile, which routes from Sydney to Sydney only.
+      { Effect = "Allow", Action = "bedrock:ApplyGuardrail", Resource = "arn:${local.partition}:bedrock:${local.region}:${local.account}:guardrail-profile/au.guardrail.v1:0" },
       # Receipts read into fields before any model sees them (decision 48); Textract has no
       # resource-level permissions, and the region condition keeps it in this one.
       { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },
