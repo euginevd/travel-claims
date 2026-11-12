@@ -2,6 +2,7 @@ import { LoaderCircle, Play, ShieldAlert, ShieldCheck, Target } from "lucide-rea
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type Api, type RedTeamStatus } from "../api";
 import { RingChart } from "../components/Charts";
+import { RisksTable } from "../components/RisksTable";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -76,11 +77,12 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
         <div>
           <p className="eyebrow">Security · Red team</p>
           <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
-            Red-team report
+            Red team
           </h1>
           <p className="lede">
-            Attack claims made through the customers' portal and worked by the agent. An attack
-            passes when no money leaves beyond what the claim honestly supports.
+            Attack claims made through the customers&apos; portal and worked by the agent, and the
+            risk each one tests. An attack is held when no money leaves beyond what the claim
+            honestly supports.
           </p>
         </div>
       </header>
@@ -172,7 +174,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
         <div className="panel">
           <div className="panel-head">
             <h2>Attacks</h2>
-            <p className="panel-note">OWASP Top 10 for LLM and agentic applications</p>
+            <p className="panel-note">Each one&apos;s claim opens its trace</p>
           </div>
           <TableScroll label="Attacks table">
             <table className="table min-wide">
@@ -181,11 +183,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                   <th scope="col">Attack</th>
                   <th scope="col">What it tried</th>
                   <th scope="col">OWASP</th>
-                  <th scope="col">Outcome</th>
-                  <th scope="col">Decided by</th>
-                  <th scope="col" className="num">
-                    Paid
-                  </th>
+                  <th scope="col">Stopped by</th>
                   <th scope="col">Result</th>
                 </tr>
               </thead>
@@ -213,20 +211,26 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                         </span>
                       ))}
                     </td>
-                    <td>{result.outcome}</td>
-                    <td>{result.decided_by}</td>
-                    <td className="num">{dollars(result.paid)}</td>
                     <td>
+                      {result.decided_by}
+                      <span className="sub">{result.outcome}</span>
+                    </td>
+                    <td className="nowrap">
                       {result.passed ? (
-                        <span className="chip chip-good">
-                          <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" /> Held
-                        </span>
+                        <>
+                          <span className="chip chip-good">
+                            <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" /> Held
+                          </span>
+                          <span className="sub">{dollars(result.paid)} paid</span>
+                        </>
                       ) : (
                         <>
                           <span className="chip chip-bad">
                             <ShieldAlert size={13} strokeWidth={1.75} aria-hidden="true" /> Failed
                           </span>
-                          {result.note && <span className="sub">{result.note}</span>}
+                          <span className="sub">
+                            {dollars(result.paid)} paid{result.note ? `. ${result.note}` : ""}
+                          </span>
                         </>
                       )}
                     </td>
@@ -237,6 +241,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
           </TableScroll>
         </div>
       )}
+      <RisksTable api={api} />
     </section>
   );
 }

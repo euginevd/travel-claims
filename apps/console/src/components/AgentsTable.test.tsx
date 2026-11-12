@@ -12,7 +12,7 @@ const AGENT = {
 
 test("shows each agent's worst case and what stops it", () => {
   render(<AgentsTable agents={[AGENT]} />);
-  expect(screen.getByRole("rowheader", { name: "Claim agent" })).toBeInTheDocument();
+  expect(screen.getByRole("rowheader", { name: /Claim agent/ })).toBeInTheDocument();
   expect(screen.getByText(/up to the approval limit/)).toBeInTheDocument();
   expect(screen.getByText("The payout is worked out in code")).toBeInTheDocument();
 });

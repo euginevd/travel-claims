@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createApi } from "../api";
 import { fakeFetch } from "../testing";
-import { ThreatsPage } from "./ThreatsPage";
+import { RisksTable } from "./RisksTable";
 
 const COVERAGE = {
   redteam_run_at: "2026-11-09T01:00:00Z",
@@ -47,20 +47,22 @@ const COVERAGE = {
   },
 };
 
-test("shows each risk with its tests, guardrail and the payouts switch read-only", async () => {
+test("shows each risk with its tests and what fired, then the agents, after a retry", async () => {
   const user = userEvent.setup();
   let fail = true;
   const fetchFn = fakeFetch({
     "GET /api/engineering/threats": () => (fail ? [500, { detail: "Down" }] : [200, COVERAGE]),
   });
-  render(<ThreatsPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByRole("alert")).toHaveTextContent("Down");
+  render(<RisksTable api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByRole("status")).toHaveTextContent("Down");
   fail = false;
   await user.click(screen.getByRole("button", { name: "Try again" }));
-  expect(await screen.findByText("Prompt injection")).toBeInTheDocument();
+  expect(await screen.findByText(/Prompt injection/)).toBeInTheDocument();
+  expect(screen.getByText(/1 of 2 tested by an attack/)).toBeInTheDocument();
   expect(screen.getByLabelText("Held")).toBeInTheDocument();
   expect(screen.getByLabelText("Failed")).toBeInTheDocument();
-  expect(screen.getByText(/3 times/)).toBeInTheDocument();
-  expect(screen.getByText("paused")).toBeInTheDocument();
-  expect(screen.getByText(/by Dana Whitfield/)).toBeInTheDocument();
+  expect(screen.getByText("No attack yet")).toBeInTheDocument();
+  expect(screen.getByText("3 times")).toBeInTheDocument();
+  expect(screen.getByText("MITRE ATLAS AML.T0051")).toBeInTheDocument();
+  expect(screen.getByRole("rowheader", { name: /Claim agent/ })).toBeInTheDocument();
 });

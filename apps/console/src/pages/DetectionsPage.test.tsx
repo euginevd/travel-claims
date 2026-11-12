@@ -50,11 +50,18 @@ test("lists each detection as text, filters by control, and changes period", asy
     "#/trace/CLM-1918",
   );
 
-  await user.click(screen.getByRole("radio", { name: "Payout held" }));
+  // A tile is its control's filter.
+  await user.click(screen.getByRole("button", { name: /^Payout held/ }));
+  expect(screen.getByRole("button", { name: /^Payout held/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   expect(within(table).getAllByRole("row")).toHaveLength(2);
   expect(within(table).getByText("CLM-1896")).toBeInTheDocument();
-  await user.click(screen.getByRole("radio", { name: "Model refused" }));
+  await user.click(screen.getByRole("button", { name: /^Model refused/ }));
   expect(screen.getByText("None from this control in the period.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Show every control" }));
+  expect(await screen.findByRole("region", { name: "Detections table" })).toBeInTheDocument();
 
   await user.click(screen.getByRole("radio", { name: "30 days" }));
   expect(await screen.findByText("No detections in this period")).toBeInTheDocument();

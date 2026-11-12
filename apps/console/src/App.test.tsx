@@ -79,5 +79,5 @@ test("each page opens from its route", async () => {
     ],
   });
   render(<App fetchFn={fetchFn} />);
-  expect(await screen.findByRole("heading", { name: "Red-team report" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Red team" })).toBeInTheDocument();
 });

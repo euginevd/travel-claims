@@ -20,11 +20,9 @@ export function startersFor(route: Route): string[] {
     case "improvement":
       return ["What changed in the latest round?", "Did the last round pass the red team?"];
     case "redteam":
-      return ["Which attack got closest?", "Which OWASP risks does the red team test?"];
+      return ["Which attack got closest?", "Which risks have no test yet?"];
     case "trace":
       return ["Explain the trace for CLM-1001", "Which step costs the most on CLM-1001?"];
-    case "coverage":
-      return ["Which risks have no test yet?", "How many hidden instructions were screened?"];
     case "posture":
     case "detections":
       return [

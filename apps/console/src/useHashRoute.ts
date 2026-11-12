@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 export type Route =
   | { page: "posture" }
   | { page: "detections" }
-  | { page: "coverage" }
   | { page: "redteam" }
   | { page: "scoreboard" }
   | { page: "live" }
@@ -17,23 +16,23 @@ const TRACE_PATH = /^#\/trace\/(CLM-\d{1,10})$/i;
 export const HOME_HREF = "#/";
 export const POSTURE_HREF = "#/posture";
 export const DETECTIONS_HREF = "#/detections";
-export const COVERAGE_HREF = "#/coverage";
 export const REDTEAM_HREF = "#/redteam";
 export const SCOREBOARD_HREF = "#/scoreboard";
 export const LIVE_HREF = "#/live";
 export const IMPROVEMENT_HREF = "#/improvement";
 export const TRACE_HREF = "#/trace";
-// Old addresses, kept so saved links still open their page: threat coverage, and the agents,
-// now a part of coverage.
+// Old addresses, kept so saved links still open their page: threat coverage and the agents are
+// now a part of the red team's page.
+const OLD_COVERAGE_HREF = "#/coverage";
 const OLD_THREATS_HREF = "#/threats";
 const OLD_AGENTS_HREF = "#/agents";
 
 const PAGES: Record<string, Route> = {
   [DETECTIONS_HREF]: { page: "detections" },
-  [COVERAGE_HREF]: { page: "coverage" },
-  [OLD_THREATS_HREF]: { page: "coverage" },
+  [OLD_COVERAGE_HREF]: { page: "redteam" },
+  [OLD_THREATS_HREF]: { page: "redteam" },
   [REDTEAM_HREF]: { page: "redteam" },
-  [OLD_AGENTS_HREF]: { page: "coverage" },
+  [OLD_AGENTS_HREF]: { page: "redteam" },
   [POSTURE_HREF]: { page: "posture" },
   [SCOREBOARD_HREF]: { page: "scoreboard" },
   [LIVE_HREF]: { page: "live" },

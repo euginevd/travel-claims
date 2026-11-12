@@ -8,7 +8,6 @@ import { ImprovementPage } from "./pages/ImprovementPage";
 import { owaspIds } from "./pages/RedTeamPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
-import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { saveToken } from "./session";
 import { fakeFetch, SAM } from "./testing";
@@ -181,8 +180,8 @@ test("the navigation marks the page the engineer is on", async () => {
     ["#/runs/3", "Evals: Scoreboard"],
     ["#/improvement", "Evals: Improvement"],
     ["#/trace", "Evals: Trace"],
-    ["#/threats", "Security: Coverage"],
-    ["#/agents", "Security: Coverage"],
+    ["#/threats", "Security: Red team"],
+    ["#/agents", "Security: Red team"],
   ];
   for (const [hash, name] of pages) {
     window.location.hash = hash;
@@ -273,55 +272,6 @@ test("improvement with no rounds says what to do, and a round awaiting review is
   await userEvent.click(screen.getByRole("button", { name: /Start an improvement round/ }));
   expect(await screen.findByText("Round 1 needs your review.")).toBeInTheDocument();
   expect(screen.getByText("Needs your review")).toBeInTheDocument();
-});
-
-test("threat coverage sums up what is tested, and says when nothing is", async () => {
-  const threat = {
-    owasp: "LLM01",
-    risk: "Prompt injection",
-    atlas: "AML.T0051",
-    control: "Hidden-instruction check",
-    attacks: [{ attack_id: "RT-01", name: "Receipt", passed: true }],
-    last_fired: "2026-11-09T01:00:00Z",
-    fired: 1,
-  };
-  const quiet = { ...threat, owasp: "LLM03", risk: "Supply chain", attacks: [], fired: 0 };
-  const coverage = {
-    redteam_run_at: "2026-11-09T01:00:00Z",
-    threats: [threat, { ...threat, owasp: "ASI01", risk: "Goal hijack" }, quiet],
-    agents: [],
-    payouts: { paused: false, changed_by: null, changed_at: null, reason: null },
-  };
-  const first = render(
-    <ThreatsPage
-      api={createApi(
-        fakeFetch({ "GET /api/engineering/threats": () => [200, coverage] }),
-        () => "t",
-      )}
-    />,
-  );
-  const summary = await screen.findByRole("list", { name: "Coverage at a glance" });
-  expect(within(summary).getByText("3 of 3")).toBeInTheDocument();
-  expect(within(summary).getByText("1 of 1")).toBeInTheDocument();
-  expect(within(summary).getByText("2 of 3")).toBeInTheDocument();
-  expect(within(summary).getByText("Tested by the red team (2)")).toBeInTheDocument();
-  expect(screen.getAllByText(/^1 time, last/)).toHaveLength(2);
-  expect(screen.getByText("Not red-teamed yet")).toBeInTheDocument();
-  expect(screen.getAllByRole("link", { name: /RT-01/ })[0]).toHaveAttribute("href", "#/redteam");
-  expect(screen.getByText("on")).toBeInTheDocument();
-  first.unmount();
-
-  const untested = { ...coverage, redteam_run_at: null, threats: [quiet] };
-  render(
-    <ThreatsPage
-      api={createApi(
-        fakeFetch({ "GET /api/engineering/threats": () => [200, untested] }),
-        () => "t",
-      )}
-    />,
-  );
-  expect(await screen.findByText("Not run yet")).toBeInTheDocument();
-  expect(screen.getByText("None has fired yet")).toBeInTheDocument();
 });
 
 const UNDECIDED = {

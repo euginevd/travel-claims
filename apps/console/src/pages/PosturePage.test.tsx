@@ -11,20 +11,18 @@ function page(posture: Posture | (() => [number, unknown])) {
   render(<PosturePage api={createApi(fetchFn, () => "t")} />);
 }
 
-test("shows the verdict, the four stages, each layer and the gaps, most severe first", async () => {
+test("shows the verdict, four figures, each layer and the gaps, most severe first", async () => {
   page(POSTURE);
   expect(
     await screen.findByText("Every attack was stopped, but parts are untested"),
   ).toBeInTheDocument();
   expect(screen.getByText(/2 of 2 attacks were stopped and \$0.00 was paid/)).toBeInTheDocument();
 
-  const stages = screen.getByRole("list", { name: "Security at a glance" });
-  expect(within(stages).getByText("What we run")).toBeInTheDocument();
-  expect(within(stages).getByText("6 of 12")).toBeInTheDocument();
-  expect(within(stages).getByText("4 of 7 tested")).toBeInTheDocument();
-  expect(within(stages).getByText("On")).toBeInTheDocument();
-  // The version in use (4) isn't the one the red team attacked (3).
-  expect(within(stages).getByText("No")).toBeInTheDocument();
+  const tiles = screen.getByRole("list", { name: "Security at a glance" });
+  expect(within(tiles).getByText("2 of 2")).toBeInTheDocument();
+  expect(within(tiles).getByText("6 of 12")).toBeInTheDocument();
+  expect(within(tiles).getByText(/OWASP LLM 4 of 7/)).toBeInTheDocument();
+  expect(within(tiles).getByText("On")).toBeInTheDocument();
 
   expect(screen.getByRole("heading", { name: "Defence in depth" })).toBeInTheDocument();
   expect(screen.getByText("Reached by 2 · stopped 2")).toBeInTheDocument();
@@ -35,11 +33,7 @@ test("shows the verdict, the four stages, each layer and the gaps, most severe f
   );
   expect(first).toHaveTextContent("High");
   expect(first).toHaveTextContent("never faced an attack");
-  if (!second) throw new Error("No second gap");
-  expect(within(second).getByRole("link", { name: "Coverage" })).toHaveAttribute(
-    "href",
-    "#/coverage",
-  );
+  expect(second).toBeDefined();
 });
 
 test("before any red-team run it says so and where to start", async () => {

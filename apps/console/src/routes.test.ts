@@ -2,9 +2,9 @@ import { parseHash, runHref, traceHref } from "./useHashRoute";
 
 test("every page has a route, old links still work, and anything else is the scoreboard", () => {
   expect(parseHash("#/detections")).toEqual({ page: "detections" });
-  expect(parseHash("#/coverage")).toEqual({ page: "coverage" });
-  expect(parseHash("#/threats")).toEqual({ page: "coverage" });
-  expect(parseHash("#/agents")).toEqual({ page: "coverage" });
+  expect(parseHash("#/coverage")).toEqual({ page: "redteam" });
+  expect(parseHash("#/threats")).toEqual({ page: "redteam" });
+  expect(parseHash("#/agents")).toEqual({ page: "redteam" });
   expect(parseHash("#/posture")).toEqual({ page: "posture" });
   expect(parseHash("#/redteam")).toEqual({ page: "redteam" });
   expect(parseHash("#/scoreboard")).toEqual({ page: "scoreboard" });

@@ -1,13 +1,10 @@
 import {
-  Boxes,
   CircleAlert,
   Info,
   LoaderCircle,
-  Radar,
   ShieldAlert,
   ShieldCheck,
   ShieldQuestionMark,
-  SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
@@ -15,7 +12,7 @@ import type { Api, Posture, Severity } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { COVERAGE_HREF, DETECTIONS_HREF, REDTEAM_HREF } from "../useHashRoute";
+import { DETECTIONS_HREF, REDTEAM_HREF } from "../useHashRoute";
 
 const SEVERITY: Record<Severity, { label: string; chip: string; icon: ReactNode }> = {
   high: {
@@ -34,13 +31,6 @@ const SEVERITY: Record<Severity, { label: string; chip: string; icon: ReactNode 
     icon: <Info size={13} strokeWidth={1.75} aria-hidden="true" />,
   },
 };
-
-const DETECTION_LABELS = {
-  hidden_instruction: "Hidden-instruction check",
-  guardrail: "Bedrock guardrail",
-  refusal: "Model refused",
-  held: "Payout held",
-} as const;
 
 function plural(count: number, one: string, many = `${one}s`): string {
   return `${String(count)} ${count === 1 ? one : many}`;
@@ -99,37 +89,26 @@ function Verdict({ posture }: { posture: Posture }) {
   );
 }
 
-function Stage({
-  step,
-  icon,
-  title,
+/** One tile: a figure, what it's out of, and where to see more. */
+function Tile({
+  label,
   value,
-  unit,
-  children,
+  sub,
   link,
+  children,
 }: {
-  step: number;
-  icon: ReactNode;
-  title: string;
-  value: string;
-  unit: string;
-  children: ReactNode;
+  label: string;
+  value: ReactNode;
+  sub: string;
   link?: { href: string; label: string };
+  children?: ReactNode;
 }) {
   return (
-    <li className="kpi stage">
-      <p className="stage-title">
-        <span className="icon-tile" aria-hidden="true">
-          {icon}
-        </span>
-        {title}
-        <span className="stage-step" aria-hidden="true">
-          {step}
-        </span>
-      </p>
+    <li className="kpi">
+      <p className="kpi-label">{label}</p>
       <p className="kpi-value">{value}</p>
-      <p className="kpi-sub">{unit}</p>
-      <dl className="stage-rows">{children}</dl>
+      <p className="kpi-sub">{sub}</p>
+      {children}
       {link && (
         <a className="stage-link small" href={link.href}>
           {link.label}
@@ -139,101 +118,43 @@ function Stage({
   );
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
-
-function YesNo({ yes, words }: { yes: boolean; words: [string, string] }) {
-  return yes ? (
-    <span className="chip chip-good">
-      <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
-      {words[0]}
-    </span>
-  ) : (
-    <span className="chip chip-warn">
-      <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
-      {words[1]}
-    </span>
-  );
-}
-
-/** Four cards, left to right: what runs, how it's controlled, what's open, what fired. */
-function Stages({ posture }: { posture: Posture }) {
-  const { inventory, controls, issues, detections, readiness } = posture;
-  const bySeverity = (severity: Severity) => issues.filter((i) => i.severity === severity).length;
+/** Four figures: the attacks stopped, the risks tested, what fired live and the payouts
+ * switch. The rest of the page says where and what to close. */
+function Tiles({ posture }: { posture: Posture }) {
+  const { controls, detections, readiness, redteam } = posture;
   const fired = Object.values(detections).reduce((sum, count) => sum + count, 0);
   return (
-    <ul className="kpis stages" aria-label="Security at a glance">
-      <Stage
-        step={1}
-        icon={<Boxes size={16} strokeWidth={1.75} />}
-        title="What we run"
-        value={String(inventory.agents)}
-        unit="AI agents"
-        link={{ href: COVERAGE_HREF, label: "What each could do if tricked" }}
-      >
-        <Row label="Claude models">{inventory.models}</Row>
-        <Row label="Risks catalogued">{inventory.risks}</Row>
-        <Row label="Claim agent version">
-          {inventory.live_version === null ? "–" : `v${String(inventory.live_version)}`}
-        </Row>
-      </Stage>
-      <Stage
-        step={2}
-        icon={<SlidersHorizontal size={16} strokeWidth={1.75} />}
-        title="Controls"
+    <ul className="kpis" aria-label="Security at a glance">
+      <Tile
+        label="Attacks stopped"
+        value={redteam ? `${String(redteam.held)} of ${String(redteam.attacks)}` : "–"}
+        sub={redteam ? `${dollars(redteam.paid)} paid, latest red-team run` : "Not run yet"}
+        link={{ href: REDTEAM_HREF, label: "The attacks" }}
+      />
+      <Tile
+        label="Risks tested by an attack"
         value={`${String(controls.tested)} of ${String(controls.risks)}`}
-        unit="risks tested by an attack"
-        link={{ href: COVERAGE_HREF, label: "Each risk and its control" }}
-      >
-        <Row label="Risks with a control">
-          {controls.with_control} of {controls.risks}
-        </Row>
-        <Row label="OWASP LLM Top 10">
-          {controls.llm_tested} of {controls.llm_total} tested
-        </Row>
-        <Row label="OWASP agentic">
-          {controls.agentic_tested} of {controls.agentic_total} tested
-        </Row>
-      </Stage>
-      <Stage
-        step={3}
-        icon={<ShieldAlert size={16} strokeWidth={1.75} />}
-        title="Gaps"
-        value={String(issues.length)}
-        unit="to close, listed below"
-      >
-        {(["high", "medium", "low"] as const).map((severity) => (
-          <Row key={severity} label={SEVERITY[severity].label}>
-            {bySeverity(severity)}
-          </Row>
-        ))}
-      </Stage>
-      <Stage
-        step={4}
-        icon={<Radar size={16} strokeWidth={1.75} />}
-        title="Detections"
+        sub={`OWASP LLM ${String(controls.llm_tested)} of ${String(controls.llm_total)}, agentic ${String(controls.agentic_tested)} of ${String(controls.agentic_total)}`}
+        link={{ href: REDTEAM_HREF, label: "Each risk and its control" }}
+      />
+      <Tile
+        label="Fired on live claims"
         value={String(fired)}
-        unit={`on live claims, last ${String(posture.detection_days)} days`}
+        sub={`Last ${String(posture.detection_days)} days`}
         link={{ href: DETECTIONS_HREF, label: "Every detection" }}
+      />
+      <Tile
+        label="Payouts switch"
+        value={readiness.payouts_paused ? "Paused" : "On"}
+        sub="Senior handlers own it; read-only here"
       >
-        {(Object.keys(DETECTION_LABELS) as (keyof typeof DETECTION_LABELS)[]).map((kind) => (
-          <Row key={kind} label={DETECTION_LABELS[kind]}>
-            {detections[kind]}
-          </Row>
-        ))}
-        <Row label="Payouts">
-          <YesNo yes={!readiness.payouts_paused} words={["On", "Paused"]} />
-        </Row>
-        <Row label="Version in use red-teamed">
-          <YesNo yes={readiness.live_version_red_teamed} words={["Yes", "No"]} />
-        </Row>
-      </Stage>
+        {readiness.payouts_paused && (
+          <span className="chip chip-warn">
+            <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+            No payouts are being made
+          </span>
+        )}
+      </Tile>
     </ul>
   );
 }
@@ -312,7 +233,9 @@ function Gaps({ posture }: { posture: Posture }) {
     <div className="panel">
       <div className="panel-head">
         <h2>Gaps to close</h2>
-        <p className="panel-note">Worked out from the red team and the threat catalogue</p>
+        <p className="panel-note">
+          Worked out from the red team and the threat catalogue. Most urgent first
+        </p>
       </div>
       {posture.issues.length === 0 ? (
         <p className="muted small">No gaps: every risk is tested and every attack was stopped.</p>
@@ -323,7 +246,6 @@ function Gaps({ posture }: { posture: Posture }) {
               <tr>
                 <th scope="col">Severity</th>
                 <th scope="col">Gap</th>
-                <th scope="col">Where</th>
               </tr>
             </thead>
             <tbody>
@@ -341,13 +263,6 @@ function Gaps({ posture }: { posture: Posture }) {
                       {issue.title}
                       <span className="sub">{issue.detail}</span>
                     </th>
-                    <td className="nowrap">
-                      {issue.link === "redteam" ? (
-                        <a href={REDTEAM_HREF}>Red team</a>
-                      ) : (
-                        <a href={COVERAGE_HREF}>Coverage</a>
-                      )}
-                    </td>
                   </tr>
                 );
               })}
@@ -394,8 +309,8 @@ export function PosturePage({ api }: { api: Api }) {
             Would we stop an attack?
           </h1>
           <p className="lede">
-            Worked out in code from the latest red-team run, the threat catalogue and the controls
-            that fired on live claims.
+            Worked out in code from the latest red-team run, the OWASP risks and what fired on live
+            claims.
           </p>
         </div>
       </header>
@@ -416,7 +331,7 @@ export function PosturePage({ api }: { api: Api }) {
       {posture && (
         <>
           <Verdict posture={posture} />
-          <Stages posture={posture} />
+          <Tiles posture={posture} />
           <Layers posture={posture} />
           <Gaps posture={posture} />
         </>

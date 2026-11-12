@@ -1701,3 +1701,48 @@ main.page {
     padding: 6px 10px;
   }
 }
+
+/* Detections: each tile is also its control's filter. */
+.kpis > li:has(> .kpi-filter) {
+  display: flex;
+  min-width: 0;
+}
+
+.kpi-filter {
+  flex: 1;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.kpi-filter:hover {
+  border-color: var(--edge);
+}
+
+.kpi-filter[aria-pressed="true"] {
+  border-color: var(--ink);
+}
+
+.kpi-filter:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.test-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

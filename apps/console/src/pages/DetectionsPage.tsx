@@ -61,8 +61,8 @@ export function DetectionsPage({ api }: { api: Api }) {
             Detections
           </h1>
           <p className="lede">
-            Each time a control fired on a live claim. Evaluation copies and red-team claims are
-            never counted.
+            Each time a protection fired on a real customer&apos;s claim. Test and red-team claims
+            are never counted.
           </p>
         </div>
         <fieldset className="seg page-head-side">
@@ -101,12 +101,22 @@ export function DetectionsPage({ api }: { api: Api }) {
       )}
       {shown && (
         <>
+          {/* Each tile is also the filter for its control: press it again for every control. */}
           <ul className="kpis" aria-label="Detections by control">
             {KINDS.map(([kind, label, sub]) => (
-              <li key={kind} className="kpi">
-                <p className="kpi-label">{label}</p>
-                <p className="kpi-value">{shown.counts[kind]}</p>
-                <p className="kpi-sub">{sub}</p>
+              <li key={kind}>
+                <button
+                  type="button"
+                  className="kpi kpi-filter"
+                  aria-pressed={filter === kind}
+                  onClick={() => {
+                    setFilter(filter === kind ? "all" : kind);
+                  }}
+                >
+                  <span className="kpi-label">{label}</span>
+                  <span className="kpi-value">{shown.counts[kind]}</span>
+                  <span className="kpi-sub">{sub}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -125,28 +135,24 @@ export function DetectionsPage({ api }: { api: Api }) {
             <div className="panel">
               <div className="panel-head">
                 <h2>Events</h2>
-                <fieldset className="seg">
-                  <legend className="visually-hidden">Control</legend>
-                  <div className="seg-track">
-                    {(["all", ...KINDS.map(([kind]) => kind)] as Filter[]).map((value) => (
-                      <label key={value} className="seg-option">
-                        <input
-                          type="radio"
-                          name="detection-kind"
-                          checked={filter === value}
-                          onChange={() => {
-                            setFilter(value);
-                          }}
-                        />
-                        <span>
-                          {value === "all"
-                            ? "All"
-                            : (KINDS.find(([kind]) => kind === value)?.[1] ?? value)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
+                <p className="panel-note">
+                  {filter === "all" ? (
+                    "Every control, newest first. Press a tile above to filter"
+                  ) : (
+                    <>
+                      {KINDS.find(([kind]) => kind === filter)?.[1]} only.{" "}
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => {
+                          setFilter("all");
+                        }}
+                      >
+                        Show every control
+                      </button>
+                    </>
+                  )}
+                </p>
               </div>
               {events.length === 0 ? (
                 <p className="muted small">None from this control in the period.</p>

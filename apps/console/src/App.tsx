@@ -12,11 +12,9 @@ import { RedTeamPage } from "./pages/RedTeamPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
-import { ThreatsPage } from "./pages/ThreatsPage";
 import { TracePage } from "./pages/TracePage";
 import { loadToken, saveToken } from "./session";
 import {
-  COVERAGE_HREF,
   DETECTIONS_HREF,
   HOME_HREF,
   IMPROVEMENT_HREF,
@@ -57,8 +55,8 @@ function guarded(api: Api, signOut: () => void): Api {
 }
 
 /** The AI assurance console, evals first. Evals: the scoreboard, live behaviour, improvement
- * rounds and traces. Security: the posture, detections, coverage with the agents, and the red
- * team. */
+ * rounds and traces. Security: the posture, detections, and the red team with each risk and
+ * agent. */
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [person, setPerson] = useState<Engineer | null>(null);
@@ -178,7 +176,6 @@ const NAV: NavSection[] = [
     links: [
       { href: POSTURE_HREF, label: "Posture" },
       { href: DETECTIONS_HREF, label: "Detections" },
-      { href: COVERAGE_HREF, label: "Coverage" },
       { href: REDTEAM_HREF, label: "Red team" },
     ],
   },
@@ -187,7 +184,6 @@ const NAV: NavSection[] = [
 const HREFS: Record<Exclude<Route["page"], "run">, string> = {
   posture: POSTURE_HREF,
   detections: DETECTIONS_HREF,
-  coverage: COVERAGE_HREF,
   redteam: REDTEAM_HREF,
   scoreboard: SCOREBOARD_HREF,
   live: LIVE_HREF,
@@ -212,8 +208,6 @@ function page(route: Route, api: Api) {
       return <RunPage key={route.runId} api={api} runId={route.runId} />;
     case "detections":
       return <DetectionsPage api={api} />;
-    case "coverage":
-      return <ThreatsPage api={api} />;
     case "redteam":
       return <RedTeamPage api={api} />;
     case "scoreboard":
