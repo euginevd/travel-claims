@@ -82,3 +82,23 @@ test("the starters fit the page", () => {
   expect(startersFor({ page: "new-claim" })).toContain("What can I claim for?");
   expect(startersFor({ page: "updates" })).toContain("When will I be paid?");
 });
+
+test("says when an answer was checked against the policy's rules", async () => {
+  const user = userEvent.setup();
+  const answer = { sources: [], suggest: "", screened: false };
+  const fetchFn = fakeFetch({
+    "POST /api/customer/ask": () => [
+      200,
+      { ...answer, answer: "Delays over 6 hours are covered.", verified: true },
+    ],
+  });
+  render(
+    <AskUnderCover
+      api={createApi(fetchFn, () => "t")}
+      route={{ page: "my-claims" }}
+      onClose={() => undefined}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Am I covered if my flight is delayed?" }));
+  expect(await screen.findByText("Checked against your policy's rules")).toBeInTheDocument();
+});

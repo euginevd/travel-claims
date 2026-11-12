@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     bedrock_answer_guardrail_version: str = "1"
     bedrock_letter_guardrail_id: str | None = None
     bedrock_letter_guardrail_version: str = "1"
+    # On AWS: Ask UnderCover's answers checked against the wording's rules (Automated Reasoning).
+    bedrock_reasoning_guardrail_id: str | None = None
+    bedrock_reasoning_guardrail_version: str = "1"
     # On AWS: sign calls to the context's IAM-only URL; trust Runtime's IAM check on /invocations.
     context_aws_auth: bool = False
     # The service the signature is for: bedrock-agentcore through Gateway, lambda to the URL.

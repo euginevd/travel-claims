@@ -49,6 +49,9 @@ export function AskUnderCover({
       onClose={onClose}
       extra={(answer, question) => (
         <>
+          {answer.verified && (
+            <p className="wattle-verified">Checked against your policy's rules</p>
+          )}
           {answer.suggest === "start_claim" ? (
             <a className="button small-button wattle-next" href={NEW_CLAIM_HREF}>
               Start a claim

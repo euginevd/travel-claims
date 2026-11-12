@@ -191,6 +191,9 @@ resource "aws_iam_role_policy" "agent" {
       { Effect = "Allow", Action = ["bedrock-agentcore:BatchCreateMemoryRecords", "bedrock-agentcore:ListMemoryRecords"], Resource = aws_bedrockagentcore_memory.customers.arn },
       # Ask UnderCover searches the policy wording in its knowledge base.
       { Effect = "Allow", Action = "bedrock:Retrieve", Resource = aws_bedrockagent_knowledge_base.wording.arn },
+      # Ask UnderCover's answers against the wording's rules: the reasoning guardrail evaluates
+      # this project's Automated Reasoning policy as the agent (decision 48).
+      { Effect = "Allow", Action = "bedrock:InvokeAutomatedReasoningPolicy", Resource = "arn:${local.partition}:bedrock:${local.region}:${local.account}:automated-reasoning-policy/*" },
       # Receipts read into fields before any model sees them (decision 48); Textract has no
       # resource-level permissions, and the region condition keeps it in this one.
       { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },

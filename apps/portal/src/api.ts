@@ -178,6 +178,8 @@ export const AnswerSchema = z.object({
   sources: z.array(z.string()),
   suggest: z.enum(["", "start_claim", "ask_person"]),
   screened: z.boolean(),
+  // Automated Reasoning found it consistent with the policy wording's rules (on AWS).
+  verified: z.boolean().default(false),
 });
 
 export type Answer = z.infer<typeof AnswerSchema>;
