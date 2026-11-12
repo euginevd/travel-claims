@@ -597,10 +597,10 @@ resource "aws_bedrockagentcore_gateway_target" "context" {
   gateway_identifier = aws_bedrockagentcore_gateway.context.gateway_id
   description        = "The context layer's lookups, invoked on Lambda by ARN"
 
+  # A Lambda target is invoked with the gateway's own role; a service name is for MCP, OpenAPI and
+  # inference targets only, and AgentCore refuses it here.
   credential_provider_configuration {
-    gateway_iam_role {
-      service = "lambda"
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {
@@ -678,10 +678,10 @@ resource "aws_bedrockagentcore_gateway_target" "staff_context" {
   gateway_identifier = aws_bedrockagentcore_gateway.staff_context.gateway_id
   description        = "The context layer's lookups, invoked on Lambda by ARN"
 
+  # A Lambda target is invoked with the gateway's own role; a service name is for MCP, OpenAPI and
+  # inference targets only, and AgentCore refuses it here.
   credential_provider_configuration {
-    gateway_iam_role {
-      service = "lambda"
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {
