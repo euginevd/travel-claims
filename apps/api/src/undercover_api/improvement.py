@@ -128,6 +128,37 @@ class Brief(BaseModel):
     misses: list[Miss]
     models: list[str]
     efforts: list[str]
+    # Earlier rounds' proposals and how they ended, so it doesn't repeat a change that failed.
+    # Only the outcome and headline scores, never a held-out claim.
+    history: list[dict[str, Any]] = []
+
+
+def history_of(db: Connection, before: int) -> list[dict[str, Any]]:
+    """The last few finished rounds: what was tried, and whether the exam kept it."""
+    rows = db.execute(
+        select(rounds.c.round_id, rounds.c.candidate_version, rounds.c.verdict)
+        .where(rounds.c.round_id < before, rounds.c.verdict.is_not(None))
+        .order_by(rounds.c.round_id.desc())
+        .limit(10)
+    ).mappings()
+    found: list[dict[str, Any]] = []
+    for row in rows:
+        tried = configuration(db, row["candidate_version"])
+        verdict = row["verdict"]
+        candidate = verdict.get("candidate", {})
+        found.append(
+            {
+                "round": row["round_id"],
+                "model": tried.model,
+                "effort": tried.effort,
+                "change": tried.reason,
+                "outcome": verdict.get("outcome", "better" if verdict.get("kept") else "worse"),
+                "why": verdict.get("why"),
+                "exam_accuracy": candidate.get("accuracy"),
+                "exam_cost_per_claim": candidate.get("cost_per_claim"),
+            }
+        )
+    return found
 
 
 def spend_limit(db: Connection) -> float:
@@ -297,6 +328,7 @@ def get_improver_brief(round_id: int, db: Database) -> Brief:
         misses=misses,
         models=list(MODELS),
         efforts=list(EFFORTS),
+        history=history_of(db, round_id),
     )
 
 
