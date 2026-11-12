@@ -16,7 +16,7 @@
 ## Making a change
 
 1. Start from the spec: a change it doesn't cover starts with an update to [docs/spec.md](docs/spec.md).
-2. Plan before code, then build in phases with tests: [AGENTS.md](AGENTS.md), rules 11 and 12, as rule 24 changes them for a `prototype`.
+2. Plan before code, then build in phases with tests: [AGENTS.md](AGENTS.md), rules 12 to 16, with the gates for each profile in rule 12.
 3. Never push to `main` or skip the pre-push scan.
 
 ## Pull requests

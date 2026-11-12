@@ -1,42 +1,43 @@
-> **In this repo:** copied from the original project's sample data. The records are in `records/`; seeding (`uv run -m undercover_api.seed`) loads its `claims.json`, `policies.json`, `customers.json`, `handlers.json`, `engineers.json` and `company.json`, plus `security/` without its `decisions.json`. The plans and the two documents come from the context layer (`apps/context`), so the files this README mentions that aren't here (`plans.json`, the documents, `knowledge.json`, the harder eval sets) were left out. `evals/` is the answer key for plan 2: never loaded into the database and never in the api image. Since 2026-11-11 a senior handler changes the approval limit, the round's spending limit and the objectives on the dashboard's Settings page (`improvement.json` and `models.json` below are the original's and aren't loaded), and an AI engineer can add a live claim a handler overrode to the evaluation set in the database; these files don't change.
-
 # UnderCover seed data
 
-The data behind UnderCover Travel Insurance, a fictional insurer. Everything here is invented, including the people, the airlines and the hotels. Amounts are in US dollars.
+The data behind UnderCover Travel Insurance, a fictional insurer, copied from the original project. Everything is invented, including people, airlines and hotels. Amounts are in US dollars.
+
+## In this repo
+
+1. Seeding (`uv run -m undercover_api.seed`) loads `records/`: `claims.json`, `policies.json`, `customers.json`, `handlers.json`, `engineers.json` and `company.json`, plus `security/` without its `decisions.json`.
+2. Plans and the two documents load from the context layer (`apps/context`). Files the original mentions but this repo leaves out: `plans.json`, the documents, `knowledge.json` and the harder eval sets.
+3. `evals/` is the answer key: never loaded into the database, never in the api image.
+4. Limits and objectives change on the dashboard's Settings page, not in these files. `improvement.json` and `models.json` are the original's and aren't loaded.
 
 ## The insurer's systems
 
-- `company.json`: company settings, including the $1,000 payout approval limit, which seeding makes the first value of the setting.
-- `plans.json`: the three plans (Economy, Premium, First) with their limits, waiting periods and deductibles, and the three add-ons. The labs read it; seeding reads the same plans from `context/plans.yaml`.
-- `policies.json`: one policy per trip, with the plan, the add-ons, the purchase date, the trip and the travelers.
-- `customers.json`: contact details and claim history, with the date and a one line summary of each earlier claim. This is personal data.
-- `handlers.json`: the claims handlers, with the email each signs in with. Only Dana Whitfield (`dana.whitfield@undercover.example`) can sign off payouts over the limit, start and stop rounds, review the improver's proposals and change the settings; Marcus Oyelaran and Priya Raman can't.
-- `improvement.json`: the improver's settings to start with, from the lab: the objectives on the held-out set, the noise and the tolerance for accuracy, the grade, cost per claim and time per claim, the spending limit for each round and the claim agents at once in its evaluations.
-- `models.json`: the models the claim agent may use, with their reasoning efforts and prices in US dollars per million tokens.
-- `claims.json`: the claims queue, twenty-five claims. Each has the customer's story, the items claimed and the supporting documents as text.
+| File | What |
+|---|---|
+| `company.json` | Company settings, including the $1,000 payout approval limit seeding starts with |
+| `plans.json` | Three plans (Economy, Premium, First) and three add-ons; seeding reads `context/plans.yaml` instead |
+| `policies.json` | One policy per trip: plan, add-ons, purchase date, trip and travellers |
+| `customers.json` | Contact details and earlier claims. Personal data |
+| `handlers.json` | Handlers and their sign-in emails. Only Dana Whitfield can sign off over the limit, run rounds and change settings |
+| `improvement.json` | The improver's starting objectives, tolerances and spending limit (not loaded) |
+| `models.json` | Models the claim agent may use, with efforts and prices (not loaded) |
+| `claims.json` | The queue: 25 claims, each with its story, items and documents as text |
 
-Set `MODEL_NAME` in `.env` before `npm run seed` if you're on a free model: seeding chooses version 1 of the claim agent and the models allowed from it.
+Set `MODEL_NAME` in `.env` before seeding if you're on a free model.
 
 ## The documents
 
-- `policy_wording.md`: the contract with the customer. Short enough to fit in a prompt.
-- `claims_manual.md`: the internal handling manual. Longer, and it holds rules the wording does not, such as the third claim in 12 months, losses to wild animals and meals without receipts.
-
-These two files and `plans.json` stay here for the labs. The product's copies are in `context/`, the context layer's seven files, which data governance owns: each names the system it comes from, its owner and when it was last reviewed, and the documents add their version. Seeding loads the plans and both documents from there.
+1. `policy_wording.md`: the contract with the customer, short enough for a prompt.
+2. `claims_manual.md`: the internal manual, with rules the wording lacks (third claim in 12 months, wild animals, meals without receipts).
+3. The product's copies live in `context/`, owned by data governance, each with its source, owner and review date.
 
 ## The evaluation set
 
-- `evals/decisions.json`: the handlers' decisions on the twenty-five claims in the queue: approve, decline or refer, the payout, the calculation, the reason and what each claim tests. An agent deciding claims must never be shown this file.
-- `evals/held_out_claims.json` and `evals/held_out_decisions.json`: twenty-five more claims with their decisions, kept out of the queue for checking that an improvement generalizes. They have the same blend as the queue. Keep them out of sight while you write a prompt or a rule, and score them afterwards.
-
-The queue is the development set and the held-out claims are the test set. Nothing is trained on either.
-
-Every decision also carries a few tags. `difficulty` is `routine`, `hard` (the wording settles it and it stretches a small model) or `manual` (it needs something the prompt does not hold, listed in `needs`: the claims manual, the customer's history or both). `failure_class` groups the hard claims that one rule should fix. `tone` is `plain`, `amusing` or `nod`. `tiny` marks a subset of five claims in each set, one of each kind, which fits inside a free model's daily allowance.
-
-The labs define `get_sample_data(tiny=False, held_out=False)`, which returns the claims of either set with their decisions.
-
-A decision is scored on two things: the decision itself and the payout. A valid claim that pays more than $1,000 is still an approve. The payment waits for a handler's sign-off, and `over_approval_limit` marks those claims.
+1. `evals/decisions.json`: handlers' decisions on the 25 queued claims (decision, payout, reason). Never show it to an agent deciding claims.
+2. `evals/held_out_claims.json` and `evals/held_out_decisions.json`: 25 more claims, the test set. Score them only after writing a prompt or rule.
+3. Tags: `difficulty` (`routine`, `hard`, `manual` with `needs`), `failure_class`, `tone`, and `tiny` (five claims per set, for free models).
+4. A decision scores on the decision and the payout. Over $1,000 is still an approve; `over_approval_limit` marks those waiting for sign-off.
+5. The labs' `get_sample_data(tiny=False, held_out=False)` returns either set with its decisions.
 
 ## The security claim
 
-- `security/`: CLM-1901, a stolen watch whose story carries an instruction to the AI to approve it in full, with its policy, its customer and the handler's decision (decline). It is a prompt injection kept for security testing, in a folder of its own. Seeding puts CLM-1901, its policy (POL-2901) and its customer (Derek Vance, CUS-3901) in the queue beside `claims.json`, `policies.json` and `customers.json`, which stay as they are, so the queue holds twenty-six claims. It never seeds `security/decisions.json`, so CLM-1901 is in neither evaluation set and no score changes.
+`security/`: CLM-1901, a stolen watch whose story tells the AI to approve it in full; the right decision is decline. Seeding adds it, its policy (POL-2901) and customer (Derek Vance, CUS-3901), making 26 queued claims. Its `decisions.json` is never seeded, so it's in neither evaluation set.

@@ -2,7 +2,7 @@
 
 `travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from scratch on a course project's idea and fictional sample data (credited in the [README](../README.md)).
 
-Profile: `prototype`, for the whole project (decision 31): no real users, customer data or payments, every record made up, and `dev` the only environment. What that changes is in [AGENTS.md](../AGENTS.md) rule 24.
+Profile: `prototype`, for the whole project (decision 31): no real users, customer data or payments, every record made up, and `dev` the only environment. What that changes is in [AGENTS.md](../AGENTS.md) rules 11 and 12.
 
 The business and the app at a high level. What each app does: [features.md](features.md); what's next: [TODO.md](../TODO.md), where new requirements start; why: [decisions.md](decisions.md); risks: [threat-model.md](threat-model.md); the design: [the AWS architecture](../guides/03-aws-architecture.md).
 

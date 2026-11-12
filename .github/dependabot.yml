@@ -1,4 +1,4 @@
-# Weekly update PRs for pinned versions, one per ecosystem; a release must be 7 days old (AGENTS.md rule 18).
+# Weekly update PRs for pinned versions, one per ecosystem; a release must be 7 days old (AGENTS.md rule 24).
 version: 2
 updates:
   - package-ecosystem: github-actions
