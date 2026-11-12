@@ -19,18 +19,26 @@ UnderCover's brand, "Canopy" (decision 21): subtle and premium. White pages, fai
 | `--ink-2` | `#64625d` | Supporting text |
 | `--ink-3` | `#6f6d68` | Captions, placeholders, metadata |
 | `--line` | `#ebe9e4` | Hairlines, input borders |
+| `--line-2` | `#f2f0ec` | Lighter dividers between rows inside a card |
+| `--line-strong`, `--line-hover` | `#e3e1dc`, `#bdb9b1` | Project page: a stronger border, and a border on hover |
+| `--ink-soft` | `#3d3c39` | Dashboard: the claim summary and story text, a step softer than `--ink` |
 | `--ring` | `#f0eeea` | The outer ring of double-ring cards |
 | `--soft` | `#f4f3f0` | Secondary buttons, chips |
 | `--acc` | `#e2795f` | Coral: the logo, the route line, the "now" step, alerts |
-| `--acc-d` | `#a04e38` | Coral as text; `#b35a42` only as a fill behind white text |
+| `--acc-d` | `#a04e38` | Coral as text |
+| `--acc-fill` | `#b35a42` | Coral only as a fill behind white text |
 | `--acc-tint` | `#fbece5` | Coral tint background |
-| `--good` | `#3d6b47` on `#e7f0e5` | Paid, approved, met |
-| `--warm` | `#a04e38` on `#fbeae4` | Needs you, requests, delays |
-| `--info` | `#3a64b8` on `#e8eef9` | Demo tags, info chips |
+| `--acc-edge` | `#ecc0b1` | Borders of coral-tinted cards and chips |
+| `--acc-glow`, `--acc-ring` | coral at 10% and 55% | The focus glow on fields; the console's primary button ring on hover |
+| `--acc-hi`, `--acc-lo` | `#f0937a`, `#d96a50` | Project page: the ends of the coral gradient |
+| `--good` on `--good-tint` | `#3d6b47` on `#e7f0e5` | Paid, approved, met |
+| `--good-dot`, `--good-soft`, `--good-edge` | `#4f9e66`, `#7fae88`, `#d4e5d0` | Status dots, the console's run dots and legend, and the border of good states |
+| `--warm` on `--warm-tint` | `#a04e38` on `#fbeae4` | Needs you, requests, delays; `--warm-edge` `#f3d8cc` is its border |
+| `--info` on `--info-tint` | `#3a64b8` on `#e8eef9` | Demo tags, info chips; `--info-soft` `#8fb0dc` for the console's referred run dots |
 | Washes | blush `#fbece5`, sage `#e8f0e5`, sky `#e8eef8` | Faint card-corner glows and page blobs only |
 
-5. Type: Newsreader (serif, 400, about -0.02em) for headings and stat numbers; Plus Jakarta Sans (400, 500, 600) for body and UI; both self-hosted. Tabular figures in every number.
-6. Contrast: 4.5:1 for text under 24px, 3:1 above; every token above passes on `--bg`, `--bg-work` and `--soft`.
+5. Type: Newsreader (serif, 400, about -0.02em) for headings and stat numbers; Plus Jakarta Sans (400, 500, 600) for body and UI; Geist Mono for code, prompts and IDs in the dashboard and console; all self-hosted. Tabular figures in every number.
+6. Contrast: 4.5:1 for text under 24px, 3:1 above; every text token above passes on `--bg`, `--bg-work` and `--soft`; edges, dots, glows and gradient ends are graphics, never text.
 7. No hard-coded colours in components, and no inline styles: the apps' Content-Security-Policy refuses them.
 
 ## Surfaces
