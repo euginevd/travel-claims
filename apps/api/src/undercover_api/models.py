@@ -212,7 +212,10 @@ class ClaimSummary(BaseModel):
     decision: DecisionKind | None
     payout: float | None
     review_requested: bool
-    due_on: str = Field(description="Ten business days after it was submitted")
+    due_on: str = Field(
+        description="Ten business days after it was submitted, or for a seeded claim after the "
+        "day the queue was loaded"
+    )
     documents_in: bool = Field(description="The customer has sent everything asked for")
     stalled: bool = Field(
         default=False, description="In progress, but the agent stopped working it"
@@ -850,6 +853,15 @@ class QuestionRequest(Strict):
 
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
     history: list[QuestionTurn] = Field(default_factory=list[QuestionTurn], max_length=8)
+    # The claim the page is about, so Wattle answers about it; used only if it's the asker's own.
+    about: Annotated[str, StringConstraints(pattern=r"^(CLM-\d{4,6})?$")] = ""
+
+
+class AnswerPoint(BaseModel):
+    """One short supporting point, citing a source by its number (1 for the first; 0 for none)."""
+
+    text: Annotated[str, StringConstraints(max_length=300)]
+    source: int = Field(default=0, ge=0, le=6)
 
 
 class QuestionAnswer(BaseModel):
@@ -859,3 +871,8 @@ class QuestionAnswer(BaseModel):
     screened: bool
     # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
     verified: bool = False
+    # The answer laid out: a one-sentence headline, short points citing the sources, and the
+    # one question most likely to come next. Plain text; the apps never render it as markup.
+    headline: str = ""
+    points: list[AnswerPoint] = Field(default_factory=list[AnswerPoint])
+    next: Annotated[str, StringConstraints(max_length=100)] = ""

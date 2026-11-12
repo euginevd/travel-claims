@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, type Api, type TestAccount } from "../api";
 import { initials } from "../components/Header";
 import { Logo } from "../components/Logo";
+import { ProjectLink } from "../components/Wattle";
 import { prefersStill, SignInScene } from "../components/SignInScene";
 
 // The test accounts: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
@@ -119,8 +120,11 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
             <Logo animate />
           </span>
           <p className="signin-staff">
-            <Lock size={15} strokeWidth={1.75} aria-hidden="true" />
-            UnderCover staff only
+            <ProjectLink />
+            <span className="signin-staff-note">
+              <Lock size={15} strokeWidth={1.75} aria-hidden="true" />
+              UnderCover staff only
+            </span>
           </p>
         </header>
 

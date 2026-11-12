@@ -9,34 +9,34 @@ The agreed features, by app and audience; the agent adds a row when you approve 
 | [Handlers' dashboard](#handlers-dashboard-dashboard) | Handlers and senior handlers (Marcus, Dana Whitfield) | http://127.0.0.1:5174 |
 | [AI assurance console](#ai-assurance-console-console) | AI engineers (Sam Carter) | http://127.0.0.1:5175 |
 
-Each app has its own sign-in, token issuer and audience, a **Use test account** button and the Canopy design (#71, #72).
+Each app has its own sign-in, token issuer and audience, a **Use test account** button and the Canopy design (#71, #72), and a **← Project** link back to the project page in its header and on its sign-in page.
 
 ## Project page (`home`)
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 1 | One screen: a short brief, the three-minute captioned walkthrough video and a link to each app | Done | #38 |
+| 1 | One screen: a short brief, the three-minute captioned walkthrough video (one dark play button under it, a light control bar of its own instead of the browser's dark one) and a link to each app; the code on GitHub at the top and foot | Done | #38 |
 
 ## Customer portal (`portal`)
 
 | # | Feature | Status | PR |
 |---|---|---|---|
 | 2 | **My claims**: only the customer's own claims, in progress and completed, each with its stage, the stage's usual time and a **Send it** link when something is asked for | Done | #37 |
-| 3 | **Make a claim** in three steps, photo first: what happened, up to five receipts (JPEG, PNG or PDF, 5 MB each), then check what the AI drafted; the customer's words stay the record. A document checklist per claim type, and saving to finish later | Done | #5 |
+| 3 | **Make a claim** in three steps, photo first: what happened, up to five receipts (JPEG, PNG or PDF, 5 MB each; an image too small or damaged to read is refused with a plain message, and one the model still can't open refers the claim to a person instead of stalling it), then check what the AI drafted; the customer's words stay the record. A document checklist per claim type, and saving to finish later | Done | #5 |
 | 4 | **Rather just tell us?**: one sentence to the drafting assistant, which fills in the claim | Done | #71 |
 | 5 | Receipts in another currency converted to US dollars, the original kept in the description and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
 | 7 | A tracker per claim (received, checked, assessed, decided, paid) with a plain-English reason and an AI disclosure; upload each document asked for, ask a person to review any decision, and get paid to a PayID | Done | #37 |
 | 8 | **Updates**: every email and text, each showing its first lines with a link to the claim, with filters (an outbox locally) | Done | #37 |
-| 9 | **Wattle AI**: questions about the customer's cover, answered with the policy wording cited; cover per trip | Done | #39 |
+| 9 | **Wattle AI**: questions about the customer's cover, answered with the policy wording cited; cover per trip. Each answer is laid out as data, never markup: a one-line headline, up to three short points each citing a numbered source, and one most likely next question; on a claim's page it answers about that claim (only if it's the customer's own); the Wattle mark animates while it works. The AI engineers' Wattle in the console answers in the same shape | Done | #39 |
 | 10 | Thumbs up or down on Wattle's answers and on each decision's explanation, with an optional comment (spec 21) | Done | #72 |
 
 ## Handlers' dashboard (`dashboard`)
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 11 | **Queue** that opens on what needs the handler, with screened claims flagged; the red team's attack claims are tagged as tests and kept out of what needs the handler | Done | #2 |
-| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and the agent's activity live in plain words; its details, every lookup with what came back, also in plain words | Done | #5 |
+| 11 | **Queue** that opens on what needs the handler, with screened claims flagged; the red team's attack claims are tagged as tests and kept out of what needs the handler; each claim is due ten business days after it was submitted, a seeded claim's clock starting on the day the queue was loaded, so a demo queue isn't overdue months later | Done | #2 |
+| 12 | **Case brief**: stage tracker, the agent's recommendation, a checklist with a source on every line, the payout line by line, and what the hidden-instruction check found; while the agent works, one line with its latest step in plain words (the step-by-step trace is the AI assurance console's) | Done | #5 |
 | 13 | **Sign off**, **send back** or **override** with a reason code; approvals under the approval limit pay at once, larger ones wait for a senior handler (spec 27) | Done | #2 |
 | 14 | Ask the customer for documents, and send an AI-drafted letter after editing it | Done | #39 |
 | 15 | **Similar claims**: up to five decided claims of the same type nearest in amount | Done | #72 |
@@ -58,8 +58,8 @@ In the order of its menu: Evals, then Security, each section's pages left to rig
 | 24 | **Live**: the version in use's exam beside its live results; claims decided, straight through, cost, handler disagreement, referrals and flags, each marked when past its target; by version and by claim type; disagreements as a review queue, where **Add to evaluation set** turns an override or send-back into a labelled evaluation claim; customer feedback last | Done | #72 |
 | 25 | **Improvement**: the improver proposes a new version (instructions, model, effort) from the practice run's misses and what earlier rounds tried and how their exams ended, an engineer approves it, and it's kept only if it's clearly better on a 25-claim held-out exam (at least 2 claims more on a measure, or over 10% cheaper), worse on nothing, and holds against the red team; otherwise "no clear difference" or rolled back. Each round shows its path, the change in one sentence, before and after, and claim by claim; the version in use with its exam score, how often the exam set was used, and a rollback to an earlier kept version with a reason on the record | Done | #9 |
 | 26 | **Trace**: one claim's outcome, agent version, steps and model calls in one readable timeline, security checks and cost against the average live claim; it suggests the live claim with the most model calls, and every claim number on Detections, Red team and Live opens its trace | Done | #38 |
-| 27 | **Posture**, Security's first page: a plain verdict, four figures (attacks stopped, risks tested by an attack, what fired on live claims, the payouts switch), defence in depth (which layer stopped each of the latest run's attacks, untested layers marked) and the gaps to close, most urgent first, all worked out in code from runs against the agent version in use | Done | |
-| 28 | **Detections**: each control that fired on a live claim (hidden-instruction check, Bedrock guardrail, model refusal, payout held), once per claim, by period; each control's tile is also its filter | Done | |
+| 27 | **Posture**, Security's first page: a plain verdict, four figures (attacks stopped, risks tested by an attack, what fired on live claims, the payouts switch), defence in depth (which layer stopped each of the latest run's attacks, untested layers marked) and the gaps to close, most urgent first, all worked out in code from runs against the agent version in use | Done | #99 |
+| 28 | **Detections**: each control that fired on a live claim (hidden-instruction check, Bedrock guardrail, model refusal, payout held), once per claim, by period; each control's tile is also its filter | Done | #99 |
 | 29 | **Red team**: eight attacks made through the portal, each with what stopped it and what was paid, each run tagged with the claim agent version it attacked; then each OWASP risk for LLM and agentic apps with its control, the attacks that test it and how often it fired live; then what each agent could do if tricked and what stops it | Done | #8 |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

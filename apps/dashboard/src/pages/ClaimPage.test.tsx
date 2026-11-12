@@ -69,7 +69,7 @@ test("working a claim shows its steps live until the agent decides", async () =>
   expect(screen.queryByRole("button", { name: "Work this claim" })).not.toBeInTheDocument();
 });
 
-test("refusals and failures stand out, and sources are listed once per file", async () => {
+test("while the agent works, one line says its latest step, a failure included", async () => {
   const failure: Step = {
     step_id: 6,
     kind: "error",
@@ -77,24 +77,12 @@ test("refusals and failures stand out, and sources are listed once per file", as
     sources: [],
     created_at: "2026-11-08T05:00:00Z",
   };
-  show({
-    ...fixed(claim({ status: "in_progress" }), [...STEPS, failure]),
-    [`GET ${BASE}/trace`]: () => [
-      200,
-      { steps: [...STEPS, failure], model_calls: [], total_cost: 0, total_tokens: 0 },
-    ],
-  });
-  expect(await screen.findByText("The model declined to continue")).toBeInTheDocument();
-  // The trace shows every step's raw content, with the sources looked up.
-  await userEvent.setup().click(screen.getByRole("switch", { name: /Show the details/ }));
-
-  const sources = screen.getByRole("region", { name: "What the agent looked up" });
-  expect(within(sources).getAllByText("Policy wording")).toHaveLength(1);
-  expect(within(sources).getByText(/2 lookups/)).toBeInTheDocument();
-  expect(within(sources).getByText("Legal")).toBeInTheDocument();
-  // Each step in plain words, a tool's answer folded into the call that asked for it.
-  expect(screen.queryByText("Tool result")).toBeNull();
-  expect(screen.getAllByText("What came back").length).toBeGreaterThan(0);
+  show(fixed(claim({ status: "in_progress" }), [...STEPS, failure]));
+  const status = await screen.findByRole("region", { name: "What the agent is doing" });
+  expect(within(status).getByText(/Something went wrong: The model timed out/)).toBeInTheDocument();
+  // No step-by-step trace for a handler: that's the AI assurance console's.
+  expect(screen.queryByRole("switch", { name: /Show the details/ })).toBeNull();
+  expect(screen.queryByText("Agent activity")).toBeNull();
 });
 
 test("a decided claim shows the calculation line by line and the payment", async () => {
@@ -290,7 +278,7 @@ test("a sign-off that worked says so even when the steps don't reload", async ()
   await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   expect(screen.getByText(/Signed off and paid/)).toBeInTheDocument();
-  // The steps already shown stay while the reload's failure is reported.
-  expect(screen.getByText("The model declined to continue")).toBeInTheDocument();
+  // What the steps already showed stays while the reload's failure is reported.
+  expect(screen.getByText("Screened first: no hidden instructions")).toBeInTheDocument();
   expect(await screen.findByRole("alert")).toHaveTextContent("Steps unavailable");
 });

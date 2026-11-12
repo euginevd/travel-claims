@@ -33,6 +33,8 @@ The full diagram, with each step and control: [the AWS architecture guide](guide
 
 ## Security highlights
 
+<img src="docs/assets/devsecops.png" width="880" alt="Security at every stage: plan, a STRIDE threat model before any code; code, VS Code with Claude Code and a secret scan on every push; build, each image scanned by Trivy with an SBOM; test, unit tests, a 25-claim eval exam and a red team; release, Gitleaks, Semgrep, CodeQL, Checkov and Trivy on every PR; deploy, Terraform from GitHub Actions over OIDC with no stored keys; operate, Bedrock guardrails, WAF, Cedar tool policy and a payouts switch; monitor, detections, CloudTrail, GuardDuty and Security Hub.">
+
 The [threat model](docs/threat-model.md) names each risk and the control that answers it; the [security trade-offs](guides/04-security-trade-offs.md) list what this prototype accepts and the fix for production.
 
 **AI security**
@@ -63,7 +65,7 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 
 <div align="center">
 
-<img src="docs/assets/undercover-tour.gif" width="880" alt="The walkthrough, sped up: a customer asks Wattle AI about their cover and makes a claim from a receipt, a handler watches the claim agent work it and signs off a larger payout, and an AI engineer checks the agent in the assurance console.">
+<img src="docs/assets/undercover-60s.gif" width="880" alt="A minute on UnderCover, sped up: the project page, the repo, the AWS architecture and threat model, security at every DevSecOps stage, a customer's claim, a reused receipt referred to a handler, a senior handler's sign-off, the evals scoreboard, the improver held for approval, the red team, defence in depth, a claim trace and the pipeline's security scans.">
 
 The full walkthrough, three minutes with captions, plays on the project page ([the video](apps/home/media/walkthrough.mp4)).
 
@@ -135,7 +137,7 @@ Details: [costs.md](docs/costs.md).
 | Bedrock, Textract | The guardrails with Automated Reasoning checks, the Knowledge Base on S3 Vectors, Data Automation or Textract reading receipts, and Claude when `MODEL_PROVIDER` is `bedrock` | [infra/aws/agent](infra/aws/agent/), [infra/aws/guardrail](infra/aws/guardrail/) |
 | Terraform | AWS infrastructure, one root per unit | [infra/aws/](infra/aws/) |
 | GitHub Actions | App checks, security scans, images, Terraform plan and apply | [.github/workflows/](.github/workflows/) |
-| Python, uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
+| Python 3.14 (stable since October 2025), uv | Apps, scripts and one locked workspace | [pyproject.toml](pyproject.toml) |
 | Semgrep, CodeQL | Static analysis | [security.yml](.github/workflows/security.yml), [codeql.yml](.github/workflows/codeql.yml) |
 | Gitleaks | Secrets in code and history | [scan.sh](scripts/scan.sh) |
 | Trivy, Checkov | Vulnerable packages, images and IaC misconfiguration | [security.yml](.github/workflows/security.yml) |

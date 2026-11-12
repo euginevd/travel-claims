@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from api_helpers import AGENT, DANA, PASSWORD, decide, line, payout, start
+from api_helpers import png as make_png
 from fastapi.testclient import TestClient
 
 APPS = Path(__file__).resolve().parents[2]
@@ -133,7 +134,7 @@ def test_the_portals_fixtures_match_the_api(client: TestClient) -> None:
         },
         headers=maya,
     ).json()
-    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+    png = make_png()
     with_receipt = client.post(
         f"/api/customer/claims/{made['claim_id']}/receipts",
         files=[("files", ("r.png", png, "image/png"))],

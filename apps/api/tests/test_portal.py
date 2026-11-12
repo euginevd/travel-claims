@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from api_helpers import AGENT, MAYA, OLIVER, sign_in
+from api_helpers import AGENT, MAYA, OLIVER, png, sign_in
 from fastapi.testclient import TestClient
 
 from undercover_api.db import make_engine
 from undercover_api.dev_cleanup import remove_customer_claims
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+PNG = png()
 PDF = b"%PDF-1.7\n" + b"0" * 64
 NEW_CLAIM: dict[str, Any] = {
     "policy_id": "POL-2001",
@@ -204,6 +204,20 @@ def test_a_file_that_isnt_a_receipt_is_refused_whatever_its_name(
     claim_id = make(client, maya).json()["claim_id"]
     html = b"<html><script>alert(1)</script></html>"
     assert upload(client, maya, claim_id, html).status_code == 415
+    assert client.get(f"/api/customer/claims/{claim_id}", headers=maya).json()["receipts"] == []
+
+
+def test_an_image_too_small_or_damaged_to_read_is_refused(
+    client: TestClient, maya: dict[str, str]
+) -> None:
+    claim_id = make(client, maya).json()["claim_id"]
+    # A one-pixel PNG passed the type check and then stalled CLM-1902: the model can't read it.
+    tiny = upload(client, maya, claim_id, png((1, 1)))
+    assert tiny.status_code == 422
+    assert "too small to read" in tiny.json()["detail"]
+    damaged = upload(client, maya, claim_id, png()[:40])
+    assert damaged.status_code == 422
+    assert "can't be opened" in damaged.json()["detail"]
     assert client.get(f"/api/customer/claims/{claim_id}", headers=maya).json()["receipts"] == []
 
 

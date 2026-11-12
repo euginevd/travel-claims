@@ -12,6 +12,7 @@ from api_helpers import (
     line,
     make_settings,
     payout,
+    png,
     sign_in,
     start,
 )
@@ -19,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from undercover_api.main import create_app
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+PNG = png()
 CHECKS = [
     {"label": "Policy active on the date", "result": "pass", "detail": "", "source": "Policy"},
     {

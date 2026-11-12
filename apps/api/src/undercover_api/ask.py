@@ -72,6 +72,8 @@ def ask_undercover(
         "history": [turn.model_dump() for turn in body.history],
         "policies": [cover.model_dump() for cover in my_cover(customer, db)],
         "claims": mine,
+        # Only a claim of the customer's own: anything else is ignored, never looked up.
+        "about": body.about if any(c["claim_id"] == body.about for c in mine) else "",
     }
     try:
         answer = service.ask(request)

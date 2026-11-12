@@ -19,6 +19,7 @@ from undercover_api.db import (
     customers,
     engineers,
     handlers,
+    insert_if_new,
     labelled_claims,
     make_engine,
     now,
@@ -163,14 +164,27 @@ def seed_engineers(db: Connection, data: Path) -> None:
             db.execute(insert(engineers).values(**engineer))
 
 
+# When the seeded queue was loaded: its claims' service clock starts then, not on their
+# historical submission dates, so a demo's queue isn't overdue months after the data was written.
+QUEUE_LOADED_ON = "queue_loaded_on"
+
+
+def mark_queue_loaded(db: Connection) -> None:
+    """Record today as the day the seeded queue was loaded, once; a database seeded before
+    this existed gets the day the api next starts."""
+    insert_if_new(db, reference, key=QUEUE_LOADED_ON, value=now()[:10])
+
+
 def seed_if_empty(engine: Engine, data: Path) -> bool:
     """Seed the database unless it already holds claims. Says whether it seeded."""
     with engine.begin() as db:
         seed_labels(db, data)
         seed_engineers(db, data)
         if is_seeded(db):
+            mark_queue_loaded(db)
             return False
         seed(db, data)
+        mark_queue_loaded(db)
         return True
 
 

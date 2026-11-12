@@ -1,9 +1,11 @@
 """Helpers shared by the api's tests."""
 
+import io
 from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from PIL import Image
 from pydantic import SecretStr
 
 from undercover_api.agent_service import AgentRefusedError, AgentUnavailableError, Outcome
@@ -16,6 +18,13 @@ DANA = "dana.whitfield@undercover.example"
 MARCUS = "marcus.oyelaran@undercover.example"
 MAYA = "maya.patel@example.com"  # CUS-3001, policy POL-2001, trip 10-18 June 2026
 OLIVER = "oliver.grant@example.com"
+
+
+def png(size: tuple[int, int] = (200, 200)) -> bytes:
+    """A small but readable PNG, as a receipt photo would be."""
+    out = io.BytesIO()
+    Image.new("RGB", size, "white").save(out, format="PNG")
+    return out.getvalue()
 
 
 def make_settings(url: str, **changes: Any) -> Settings:

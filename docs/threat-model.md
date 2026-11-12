@@ -4,6 +4,10 @@ UnderCover on AWS, the design, with made-up data; locally, Docker runs the same 
 
 ## Data flow
 
+![UnderCover threat model on AWS: trust boundaries, the top threats where they land, and the control that stops each](assets/threat-model.png)
+
+The overview above is the AWS design with the eleven top risks and their controls, covering all six STRIDE categories. The detail below is every flow and trust boundary (TB1a to TB6) that the risks table refers to.
+
 ```mermaid
 flowchart LR
   subgraph browser ["Browser: untrusted"]

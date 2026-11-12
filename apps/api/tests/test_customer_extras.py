@@ -5,12 +5,12 @@ only their own."""
 from typing import Any
 
 import pytest
-from api_helpers import AGENT, MAYA, OLIVER, line, payout, sign_in, start
+from api_helpers import AGENT, MAYA, OLIVER, line, payout, png, sign_in, start
 from fastapi.testclient import TestClient
 
 from undercover_api.payments import mask_payid
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+PNG = png()
 NEW_CLAIM: dict[str, Any] = {
     "policy_id": "POL-2001",
     "claim_type": "trip_delay",
@@ -275,6 +275,19 @@ def test_ask_undercover_sends_only_the_customers_own_records(
     too_long = client.post("/api/customer/ask", json={"question": "x" * 600}, headers=maya)
     assert too_long.status_code == 422
     assert client.post("/api/customer/ask", json={"question": "hi"}).status_code == 401
+
+
+def test_ask_undercover_answers_about_the_claim_on_screen_only_if_its_the_customers(
+    client: TestClient, maya: dict[str, str], oliver: dict[str, str], agent: Any
+) -> None:
+    question = {"question": "What's holding this up?", "about": "CLM-1005"}
+    assert client.post("/api/customer/ask", json=question, headers=oliver).status_code == 200
+    assert agent.questions[-1]["about"] == "CLM-1005"
+    # Another customer's claim number is ignored, never looked up or passed on.
+    assert client.post("/api/customer/ask", json=question, headers=maya).status_code == 200
+    assert agent.questions[-1]["about"] == ""
+    odd = {"question": "hi", "about": "DROP TABLE"}
+    assert client.post("/api/customer/ask", json=odd, headers=maya).status_code == 422
 
 
 def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(

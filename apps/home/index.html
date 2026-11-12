@@ -7,13 +7,18 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-v6RlgLl2Vv/lbnrVFQncHX4arTtXNB0R6OGQ//LXhsfbZX/ONQ1G+5zbsBjp38zA" />
-    <script src="app.js" integrity="sha384-eucSglE+ZIZCo7MxFkrIGD9SM0VFnaAQzDuCRsLq7NDT/Jsx5QRKzCyMuLpjZSiJ" defer></script>
+    <link rel="stylesheet" href="styles.css" integrity="sha384-FNq7t9VKa5CSEMKN9H8BfT6ZE4kh/uU3rviHAlj43DguDOsXLYScaEvfwNOcdao+" />
+    <script src="app.js" integrity="sha384-fHoyaYzaTgUwco6wtyTGAa6Z+3SMlUykl/58xjuncPtnHnyBtAK0xrQ1x0bi51L4" defer></script>
   </head>
   <body>
     <svg width="0" height="0" class="sprite" aria-hidden="true">
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
-      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" /></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path class="solid" d="M8 5.5v13l11-6.5z" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12" /></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" /></symbol>
+      <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5" /></symbol>
+      <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /></symbol>
+      <symbol id="i-github" viewBox="0 0 24 24"><path class="solid" d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" /></symbol>
     </svg>
     <div class="page-glow" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
 
@@ -23,6 +28,7 @@
           <img class="mark" src="icon.svg" alt="" width="38" height="38" />
           <span class="wm"><span class="wm-name">undercover</span><small>Travel insurance</small></span>
         </span>
+        <a class="gh" href="https://github.com/euginevd/travel-claims" aria-label="Code on GitHub"><svg aria-hidden="true"><use href="#i-github" /></svg><span>GitHub</span></a>
       </div>
     </header>
 
@@ -30,8 +36,8 @@
       <!-- What it is -->
       <section class="hero">
         <div class="wrap">
-          <h1 class="rise d1">AI agents decide the routine claims. <em>Claims experts decide the rest.</em></h1>
-          <p class="lede rise d2">UnderCover is an AI agents system for travel insurance claims, built end to end on AWS. Customers claim online, every AI decision cites its sources, and a person signs off the larger payouts.</p>
+          <h1 class="rise d1">AI agents settle routine claims. <em>Claims experts make the judgement calls.</em></h1>
+          <p class="lede rise d2">Up to 25 claim agents work in parallel on AWS. Every decision cites its sources, and a person signs off the larger payouts.</p>
 
           <!-- The walkthrough: a still, or once app.js names the recording, its poster and one play button -->
           <figure class="stage rise d3">
@@ -39,8 +45,15 @@
               <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
               <img class="screen" id="walkthrough-still" src="img/portal.jpg" alt="The customer portal" width="1280" height="800" />
               <video class="screen" id="walkthrough" hidden playsinline preload="metadata" poster="img/walkthrough-poster.jpg" width="1600" height="900" aria-label="A walkthrough of the apps, end to end"></video>
-              <button type="button" class="play" id="walkthrough-play" hidden><span class="play-tile"><svg aria-hidden="true"><use href="#i-play" /></svg></span><b>Watch the walkthrough</b><small>3 minutes</small></button>
+              <div class="player" id="walkthrough-bar" hidden>
+                <button type="button" class="pl-btn" id="pl-toggle"><svg aria-hidden="true"><use href="#i-pause" /></svg><span class="sr-only">Pause</span></button>
+                <span class="pl-time" id="pl-time">0:00</span>
+                <input type="range" class="pl-seek" id="pl-seek" min="0" max="0" step="0.1" value="0" aria-label="Where in the walkthrough" />
+                <button type="button" class="pl-btn" id="pl-mute"><svg aria-hidden="true"><use href="#i-volume" /></svg><span class="sr-only">Mute</span></button>
+                <button type="button" class="pl-btn" id="pl-full"><svg aria-hidden="true"><use href="#i-full" /></svg><span class="sr-only">Full screen</span></button>
+              </div>
           </div>
+            <button type="button" class="play" id="walkthrough-play" hidden><span class="play-tile"><svg aria-hidden="true"><use href="#i-play" /></svg></span><b>Watch the walkthrough</b><small>3 min</small></button>
             <figcaption class="soon" id="walkthrough-soon">Walkthrough video coming soon</figcaption>
           </figure>
         </div>
@@ -54,21 +67,21 @@
             <article class="app-card">
               <div class="app-in wash-blush">
                 <h3 class="app-name">Customer portal</h3>
-                <p class="app-line">For travellers: make a claim and follow it</p>
+                <p class="app-line">Make a claim and follow it</p>
                 <a class="go-app" href="#" data-port="5173"><b>Open<span class="sr-only"> the customer portal</span></b><span class="go-tile"><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
             </div>
           </article>
           <article class="app-card">
             <div class="app-in wash-sage">
               <h3 class="app-name">Handlers' dashboard</h3>
-              <p class="app-line">For claims experts: review and sign off</p>
+              <p class="app-line">Review and sign off</p>
               <a class="go-app" href="#" data-port="5174"><b>Open<span class="sr-only"> the handlers' dashboard</span></b><span class="go-tile"><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
           </div>
         </article>
         <article class="app-card">
           <div class="app-in wash-sky">
             <h3 class="app-name">AI assurance console</h3>
-            <p class="app-line">For AI engineers: evals and AI security</p>
+            <p class="app-line">Evals and AI security</p>
             <a class="go-app" href="#" data-port="5175"><b>Open<span class="sr-only"> the AI assurance console</span></b><span class="go-tile"><svg class="go" aria-hidden="true"><use href="#i-arrow" /></svg></span></a>
         </div>
       </article>
@@ -76,28 +89,10 @@
         </div>
       </section>
 
-      <!-- What it shows: one line a skill, each with its proof -->
-      <section class="proof-sec" aria-labelledby="proof-title">
+      <!-- The code -->
+      <section class="more-sec" aria-label="More about the project">
         <div class="wrap">
-          <h2 class="proof-title" id="proof-title">What it shows</h2>
-          <div class="proof">
-            <div class="proof-item">
-              <h3>AI engineering</h3>
-              <p>An agent scored on claims it has never seen, and changed only when clearly better.</p>
-              <a href="#" data-port="5175">See the evals</a>
-            </div>
-            <div class="proof-item">
-              <h3>AI security</h3>
-              <p>Prompt-injection checks before any model reads a claim, and attacks mapped to OWASP.</p>
-              <a href="https://github.com/euginevd/travel-claims/blob/main/docs/threat-model.md">Threat model</a>
-            </div>
-            <div class="proof-item">
-              <h3>Cloud and delivery</h3>
-              <p>AWS AgentCore and Bedrock, all Terraform, shipped with OIDC and security scans.</p>
-              <a href="https://github.com/euginevd/travel-claims/blob/main/guides/03-aws-architecture.md">Architecture</a>
-            </div>
-          </div>
-          <p class="proof-links"><a href="https://github.com/euginevd/travel-claims">Code on GitHub</a></p>
+          <p class="more-code"><a href="https://github.com/euginevd/travel-claims"><svg aria-hidden="true"><use href="#i-github" /></svg>Code on GitHub</a></p>
         </div>
       </section>
     </main>

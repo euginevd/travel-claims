@@ -81,6 +81,9 @@ export interface WattleAnswer {
   sources: string[];
   suggest: string;
   screened: boolean;
+  headline?: string;
+  points?: { text: string; source: number }[];
+  next?: string;
 }
 
 interface WattleProps {
@@ -88,6 +91,8 @@ interface WattleProps {
   scope: string;
   starters: string[];
   placeholder?: string;
+  /** What the page is about, shown under the header ("About CLM-1903"). */
+  context?: string;
   onClose: () => void;
   extra?: (answer: WattleAnswer) => ReactNode;
 }
@@ -96,12 +101,56 @@ interface Message extends WattleTurn {
   answer?: WattleAnswer;
 }
 
+/** A point's text with its **bold** figures as <strong>: split as text, never parsed as HTML. */
+export function bolded(text: string): ReactNode[] {
+  return text
+    .split("**")
+    .map((part, i) => (i % 2 === 1 ? <strong key={String(i)}>{part}</strong> : part));
+}
+
+/** An answer as Wattle lays it out: a one-sentence headline, then short points, each citing
+ * one of the sources by its number. */
+function LaidOut({ answer }: { answer: WattleAnswer }) {
+  return (
+    <>
+      <p className="wattle-headline" dir="auto">
+        {answer.headline}
+      </p>
+      {answer.points && answer.points.length > 0 && (
+        <ul className="wattle-points">
+          {answer.points.map((point, i) => {
+            const source = answer.sources[point.source - 1];
+            return (
+              <li key={String(i)} dir="auto">
+                {bolded(point.text)}
+                {source && (
+                  <span className="wattle-cite" title={source} aria-label={`Source: ${source}`}>
+                    {point.source}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export const WATTLE_FOOTER =
   "AI powered · cites its sources · a claims expert makes the final call";
 
 /** Wattle AI's side panel: one look in every app, with questions and data scoped to who is
  * signed in and which page they're on. */
-export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra }: WattleProps) {
+export function WattlePanel({
+  ask,
+  scope,
+  starters,
+  placeholder,
+  context,
+  onClose,
+  extra,
+}: WattleProps) {
   const id = useId();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -147,7 +196,7 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
     <aside className="wattle-panel" aria-labelledby={`${id}-title`}>
       <header className="wattle-head">
         <h2 id={`${id}-title`}>
-          <WattleMark size={22} /> Ask Wattle AI
+          <WattleMark size={22} working={busy} /> Ask Wattle AI
         </h2>
         <button
           type="button"
@@ -169,6 +218,11 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
           <X size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </header>
+      {context && (
+        <p className="wattle-context">
+          <WattleMark size={14} /> About <b>{context}</b>
+        </p>
+      )}
       <div className="wattle-body" aria-live="polite">
         {messages.length === 0 && (
           <div className="wattle-hero">
@@ -193,15 +247,32 @@ export function WattlePanel({ ask, scope, starters, placeholder, onClose, extra 
         )}
         {messages.map((message, index) => (
           <div key={String(index)} className={`wattle-msg ${message.role}`}>
-            <p dir="auto">{message.text}</p>
+            {message.answer?.headline ? (
+              <LaidOut answer={message.answer} />
+            ) : (
+              <p dir="auto">{message.text}</p>
+            )}
             {message.answer && message.answer.sources.length > 0 && (
-              <ul className="wattle-sources" aria-label="Sources">
+              <ol className="wattle-sources" aria-label="Sources">
                 {message.answer.sources.map((source) => (
                   <li key={source}>{source}</li>
                 ))}
-              </ul>
+              </ol>
             )}
             {message.answer && extra?.(message.answer)}
+            {message.answer?.next && index === messages.length - 1 && !busy && (
+              <p className="wattle-next-q">
+                <span>Next</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void send(message.answer?.next ?? "");
+                  }}
+                >
+                  {message.answer.next}
+                </button>
+              </p>
+            )}
           </div>
         ))}
         {busy && (

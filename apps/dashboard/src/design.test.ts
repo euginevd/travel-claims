@@ -1,5 +1,5 @@
 import type { ClaimSummary, Decision, Step } from "./api";
-import { screeningOf } from "./components/ActivityRail";
+import { screeningOf } from "./components/AgentStatus";
 import { segmentsOf, waterfallOf } from "./components/DecisionCard";
 import { chipFor } from "./components/StatusChip";
 import { words } from "./format";
@@ -146,7 +146,7 @@ test("a row says the decision in a few words, as a recommendation until it's set
   expect(row("waiting", null)).toBeNull();
 });
 
-test("the activity panel says what the hidden-instruction check found", () => {
+test("the claim says what the hidden-instruction check found", () => {
   const step = (kind: Step["kind"], content: string): Step => ({
     step_id: 1,
     kind,

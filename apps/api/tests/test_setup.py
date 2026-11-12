@@ -60,7 +60,12 @@ def test_seeding_loads_the_queue_with_the_security_claim(database_url: str) -> N
         limit = db.execute(select(settings.c.value).where(settings.c.key == "approval_limit"))
         assert limit.scalar_one() == 1000.0
         keys = set(db.execute(select(reference.c.key)).scalars())
-        assert keys == {"plans", "claims_manual_version", "policy_wording_version"}
+        assert keys == {
+            "plans",
+            "claims_manual_version",
+            "policy_wording_version",
+            "queue_loaded_on",
+        }
         assert db.execute(select(func.count()).select_from(customers)).scalar_one() == 50
 
 

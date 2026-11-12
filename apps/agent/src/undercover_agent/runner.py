@@ -32,6 +32,19 @@ START_STATE: ClaimState = {
 }
 
 
+UNREADABLE_DETAIL = "A receipt image couldn't be read: it's damaged or too small."
+UNREADABLE_REASON = (
+    "A receipt image couldn't be read, so a person should look at this claim. "
+    "Ask the customer for a clearer copy of the receipt."
+)
+
+
+def unreadable_image(error: Exception) -> bool:
+    """Whether the model refused a receipt image it couldn't open (Anthropic's API and Bedrock
+    both say "Could not process image")."""
+    return "could not process image" in str(error).lower()
+
+
 class Busy(Exception):
     """The claim is already being worked here."""
 
@@ -104,6 +117,9 @@ class Runner:
             with self._beating(claim_id, thread_id):
                 self._graph.invoke(payload, config)
         except Exception as error:  # noqa: BLE001 - one bad claim never stops the agent
+            if unreadable_image(error):
+                self._refer_unreadable(claim_id, thread_id)
+                return
             log.exception("claim %s failed", claim_id)
             try:
                 self._api.record_step(
@@ -111,6 +127,32 @@ class Runner:
                 )
             except ApiError:
                 log.warning("couldn't record the failure on claim %s", claim_id)
+
+    def _refer_unreadable(self, claim_id: str, thread_id: str) -> None:
+        """A receipt the model can't open would fail every retry from the same saved step, so
+        the claim goes to a person instead, with the reason in plain words."""
+        log.warning("claim %s: a receipt image couldn't be read; referred", claim_id)
+        check = {
+            "label": "Receipt image",
+            "result": "fail",
+            "detail": UNREADABLE_DETAIL,
+            "source": "Claim",
+        }
+        try:
+            self._api.record_step(claim_id, thread_id, "error", UNREADABLE_DETAIL)
+            self._api.record_decision(
+                claim_id,
+                {
+                    "decision": "refer",
+                    "payout": 0,
+                    "section": "Claims manual: referral",
+                    "reason": UNREADABLE_REASON,
+                    "maker": "claim_agent",
+                    "checklist": [check],
+                },
+            )
+        except ApiError:
+            log.warning("couldn't refer claim %s after an unreadable receipt", claim_id)
 
     @contextmanager
     def _beating(self, claim_id: str, thread_id: str) -> Generator[None]:
