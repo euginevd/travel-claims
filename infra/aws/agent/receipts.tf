@@ -1,7 +1,7 @@
-# Receipts read into fields before any model sees them (decisions 48 and 50): Bedrock Data
-# Automation by default, a synchronous project with AWS's Receipt blueprint; from Sydney its
-# Asia Pacific profile may process a receipt in any of these Regions. RECEIPT_READER=textract
-# keeps receipts in Sydney instead, as real claim data would need.
+# Receipts read into fields before any model sees them (decisions 48 and 50): Textract by default,
+# in Sydney. RECEIPT_READER=data-automation would use this Bedrock Data Automation project, whose
+# Asia Pacific profile may process a receipt in any of these Regions; it needs an asynchronous
+# project first, as a synchronous one refuses AWS's Receipt blueprint (a document blueprint).
 locals {
   data_automation_regions = ["ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-south-2", "ap-southeast-1", "ap-southeast-2", "ap-southeast-4"]
 }
