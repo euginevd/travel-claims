@@ -251,7 +251,10 @@ def queue_view(claims: list[Json], status: str) -> list[Json]:
 
 
 def why_needed(claim: Json) -> list[str]:
-    """Why a claim needs a handler, as the dashboard's Needs me view decides it."""
+    """Why a claim needs a handler, as the dashboard's Needs me view decides it. The red team's
+    attack claims are tests: they never need a handler."""
+    if claim.get("red_team") is True:
+        return []
     status = claim.get("status")
     reasons = {
         "stalled": claim.get("stalled") is True,
