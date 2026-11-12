@@ -72,5 +72,6 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 35 | Enterprise controls on AWS: DSQL through its own endpoint, output guardrails (grounding and personal data), the agent's machine token for the api, traces and online evaluations, tagged for the platform's backups (decision 38) | Built, to deploy and test | |
 | 36 | Settings for the rest of the enterprise design: API Gateway with JWT authorizers in place of function URLs (off unless set), and staff federation with the company's Okta as reference code, never switched on (decisions 39 and 41) | Built, defaults only to deploy | |
 | 37 | More enterprise patterns, each off unless set: the platform's KMS key on the data, the company's domain on the sites, malware scanning of receipts, personal data masked in logs, and the api's own database role; backup tags on every store with personal data (decision 45) | Built, defaults only to deploy | |
+| 38 | Grounded answers and read receipts on AWS: Textract's AnalyzeExpense reads each receipt into fields before any model sees it, and Automated Reasoning checks Ask UnderCover's answers against the policy wording's rules (decision 48) | Built, to deploy and test | |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

@@ -7,6 +7,7 @@ explains and cites but never promises cover or payment. On AWS each answer must 
 the assistant read (the wording and the customer's records) and answer the question, or it isn't
 shown."""
 
+import logging
 from typing import Annotated, Literal, Protocol, cast
 
 from anthropic.types import Message
@@ -15,7 +16,10 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from undercover_agent.guardrail import NoOutputGuardrail, OutputScreen
 from undercover_agent.knowledge import WordingSearch
 from undercover_agent.models import Call, Json, Screening
+from undercover_agent.reasoning import NoReasoningCheck, ReasoningCheck
 from undercover_agent.tools import Context, as_text, tool
+
+log = logging.getLogger(__name__)
 
 ASK_INSTRUCTIONS = (
     "You are Ask UnderCover, the assistant for customers of UnderCover Travel Insurance. Answer "
@@ -97,6 +101,8 @@ class Answer(BaseModel):
     sources: list[str]
     suggest: Literal["", "start_claim", "ask_person"]
     screened: bool
+    # Automated Reasoning found the answer consistent with the policy wording's rules.
+    verified: bool = False
 
 
 class AskClaude(Protocol):
@@ -131,13 +137,14 @@ def question_for(request: AskRequest) -> str:
 class Asker:
     """Answers one customer question with a short tool loop."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0917 - a dependency each, as build_graph has
         self,
         claude: AskClaude,
         context: Context,
         model: str,
         wording: WordingSearch | None = None,
         grounding: OutputScreen | None = None,
+        reasoning: ReasoningCheck | None = None,
     ) -> None:
         self._claude = claude
         self._context = context
@@ -146,6 +153,8 @@ class Asker:
         self._wording = wording
         # On AWS: the answer checked against what the assistant read; nothing locally.
         self._grounding = grounding or NoOutputGuardrail()
+        # On AWS: the answer against the wording's rules as formal logic; nothing locally.
+        self._reasoning = reasoning or NoReasoningCheck()
 
     def checked(self, answer: Answer, read: list[str], request: AskRequest) -> Answer:
         """The answer when it rests on what was read and answers the question; otherwise a
@@ -158,7 +167,12 @@ class Asker:
         verdict = self._grounding.check_output(answer.answer, source, request.question)
         if verdict.blocked:
             return Answer(answer=UNGROUNDED, sources=[], suggest="ask_person", screened=False)
-        return answer
+        # Grounded; now against the wording's rules: a contradiction goes to a person too.
+        outcome = self._reasoning.check(request.question, answer.answer)
+        if outcome == "invalid":
+            log.warning("an answer contradicted the policy's rules")
+            return Answer(answer=UNGROUNDED, sources=[], suggest="ask_person", screened=False)
+        return answer.model_copy(update={"verified": outcome == "valid"})
 
     def run(self, name: str, args: Json, request: AskRequest) -> str:
         match name:

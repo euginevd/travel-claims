@@ -38,7 +38,7 @@ The numbered badges in the diagram.
 1. Every call carries a token; API Gateway's WAF and authorizer check it, and the api checks it again.
 2. Compute has no public URLs; AWS is reached through VPC endpoints and egress is inspected by the platform.
 3. The agent reaches tools only through Gateway, under Cedar policy; the staff Gateway takes the handler's own token.
-4. A separate model checks every claim for hidden instructions; a guardrail screens customer text, answers are checked for grounding and letters for personal data; Claude runs on Bedrock's Australian profile.
+4. A separate model checks every claim for hidden instructions; Textract reads receipts into fields so no model sees an image; a guardrail screens customer text, answers are checked for grounding and against the wording's rules by Automated Reasoning, and letters for personal data; Claude runs on Bedrock's Australian profile.
 5. The model decides; code checks the limits and pays; large payouts wait for a handler, and payouts can be paused.
 6. Every model call is logged; traces follow each claim; evaluations score live sessions; each customer's memory is kept apart; personal data is masked in the logs.
 7. Machine clients get short-lived tokens from AgentCore Identity; each function and the agent has its own role, inside a permissions boundary.
@@ -56,7 +56,7 @@ In the diagram's order:
 - **Backend (Lambda):** the api, which owns claims, payouts and limits and checks every token again; the copilot for handlers; and the context server, reachable only through Gateway.
 - **VPC:** the functions and the agent run in private subnets, with nothing coming in; they reach AWS through VPC endpoints, and anything else through the platform's inspected egress.
 - **Agent (AgentCore):** the claim agent on Runtime, which accepts only the api's machine token; Identity keeps the machine-client secrets; Gateway and the staff Gateway are the only way to the tools, under Cedar policy; Code Interpreter reaches the VPC endpoints only.
-- **Models (Bedrock):** Claude on Australia's inference profile, so data stays in Australia; guardrails screen customers' text and check answers and letters before anyone sees them; the knowledge base holds the public policy wording.
+- **Models (Bedrock):** Claude on Australia's inference profile, so data stays in Australia; guardrails screen customers' text and check answers and letters before anyone sees them, with Automated Reasoning proving answers against the wording's rules; Textract reads receipts in Sydney; the knowledge base holds the public policy wording.
 - **Data:** Aurora DSQL for claims and payouts (IAM sign-in, no password, through its own endpoint); S3 for receipts, each scanned for malware; DynamoDB for agent and chat progress; AgentCore Memory for each customer's history. All encrypted at rest with the platform's key, and backed up by the platform.
 - **Operate:** CloudWatch logs with personal data masked, alarms by email, AgentCore Observability's trace of each claim, AgentCore Evaluations on live sessions, and a log of every model call as the workload's AI audit trail.
 - **Delivery:** GitHub Actions signs in with OIDC, plans on PRs and deploys only from `main`, through the platform's pipeline roles and state bucket.
