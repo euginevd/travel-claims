@@ -13,9 +13,53 @@
 <img src="https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white" alt="uv">
 <img src="https://img.shields.io/badge/Trivy-1904DA?style=flat-square&logo=trivy&logoColor=white" alt="Trivy">
 
-[Quick start](#quick-start) · [What you get](#what-you-get) · [Architecture](#architecture) · [Built with](#built-with) · [Guides](#guides)
+</div>
 
-<br>
+I designed and built UnderCover end to end to show AI engineering, security and cloud architecture working together: three apps for three audiences (a customer portal, a handlers' dashboard and an AI assurance console), a LangGraph claim agent and a handlers' Copilot, running on AWS with AgentCore and Bedrock. Every risk in the threat model has a control, guardrails check what goes into and comes out of the models, every AWS resource is Terraform, every change runs through GitHub Actions with OIDC and security scans, and it's one enterprise design where each control is a setting.
+
+The idea and synthetic data come from [the UnderCover project](https://github.com/ed-donner/undercover) in Ed Donner's AI FDE course, which I recently completed after his [Proficient AI Engineer program](https://proficientaiengineer.com/certificate/c5032879-fe81-45d9-b460-68de7631bfda). The code, architecture and controls are my own.
+
+<div align="center">
+
+[Architecture](#architecture) · [Security](#security-highlights) · [Walkthrough](#walkthrough) · [Quick start](#quick-start) · [What you get](#what-you-get) · [Built with](#built-with) · [Guides](#guides)
+
+</div>
+
+## Architecture
+
+<img src="docs/assets/architecture-overview.png" width="880" alt="UnderCover on AWS, in Sydney: customers, handlers and AI engineers sign in with Cognito and reach the apps through CloudFront and WAF; API Gateway, with its own WAF, checks every token; Lambda (the api, the copilot and the tools) and AgentCore (the agent runtime, a tool gateway under Cedar policy, memory and identity) run in private subnets and call Claude, guardrails and the knowledge base on Amazon Bedrock; data in Aurora DSQL, DynamoDB, S3 and AgentCore Memory, encrypted with the platform's key and backed up, with uploads scanned for malware; staff sign in with the company's Okta; the platform team provides Identity Center, Control Tower, the network, CloudTrail, GuardDuty, Security Hub, backup and keys.">
+
+The full diagram, with each step and control: [the AWS architecture guide](guides/03-aws-architecture.md).
+
+## Security highlights
+
+The [threat model](docs/threat-model.md) names each risk and the control that answers it; the [security trade-offs](guides/04-security-trade-offs.md) list what this prototype accepts and the fix for production.
+
+**AI security**
+- **Prompt injection:** a hidden-instruction check and a Bedrock guardrail read every claim before any model does. The sample receipt `04-injection-test-mara-lodge.png` hides an instruction to prove it.
+- **Output guardrails, failing closed:** Wattle AI's answers are checked for grounding against what its tools returned, and letters are filtered for card, bank, tax file and passport numbers.
+- **Money never in a prompt:** the model can't reach a payment. Code pays after the api checks the approval limit and the pause switch, and a lost write race is refused, so a payout can't run twice.
+- **Tool rules the model can't talk its way past:** AgentCore Policy (Cedar, enforced) allows each gateway only its own tools.
+- **A red team** of eight attacks mapped to the OWASP Top 10 for LLMs; the improver's changes are kept only if they score better and the red team still holds.
+- **An audit trail:** Bedrock model invocation logging keeps each model call for 30 days in a bucket only the deploy role can delete from.
+
+**Identity and access**
+- Separate Cognito sign-ins and token audiences for customers, handlers and AI engineers; staff sign-in through the company's Okta (SAML) as reference code.
+- Service to service: the agent calls the api with a machine token from AgentCore Identity, and the api then refuses the shared key. The context server has no URL at all; the gateways invoke it by its ARN.
+- GitHub reaches AWS through OIDC, with no stored keys. Every role Terraform makes has its own narrow policy and a permissions boundary.
+
+**Infrastructure**
+- **One enterprise design, with every control a setting:** private subnets with VPC endpoints and DSQL over PrivateLink, API Gateway with its own WAF, the platform's KMS key, malware scanning of uploads, masking of personal data in logs, and online evaluations. The defaults are the low-cost options, so a demo costs under $10 a month idle.
+- **A clear platform boundary:** the network, keys and backups belong to the platform team and are read through SSM parameters, the same contract a real landing zone publishes.
+
+**Pipeline and supply chain**
+- Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every push and PR; each image scanned and shipped with its SBOM.
+- Packages pinned and locked, never newer than 7 days; Dependabot weekly.
+- Terraform planned on each PR with an Infracost comment, and applied only from `main`.
+
+## Walkthrough
+
+<div align="center">
 
 <img src="docs/assets/undercover-tour.gif" width="880" alt="The walkthrough, sped up: a customer asks Wattle AI about their cover and makes a claim from a receipt, a handler watches the claim agent work it and signs off a larger payout, and an AI engineer checks the agent in the assurance console.">
 
@@ -23,12 +67,9 @@ The full walkthrough, three minutes with captions, plays on the project page ([t
 
 </div>
 
-> Based on the UnderCover project from Ed Donner's AI FDE course ([ed-donner/undercover](https://github.com/ed-donner/undercover)), including its fictional sample data. Built with a secure agentic SDLC from [sdlc-template](https://github.com/euginevd/sdlc-template).
-
 ## Quick start
 
 Docker runs every app on a laptop, to try it or test a change before deploying to AWS ([the runbook](guides/02-aws-runbook.md)).
-
 
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), then clone the repo and run `bash scripts/setup.sh`.
 2. Copy `.env.example` to `.env`, and add an Anthropic API key with its workspace ID.
@@ -43,7 +84,7 @@ Docker runs every app on a laptop, to try it or test a change before deploying t
 5. Browser tests: in [e2e](e2e), `npm ci` and `npx playwright install chromium` once, then `npm run stack` (a second stack on every port plus 100), `npm test` and `npm run stack:down`. The other checks are in [AGENTS.md](AGENTS.md) → Commands.
 6. Start over from a clean queue: `docker compose down -v`, then `up` again (this deletes the local database).
 
-Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the design is the AWS build below, which the pipeline deploys. What was added on 2026-11-11 runs locally and isn't deployed yet.
+Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the design is the AWS build below, which the pipeline deploys. The AWS build is torn down between demos.
 
 ## What you get
 
@@ -54,11 +95,7 @@ Each claim costs 2 to 4 cents of Claude. Docker is for testing locally; the desi
 | **AI engineers** | A separate assurance console: evaluations against handlers' decisions with a judge's grade, success criteria worked out in code, a **Live** page (straight through, how often handlers disagree, cost, customer feedback) whose disagreements can join the evaluation set, the improver's proposals kept only if they score better and the red team holds, and the red team's eight attacks mapped to the OWASP Top 10 for LLMs |
 | **Security** | A hidden-instruction check and a Bedrock guardrail before any model reads a claim; payments and limits in code, never in a prompt; separate sign-ins and token audiences per app; a [threat model](docs/threat-model.md) with every control |
 
-## Architecture
-
-<img src="docs/assets/architecture-overview.png" width="880" alt="UnderCover on AWS, in Sydney: customers, handlers and AI engineers sign in with Cognito and reach the apps through CloudFront and WAF; API Gateway, with its own WAF, checks every token; Lambda (the api, the copilot and the tools) and AgentCore (the agent runtime, a tool gateway under Cedar policy, memory and identity) run in private subnets and call Claude, guardrails and the knowledge base on Amazon Bedrock; data in Aurora DSQL, DynamoDB, S3 and AgentCore Memory, encrypted with the platform's key and backed up, with uploads scanned for malware; staff sign in with the company's Okta; the platform team provides Identity Center, Control Tower, the network, CloudTrail, GuardDuty, Security Hub, backup and keys.">
-
-The full diagram, with each step and control: [the AWS architecture guide](guides/03-aws-architecture.md).
+## Apps and cost
 
 | App | What | Runs on (AWS) |
 |-----|------|---------------|
@@ -75,11 +112,11 @@ One design, the one a regulated insurer would run, with its platform team's cont
 
 Rough monthly cost in USD:
 
-| Deployed as | What changes | Cost a month |
-|------|---------|-------------:|
-| Default (cost-optimized) | No VPC, no API Gateway, no online evaluations | ≈ $0 idle, plus Claude |
-| Recommended (the full design) | `NETWORK_MODE=private`, `API_GATEWAY=true`, `EVALUATION_SAMPLING=10` and the other [settings](guides/03-aws-architecture.md#settings) | ≈ $165 to $220 while up, plus Claude |
-| Locally, to test | Docker Compose on a laptop, Claude through the Anthropic API | Tokens only |
+| Setup | Cost a month, plus Claude tokens |
+|-------|------:|
+| Default: no VPC, API Gateway or online evaluations | under $10 |
+| Full design: private network, API Gateway, evaluations ([settings](guides/03-aws-architecture.md#settings)) | $165 to $220 while up |
+| Local: Docker Compose | $0 |
 
 Details: [costs.md](docs/costs.md).
 

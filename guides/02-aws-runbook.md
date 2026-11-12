@@ -2,11 +2,11 @@
 
 The AWS build from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
-**Cost:** cents idle with the default, cost-optimized settings; the recommended ones (the [architecture guide's settings](03-aws-architecture.md#settings)) add about $165 to $220 a month while up, mostly the private network; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
+**Cost:** up to about $10 a month idle with the default, cost-optimized settings; the recommended ones (the [architecture guide's settings](03-aws-architecture.md#settings)) add about $165 to $220 a month while up, mostly the private network; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
 ## How it fits together
 
-- **Bootstrap** (CloudFormation, deployed once by you): GitHub's sign-in to AWS without stored keys, the Terraform state bucket, a read-only plan role, a deploy role, and a boundary every Terraform role stays inside.
+- **Bootstrap** (CloudFormation, deployed once by you): GitHub's sign-in to AWS without stored keys, the Terraform state bucket, a read-only plan role, a deploy role, a read-only troubleshoot role for an agent, and a boundary every Terraform role stays inside.
 - **GitHub** (variables and secrets): which roles, bucket and Claude the workflows use, and the switch that turns deploys on.
 - **The `aws` workflow**: ten Terraform units in `infra/aws/`, planned with the plan role and applied with the deploy role, only from `main`.
 - **The `images` workflow**: the four app images into ECR, and the web apps into S3.
@@ -98,3 +98,16 @@ Removes everything the build put in AWS. The code, the repo and its GitHub envir
 ## Switching to Claude on Bedrock
 
 Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a deployed setup it also applies the `secrets`, `functions` and `agent` units, so the apps call Bedrock and the Anthropic key leaves the token vault. `use-anthropic.sh` switches back the same way.
+
+## Letting an agent troubleshoot
+
+The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). To hand it to an agent on your machine, add a profile to `~/.aws/config` that assumes it from your own sign-in, with the role ARN from the stack's `TroubleshootRoleArn` output:
+
+```ini
+[profile travel-claims-troubleshoot]
+role_arn = arn:aws:iam::<account id>:role/travel-claims-troubleshoot
+source_profile = <your profile>
+region = ap-southeast-2
+```
+
+Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour, and the role goes with the bootstrap at tear down.

@@ -1,6 +1,6 @@
 # Spec
 
-`travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from the UnderCover project in Ed Donner's AI FDE course ([`week3day5-end`](https://github.com/ed-donner/undercover) is the reference for behaviour and data; the code is written fresh, with credit).
+`travel-claims`: UnderCover, an AI claims platform for a fictional travel insurer, rebuilt from scratch on a course project's idea and fictional sample data (credited in the [README](../README.md)).
 
 Profile: `prototype`, for the whole project (decision 31): no real users, customer data or payments, every record made up, and `dev` the only environment. What that changes is in [AGENTS.md](../AGENTS.md) rule 24.
 
@@ -10,7 +10,7 @@ The business and the app at a high level. What each app does: [features.md](feat
 
 Who the business is, unnumbered so the spec's numbers stay put. It changes only when the business does.
 
-- Business: UnderCover Travel Insurance (fictional), an Australian travel insurer, from Ed Donner's AI FDE course. Everything in its data is invented.
+- Business: UnderCover Travel Insurance (fictional), an Australian travel insurer. Everything in its data is invented.
 - Plans: Economy, Premium and First. A small claims team works the queue by hand.
 - Regulators and laws: APRA (CPS 234 information security, CPS 230 operational risk), ASIC, the Privacy Act (including the automated decision-making rules from 10 December 2026) and the Notifiable Data Breaches scheme.
 - Data: customer data stays in Australia.
