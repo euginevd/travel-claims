@@ -48,32 +48,20 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 
 ## AI assurance console (`console`)
 
-| # | Feature | Status | PR |
-|---|---|---|---|
-| 21 | **Scoreboard**: evaluation runs on the evaluation or held-out set, tiny (5 claims) or full (25), 1 to 25 agents at once, restart-safe, with scores and misses against the handlers' decisions | Done | #9 |
-| 22 | The judge's grade of each explanation against the handler's: 0 to 3, same grounds, same section (spec 24) | Done | #70 |
-| 23 | **Success criteria** worked out in code: straight through and held-out accuracy against their objectives, and no payment over the limit without a person | Done | #72 |
-| 24 | **Trace**: any claim's steps, model calls, tokens and cost; it suggests the live claim with the most model calls lately, and every claim number on Detections, Red team and Live opens its trace | Done | #38 |
-| 25 | **Live**: straight through, handler disagreement, referrals, flags, cost and time by day, and customer feedback; **Add to evaluation set** turns an override or send-back into a labelled evaluation claim | Done | #72 |
-| 26 | **Improvement**: the improver's prompt proposals, kept only if they score better and the red team still holds | Done | #9 |
-| 27 | **Red team**: eight attacks against the agent, each mapped to the OWASP Top 10 for LLMs, each run tagged with the claim agent version it attacked; **Coverage**: each risk with its controls | Done | #8 |
-| 37 | **Posture**, the console's home, for an AI security engineer: a verdict, four stage cards (what runs, controls, gaps, detections with readiness), defence in depth (which layer stopped each of the latest run's attacks, untested layers marked) and the gaps to close, all worked out in code | Done | |
-| 38 | **Detections**: each control that fired on a live claim (hidden-instruction check, Bedrock guardrail, model refusal, payout held), by period and control, the record's reason as text | Done | |
-| 39 | **Agents**: each model's tools, what it reads, the worst it could do if tricked and what stops it | Done | |
-
-## Behind every app
+In the order of its menu, left to right: Security, then Quality.
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 28 | The hidden-instruction check reads every claim and receipt first, on a separate model; a flagged claim goes to a handler unseen by the claim agent | Done | #2 |
-| 29 | The claim agent with the context layer, specialists (document checker, duplicate receipts, medical reviewer), the customer's earlier claims and claim recovery (heartbeats, retry, a watchdog) | Done | #2 |
-| 30 | The same apps serverless on AWS (spec 5) | Done, torn down to save cost | #46 |
-| 31 | Fully AWS-native: Aurora DSQL, DynamoDB checkpoints, Claude on Bedrock only, CloudFront's Free plan with WAF, free-tier alarms and budget (decision 30) | Built, to deploy and test | |
-| 32 | Agent identity on AWS: the Anthropic key in AgentCore Identity's vault, the api's machine token for the agent's runtime, and the Copilot's tools as the signed-in handler (decision 33) | Built, to deploy and test | |
-| 33 | Tool rules and audit on AWS: AgentCore Policy allow-lists per gateway, the context server reached by ARN with no URL, and Bedrock model invocation logging (decision 34) | Built, to deploy and test | |
-| 34 | A private network: the Lambdas, AgentCore Runtime and Code Interpreter in the platform's private subnets behind VPC endpoints, deployed with `NETWORK_MODE=private` (decisions 36 and 39) | Built, to deploy and test | |
-| 35 | Enterprise controls on AWS: DSQL through its own endpoint, output guardrails (grounding and personal data), the agent's machine token for the api, traces and online evaluations, tagged for the platform's backups (decision 38) | Built, to deploy and test | |
-| 36 | Settings for the rest of the enterprise design: API Gateway with JWT authorizers in place of function URLs (off unless set), and staff federation with the company's Okta as reference code, never switched on (decisions 39 and 41) | Built, defaults only to deploy | |
-| 37 | More enterprise patterns, each off unless set: the platform's KMS key on the data, the company's domain on the sites, malware scanning of receipts, personal data masked in logs, and the api's own database role; backup tags on every store with personal data (decision 45) | Built, defaults only to deploy | |
+| 21 | **Posture**, the console's home: a plain verdict, four cards (what runs, controls, gaps, detections with readiness), defence in depth (which layer stopped each of the latest run's attacks, untested layers marked) and the gaps to close, all worked out in code from runs against the agent version in use | Done | |
+| 22 | **Detections**: each control that fired on a live claim (hidden-instruction check, Bedrock guardrail, model refusal, payout held), once per claim, by period and control | Done | |
+| 23 | **Coverage**: each OWASP risk for LLM and agentic apps with its control, the attacks that test it and when its guardrail last fired; the payouts switch, read-only | Done | #8 |
+| 24 | **Red team**: eight attacks made through the portal, each mapped to the OWASP Top 10 for LLMs, each run tagged with the claim agent version it attacked | Done | #8 |
+| 25 | **Agents**: each model's tools, what it reads, the worst it could do if tricked and what stops it | Done | |
+| 26 | **Scoreboard**: evaluation runs on the evaluation or held-out set, tiny (5 claims) or full (25), 1 to 25 agents at once, restart-safe, with scores and misses against the handlers' decisions | Done | #9 |
+| 27 | The judge's grade of each explanation against the handler's: 0 to 3, same grounds, same section (spec 24) | Done | #70 |
+| 28 | **Success criteria** worked out in code: straight through and held-out accuracy against their objectives, and no payment over the limit without a person | Done | #72 |
+| 29 | **Live**: straight through, handler disagreement, referrals, flags, cost and time by day, and customer feedback; **Add to evaluation set** turns an override or send-back into a labelled evaluation claim | Done | #72 |
+| 30 | **Improvement**: the improver's prompt proposals, kept only if they score better and the red team still holds | Done | #9 |
+| 31 | **Trace**: one claim's outcome, agent version, steps and model calls in one readable timeline, security checks and cost against the average live claim; it suggests the live claim with the most model calls, and every claim number on Detections, Red team and Live opens its trace | Done | #38 |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

@@ -1,9 +1,25 @@
-import { ChevronDown, LoaderCircle, ScrollText, Search } from "lucide-react";
+import {
+  Bot,
+  ChevronDown,
+  CircleAlert,
+  LoaderCircle,
+  ScrollText,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { useCallback, useEffect, useState, type SubmitEvent } from "react";
 import type { Api, Trace } from "../api";
-import { TableScroll } from "../components/TableScroll";
+import { Sparkline } from "../components/Charts";
 import { dollars, when } from "../format";
+import { modelName, timeline, unscopedCalls, type Entry } from "../traceTimeline";
 import { useFocusHeading } from "../useFocusHeading";
+
+const OUTCOMES = {
+  approve: "Approved",
+  decline: "Declined",
+  refer: "Referred to a handler",
+} as const;
 
 function count(value: number): string {
   return value.toLocaleString("en-AU");
@@ -39,6 +55,204 @@ function Totals({ trace }: { trace: Trace }) {
         )}
       </li>
     </ul>
+  );
+}
+
+function cents(value: number): string {
+  return value < 1 ? `${(value * 100).toFixed(1)}¢` : dollars(value);
+}
+
+/** How the claim ended up, first: the decision, its reason and what it cites. */
+function Outcome({ claimId, trace }: { claimId: string; trace: Trace }) {
+  const outcome = trace.outcome;
+  return (
+    <div className="panel trace-outcome">
+      <h2 className="trace-title">{claimId}</h2>
+      <p className="trace-summary" dir="auto">
+        {trace.summary}
+      </p>
+      {outcome ? (
+        <>
+          <p className="trace-decision">
+            <strong>
+              {OUTCOMES[outcome.decision]}
+              {outcome.decision === "approve" ? ` ${dollars(outcome.payout)}` : ""}
+            </strong>
+            <span className="muted small">
+              {" "}
+              by {outcome.decided_by}, {when(outcome.decided_at)}
+            </span>
+          </p>
+          {/* The agent's own words: text only, never markup. */}
+          <p className="prose" dir="auto">
+            {outcome.reason}
+          </p>
+          <p className="small muted">
+            Cites {outcome.section || "nothing"}
+            {trace.config_version === null
+              ? ""
+              : ` · claim agent version ${String(trace.config_version)}`}
+          </p>
+        </>
+      ) : (
+        <p className="muted small">Not decided yet ({trace.status.replaceAll("_", " ")}).</p>
+      )}
+    </div>
+  );
+}
+
+function EntryRow({ entry }: { entry: Entry }) {
+  if (entry.type === "model") {
+    const { call } = entry;
+    return (
+      <li className="trace-model">
+        <Bot size={14} strokeWidth={1.75} aria-hidden="true" />
+        <span>
+          Claude {modelName(call.model)} · {call.input_tokens.toLocaleString("en-AU")} in /{" "}
+          {call.output_tokens.toLocaleString("en-AU")} out · ${call.cost.toFixed(4)}
+          {call.latency_ms === null ? "" : ` · ${(call.latency_ms / 1000).toFixed(1)}s`}
+        </span>
+      </li>
+    );
+  }
+  return (
+    <li className={`trace-step ${entry.tone}`}>
+      <details>
+        <summary>
+          <span className="trace-label">
+            {entry.tone === "warn" && (
+              <CircleAlert size={14} strokeWidth={1.75} aria-hidden="true" />
+            )}
+            {entry.label}
+          </span>
+          <span className="muted small nowrap">{when(entry.at)}</span>
+          <ChevronDown className="chevron" size={16} strokeWidth={1.75} aria-hidden="true" />
+        </summary>
+        {/* Recorded content, some of it the claim's or a model's words: text only. */}
+        <pre className="code" dir="auto">
+          {entry.content}
+        </pre>
+        {entry.result !== null && (
+          <>
+            <p className="small muted trace-result-label">What came back</p>
+            <pre className="code" dir="auto">
+              {entry.result}
+            </pre>
+          </>
+        )}
+      </details>
+    </li>
+  );
+}
+
+/** The controls this claim went through, each a word and an icon. */
+function Security({ trace }: { trace: Trace }) {
+  const screening = trace.steps.find((step) => step.kind === "screening");
+  const flagged = screening?.content.startsWith("Instructions found") ?? false;
+  const unscoped = unscopedCalls(trace);
+  const toolCalls = trace.steps.filter((step) => step.kind === "tool_call").length;
+  const trouble = trace.steps.filter((s) => s.kind === "refusal" || s.kind === "error").length;
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Security</h2>
+      </div>
+      <ul className="trace-checks">
+        <li>
+          {!screening ? (
+            <span className="chip">
+              <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+              Not screened
+            </span>
+          ) : flagged ? (
+            <span className="chip chip-warn">
+              <ShieldAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+              Screening flagged it
+            </span>
+          ) : (
+            <span className="chip chip-good">
+              <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+              Screened first: clean
+            </span>
+          )}
+        </li>
+        <li>
+          {unscoped.length === 0 ? (
+            <span className="chip chip-good">
+              <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+              {`All ${String(toolCalls)} tool calls took the claim from the session`}
+            </span>
+          ) : (
+            <span className="chip chip-warn">
+              <ShieldAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+              {`Passed an id itself: ${unscoped.join(", ")}`}
+            </span>
+          )}
+        </li>
+        <li>
+          {trouble === 0 ? (
+            <span className="chip chip-good">
+              <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
+              No refusals or errors
+            </span>
+          ) : (
+            <span className="chip chip-warn">
+              <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+              {`${String(trouble)} ${trouble === 1 ? "refusal or error" : "refusals or errors"}`}
+            </span>
+          )}
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+/** Where the money went: by model, against the average live claim, and how the context grew. */
+function Cost({ trace }: { trace: Trace }) {
+  const byModel = new Map<string, { calls: number; cost: number }>();
+  for (const call of trace.model_calls) {
+    const name = modelName(call.model);
+    const now = byModel.get(name) ?? { calls: 0, cost: 0 };
+    byModel.set(name, { calls: now.calls + 1, cost: now.cost + call.cost });
+  }
+  const inputs = trace.model_calls.map((call) => call.input_tokens);
+  const average = trace.average_cost;
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h2>Cost</h2>
+        <p className="panel-note">{dollars(trace.total_cost)}</p>
+      </div>
+      {average !== null && average > 0 && (
+        <p className="small">
+          {cents(trace.total_cost)}, {(trace.total_cost / average).toFixed(1)}× the average live
+          claim ({cents(average)}, last 30 days).
+        </p>
+      )}
+      <dl className="stage-rows">
+        {[...byModel].map(([name, found]) => (
+          <div key={name}>
+            <dt>
+              Claude {name} × {found.calls}
+            </dt>
+            <dd>${found.cost.toFixed(4)}</dd>
+          </div>
+        ))}
+      </dl>
+      {inputs.length > 1 && (
+        <>
+          <h3 className="live-sub">Input tokens per call</h3>
+          <Sparkline
+            values={inputs}
+            label={`Input tokens per model call, in order: ${inputs.join(", ")}`}
+          />
+          <p className="small muted">
+            From {inputs[0]?.toLocaleString("en-AU")} to {inputs.at(-1)?.toLocaleString("en-AU")}:
+            each call re-reads the conversation so far.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -109,7 +323,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
     <section className="view" aria-labelledby="trace-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Quality · Claim trace</p>
+          <p className="eyebrow">Quality · Trace</p>
           <h1 id="trace-heading" ref={heading} tabIndex={-1}>
             Claim trace
           </h1>
@@ -159,89 +373,29 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
       )}
       {shown && trace && (
         <>
-          <div className="panel">
-            <h2 className="trace-title">{shown.claimId}</h2>
-            <p className="trace-summary">
-              {trace.model_calls.length} model calls · {count(trace.total_tokens)} tokens ·{" "}
-              {dollars(trace.total_cost)}
-            </p>
-          </div>
+          <Outcome claimId={shown.claimId} trace={trace} />
           <Totals trace={trace} />
           <div className="cols wide-side">
             <div className="panel">
               <div className="panel-head">
-                <h2>What the agent did</h2>
-                <p className="panel-note">In order. Open a step for its content.</p>
+                <h2>What happened</h2>
+                <p className="panel-note">
+                  Steps and model calls in order. Open a step for its data.
+                </p>
               </div>
-              {trace.steps.length === 0 ? (
-                <p className="muted">No steps were recorded for this claim.</p>
+              {trace.steps.length === 0 && trace.model_calls.length === 0 ? (
+                <p className="muted">Nothing was recorded for this claim.</p>
               ) : (
-                <ol className="trace-steps">
-                  {trace.steps.map((step) => (
-                    <li key={step.step_id}>
-                      <details>
-                        <summary>
-                          <strong>{step.kind}</strong>{" "}
-                          <span className="muted small nowrap">{when(step.created_at)}</span>
-                          <ChevronDown
-                            className="chevron"
-                            size={16}
-                            strokeWidth={1.75}
-                            aria-hidden="true"
-                          />
-                        </summary>
-                        <pre className="code" dir="auto">
-                          {step.content}
-                        </pre>
-                      </details>
-                    </li>
+                <ol className="trace-timeline">
+                  {timeline(trace).map((entry, index) => (
+                    <EntryRow key={`${entry.type}-${String(index)}`} entry={entry} />
                   ))}
                 </ol>
               )}
             </div>
-            <div className="panel">
-              <div className="panel-head">
-                <h2>Model calls</h2>
-                <p className="panel-note">
-                  {trace.model_calls.length} calls · {dollars(trace.total_cost)}
-                </p>
-              </div>
-              <TableScroll label="Model calls table">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Model</th>
-                      <th scope="col" className="num">
-                        Tokens in / out
-                      </th>
-                      <th scope="col" className="num">
-                        Cost
-                      </th>
-                      <th scope="col" className="num">
-                        Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trace.model_calls.map((call, index) => (
-                      <tr key={index}>
-                        <td>
-                          <span className="tag mono">{call.model}</span>
-                        </td>
-                        <td className="num">
-                          {call.input_tokens} / {call.output_tokens}
-                        </td>
-                        <td className="num">${call.cost.toFixed(4)}</td>
-                        <td className="num">
-                          {call.latency_ms === null
-                            ? "–"
-                            : `${(call.latency_ms / 1000).toFixed(1)}s`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableScroll>
+            <div className="stack">
+              <Security trace={trace} />
+              <Cost trace={trace} />
             </div>
           </div>
         </>

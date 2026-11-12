@@ -329,6 +329,14 @@ test("threat coverage sums up what is tested, and says when nothing is", async (
   expect(screen.getByText("None has fired yet")).toBeInTheDocument();
 });
 
+const UNDECIDED = {
+  summary: "Bag delayed",
+  status: "in_progress",
+  outcome: null,
+  config_version: null,
+  average_cost: null,
+};
+
 test("the claim trace starts empty and totals what it loads", async () => {
   const user = userEvent.setup();
   const call = {
@@ -342,7 +350,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
   const fetchFn = fakeFetch({
     "GET /api/engineering/claims/CLM-1/trace": () => [
       200,
-      { steps: [], model_calls: [call], total_cost: 0.0125, total_tokens: 1500 },
+      { steps: [], model_calls: [call], total_cost: 0.0125, total_tokens: 1500, ...UNDECIDED },
     ],
     "GET /api/engineering/claims/CLM-2/trace": () => [
       200,
@@ -351,6 +359,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
         model_calls: [call, { ...call, latency_ms: 1500 }],
         total_cost: 0.025,
         total_tokens: 3000,
+        ...UNDECIDED,
       },
     ],
   });
@@ -359,7 +368,7 @@ test("the claim trace starts empty and totals what it loads", async () => {
   await user.type(screen.getByLabelText("Claim"), "clm-1");
   await user.click(screen.getByRole("button", { name: "Show" }));
   expect(await screen.findByRole("heading", { name: "CLM-1" })).toBeInTheDocument();
-  expect(screen.getByText("No steps were recorded for this claim.")).toBeInTheDocument();
+  expect(screen.getByText("Not decided yet (in progress).")).toBeInTheDocument();
   const totals = screen.getByRole("list", { name: "The trace's totals" });
   expect(within(totals).getByText("1,200")).toBeInTheDocument();
   expect(within(totals).getByText("–")).toBeInTheDocument();

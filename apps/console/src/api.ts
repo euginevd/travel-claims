@@ -183,6 +183,22 @@ export const TraceSchema = z.object({
   ),
   total_cost: z.number(),
   total_tokens: z.number(),
+  // What the engineers read it against: the claim, its outcome, the agent version that worked it
+  // and what a live claim costs on average.
+  summary: z.string(),
+  status: StatusSchema,
+  outcome: z
+    .object({
+      decision: DecisionKindSchema,
+      payout: z.number(),
+      section: z.string(),
+      reason: z.string(),
+      decided_by: z.string(),
+      decided_at: z.string(),
+    })
+    .nullable(),
+  config_version: z.number().nullable(),
+  average_cost: z.number().nullable(),
 });
 
 export type Trace = z.infer<typeof TraceSchema>;

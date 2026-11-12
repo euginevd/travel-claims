@@ -1293,3 +1293,98 @@ main.page {
   margin-left: 6px;
   padding-left: 10px;
 }
+
+/* ---------- Trace: outcome, one timeline, security and cost ---------- */
+
+.trace-decision {
+  margin: 12px 0 4px;
+  font-size: 1.05rem;
+}
+
+.trace-decision strong {
+  font-weight: 600;
+}
+
+.trace-outcome .prose {
+  margin: 0 0 6px;
+}
+
+.trace-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-timeline > li {
+  border-bottom: 1px solid var(--line-2);
+}
+
+.trace-timeline > li:last-child {
+  border-bottom: 0;
+}
+
+.trace-model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px 6px 10px;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trace-step summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-radius: 8px;
+  list-style: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.trace-step summary::-webkit-details-marker {
+  display: none;
+}
+
+.trace-step .chevron {
+  color: var(--ink-3);
+  transition: transform 0.2s;
+}
+
+.trace-step details[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.trace-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.trace-step.warn .trace-label {
+  color: var(--acc-d);
+}
+
+.trace-step.ok .trace-label {
+  color: var(--good);
+}
+
+.trace-result-label {
+  margin: 8px 0 4px;
+}
+
+.trace-checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-checks .chip {
+  white-space: normal;
+}

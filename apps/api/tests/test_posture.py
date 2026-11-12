@@ -230,3 +230,24 @@ def test_the_suggested_trace_is_the_live_claim_with_the_most_model_calls(
     # The red team's claim has more calls, but only live claims are suggested.
     assert client.get(suggest, headers=sam).json() == {"claim_id": "CLM-1002", "model_calls": 3}
     assert client.get(suggest, headers=dana).status_code == 401
+
+
+def test_an_engineers_trace_has_the_outcome_version_and_the_average_cost(
+    client: TestClient, sam: dict[str, str]
+) -> None:
+    register(client)
+    start(client, "CLM-1001")
+    call(client, "CLM-1001")
+    decide(client, "CLM-1001", "decline")
+    start(client, "CLM-1002")
+    call(client, "CLM-1002")
+    call(client, "CLM-1002")
+    found = client.get("/api/engineering/claims/CLM-1001/trace", headers=sam).json()
+    assert found["outcome"]["decision"] == "decline"
+    assert found["config_version"] == 1
+    assert found["status"] == "decided"
+    assert found["summary"]
+    # CLM-1001 cost 0.0001 and CLM-1002 0.0002: a live claim costs 0.00015 on average.
+    assert found["average_cost"] == 0.00015
+    waiting = client.get("/api/engineering/claims/CLM-1002/trace", headers=sam).json()
+    assert waiting["outcome"] is None

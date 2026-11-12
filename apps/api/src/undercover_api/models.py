@@ -306,6 +306,30 @@ class Trace(BaseModel):
     total_tokens: int
 
 
+class TraceOutcome(BaseModel):
+    """How the claim ended up: its decision, as recorded."""
+
+    decision: DecisionKind
+    payout: float
+    section: str
+    reason: str
+    decided_by: str
+    decided_at: str
+
+
+class EngineerTrace(Trace):
+    """A claim's trace with what the engineers read it against: the claim, its outcome, the
+    agent version that worked it and what a live claim costs on average."""
+
+    summary: str
+    status: Status
+    outcome: TraceOutcome | None
+    config_version: int | None = Field(description="The claim agent version that worked it")
+    average_cost: float | None = Field(
+        description="What a live claim's model calls cost on average, over the last 30 days"
+    )
+
+
 class Trip(BaseModel):
     destination: str
     departs_on: str

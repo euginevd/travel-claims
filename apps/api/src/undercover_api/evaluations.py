@@ -35,9 +35,10 @@ from undercover_api.models import (
     ClaimId,
     DecisionKind,
     Engineer,
+    EngineerTrace,
     Status,
     Strict,
-    Trace,
+    TraceOutcome,
 )
 
 log = logging.getLogger(__name__)
@@ -234,10 +235,46 @@ def me_engineer(engineer: SignedInEngineer) -> Engineer:
     return engineer
 
 
+# How far back the average cost per live claim reaches.
+AVERAGE_DAYS = 30
+
+
+def average_live_cost(db: Connection) -> float | None:
+    """The mean of each live claim's model-call cost, over the last AVERAGE_DAYS."""
+    from undercover_api.redteam import REDTEAM_CUSTOMER  # noqa: PLC0415 - redteam imports this
+
+    since = (datetime.now(UTC) - timedelta(days=AVERAGE_DAYS)).isoformat()
+    per_claim = (
+        select(func.sum(model_calls.c.cost).label("cost"))
+        .select_from(model_calls.join(claims, claims.c.claim_id == model_calls.c.claim_id))
+        .where(
+            claims.c.source != EVALUATION,
+            claims.c.customer_id != REDTEAM_CUSTOMER,
+            model_calls.c.created_at >= since,
+        )
+        .group_by(model_calls.c.claim_id)
+        .subquery()
+    )
+    mean = db.execute(select(func.avg(per_claim.c.cost))).scalar_one_or_none()
+    return None if mean is None else round(float(mean), 6)
+
+
 @staff_eval_router.get("/claims/{claim_id}/trace", operation_id="get_trace_for_engineer")
-def engineer_trace(claim_id: ClaimId, _: SignedInEngineer, db: Database) -> Trace:
-    """A claim's steps and model calls with tokens and cost, for the AI engineers."""
-    return claim_trace(db, claim_id)
+def engineer_trace(claim_id: ClaimId, _: SignedInEngineer, db: Database) -> EngineerTrace:
+    """A claim's steps and model calls with tokens and cost, its outcome and agent version, and
+    the average live claim's cost to compare it with, for the AI engineers."""
+    claim = find_claim(db, claim_id)
+    decision = find_decision(db, claim_id)
+    return EngineerTrace(
+        **claim_trace(db, claim_id).model_dump(),
+        summary=claim["summary"],
+        status=claim["status"],
+        outcome=(
+            TraceOutcome.model_validate(decision.model_dump()) if decision is not None else None
+        ),
+        config_version=claim["config_version"],
+        average_cost=average_live_cost(db),
+    )
 
 
 class TraceSuggestion(BaseModel):
