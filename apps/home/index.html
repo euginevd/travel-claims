@@ -7,7 +7,7 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-ktSmkFDRU1/A1hhIdA5DtwT4D+7N0hpqA5IHSwazXIcyz7T3UaVmKzLwjcEgttLs" />
+    <link rel="stylesheet" href="styles.css" integrity="sha384-v6RlgLl2Vv/lbnrVFQncHX4arTtXNB0R6OGQ//LXhsfbZX/ONQ1G+5zbsBjp38zA" />
     <script src="app.js" integrity="sha384-eucSglE+ZIZCo7MxFkrIGD9SM0VFnaAQzDuCRsLq7NDT/Jsx5QRKzCyMuLpjZSiJ" defer></script>
   </head>
   <body>
@@ -31,7 +31,7 @@
       <section class="hero">
         <div class="wrap">
           <h1 class="rise d1">AI agents decide the routine claims. <em>Claims experts decide the rest.</em></h1>
-          <p class="lede rise d2">UnderCover is an AI agents system for travel insurance claims, built end to end on AWS. Customers claim online, every AI decision cites its sources, and a person signs off the larger payouts. Each decision is traced, scored against claims the agent has never seen, and tested with attack claims.</p>
+          <p class="lede rise d2">UnderCover is an AI agents system for travel insurance claims, built end to end on AWS. Customers claim online, every AI decision cites its sources, and a person signs off the larger payouts.</p>
 
           <!-- The walkthrough: a still, or once app.js names the recording, its poster and one play button -->
           <figure class="stage rise d3">
@@ -73,6 +73,31 @@
         </div>
       </article>
     </div>
+        </div>
+      </section>
+
+      <!-- What it shows: one line a skill, each with its proof -->
+      <section class="proof-sec" aria-labelledby="proof-title">
+        <div class="wrap">
+          <h2 class="proof-title" id="proof-title">What it shows</h2>
+          <div class="proof">
+            <div class="proof-item">
+              <h3>AI engineering</h3>
+              <p>An agent scored on claims it has never seen, and changed only when clearly better.</p>
+              <a href="#" data-port="5175">See the evals</a>
+            </div>
+            <div class="proof-item">
+              <h3>AI security</h3>
+              <p>Prompt-injection checks before any model reads a claim, and attacks mapped to OWASP.</p>
+              <a href="https://github.com/euginevd/travel-claims/blob/main/docs/threat-model.md">Threat model</a>
+            </div>
+            <div class="proof-item">
+              <h3>Cloud and delivery</h3>
+              <p>AWS AgentCore and Bedrock, all Terraform, shipped with OIDC and security scans.</p>
+              <a href="https://github.com/euginevd/travel-claims/blob/main/guides/03-aws-architecture.md">Architecture</a>
+            </div>
+          </div>
+          <p class="proof-links"><a href="https://github.com/euginevd/travel-claims">Code on GitHub</a></p>
         </div>
       </section>
     </main>

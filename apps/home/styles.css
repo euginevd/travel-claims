@@ -572,6 +572,56 @@ video.screen {
   transform: translateX(2px);
 }
 
+/* What it shows: three short lines, one a skill, each linking to its proof. */
+.proof-sec {
+  padding: 8px 0 56px;
+}
+
+.proof-title {
+  margin-bottom: 18px;
+  font-size: 22px;
+  text-align: center;
+}
+
+.proof {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.proof-item h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.proof-item p {
+  margin: 4px 0 8px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.proof-item a,
+.proof-links a {
+  color: var(--ink);
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+}
+
+.proof-item a:hover,
+.proof-links a:hover {
+  text-decoration-color: currentColor;
+}
+
+.proof-links {
+  margin-top: 26px;
+  text-align: center;
+}
+
 /* Phones: the cards stack. */
 @media (max-width: 720px) {
   .wrap {
@@ -603,7 +653,8 @@ video.screen {
     border-radius: 16px;
   }
 
-  .apps {
+  .apps,
+  .proof {
     grid-template-columns: minmax(0, 1fr);
   }
 
