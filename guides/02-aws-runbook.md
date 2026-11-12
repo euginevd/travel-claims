@@ -92,7 +92,9 @@ Not yet proven on AWS, so check these first: the schema builds on DSQL and claim
 Removes everything the build put in AWS. The code, the repo and its GitHub environments stay (free), so steps 3 to 5 bring it back.
 
 1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`, so the workflows skip AWS. If a run fails, it stops: fix it, destroy that unit alone, then run it again. With `NETWORK_MODE=private`, AgentCore keeps its network interfaces for up to 8 hours after the agent goes, so the agent's security group may not delete at once: destroy `agent` again later.
-2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes the state bucket, the bootstrap, leftover `travel-claims` buckets, the bootstrap template the console uploaded to a `cf-templates-*` bucket (and that bucket, if nothing else is in it), and AgentCore's log groups, then prints `Clean` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
+2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes leftover `travel-claims` buckets and AgentCore's log groups, keeping the bootstrap, then prints `Clean but the bootstrap` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left.
+3. Have the agent confirm the account is empty through its read-only troubleshoot role, which the bootstrap still holds.
+4. Last, in CloudShell: paste [scripts/teardown-bootstrap.sh](../scripts/teardown-bootstrap.sh). It empties the state bucket, deletes the CLI user's access key and the bootstrap stack (ending the agent's access), and the bootstrap template the console uploaded to a `cf-templates-*` bucket (and that bucket, if nothing else is in it), then prints `Clean` or `LEFT`. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
 
 ## Switching to Claude on Bedrock
 
