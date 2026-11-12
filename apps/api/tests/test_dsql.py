@@ -77,7 +77,17 @@ class FakeDsql:
 
     def execute(self, statement: Any, params: dict[str, str]) -> Any:
         self.statements.append(str(statement))
-        return SimpleNamespace(scalar=lambda: True)
+        return SimpleNamespace(returns_rows=True, scalar=lambda: self.succeeds)
+
+    succeeds = True
+
+
+def test_a_failed_index_build_stops_the_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    db = FakeDsql()
+    db.succeeds = False
+    monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
+    with pytest.raises(RuntimeError, match="couldn't build index"):
+        dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
 
 
 def inspector(stamped: bool) -> Any:
@@ -97,7 +107,8 @@ def test_the_schema_is_built_once_then_stamped(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(dsql, "inspect", inspector(stamped=False))
     assert dsql.create_schema(db, "0016")  # pyright: ignore[reportArgumentType]
     assert sum("CREATE TABLE" in s for s in db.statements) == len(metadata.tables) + 1
-    assert any("wait_for_job" in s for s in db.statements)
+    # A procedure on DSQL, so CALLed; SELECT is refused.
+    assert any(s.startswith("CALL sys.wait_for_job") for s in db.statements)
     assert "INSERT INTO alembic_version" in db.statements[-1]
     monkeypatch.setattr(dsql, "inspect", inspector(stamped=True))
     assert not dsql.create_schema(FakeDsql(), "0016")  # pyright: ignore[reportArgumentType]

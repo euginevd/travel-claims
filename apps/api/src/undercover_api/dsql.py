@@ -82,6 +82,14 @@ def dsql_ddl(statement: str) -> str:
     return statement.replace("INDEX IF NOT EXISTS", "INDEX ASYNC IF NOT EXISTS", 1)
 
 
+def job_succeeded(db: Connection, job: str) -> bool:
+    """Wait for an asynchronous DSQL job, such as an index build, and say whether it succeeded.
+    sys.wait_for_job is a procedure, so it's CALLed; it blocks until the job ends and returns
+    whether it succeeded (a procedure that returns no row is taken as done)."""
+    waited = db.execute(text("CALL sys.wait_for_job(:job)"), {"job": job})
+    return not waited.returns_rows or waited.scalar() is not False
+
+
 def create_schema(db: Connection, head: str) -> bool:
     """Create every table and index, one statement at a time, then stamp head. Says whether it
     did; a database already stamped is left as it is. db must be in autocommit."""
@@ -98,10 +106,7 @@ def create_schema(db: Connection, head: str) -> bool:
             ddl = dsql_ddl(str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect)))
             built = db.exec_driver_sql(ddl)
             job = built.scalar() if built.returns_rows else None
-            if (
-                job is not None
-                and not db.execute(text("SELECT sys.wait_for_job(:job)"), {"job": job}).scalar()
-            ):
+            if job is not None and not job_succeeded(db, job):
                 raise RuntimeError(f"DSQL couldn't build index {index.name}")
     db.exec_driver_sql(
         "CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL, "
