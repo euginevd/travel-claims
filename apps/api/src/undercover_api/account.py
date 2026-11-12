@@ -10,12 +10,11 @@ from typing import Annotated, cast
 from fastapi import APIRouter, HTTPException, Response
 from fastapi import Path as FastPath
 from pydantic import BaseModel
-from sqlalchemy import Connection, delete, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, delete, select, update
 
 from undercover_api.auth import Database, SignedInCustomer
 from undercover_api.claims import plans
-from undercover_api.db import claim_drafts, claims, customers, notices, now, policies
+from undercover_api.db import claim_drafts, claims, customers, insert_if_new, notices, now, policies
 from undercover_api.flights import Flight, delay_text, find_flight, flights_for
 from undercover_api.models import (
     ClaimDraft,
@@ -116,16 +115,16 @@ def save_draft(body: ClaimDraft, customer: SignedInCustomer, db: Database) -> Sa
         .where(claim_drafts.c.customer_id == customer.customer_id)
         .values(**values)
     )
-    if changed.rowcount == 0:
-        try:
-            with db.begin_nested():
-                db.execute(insert(claim_drafts).values(customer_id=customer.customer_id, **values))
-        except IntegrityError:
-            db.execute(
-                update(claim_drafts)
-                .where(claim_drafts.c.customer_id == customer.customer_id)
-                .values(**values)
-            )
+    # No draft yet: make one, or update the one a second tab made first.
+    if (
+        changed.rowcount == 0
+        and insert_if_new(db, claim_drafts, customer_id=customer.customer_id, **values) is None
+    ):
+        db.execute(
+            update(claim_drafts)
+            .where(claim_drafts.c.customer_id == customer.customer_id)
+            .values(**values)
+        )
     return SavedDraft(draft=body, updated_at=at)
 
 
@@ -288,10 +287,7 @@ def claim_delay(flight_id: FlightId, customer: SignedInCustomer, db: Database) -
     }
     for _ in range(CLAIM_ID_ATTEMPTS):
         claim_id = next_claim_id(db)
-        try:
-            with db.begin_nested():
-                db.execute(insert(claims).values(claim_id=claim_id, **values))
-        except IntegrityError:
+        if insert_if_new(db, claims, claim_id=claim_id, **values) is None:
             continue
         row = own_claim(db, customer, claim_id)
         announce(db, row)

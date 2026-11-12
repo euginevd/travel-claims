@@ -4,6 +4,7 @@ the app's least-privilege role."""
 import asyncio
 from collections.abc import Generator, MutableMapping
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -12,6 +13,7 @@ import pytest
 from api_helpers import make_settings
 from fastapi import Request
 from pydantic import ValidationError
+from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateIndex, CreateTable
 
@@ -294,3 +296,20 @@ def test_migrating_dsql_grants_the_app_role_only_when_set(
     monkeypatch.setattr(dsql, "grant_app_role", grant)
     upgrade(f"postgresql+psycopg://admin@{ENDPOINT}:5432/postgres", role, ROLE_ARN)
     assert granted == ([(ROLE, ROLE_ARN)] if role else [])
+
+
+def test_insert_if_new_says_when_a_row_was_there_first() -> None:
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    with engine.begin() as db:
+        row: dict[str, Any] = {"customer_id": "CUS-1", "name": "Oliver Grant", "record": {}}
+        assert db_module.insert_if_new(db, db_module.customers, **row) is not None
+        assert db_module.insert_if_new(db, db_module.customers, **row) is None
+        # The transaction carries on after the conflict: no savepoint, which DSQL refuses.
+        assert db.execute(db_module.customers.select()).all()
+
+
+def test_the_api_never_opens_a_savepoint() -> None:
+    # DSQL refuses SAVEPOINT; insert_if_new is the way to keep the first row.
+    source = Path(db_module.__file__).parent
+    assert not [p.name for p in source.rglob("*.py") if "begin_nested(" in p.read_text("utf-8")]
