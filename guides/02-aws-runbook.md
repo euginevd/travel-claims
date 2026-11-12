@@ -85,7 +85,7 @@ If a run fails, the script stops: fix it, run that unit alone, then the rest. If
 3. Make a claim in the portal, and watch the agent work it in the dashboard.
 4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start, which can take a minute, so the first page or sign-in may fail once; reload after a minute.
 
-Not yet proven on AWS, so check these first: the schema builds on DSQL and claims save (the api's log); the api reaches the agent with its machine token, the Copilot's policy lookups pass its handler-only gateway, and the gateways reach the context server by ARN with AgentCore Policy allowing each tool call (decisions 33 and 34); the agent's calls back carry its machine token and the output guardrail answers (decision 38); the agent resumes a claim and the Copilot keeps a conversation (DynamoDB); a receipt uploads through WAF; and `check-aws.sh` shows the bootstrap's policies `OK`. Once they pass, record what was found in [01-findings.md](01-findings.md).
+Proven on AWS on 2026-11-12, with the default settings: the schema builds on DSQL, claims are worked and signed off, the agent and the Copilot reach their gateways and the context server with their machine tokens, receipts are read by Textract and answers checked by Automated Reasoning. The first deploy's fixes are `AGENTS.md`'s known mistakes 30 to 39; if a step fails, check those first, then record anything new in [01-findings.md](01-findings.md).
 
 ## 7. Tear down (about 45 minutes)
 
