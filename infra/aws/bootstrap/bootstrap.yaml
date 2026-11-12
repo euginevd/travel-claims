@@ -1,7 +1,7 @@
 # Deploy once per account as stack <ProjectName>-bootstrap; copy its outputs to the aws-dev-plan/-apply environments.
 # Costs about $0 a month: IAM is free, and the state bucket holds a few small files; it runs nothing itself.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: GitHub OIDC, Terraform state, plan and deploy roles, a read-only troubleshoot role, and a role boundary; deployed once.
+Description: GitHub OIDC, Terraform state, plan and deploy roles, a read-only troubleshoot role and its CLI user, and a role boundary; deployed once.
 
 Parameters:
   ProjectName:
@@ -277,15 +277,6 @@ Resources:
             Action:
               - cloudfront:List*
               - cloudfront:Describe*
-            Resource: '*'
-          # The free flat-rate plan (CloudFront, WAF, DDoS); only a person can approve a paid one.
-          - Sid: PricingPlans
-            Effect: Allow
-            Action: pricingplanmanager:*
-            Resource: '*'
-          - Sid: DenyPaidPlans
-            Effect: Deny
-            Action: pricingplanmanager:ApprovePaidSubscription
             Resource: '*'
           # The web ACL for CloudFront lives in us-east-1; regional ones in this region.
           - Sid: WafProject
@@ -788,8 +779,6 @@ Resources:
                   - route53:Get*
                   - route53:List*
                   - polly:List*
-                  - pricingplanmanager:Get*
-                  - pricingplanmanager:List*
                   - rekognition:Describe*
                   - rekognition:List*
                   - scheduler:Get*
@@ -845,6 +834,29 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: ManagedBy, Value: CloudFormation }
+
+  # The developer's machine signs in as this user to assume the troubleshoot role, and can do nothing else;
+  # its access key is made in the console (a key made here would sit in the stack), so a leaked key reads only.
+  TroubleshootUser:
+    Type: AWS::IAM::User
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_273
+            comment: A prototype's one CLI user, allowed only to assume the read-only troubleshoot role (decision 46)
+    Properties:
+      UserName: !Sub '${ProjectName}-cli'
+      Policies:
+        - PolicyName: assume-troubleshoot
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !GetAtt TroubleshootRole.Arn
       Tags:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
@@ -1088,3 +1100,6 @@ Outputs:
   TroubleshootRoleArn:
     Description: role_arn of the troubleshoot profile in ~/.aws/config (the runbook's section on it)
     Value: !GetAtt TroubleshootRole.Arn
+  TroubleshootUserName:
+    Description: The IAM user to make an access key for, then aws configure --profile travel-claims-cli
+    Value: !Ref TroubleshootUser

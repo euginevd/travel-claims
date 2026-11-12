@@ -1,7 +1,7 @@
-/* UnderCover's brand (local/design-system.md, "Canopy"): white pages, faint glows, dark text,
-   coral as an accent only. Loaded after styles.css, so these tokens and rules win. Code uses
-   the tokens, never raw values; the old token names point at the new values so the shared
-   rules in styles.css follow. Contrast: ink and ink-2 meet 4.5:1 on white; acc-d is the coral
+/* UnderCover's brand (docs/design-system.md): white pages, faint glows, dark text, coral as an
+   accent only. Loaded after styles.css, so these tokens and rules win, and it holds every token;
+   code uses them, never raw values. The older names (--accent, --bad, --refer and others) point
+   at the brand's values so the shared rules in styles.css follow. Contrast: ink and ink-2 meet 4.5:1 on white; acc-d is the coral
    for text; acc is a graphic colour. */
 @property --ang {
   syntax: "<angle>";

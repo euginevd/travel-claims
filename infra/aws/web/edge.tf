@@ -1,94 +1,17 @@
-# The three apps on CloudFront's flat-rate Free plan (decision 30): WAF and DDoS protection at no cost.
+# CloudFront WAF (decision 51): `off`, the prototype's cost-optimized default, or `on`, the enterprise
+# pattern, where the platform team's AWS Firewall Manager applies its centrally managed WAF policy
+# (AWS managed rule groups and rate limits it owns) to every distribution in the policy's scope.
+# The workload never builds or edits that web ACL: it tags its distributions into scope and leaves
+# the association to Firewall Manager, so the platform can change the rules for every workload at once.
 locals {
-  protected = var.free_plan ? toset(["portal", "dashboard", "console"]) : toset([])
-  managed   = { AWSManagedRulesCommonRuleSet = 1, AWSManagedRulesKnownBadInputsRuleSet = 2, AWSManagedRulesAmazonIpReputationList = 3 }
+  waf = var.cloudfront_waf == "on"
+  # The contract with the platform: its Firewall Manager CloudFront policy scopes in this tag.
+  firewall_manager_tags = local.waf ? { FirewallManager = "cloudfront-waf" } : {}
 }
 
-# AWS's managed rules and a rate limit per IP; the plan includes them.
-resource "aws_wafv2_web_acl" "app" {
-  #checkov:skip=CKV_AWS_192: Log4j is in the known bad inputs rule set below
-  #checkov:skip=CKV2_AWS_31: the Free plan has no WAF logs
-  provider = aws.us_east_1
-  for_each = local.protected
-
-  name  = "${local.prefix}-${each.key}"
-  scope = "CLOUDFRONT"
-
-  default_action {
-    allow {}
-  }
-
-  dynamic "rule" {
-    for_each = local.managed
-    content {
-      name     = rule.key
-      priority = rule.value
-
-      override_action {
-        none {}
-      }
-
-      statement {
-        managed_rule_group_statement {
-          name        = rule.key
-          vendor_name = "AWS"
-
-          # Receipts are up to 5 MB, past the common rules' 8 KB body limit; the api checks their size.
-          dynamic "rule_action_override" {
-            for_each = rule.key == "AWSManagedRulesCommonRuleSet" ? ["SizeRestrictions_BODY"] : []
-            content {
-              name = rule_action_override.value
-              action_to_use {
-                count {}
-              }
-            }
-          }
-        }
-      }
-
-      visibility_config {
-        cloudwatch_metrics_enabled = true
-        metric_name                = rule.key
-        sampled_requests_enabled   = true
-      }
-    }
-  }
-
-  rule {
-    name     = "rate-per-ip"
-    priority = 4
-
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = 1000
-        aggregate_key_type = "IP"
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "rate-per-ip"
-      sampled_requests_enabled   = true
-    }
-  }
-
-  visibility_config {
-    cloudwatch_metrics_enabled = true
-    metric_name                = "${local.prefix}-${each.key}"
-    sampled_requests_enabled   = true
-  }
-}
-
-# One Free plan per app: its distribution and its web ACL. The pipeline can't approve a paid tier.
-resource "aws_pricingplanmanager_subscription" "free" {
-  provider = aws.us_east_1
-  for_each = local.protected
-
-  plan_family   = "CloudFront"
-  plan_tier     = "FREE"
-  resource_arns = [aws_cloudfront_distribution.web[each.key].arn, aws_wafv2_web_acl.app[each.key].arn]
+# With the WAF on, the plan fails clearly unless the platform publishes its Firewall Manager policy,
+# the same way the network and keys are found (decision 41).
+data "aws_ssm_parameter" "waf_policy" {
+  count = local.waf ? 1 : 0
+  name  = "/platform/waf/cloudfront-policy-id"
 }

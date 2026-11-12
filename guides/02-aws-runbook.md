@@ -22,7 +22,6 @@ The workflows deploy only from `main`, and only once step 4 switches deploys on.
 Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Sydney (under $0.001). It checks:
 
 - the account plan is `PAID ACTIVE`;
-- no CloudFront Free plans are in use yet, since the build takes all three an account can have (otherwise set `CLOUDFRONT_FREE_PLAN=false`);
 - Titan Text Embeddings V2 answers (needed now);
 - Claude Haiku and Sonnet 5.5 answer (needed only for [Bedrock](#switching-to-claude-on-bedrock));
 - after step 3, the bootstrap's IAM policies, with IAM Access Analyzer: an `ERROR` or unknown action needs fixing; a `SECURITY_WARNING` on the wide statements is expected (decision 32).
@@ -37,7 +36,7 @@ Put these in `.env` (git-ignored):
 
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for testing locally.
 - `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs** (not needed if the AWS CLI is signed in). The names are fixed, so they survive a redeploy: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
-- Optional: `ALERT_EMAIL` for the alarms, `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `NETWORK_MODE=private` for the platform team's private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), and `API_GATEWAY=true` to put the api and Copilot behind API Gateway (decision 39), and `ENCRYPTION_KEYS`, `DOMAIN_NAME`, `MALWARE_SCANNING`, `LOG_MASKING` and `DATABASE_APP_ROLE` for the other enterprise patterns (decision 45), all described in [the architecture guide's settings](03-aws-architecture.md#settings). The platform team's pieces, such as the budget, backups and Transaction Search, are assumed (decision 41).
+- Optional: `ALERT_EMAIL` for the alarms, `CLOUDFRONT_WAF=on` where the platform's Firewall Manager publishes a CloudFront WAF policy (`check-aws.sh` says), `NETWORK_MODE=private` for the platform team's private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), and `API_GATEWAY=true` to put the api and Copilot behind API Gateway (decision 39), and `ENCRYPTION_KEYS`, `DOMAIN_NAME`, `MALWARE_SCANNING`, `LOG_MASKING` and `DATABASE_APP_ROLE` for the other enterprise patterns (decision 45), all described in [the architecture guide's settings](03-aws-architecture.md#settings). The platform team's pieces, such as the budget, backups and Transaction Search, are assumed (decision 41).
 
 Then run `bash scripts/use-anthropic.sh`. It prints no value, and sets, under the repo's **Settings**:
 
@@ -68,7 +67,7 @@ It runs each workflow in turn and waits for it, in this order, because each unit
 | 7 | `images` | A workflow, not a unit: builds the four app images and pushes them to Amazon ECR |
 | 8 | `functions` | AWS Lambda functions (in the platform's private subnets with `NETWORK_MODE=private`): the api, the context server and the Copilot |
 | 9 | `agent` | Amazon Bedrock AgentCore Runtime (the claim agent; in the private subnets with `NETWORK_MODE=private`), two AgentCore Gateways (tools: IAM for the agent, handlers' tokens for the Copilot) with AgentCore Policy allow-lists, AgentCore Memory (customer memory) and a Bedrock Knowledge Base on S3 Vectors (policy search) |
-| 10 | `web` | Amazon S3 and Amazon CloudFront for the four websites; AWS WAF on the three apps, through CloudFront's Free plan |
+| 10 | `web` | Amazon S3 and Amazon CloudFront for the four websites; with `CLOUDFRONT_WAF=on`, in the platform's Firewall Manager WAF policy |
 | 11 | `monitoring` | Amazon CloudWatch alarms on the functions, an Amazon SNS email topic, and Bedrock model invocation logging to S3 |
 | 12 | `images` | The workflow again: uploads the web apps to S3, now that their sites exist |
 
@@ -101,13 +100,17 @@ Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a 
 
 ## Letting an agent troubleshoot
 
-The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). To hand it to an agent on your machine, add a profile to `~/.aws/config` that assumes it from your own sign-in, with the role ARN from the stack's `TroubleshootRoleArn` output:
+The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). Its `travel-claims-cli` user can do one thing, assume that role, so its access key on your machine reads at most.
+
+1. In CloudShell: paste [scripts/cli-key.sh](../scripts/cli-key.sh). It replaces the user's access key and prints three lines.
+2. Paste those lines into your own terminal, not an agent's chat; then `clear` CloudShell.
+3. Add the role's profile to `~/.aws/config`:
 
 ```ini
 [profile travel-claims-troubleshoot]
 role_arn = arn:aws:iam::<account id>:role/travel-claims-troubleshoot
-source_profile = <your profile>
+source_profile = travel-claims-cli
 region = ap-southeast-2
 ```
 
-Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour, and the role goes with the bootstrap at tear down.
+Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour; tear down deletes the key, the user and the role.

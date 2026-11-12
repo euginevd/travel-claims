@@ -1,26 +1,6 @@
-/* The ArcVault design system's tokens (docs/design-system.md). Code uses these, never raw values.
-   Text colours meet 4.5:1 on their backgrounds; `warn` and `accent` mark borders, icons and
-   focus (3:1), never body text. */
+/* Shared rules. The tokens (docs/design-system.md) are all in brand.css, loaded after this file;
+   code uses them, never raw values. */
 :root {
-  --bg: #fbf7f0;
-  --bg-2: #fffdfa;
-  --bg-3: #f3ece0;
-  --bg-ink: #17120c;
-  --on-ink: #f6efe3;
-  --ink: #1b1610;
-  --ink-2: #6e6457;
-  --ink-3: #9a8e7e;
-  --line: #e6dccb;
-  --accent: oklch(0.58 0.155 196);
-  --warn: #b0700f;
-  --warn-tint: #f8ead2;
-  --bad-tint: #f6e1dc;
-  --shadow: 0 8px 24px rgb(23 18 12 / 12%);
-
-  --font-head: "Geist", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-
   font-family: var(--font-body);
   font-size: 1rem;
   line-height: 1.55;
@@ -1512,22 +1492,6 @@ select.unsure {
 }
 
 /* --- Premium layer: status tones, layered cards, header edge, motion (design-system 18–23) --- */
-:root {
-  --good: #2f7a4b;
-  --good-tint: #e3f1e6;
-  --info: #2c6a8f;
-  --info-tint: #e2eff5;
-  --refer: #6b4fa3;
-  --refer-tint: #ece6f6;
-  --bad: #a3341c;
-  --bad-tint: #f6e1dc;
-  --accent-tint: #def2f2;
-  --line-2: #efe6d6;
-  --lift: 0 1px 0 rgb(23 18 12 / 4%), 0 6px 18px -10px rgb(23 18 12 / 18%);
-  --lift-hover: 0 1px 0 rgb(23 18 12 / 5%), 0 14px 30px -14px rgb(23 18 12 / 28%);
-  --ease: 0.18s ease;
-}
-
 html,
 body {
   max-width: 100%;
