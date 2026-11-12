@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     memory_id: str | None = None
     # On AWS: Ask UnderCover searches the wording in this Knowledge Base; the context otherwise.
     knowledge_base_id: str | None = None
+    # On AWS: receipts read into fields by Amazon Textract before any model sees them (decision
+    # 48); off, they reach Claude as images.
+    read_receipts: bool = False
     # On AWS: lookup programs on this AgentCore Code Interpreter, through the gateway; off unset.
     code_interpreter_id: str | None = None
     agentcore_runtime: bool = False

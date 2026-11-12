@@ -191,6 +191,9 @@ resource "aws_iam_role_policy" "agent" {
       { Effect = "Allow", Action = ["bedrock-agentcore:BatchCreateMemoryRecords", "bedrock-agentcore:ListMemoryRecords"], Resource = aws_bedrockagentcore_memory.customers.arn },
       # Ask UnderCover searches the policy wording in its knowledge base.
       { Effect = "Allow", Action = "bedrock:Retrieve", Resource = aws_bedrockagent_knowledge_base.wording.arn },
+      # Receipts read into fields before any model sees them (decision 48); Textract has no
+      # resource-level permissions, and the region condition keeps it in this one.
+      { Effect = "Allow", Action = "textract:AnalyzeExpense", Resource = "*", Condition = { StringEquals = { "aws:RequestedRegion" = local.region } } },
       ],
       # Lookup programs, only while they're on: one short session each on their own interpreter.
       [for ci in aws_bedrockagentcore_code_interpreter.programs : {
@@ -778,6 +781,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     UNDERCOVER_CONTEXT  = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID           = aws_bedrockagentcore_memory.customers.id
     KNOWLEDGE_BASE_ID   = aws_bedrockagent_knowledge_base.wording.id
+    READ_RECEIPTS       = "true"
     CODE_INTERPRETER_ID = try(aws_bedrockagentcore_code_interpreter.programs[0].code_interpreter_id, "")
     # The agent's workload identity, and the vaulted Anthropic key it fetches with it (none on Bedrock).
     WORKLOAD_NAME          = "${local.prefix}-agent"

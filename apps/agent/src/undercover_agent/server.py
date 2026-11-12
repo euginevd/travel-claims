@@ -26,6 +26,7 @@ from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
 from undercover_agent.judge import JudgeRequest, RunJudge
 from undercover_agent.models import Draft, Drafter, Letter
+from undercover_agent.receipts import TextractReader
 from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner, Watchdog
 from undercover_agent.tools import receipt_block
@@ -527,6 +528,7 @@ def build_app() -> FastAPI:
             )
             if settings.code_interpreter_id
             else None,
+            receipts=TextractReader(region) if settings.read_receipts else None,
         )
         return Runner(graph, api)
 
