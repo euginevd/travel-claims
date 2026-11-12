@@ -101,13 +101,17 @@ Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a 
 
 ## Letting an agent troubleshoot
 
-The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). To hand it to an agent on your machine, add a profile to `~/.aws/config` that assumes it from your own sign-in, with the role ARN from the stack's `TroubleshootRoleArn` output:
+The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). Its `travel-claims-cli` user can do one thing, assume that role, so its access key on your machine reads at most.
+
+1. In IAM, open the user `travel-claims-cli` → **Security credentials → Create access key → Command Line Interface (CLI)**.
+2. In your own terminal, not an agent's chat: `aws configure --profile travel-claims-cli`, with the key, the secret and `ap-southeast-2`.
+3. Add the role's profile to `~/.aws/config`:
 
 ```ini
 [profile travel-claims-troubleshoot]
 role_arn = arn:aws:iam::<account id>:role/travel-claims-troubleshoot
-source_profile = <your profile>
+source_profile = travel-claims-cli
 region = ap-southeast-2
 ```
 
-Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour, and the role goes with the bootstrap at tear down.
+Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour; tear down deletes the key, the user and the role.

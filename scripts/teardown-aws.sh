@@ -24,7 +24,11 @@
   else
     # Empty the versioned state bucket, which CloudFormation can't delete with files in it.
     empty "$P-tfstate-$A"
-    # Delete the bootstrap: OIDC provider, state bucket, roles and boundary.
+    # The CLI user's access keys are made in the console, so the stack can't delete the user until they're gone.
+    for k in $(aws iam list-access-keys --user-name $P-cli --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null); do
+      aws iam delete-access-key --user-name $P-cli --access-key-id "$k" && echo "Deleted the CLI user's access key"
+    done
+    # Delete the bootstrap: OIDC provider, state bucket, roles, the CLI user and boundary.
     aws cloudformation delete-stack --region $R --stack-name $P-bootstrap
     aws cloudformation wait stack-delete-complete --region $R --stack-name $P-bootstrap && echo "Deleted the bootstrap stack"
   fi
