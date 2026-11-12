@@ -27,7 +27,7 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 5 | Receipts in another currency converted to US dollars, the original kept in the description and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
 | 7 | A tracker per claim (received, checked, assessed, decided, paid) with a plain-English reason and an AI disclosure; upload each document asked for, ask a person to review any decision, and get paid to a PayID | Done | #37 |
-| 8 | **Updates**: every email and text, with filters (an outbox locally) | Done | #37 |
+| 8 | **Updates**: every email and text, each showing its first lines with a link to the claim, with filters (an outbox locally) | Done | #37 |
 | 9 | **Wattle AI**: questions about the customer's cover, answered with the policy wording cited; cover per trip | Done | #39 |
 | 10 | Thumbs up or down on Wattle's answers and on each decision's explanation, with an optional comment (spec 21) | Done | #72 |
 
