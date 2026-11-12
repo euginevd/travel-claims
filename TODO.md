@@ -32,7 +32,7 @@ Built on the `aws-native` branch, one commit per step. Left: about 1.5 hours to 
 | AgentCore Runtime, Gateway, Memory, Knowledge Base with S3 Vectors | `agent` | Per use | Change |
 | Bedrock, Claude Sonnet and Haiku (Australian profile) | `functions`, `agent` | Per use | Change: the only provider |
 | S3 and CloudFront, the four sites | `web` | Free tier | As built |
-| CloudFront flat-rate Free plan: WAF and DDoS protection, three sites | `web` | Free | **New** |
+| CloudFront WAF: off; on puts the sites in the platform's Firewall Manager policy (decision 47) | `web` | Free off; the platform's on | Change |
 | CloudWatch alarms, SNS email, AWS Budgets alert, IAM Access Analyzer; CloudTrail event history | `monitoring` | Free | **New** |
 
 Left out for cost, with the paid option recorded in decision 30: a paid WAF, GuardDuty, Security Hub, AWS Config, a CloudTrail trail, customer-managed KMS keys, a VPC with PrivateLink and Control Tower.

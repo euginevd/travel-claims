@@ -155,21 +155,23 @@ resource "aws_cloudfront_function" "spa" {
   JS
 }
 
-# trivy:ignore:AWS-0011 the apps get WAF through the Free plan (edge.tf); the project page is static
+# trivy:ignore:AWS-0011 WAF comes from the platform's Firewall Manager with CLOUDFRONT_WAF=on (edge.tf); off in the prototype
 resource "aws_cloudfront_distribution" "web" {
-  #checkov:skip=CKV_AWS_68: the apps get WAF through the Free plan (edge.tf); the project page is static
+  #checkov:skip=CKV_AWS_68: WAF comes from the platform's Firewall Manager with CLOUDFRONT_WAF=on (edge.tf); off in the prototype
   #checkov:skip=CKV_AWS_86: access logs need a bucket and cost; turn them on before real users
   #checkov:skip=CKV_AWS_174: the default certificate allows only CloudFront's own TLS policy; a custom domain would set TLSv1.2_2021
   #checkov:skip=CKV_AWS_310: one origin per path is enough for a demo
   #checkov:skip=CKV_AWS_374: no geo restriction: the demo is for anyone with a test account
   #checkov:skip=CKV2_AWS_32: the response headers policy is attached to every behaviour below
   #checkov:skip=CKV2_AWS_42: no custom domain in the demo, so CloudFront's own certificate
-  #checkov:skip=CKV2_AWS_47: the common rules include Log4j through the Free plan; the project page is static
+  #checkov:skip=CKV2_AWS_47: Log4j rules come with the platform's Firewall Manager policy (edge.tf); off in the prototype
   for_each = local.apps
 
-  enabled             = true
-  comment             = "${local.prefix}-${each.key}"
-  web_acl_id          = try(aws_wafv2_web_acl.app[each.key].arn, null)
+  enabled = true
+  comment = "${local.prefix}-${each.key}"
+  # On: null, as Firewall Manager attaches and owns the web ACL (the field is computed, so Terraform
+  # leaves it). Off: "" detaches any web ACL; null would leave one attached.
+  web_acl_id          = local.waf ? null : ""
   default_root_object = "index.html"
   price_class         = "PriceClass_All"
   http_version        = "http2and3"
@@ -243,6 +245,9 @@ resource "aws_cloudfront_distribution" "web" {
     ssl_support_method             = local.custom_domain ? "sni-only" : null
     minimum_protocol_version       = local.custom_domain ? "TLSv1.2_2021" : null
   }
+
+  # In the platform's Firewall Manager scope with the WAF on (edge.tf).
+  tags = local.firewall_manager_tags
 }
 
 # Only this app's distribution may read its bucket, and only over TLS.

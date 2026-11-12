@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-flight checks for AWS, by area: the account, CloudFront's Free plans, Bedrock's models and the
+# Pre-flight checks for AWS, by area: the account, the platform's CloudFront WAF, Bedrock's models and the
 # bootstrap's IAM policies; add new areas below. Read-only, apart from a few tiny model calls.
 # Paste it into AWS CloudShell in Sydney, or run it with the AWS CLI signed in. Costs under $0.001 in all.
 {
@@ -9,18 +9,16 @@
   result() { if [ "$1" = 0 ]; then echo "OK    $2"; else echo "NO    $2: $(head -c 200 "$out.err")"; fi; }
 
   echo "== Account"
-  # PAID ACTIVE is needed for Claude (a Marketplace model) and CloudFront's flat-rate plans.
+  # PAID ACTIVE is needed for Claude on Bedrock (a Marketplace model).
   plan=$(aws freetier get-account-plan-state --region us-east-1 --query '[accountPlanType,accountPlanStatus]' --output text 2>"$out.err")
   [ "$(echo $plan)" = "PAID ACTIVE" ]; result $? "account plan $(echo ${plan:-unknown})"
 
-  echo "== CloudFront Free plans"
-  # CLOUDFRONT_FREE_PLAN=true takes three Free plans, one per app, and an account has three at most.
-  if free=$(aws pricing-plan-manager list-subscriptions --region us-east-1 \
-    --query "length((subscriptions || \`[]\`)[?planFamily=='CloudFront' && planTier=='FREE'])" --output text 2>"$out.err"); then
-    if [ "${free:-0}" -eq 0 ]; then echo "OK    no Free plans in use: keep CLOUDFRONT_FREE_PLAN=true"
-    else echo "CHECK $free Free plan(s) in use: unless they're this project's, set CLOUDFRONT_FREE_PLAN=false"; fi
+  echo "== CloudFront WAF"
+  # CLOUDFRONT_WAF=on needs the platform's Firewall Manager policy, published as a parameter (decision 47).
+  if aws ssm get-parameter --region "$R" --name /platform/waf/cloudfront-policy-id >/dev/null 2>&1; then
+    echo "OK    the platform's Firewall Manager policy is published: CLOUDFRONT_WAF=on can be used"
   else
-    result 1 "flat-rate plans (an older AWS CLI lacks pricing-plan-manager; CloudShell has it)"
+    echo "INFO  no platform Firewall Manager policy: keep CLOUDFRONT_WAF=off (no WAF on the sites)"
   fi
 
   echo "== Bedrock"

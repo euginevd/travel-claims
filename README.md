@@ -49,7 +49,7 @@ The [threat model](docs/threat-model.md) names each risk and the control that an
 - GitHub reaches AWS through OIDC, with no stored keys. Every role Terraform makes has its own narrow policy and a permissions boundary.
 
 **Infrastructure**
-- **One enterprise design, with every control a setting:** private subnets with VPC endpoints and DSQL over PrivateLink, API Gateway with its own WAF, the platform's KMS key, malware scanning of uploads, masking of personal data in logs, and online evaluations. The defaults are the low-cost options, so a demo costs under $10 a month idle.
+- **One enterprise design, with every control a setting:** private subnets with VPC endpoints and DSQL over PrivateLink, the platform's Firewall Manager WAF on the sites, API Gateway with its own WAF, the platform's KMS key, malware scanning of uploads, masking of personal data in logs, and online evaluations. The defaults are the low-cost options, so a demo costs under $10 a month idle.
 - **A clear platform boundary:** the network, keys and backups belong to the platform team and are read through SSM parameters, the same contract a real landing zone publishes.
 
 **Pipeline and supply chain**

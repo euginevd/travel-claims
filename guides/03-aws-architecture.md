@@ -72,7 +72,7 @@ The diagram shows the recommended settings. Each piece is in the code, and a set
 | `NETWORK_MODE` | `public` | `private` | Private subnets and VPC endpoints | ~$165–220/month |
 | `API_GATEWAY` | `false` | `true` | A REST API with its own WAF and token checks; no function URLs | ~$3.50/million requests + ~$10/month WAF |
 | `EVALUATION_SAMPLING` | `0` | `10` | Live sessions scored by judges | Cents a day |
-| `CLOUDFRONT_FREE_PLAN` | `true` | `false`, with the platform's Firewall Manager | Central WAF and Shield Advanced in place of the Free plan's | The platform's |
+| `CLOUDFRONT_WAF` | `off` | `on` | The platform's Firewall Manager applies its central WAF policy (managed rules, rate limits) to the four sites | The platform's (~$5/month per web ACL + $1/rule + $0.60/million requests) |
 | `ENCRYPTION_KEYS` | `aws` | `platform` | The platform's KMS key on every data store, the settings and the logs | ~$0.03 per 10,000 requests |
 | `DOMAIN_NAME` | Empty | The company's domain | The sites on the company's own names, with certificates | ~$0.50/month |
 | `MALWARE_SCANNING` | `false` | `true` | Every receipt scanned; only clean ones can be read | ~$0.60/GB scanned |
@@ -93,6 +93,6 @@ Everything in the diagram's bottom band is the platform team's: accounts and gua
 | A KMS data key, published as `/platform/kms/data-key-arn`, whose key policy lets the workload's roles and services use it | `ENCRYPTION_KEYS=platform` |
 | A Route 53 zone for the company's domain, delegated to this account | `DOMAIN_NAME` |
 | CloudWatch Transaction Search | Traces and online evaluations |
-| Firewall Manager's WAF and Shield Advanced | `CLOUDFRONT_FREE_PLAN=false` |
+| A Firewall Manager CloudFront WAF policy scoped to the tag `FirewallManager=cloudfront-waf`, its ID published as `/platform/waf/cloudfront-policy-id`; Shield Advanced | `CLOUDFRONT_WAF=on` |
 | API Gateway's logging role, one per account | `API_GATEWAY=true` access logs |
 | The company's Okta, with a SAML app for staff (the identity team's) | `STAFF_SAML_METADATA_URL` (reference only) |

@@ -53,8 +53,8 @@ env:
   TF_VAR_model_provider: ${{ vars.MODEL_PROVIDER || 'bedrock' }}
   # Bump to write a new Anthropic key into the settings.
   TF_VAR_anthropic_key_version: ${{ vars.ANTHROPIC_KEY_VERSION || '1' }}
-  # CloudFront's Free plan (WAF and DDoS) on the apps: false for an account that can't have it (decision 30).
-  TF_VAR_free_plan: ${{ vars.CLOUDFRONT_FREE_PLAN || 'true' }}
+  # on: the platform's Firewall Manager applies its WAF policy to the sites; off: no WAF (decision 47).
+  TF_VAR_cloudfront_waf: ${{ vars.CLOUDFRONT_WAF || 'off' }}
   # Where the alarms are emailed (monitoring unit).
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the

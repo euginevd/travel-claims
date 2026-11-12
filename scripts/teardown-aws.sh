@@ -66,7 +66,6 @@
   check dsql "$(aws dsql list-clusters --region $R --query "clusters[].identifier" --output text)"
   check dynamodb "$(aws dynamodb list-tables --region $R --query "TableNames[?contains(@,'$P')]" --output text)"
   check waf "$(aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 --query "WebACLs[?contains(Name,'$P')].Name" --output text)"
-  check pricing-plans "$(aws pricing-plan-manager list-subscriptions --region us-east-1 --query "subscriptions[].arn" --output text 2>/dev/null)"
   check cloudfront "$(aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment,'$P')].[Id,Status]" --output text)"
   check cognito "$(aws cognito-idp list-user-pools --region $R --max-results 60 --query "UserPools[?contains(Name,'$P')].Name" --output text)"
   check runtimes "$(aws bedrock-agentcore-control list-agent-runtimes --region $R --query "agentRuntimes[?contains(agentRuntimeName,'$P_')].agentRuntimeName" --output text)"

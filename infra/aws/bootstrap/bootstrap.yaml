@@ -278,15 +278,6 @@ Resources:
               - cloudfront:List*
               - cloudfront:Describe*
             Resource: '*'
-          # The free flat-rate plan (CloudFront, WAF, DDoS); only a person can approve a paid one.
-          - Sid: PricingPlans
-            Effect: Allow
-            Action: pricingplanmanager:*
-            Resource: '*'
-          - Sid: DenyPaidPlans
-            Effect: Deny
-            Action: pricingplanmanager:ApprovePaidSubscription
-            Resource: '*'
           # The web ACL for CloudFront lives in us-east-1; regional ones in this region.
           - Sid: WafProject
             Effect: Allow
@@ -778,8 +769,6 @@ Resources:
                   - route53:Get*
                   - route53:List*
                   - polly:List*
-                  - pricingplanmanager:Get*
-                  - pricingplanmanager:List*
                   - rekognition:Describe*
                   - rekognition:List*
                   - scheduler:Get*

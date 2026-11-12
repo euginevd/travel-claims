@@ -22,7 +22,7 @@ The guardrails in DevSecOps stage order. This project is a prototype throughout 
 | 16 | Deploy | Least privilege | OIDC, read-only role, `main` only | Both | Partly: OIDC, a read-only plan role and a boundary on every app role, but the deploy role and boundary are wide for AI features while building; narrowed by the permissions audit once built (decision 32) |
 | 17 | Deploy | Deploy approval | Second reviewer | Production | Open: `dev` deploys unattended |
 | 18 | Deploy | Runtime secrets | Secrets Manager, SSM | Both | Done on AWS: one SecureString of settings per environment |
-| 19 | Deploy | API protection | Authoriser, WAF, CORS | Production | Partly: the api checks every token, CloudFront forwards one prefix per app; WAF on the three apps through CloudFront's Free plan (decision 30) |
+| 19 | Deploy | API protection | Authoriser, WAF, CORS | Production | Partly: the api checks every token, CloudFront forwards one prefix per app; WAF on the sites from the platform's Firewall Manager with `CLOUDFRONT_WAF=on`, off in this prototype (decision 47) |
 | 20 | Operate | Weekly re-scans | `security`, `codeql`, Dependabot | Both | Done |
 | 21 | Operate | Budget alert | AWS Budgets | Both | Open: not in the repo |
 | 22 | Monitor | Access logs, throttling | API Gateway, CloudWatch | Both | Partly: function logs in CloudWatch; no throttling on the function URLs |

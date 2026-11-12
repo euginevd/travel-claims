@@ -15,10 +15,15 @@ variable "region" {
   default     = "ap-southeast-2"
 }
 
-variable "free_plan" {
-  description = "CloudFront's flat-rate Free plan (WAF and DDoS protection) on the three apps; false where the account can't have it"
-  type        = bool
-  default     = true
+variable "cloudfront_waf" {
+  description = "on: the platform's Firewall Manager applies its WAF policy to the sites (recommended); off: no WAF, the prototype's cost-optimized default"
+  type        = string
+  default     = "off"
+
+  validation {
+    condition     = contains(["on", "off"], var.cloudfront_waf)
+    error_message = "cloudfront_waf is on or off."
+  }
 }
 
 variable "api_gateway" {
