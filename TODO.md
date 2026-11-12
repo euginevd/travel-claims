@@ -5,7 +5,7 @@
 3. Switch to Claude on Bedrock only (~15 min, you run it): `bash scripts/use-bedrock.sh` once `check-aws.sh` shows Claude `OK`, so data stays in Australia and no third-party key is left.
 4. IAM Identity Center for your own sign-in (~15 min, console only, free): MFA, instead of the root or an admin user.
 5. Bedrock Managed Knowledge Base through a Gateway connector (~2 h, $5 per GB a month): optional, in place of S3 Vectors.
-6. Delete the whole stack, when you've finished testing (~45 min): the deploy guide's step 7, `bash scripts/deploy-aws.sh destroy`, then `scripts/teardown-aws.sh` in CloudShell until it prints `Clean`.
+6. Delete the whole stack, when you've finished testing (~45 min): the deploy guide's step 7, `bash scripts/deploy-aws.sh destroy`, then `scripts/teardown-aws.sh` in CloudShell, the agent's check, and `scripts/teardown-bootstrap.sh` last.
 7. Permissions audit (~1 h), once every feature is built and deployed: narrow the bootstrap's deploy role, plan role and boundary to the actions the units and apps actually call (CloudTrail's event history and IAM Access Analyzer's policy generation show them), drop the AI and workflow services left unused, and remove the Checkov skips that cover the width ([decision 32](docs/decisions.md)).
 
 ## Notes
