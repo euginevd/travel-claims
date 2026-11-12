@@ -15,7 +15,7 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 1 | One screen: a short brief, the three-minute captioned walkthrough video and a link to each app | Done | #38 |
+| 1 | One screen: a short brief, the three-minute captioned walkthrough video (one dark play button under it, a light control bar of its own instead of the browser's dark one) and a link to each app; the code on GitHub at the top and foot | Done | #38 |
 
 ## Customer portal (`portal`)
 

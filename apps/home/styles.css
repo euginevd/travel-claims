@@ -291,6 +291,31 @@ main {
   color: var(--ink-3);
 }
 
+/* GitHub, top right: the code, always in view. */
+.gh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.gh:hover {
+  background: var(--soft);
+}
+
+.gh svg {
+  width: 17px;
+  height: 17px;
+}
+
 /* Hero: one centred column, what it is in a few lines. */
 .hero {
   padding: 20px 0 0;
@@ -371,34 +396,26 @@ video.screen {
   background: var(--soft);
 }
 
-/* One play button on the poster; the browser's controls come only once it plays. */
-.browser {
-  position: relative;
-}
-
+/* The walkthrough's one call to action, under the frame: an ink pill with a coral play tile. */
 .play {
-  position: absolute;
-  left: 50%;
-  top: 55%;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 18px 8px 8px;
-  border: 1px solid var(--ring);
+  margin-top: 18px;
+  padding: 7px 18px 7px 7px;
+  border: 0;
   border-radius: 999px;
-  background: var(--bg);
-  box-shadow: var(--lift-hover);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
   font: inherit;
-  font-size: 15px;
+  font-size: 14.5px;
   white-space: nowrap;
   cursor: pointer;
-  transform: translate(-50%, -50%);
   transition: transform 0.25s var(--ease);
 }
 
 .play:hover {
-  transform: translate(-50%, -50%) scale(1.03);
+  transform: translateY(-1px);
 }
 
 .play:focus-visible {
@@ -411,28 +428,83 @@ video.screen {
 }
 
 .play b {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .play small {
-  color: var(--ink-2);
   font-size: 13px;
+  opacity: 0.7;
 }
 
 .play-tile {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--acc);
+  color: var(--on-ink);
 }
 
 .play-tile svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   fill: currentColor;
+}
+
+/* The walkthrough's own control bar, under the picture: light, no shadow over the video. */
+.player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px 2px;
+  color: var(--ink);
+}
+
+.player[hidden] {
+  display: none;
+}
+
+.pl-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.pl-btn:hover {
+  background: var(--soft);
+}
+
+.pl-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pl-time {
+  flex: none;
+  min-width: 78px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.pl-seek {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+
+video.screen {
+  cursor: pointer;
 }
 
 .screen[hidden] {
@@ -572,54 +644,47 @@ video.screen {
   transform: translateX(2px);
 }
 
-/* What it shows: three short lines, one a skill, each linking to its proof. */
-.proof-sec {
-  padding: 8px 0 56px;
+/* The code: one quiet link at the foot. */
+.more-sec {
+  padding: 0 0 48px;
 }
 
-.proof-title {
-  margin-bottom: 18px;
-  font-size: 22px;
-  text-align: center;
+.more-code {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 26px;
+  font-size: 13.5px;
 }
 
-.proof {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.proof-item h3 {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.proof-item p {
-  margin: 4px 0 8px;
+.more-code a {
   color: var(--ink-2);
-  font-size: 13.5px;
-  line-height: 1.5;
-}
-
-.proof-item a,
-.proof-links a {
-  color: var(--ink);
-  font-size: 13.5px;
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: var(--line-strong);
 }
 
-.proof-item a:hover,
-.proof-links a:hover {
+.more-code a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+}
+
+.more-code a:hover {
+  color: var(--ink);
   text-decoration-color: currentColor;
 }
 
-.proof-links {
-  margin-top: 26px;
-  text-align: center;
+.more-code svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Filled icons inside the stroked sprite. */
+.solid {
+  fill: currentColor;
+  stroke: none;
 }
 
 /* Phones: the cards stack. */
@@ -653,8 +718,7 @@ video.screen {
     border-radius: 16px;
   }
 
-  .apps,
-  .proof {
+  .apps {
     grid-template-columns: minmax(0, 1fr);
   }
 
