@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, type Api } from "../api";
 import { Logo } from "../components/Logo";
 import { prefersStill, SignInMap } from "../components/SignInMap";
-import { PROJECT_URL } from "../components/Wattle";
+import { PROJECT_URL, ProjectLink } from "../components/Wattle";
 
 // The test-account button: in a development build, a local image built with VITE_LOCAL_SIGN_IN=true,
 // or the AWS demo built with VITE_TEST_SIGN_IN=true. The api signs in the fixed test customer.
@@ -150,6 +150,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
             <Logo animate />
           </span>
           <p className="signin-quote">
+            <ProjectLink />
             <span>New to UnderCover?</span>
             <a className="button soft" href={PROJECT_URL}>
               Get a quote

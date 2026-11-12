@@ -3299,3 +3299,24 @@ select.unsure {
   -webkit-line-clamp: 4;
   line-clamp: 4;
 }
+
+/* The way back to the project page, on the sign-in page too, as in the header. */
+.signin-top .project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 8px;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.signin-top .project-link:hover {
+  color: var(--ink);
+}
+
+.signin-quote .button {
+  white-space: nowrap;
+}

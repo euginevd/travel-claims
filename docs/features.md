@@ -9,7 +9,7 @@ The agreed features, by app and audience; the agent adds a row when you approve 
 | [Handlers' dashboard](#handlers-dashboard-dashboard) | Handlers and senior handlers (Marcus, Dana Whitfield) | http://127.0.0.1:5174 |
 | [AI assurance console](#ai-assurance-console-console) | AI engineers (Sam Carter) | http://127.0.0.1:5175 |
 
-Each app has its own sign-in, token issuer and audience, a **Use test account** button and the Canopy design (#71, #72).
+Each app has its own sign-in, token issuer and audience, a **Use test account** button and the Canopy design (#71, #72), and a **← Project** link back to the project page in its header and on its sign-in page.
 
 ## Project page (`home`)
 
