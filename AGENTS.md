@@ -67,3 +67,4 @@ When you or the user find a mistake an agent made, add a one-line fix here in th
 28. AWS can't use a new IAM role for a few seconds after it's made: a Gateway target failed its first apply (travel-claims #60). Expect it, rerun the apply, and don't change a trust policy that's right.
 29. `apps/home/index.html` pins `styles.css` and `app.js` by integrity hash: an edit to either without recomputing its `sha384` leaves the page unstyled or dead. Recompute after the last edit and load the page in a browser.
 30. The AWS CLI on GitHub's runners reads `--cli-input-json file:///dev/stdin` as empty, so the first deploy's `secrets` apply failed: pass a secret request through a private temporary file, as `fill-secret.py` and `api-key-provider.py` do.
+31. Cognito names allow only letters, digits, spaces and `+=,.@-`: an apostrophe in a resource server's name failed the first deploy's `identity` apply. Keep apostrophes out of AWS names; descriptions are fine.
