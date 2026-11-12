@@ -1,4 +1,4 @@
-"""The payout rules, with the course's cases, worked out through the api."""
+"""The payout rules, with the original's cases, worked out through the api."""
 
 from typing import Any
 

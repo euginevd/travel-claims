@@ -1,7 +1,7 @@
 # Deploy once per account as stack <ProjectName>-bootstrap; copy its outputs to the aws-dev-plan/-apply environments.
 # Costs about $0 a month: IAM is free, and the state bucket holds a few small files; it runs nothing itself.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: GitHub OIDC, Terraform state, plan and deploy roles, and a role boundary; deployed once.
+Description: GitHub OIDC, Terraform state, plan and deploy roles, a read-only troubleshoot role, and a role boundary; deployed once.
 
 Parameters:
   ProjectName:
@@ -818,6 +818,27 @@ Resources:
         - { Key: Project, Value: !Ref ProjectName }
         - { Key: ManagedBy, Value: CloudFormation }
 
+  # Read-only, for an agent to troubleshoot (decision 46): AWS's ReadOnlyAccess, with no denies, so it
+  # can read values too; it can't change anything. Anyone in this account allowed sts:AssumeRole on it can use it.
+  TroubleshootRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-troubleshoot'
+      Description: !Sub 'Read-only troubleshooting for ${ProjectName} (AWS ReadOnlyAccess)'
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/ReadOnlyAccess'
+      Tags:
+        - { Key: Project, Value: !Ref ProjectName }
+        - { Key: ManagedBy, Value: CloudFormation }
+
   # Caps every role Terraform makes; renaming it fails on the fixed name.
   ProjectBoundary:
     Type: AWS::IAM::ManagedPolicy
@@ -1054,3 +1075,6 @@ Outputs:
   PlanRoleArn:
     Description: GitHub variable AWS_PLAN_ROLE_ARN on aws-dev-plan
     Value: !GetAtt PlanRole.Arn
+  TroubleshootRoleArn:
+    Description: role_arn of the troubleshoot profile in ~/.aws/config (the runbook's section on it)
+    Value: !GetAtt TroubleshootRole.Arn
