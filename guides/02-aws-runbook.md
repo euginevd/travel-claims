@@ -103,8 +103,8 @@ Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a 
 
 The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). Its `travel-claims-cli` user can do one thing, assume that role, so its access key on your machine reads at most.
 
-1. In IAM, open the user `travel-claims-cli` → **Security credentials → Create access key → Command Line Interface (CLI)**.
-2. In your own terminal, not an agent's chat: `aws configure --profile travel-claims-cli`, with the key, the secret and `ap-southeast-2`.
+1. In CloudShell: paste [scripts/cli-key.sh](../scripts/cli-key.sh). It replaces the user's access key and prints three lines.
+2. Paste those lines into your own terminal, not an agent's chat; then `clear` CloudShell.
 3. Add the role's profile to `~/.aws/config`:
 
 ```ini
