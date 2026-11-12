@@ -18,12 +18,14 @@ resource "terraform_data" "app" {
 }
 
 # Adds what's missing, never overwriting a value; the Anthropic step below, or on Bedrock the database
-# unit, creates the parameter. No shared agent key (decision 38).
+# unit, creates the parameter. No shared agent key (decision 38). With ENCRYPTION_KEYS=platform it
+# creates or re-encrypts it under the platform's key, which later writes keep (decision 45).
 resource "terraform_data" "fill" {
-  triggers_replace = [terraform_data.app.input, filesha256(local.script)]
+  triggers_replace = [terraform_data.app.input, filesha256(local.script), coalesce(local.data_key, "aws")]
 
   provisioner "local-exec" {
-    command = "python3 ${local.script} ${terraform_data.app.input}"
+    command     = "python3 ${local.script} ${terraform_data.app.input}"
+    environment = local.data_key == null ? {} : { PARAMETER_KEY_ID = local.data_key }
   }
 }
 
@@ -36,7 +38,8 @@ resource "terraform_data" "anthropic" {
   triggers_replace = [terraform_data.fill.id, var.anthropic_key_version]
 
   provisioner "local-exec" {
-    command = "python3 ${local.keys} ${local.key_provider} --from-env ANTHROPIC_API_KEY && python3 ${local.script} ${terraform_data.app.input} --from-env ANTHROPIC_WORKSPACE_ID --remove ANTHROPIC_API_KEY"
+    command     = "python3 ${local.keys} ${local.key_provider} --from-env ANTHROPIC_API_KEY && python3 ${local.script} ${terraform_data.app.input} --from-env ANTHROPIC_WORKSPACE_ID --remove ANTHROPIC_API_KEY"
+    environment = local.data_key == null ? {} : { PARAMETER_KEY_ID = local.data_key }
   }
 }
 

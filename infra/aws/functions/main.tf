@@ -83,12 +83,13 @@ data "aws_cognito_user_pool_clients" "audience" {
 }
 
 resource "aws_cloudwatch_log_group" "function" {
-  #checkov:skip=CKV_AWS_158: AWS-managed encryption is enough for app logs; a customer key adds a key policy to run
-  #checkov:skip=CKV_AWS_338: 30-day retention keeps cost down (costs.md); raise it per environment if audits need more
+  #checkov:skip=CKV_AWS_158: the platform's key with ENCRYPTION_KEYS=platform (encryption.tf), AWS-owned otherwise
+  #checkov:skip=CKV_AWS_338: 30-day retention keeps cost down (costs.md); the platform's log archive keeps the long record
   for_each = local.functions
 
   name              = "/aws/lambda/${local.prefix}-${each.key}"
   retention_in_days = 30
+  kms_key_id        = local.data_key
 }
 
 resource "aws_iam_role" "function" {
@@ -122,6 +123,9 @@ locals {
       { actions = ["secretsmanager:GetSecretValue"], resources = ["${local.vault_secrets}/oauth2/${local.agent_provider}*"] },
       # The records in DSQL, signed in as admin with an IAM token (decision 30).
       { actions = ["dsql:DbConnectAdmin"], resources = ["arn:${local.partition}:dsql:${local.region}:${local.account}:cluster/*"] },
+      # DATABASE_APP_ROLE (decision 45): requests through a role that can't change the schema; the
+      # schema build at each cold start still signs in as admin.
+      { actions = ["dsql:DbConnect"], resources = ["arn:${local.partition}:dsql:${local.region}:${local.account}:cluster/*"] },
     ]
     context = []
     copilot = [
@@ -161,6 +165,8 @@ resource "aws_iam_role_policy" "function" {
         Resource = "${aws_cloudwatch_log_group.function[each.key].arn}:*"
       }],
       [for grant in local.grants[each.key] : { Effect = "Allow", Action = grant.actions, Resource = grant.resources }],
+      # The platform's key, through the services that hold the data (encryption.tf); not the context's.
+      [for grant in(each.key == "context" ? [] : local.key_grants) : { Effect = "Allow", Action = grant.actions, Resource = grant.resources, Condition = grant.condition }],
       # Lambda's network interfaces in the private subnets; these take no resource ARN.
       local.private ? [{
         Effect   = "Allow"
@@ -197,7 +203,10 @@ locals {
       # The agent's calls back carry its machine token, not the shared key (decision 38).
       AGENT_CALLER_ISSUER = local.agent_caller_issuer
       AGENT_CALLER_CLIENT = local.agent_caller_client
-    })
+      },
+      # With DATABASE_APP_ROLE=true, the api serves requests as this database role (decision 45).
+      var.database_app_role ? { DATABASE_APP_ROLE = "undercover_app", DATABASE_APP_ROLE_IAM = aws_iam_role.function["api"].arn } : {},
+    )
     # No URL: AgentCore Gateway invokes it by ARN, and the adapter passes each call to /events.
     context = { CONTEXT_ALLOWED_HOSTS = "*", CONTEXT_GATEWAY_EVENTS = "true" }
   }

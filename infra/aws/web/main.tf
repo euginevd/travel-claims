@@ -18,7 +18,7 @@ locals {
   # The apps reach only themselves and Cognito; the project page pings the three apps' sites.
   connect = {
     app  = "'self' https://cognito-idp.${local.region}.amazonaws.com"
-    home = "'self' https://*.cloudfront.net"
+    home = var.domain_name != "" ? "'self' https://*.${var.domain_name}" : "'self' https://*.cloudfront.net"
   }
 
   # AWS's managed policies: cache static files, never cache the api, and send the origin its own host.
@@ -234,8 +234,14 @@ resource "aws_cloudfront_distribution" "web" {
     }
   }
 
+  # The company's domain with its certificate (domain.tf), or CloudFront's own.
+  aliases = local.custom_domain ? [local.site_names[each.key]] : []
+
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = !local.custom_domain
+    acm_certificate_arn            = local.custom_domain ? aws_acm_certificate_validation.sites[0].certificate_arn : null
+    ssl_support_method             = local.custom_domain ? "sni-only" : null
+    minimum_protocol_version       = local.custom_domain ? "TLSv1.2_2021" : null
   }
 }
 

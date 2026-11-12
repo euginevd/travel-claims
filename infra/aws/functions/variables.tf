@@ -38,3 +38,9 @@ variable "model_provider" {
     error_message = "model_provider is anthropic or bedrock."
   }
 }
+
+variable "database_app_role" {
+  description = "true: the api serves requests through a DSQL role that can only read and write the app's tables, not admin"
+  type        = bool
+  default     = false
+}

@@ -23,9 +23,15 @@ def alembic_config(url: str) -> Config:
     return config
 
 
-def upgrade(url: str) -> None:
-    """Apply every migration not yet applied; on DSQL, build the schema once instead."""
-    from undercover_api.dsql import create_schema, is_conflict, is_dsql  # noqa: PLC0415
+def upgrade(url: str, app_role: str | None = None, app_role_iam: str | None = None) -> None:
+    """Apply every migration not yet applied; on DSQL, build the schema once instead, then
+    grant the app's role, when there is one, what serving needs."""
+    from undercover_api.dsql import (  # noqa: PLC0415
+        create_schema,
+        grant_app_role,
+        is_conflict,
+        is_dsql,
+    )
 
     config = alembic_config(url)
     if not is_dsql(url):
@@ -41,6 +47,8 @@ def upgrade(url: str) -> None:
         try:
             with engine.connect() as db:
                 create_schema(db, head)
+                if app_role is not None:
+                    grant_app_role(db, app_role, app_role_iam or "")
             return
         except DBAPIError as error:
             if not is_conflict(error) or attempt == ATTEMPTS - 1:
@@ -51,4 +59,5 @@ def upgrade(url: str) -> None:
 if __name__ == "__main__":
     from undercover_api.settings import get_settings
 
-    upgrade(get_settings().database_url)
+    settings = get_settings()
+    upgrade(settings.database_url, settings.database_app_role, settings.database_app_role_iam)

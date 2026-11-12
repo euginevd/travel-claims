@@ -3,6 +3,9 @@
 DSQL takes one schema change per transaction and builds indexes asynchronously, so the
 migrations, written for PostgreSQL, don't run there. Its database starts empty, so the schema
 is created from the tables in db.py and stamped as the newest migration instead.
+
+With DATABASE_APP_ROLE set, the schema is still built as admin, and requests are then served
+as that role, which may only read and write the app's tables.
 """
 
 import re
@@ -19,6 +22,14 @@ CONFLICT = "40001"
 # A cluster's endpoint, public (<id>.dsql.<region>.on.aws) or through its PrivateLink endpoint
 # (<id>.dsql-<suffix>.<region>.on.aws); the IAM token is made for whichever host is used.
 ENDPOINT = re.compile(r"^[a-z0-9]+\.dsql(?:-[a-z0-9]+)?\.(?P<region>[a-z0-9-]+)\.on\.aws$")
+# The database role DSQL makes with each cluster, the only one allowed DDL.
+ADMIN = "admin"
+# Where the app's tables are: admin's public schema.
+SCHEMA = "public"
+# A plain, unquoted PostgreSQL name, so it can go into a statement as it is; pg_ is reserved.
+IDENTIFIER = re.compile(r"^(?!pg_)[a-z_][a-z0-9_]{0,62}$")
+# An IAM role in any partition; the path and name characters IAM allows, never a quote.
+IAM_ROLE_ARN = re.compile(r"^arn:aws(?:-[a-z]+)*:iam::\d{12}:role/[A-Za-z0-9+=,.@_/-]{1,512}$")
 
 
 def is_dsql(url: str) -> bool:
@@ -35,15 +46,27 @@ def region_of(host: str) -> str:
     return found["region"]
 
 
+def check_app_role(role: str, iam_role_arn: str | None) -> None:
+    """Refuse a role name that isn't a plain identifier, admin itself, or a malformed ARN."""
+    if not IDENTIFIER.fullmatch(role) or role == ADMIN:
+        raise ValueError("DATABASE_APP_ROLE must be a plain lowercase identifier, not admin")
+    if iam_role_arn is None or not IAM_ROLE_ARN.fullmatch(iam_role_arn):
+        raise ValueError("DATABASE_APP_ROLE_IAM must be an IAM role ARN")
+
+
 def sign_in_with_iam(engine: Engine) -> None:
-    """A fresh 15-minute admin token as the password of each new connection."""
+    """A fresh 15-minute token as the password of each new connection: an admin token for
+    admin, and for any other role the token DSQL checks against that role's IAM mapping."""
     import boto3  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
 
     @event.listens_for(engine, "do_connect")
     def _token(_dialect: object, _record: object, _args: object, params: dict[str, Any]) -> None:
         host = str(params["host"])
         client = cast(Any, boto3).client("dsql", region_name=region_of(host))
-        params["password"] = client.generate_db_connect_admin_auth_token(host, region_of(host))
+        if params.get("user", ADMIN) == ADMIN:
+            params["password"] = client.generate_db_connect_admin_auth_token(host, region_of(host))
+        else:
+            params["password"] = client.generate_db_connect_auth_token(host, region_of(host))
 
 
 def is_conflict(error: BaseException) -> bool:
@@ -89,3 +112,32 @@ def create_schema(db: Connection, head: str) -> bool:
         {"head": head},
     )
     return True
+
+
+def app_role_grants(role: str, tables: list[str]) -> list[str]:
+    """What the app's role may do: use the schema, and read and write each table given; no
+    DDL. Each table is named, so nothing rests on default privileges."""
+    statements = [f"GRANT USAGE ON SCHEMA {SCHEMA} TO {role}"]
+    statements += [f"GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE {t} TO {role}" for t in tables]
+    return statements
+
+
+def grant_app_role(db: Connection, role: str, iam_role_arn: str) -> None:
+    """Make the app's role if it's missing, map it to the api's IAM role, and grant it the
+    app's tables; safe to run on every start. One statement per transaction, as DSQL takes
+    them, so db must be in autocommit and signed in as admin."""
+    from undercover_api.db import metadata  # noqa: PLC0415
+
+    check_app_role(role, iam_role_arn)
+    found = text("SELECT 1 FROM pg_roles WHERE rolname = :role")
+    if db.execute(found, {"role": role}).first() is None:
+        db.exec_driver_sql(f"CREATE ROLE {role} WITH LOGIN")
+    mapped = text(
+        "SELECT 1 FROM sys.iam_pg_role_mappings WHERE pg_role_name = :role AND arn = :arn"
+    )
+    if db.execute(mapped, {"role": role, "arn": iam_role_arn}).first() is None:
+        db.exec_driver_sql(f"AWS IAM GRANT {role} TO '{iam_role_arn}'")
+    preparer = db.dialect.identifier_preparer
+    tables = [preparer.format_table(table) for table in metadata.sorted_tables]
+    for statement in app_role_grants(role, tables):
+        db.exec_driver_sql(statement)

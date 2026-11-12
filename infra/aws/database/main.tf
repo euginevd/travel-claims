@@ -4,8 +4,10 @@ locals {
   prefix = "${var.project}-${var.environment}"
 }
 
-# Serverless PostgreSQL with IAM sign-in, so no password exists; AWS-owned encryption key.
+# Serverless PostgreSQL with IAM sign-in, so no password exists; the platform's key with
+# ENCRYPTION_KEYS=platform (encryption.tf), an AWS-owned key otherwise.
 resource "aws_dsql_cluster" "records" {
+  kms_encryption_key = local.data_key
 
   # Backup=daily: the platform's backup plan selects it by this tag (decision 38).
   tags = { Name = "${local.prefix}-records", Backup = "daily" }
@@ -37,8 +39,12 @@ resource "aws_dynamodb_table" "checkpoints" {
 
 
   server_side_encryption {
-    enabled = true
+    enabled     = true
+    kms_key_arn = local.data_key
   }
+
+  # Backup=daily: the platform's backup policy selects it by this tag (decision 45).
+  tags = { Backup = "daily" }
 }
 
 # The Copilot's conversations and each handler's notes, found by handler through by_handler.
@@ -87,8 +93,12 @@ resource "aws_dynamodb_table" "copilot" {
 
 
   server_side_encryption {
-    enabled = true
+    enabled     = true
+    kms_key_arn = local.data_key
   }
+
+  # Backup=daily: the platform's backup policy selects it by this tag (decision 45).
+  tags = { Backup = "daily" }
 }
 
 # Tells the apps where they are, through the settings parameter they read at start.

@@ -884,7 +884,7 @@ def create_app(
     """Build the api for the settings, database and agent given, or those in the environment."""
     configure_logging()
     settings = settings or get_settings()
-    database = engine or make_engine(settings.database_url)
+    database = engine or make_engine(settings.database_url, settings.database_app_role)
     load_names_to_redact(database)
 
     @asynccontextmanager

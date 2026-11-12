@@ -58,8 +58,9 @@ def fill(values: dict[str, str], given: dict[str, str], remove: tuple[str, ...] 
     return changed
 
 
-def write(name: str, values: dict[str, str]) -> None:
-    """Put the JSON through a private temporary file, so it's never on a command line."""
+def write(name: str, values: dict[str, str], key: str | None) -> None:
+    """Put the JSON through a private temporary file, so it's never on a command line, under the
+    given KMS key (an overwrite without one would fall back to SSM's own key)."""
     handle, path = tempfile.mkstemp(suffix=".json")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as file:
@@ -73,11 +74,27 @@ def write(name: str, values: dict[str, str]) -> None:
             "--overwrite",
             "--value",
             f"file://{path}",
+            *(["--key-id", key] if key else []),
         )
         if put.returncode != 0:
             sys.exit(f"Couldn't write {name}: {put.stderr.strip()}")
     finally:
         os.remove(path)
+
+
+def key_of(name: str) -> str | None:
+    """The KMS key the parameter is encrypted with, or None when it doesn't exist yet."""
+    got = aws(
+        "describe-parameters",
+        "--parameter-filters",
+        f"Key=Name,Values={name}",
+        "--query",
+        "Parameters[0].KeyId",
+        "--output",
+        "text",
+    )
+    key = got.stdout.strip() if got.returncode == 0 else ""
+    return None if key in ("", "None") else key
 
 
 def delete(name: str) -> None:
@@ -111,14 +128,18 @@ def main(args: list[str]) -> None:
         delete(args[1])
         return
     name, given, remove = parse(args)
+    # The platform's key with ENCRYPTION_KEYS=platform (decision 45), else the key it already has.
+    wanted = os.environ.get("PARAMETER_KEY_ID") or None
     # Units can write at once and the last write wins, so check ours survived and merge again.
     for _ in range(ATTEMPTS):
         values = current(name)
-        if not fill(values, given, remove):
+        key = key_of(name)
+        rekey = wanted is not None and key != wanted
+        if not fill(values, given, remove) and not rekey:
             # Whether it changed, never which values: nothing from the parameter reaches the log.
             print(f"{name}: up to date")
             return
-        write(name, values)
+        write(name, values, wanted or key)
         time.sleep(random.uniform(1, 3))  # noqa: S311 - spacing, not security
     sys.exit(f"{name}: another writer kept overwriting it")
 

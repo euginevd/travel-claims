@@ -193,6 +193,13 @@ resource "aws_iam_role_policy" "agent" {
         Effect   = "Allow"
         Action   = ["bedrock-agentcore:StartCodeInterpreterSession", "bedrock-agentcore:InvokeCodeInterpreter", "bedrock-agentcore:StopCodeInterpreterSession"]
         Resource = ci.code_interpreter_arn
+      }],
+      # The platform's key with ENCRYPTION_KEYS=platform, only through the settings and checkpoints (decision 45).
+      local.data_key == null ? [] : [{
+        Effect    = "Allow"
+        Action    = ["kms:Decrypt", "kms:GenerateDataKey"]
+        Resource  = local.data_key
+        Condition = { StringLike = { "kms:ViaService" = ["ssm.*.amazonaws.com", "dynamodb.*.amazonaws.com"] } }
     }])
   })
 }

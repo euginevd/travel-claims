@@ -65,6 +65,14 @@ env:
   # Staff sign in with the company's Okta through the staff pools (decision 44); empty: off.
   TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
   TF_VAR_staff_sign_in_urls: ${{ vars.STAFF_SIGN_IN_URLS }}
+  # Enterprise patterns, each off unless set (decision 45): the platform's KMS data key on the data
+  # stores, settings and logs; the company's domain on the sites; malware scanning of receipts; personal
+  # data masked in the functions' logs; the api's own database role.
+  TF_VAR_encryption_keys: ${{ vars.ENCRYPTION_KEYS || 'aws' }}
+  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+  TF_VAR_malware_scanning: ${{ vars.MALWARE_SCANNING || 'false' }}
+  TF_VAR_log_masking: ${{ vars.LOG_MASKING || 'false' }}
+  TF_VAR_database_app_role: ${{ vars.DATABASE_APP_ROLE || 'false' }}
   # The share of the agent's live sessions AgentCore Evaluations scores online; 0, the default, turns it off (decision 38).
   TF_VAR_evaluation_sampling: ${{ vars.EVALUATION_SAMPLING || '0' }}
   # Lookup programs on AgentCore Code Interpreter (plan phase 5): true to switch them on.

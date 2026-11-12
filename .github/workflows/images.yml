@@ -150,15 +150,17 @@ jobs:
             exit 0
           fi
           site() { aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$1'].$2 | [0]" --output text; }
+          # A site's address: the company's domain where DOMAIN_NAME gave it one, else CloudFront's own.
+          address() { a="$(site "$1" 'Aliases.Items[0]')"; case "$a" in ""|None) site "$1" DomainName ;; *) echo "$a" ;; esac; }
           if [ "$APP" = home ]; then
             # The project page is static files, with the three apps' addresses in links.json.
             mkdir dist && cp -r apps/home/index.html apps/home/styles.css apps/home/app.js apps/home/icon.svg apps/home/fonts apps/home/img apps/home/media dist/
-            printf '{"portal":"https://%s/","dashboard":"https://%s/","console":"https://%s/"}\n' "$(site portal DomainName)" "$(site dashboard DomainName)" "$(site console DomainName)" > dist/links.json
+            printf '{"portal":"https://%s/","dashboard":"https://%s/","console":"https://%s/"}\n' "$(address portal)" "$(address dashboard)" "$(address console)" > dist/links.json
           else
             pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
             client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
             # The header's back link goes to the project page's own site, not port 5172.
-            home="$(site home DomainName)"
+            home="$(address home)"
             case "$home" in ""|None) echo "::error::No project page site: apply the web unit first."; exit 1 ;; esac
             project="https://$home/"
             docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" --build-arg VITE_TEST_SIGN_IN=true --build-arg VITE_PROJECT_URL="$project" -f "apps/$APP/Dockerfile" -t "web-$APP" .

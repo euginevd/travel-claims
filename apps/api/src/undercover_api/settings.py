@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     database_url: str = Field(min_length=1)
+    # On DSQL: the database role requests are served as, mapped to the api's IAM role, so they
+    # can't change the schema; the schema is still built as admin. Unset, admin serves too.
+    database_app_role: str | None = None
+    database_app_role_iam: str | None = None
     # No default: a deployment must say where it runs, so nothing local is on by accident.
     environment: Literal["local", "dev"]
     # The key the api and the agent share locally; none on AWS, where the agent sends its machine
@@ -57,6 +61,17 @@ class Settings(BaseSettings):
     agent_caller_client: str | None = None
     # The claim agent's configuration version, named on every decision it makes.
     agent_version: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def app_role_is_safe(self) -> Self:
+        """Refuse an app role that isn't a plain name, or isn't mapped to a well-formed ARN."""
+        from undercover_api.dsql import check_app_role  # noqa: PLC0415
+
+        if self.database_app_role is not None:
+            check_app_role(self.database_app_role, self.database_app_role_iam)
+        elif self.database_app_role_iam is not None:
+            raise ValueError("DATABASE_APP_ROLE_IAM needs DATABASE_APP_ROLE")
+        return self
 
     @model_validator(mode="after")
     def local_things_stay_local(self) -> Self:

@@ -56,7 +56,7 @@ In the diagram's order:
 - **VPC:** the functions and the agent run in private subnets, with nothing coming in; they reach AWS through VPC endpoints, and anything else through the platform's inspected egress.
 - **Agent (AgentCore):** the claim agent on Runtime, which accepts only the api's machine token; Identity keeps the machine-client secrets; Gateway and the staff Gateway are the only way to the tools, under Cedar policy; Code Interpreter reaches the VPC endpoints only.
 - **Models (Bedrock):** Claude on Australia's inference profile, so data stays in Australia; guardrails screen customers' text and check answers and letters before anyone sees them; the knowledge base holds the public policy wording.
-- **Data:** Aurora DSQL for claims and payouts (IAM sign-in, no password, through its own endpoint, backed up by the platform); S3 for receipts; DynamoDB for agent and chat progress; AgentCore Memory for each customer's history. All encrypted at rest.
+- **Data:** Aurora DSQL for claims and payouts (IAM sign-in, no password, through its own endpoint); S3 for receipts, each scanned for malware; DynamoDB for agent and chat progress; AgentCore Memory for each customer's history. All encrypted at rest with the platform's key, and backed up by the platform.
 - **Operate:** CloudWatch alarms by email, AgentCore Observability's trace of each claim, AgentCore Evaluations on live sessions, and a log of every model call as the workload's AI audit trail.
 - **Delivery:** GitHub Actions signs in with OIDC, plans on PRs and deploys only from `main`, through the platform's pipeline roles and state bucket.
 
@@ -72,6 +72,11 @@ The diagram shows the recommended settings. Each piece is in the code, and a set
 | `API_GATEWAY` | `false` | `true` | A REST API with its own WAF and token checks; no function URLs | ~$3.50/million requests + ~$10/month WAF |
 | `EVALUATION_SAMPLING` | `0` | `10` | Live sessions scored by judges | Cents a day |
 | `CLOUDFRONT_FREE_PLAN` | `true` | `false`, with the platform's Firewall Manager | Central WAF and Shield Advanced in place of the Free plan's | The platform's |
+| `ENCRYPTION_KEYS` | `aws` | `platform` | The platform's KMS key on every data store, the settings and the logs | ~$0.03 per 10,000 requests |
+| `DOMAIN_NAME` | Empty | The company's domain | The sites on the company's own names, with certificates | ~$0.50/month |
+| `MALWARE_SCANNING` | `false` | `true` | Every receipt scanned; only clean ones can be read | ~$0.60/GB scanned |
+| `LOG_MASKING` | `false` | `true` | Personal data and secrets masked in the functions' logs | ~$0.12/GB scanned |
+| `DATABASE_APP_ROLE` | `false` | `true` | The api serves requests through a database role that can't change the schema | Free |
 
 With the defaults, CloudFront calls the functions' URLs and the api checks every token itself; staff sign in to their own pool, as the company's Okta sign-in (B1) is reference code that isn't switched on.
 
@@ -83,7 +88,9 @@ Everything in the diagram's bottom band is the platform team's: accounts and gua
 |---|---|
 | Pipeline roles and state bucket (`bootstrap.yaml` stands in for them) | Every deploy |
 | The VPC, its endpoints and egress, published as `/platform/network/vpc-id` and `/platform/network/private-subnet-ids` | `NETWORK_MODE=private` |
-| A backup policy that selects the tag `Backup=daily` | The DSQL cluster |
+| A backup policy that selects the tag `Backup=daily` | The DSQL cluster, both DynamoDB tables and the receipts bucket |
+| A KMS data key, published as `/platform/kms/data-key-arn`, whose key policy lets the workload's roles and services use it | `ENCRYPTION_KEYS=platform` |
+| A Route 53 zone for the company's domain, delegated to this account | `DOMAIN_NAME` |
 | CloudWatch Transaction Search | Traces and online evaluations |
 | Firewall Manager's WAF and Shield Advanced | `CLOUDFRONT_FREE_PLAN=false` |
 | API Gateway's logging role, one per account | `API_GATEWAY=true` access logs |

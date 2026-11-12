@@ -37,7 +37,7 @@ Put these in `.env` (git-ignored):
 
 - `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for testing locally.
 - `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs** (not needed if the AWS CLI is signed in). The names are fixed, so they survive a redeploy: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
-- Optional: `ALERT_EMAIL` for the alarms, `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `NETWORK_MODE=private` for the platform team's private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), and `API_GATEWAY=true` to put the api and Copilot behind API Gateway (decision 39). The platform team's pieces, such as the budget, backups and Transaction Search, are assumed (decision 41).
+- Optional: `ALERT_EMAIL` for the alarms, `CLOUDFRONT_FREE_PLAN=false` if the account can't have CloudFront's Free plan, `NETWORK_MODE=private` for the platform team's private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), and `API_GATEWAY=true` to put the api and Copilot behind API Gateway (decision 39), and `ENCRYPTION_KEYS`, `DOMAIN_NAME`, `MALWARE_SCANNING`, `LOG_MASKING` and `DATABASE_APP_ROLE` for the other enterprise patterns (decision 45), all described in [the architecture guide's settings](03-aws-architecture.md#settings). The platform team's pieces, such as the budget, backups and Transaction Search, are assumed (decision 41).
 
 Then run `bash scripts/use-anthropic.sh`. It prints no value, and sets, under the repo's **Settings**:
 

@@ -183,6 +183,7 @@ Resources:
                   StringEquals:
                     iam:PassedToService:
                       - lambda.amazonaws.com
+                      - malware-protection-plan.guardduty.amazonaws.com
                       - bedrock-agentcore.amazonaws.com
                       - bedrock.amazonaws.com
                       - cloudtrail.amazonaws.com
@@ -586,6 +587,47 @@ Resources:
             Condition:
               StringEquals:
                 aws:RequestedRegion: !Ref AWS::Region
+          # DOMAIN_NAME (decision 45): certificates for CloudFront (us-east-1) and records in the
+          # zone the platform delegates.
+          - Sid: Certificates
+            Effect: Allow
+            Action: acm:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:RequestedRegion:
+                  - us-east-1
+                  - !Ref AWS::Region
+          - Sid: DnsRecords
+            Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+              - route53:GetChange
+              - route53:GetHostedZone
+              - route53:ListHostedZones
+              - route53:ListHostedZonesByName
+              - route53:ListResourceRecordSets
+              - route53:ListTagsForResource
+            Resource: '*'
+          # ENCRYPTION_KEYS=platform (decision 45): the platform's data key, only through the services
+          # that hold the workload's data.
+          - Sid: PlatformKeyThroughServices
+            Effect: Allow
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                kms:ViaService:
+                  - !Sub 'dsql.${AWS::Region}.amazonaws.com'
+                  - !Sub 'dynamodb.${AWS::Region}.amazonaws.com'
+                  - !Sub 's3.${AWS::Region}.amazonaws.com'
+                  - !Sub 'ssm.${AWS::Region}.amazonaws.com'
+                  - !Sub 'logs.${AWS::Region}.amazonaws.com'
 
   PlanRole:
     Type: AWS::IAM::Role
@@ -707,6 +749,8 @@ Resources:
                   - dsql:List*
                   - dynamodb:Describe*
                   - dynamodb:List*
+                  - acm:Describe*
+                  - acm:List*
                   - ec2:Describe*
                   - ecr:Describe*
                   - ecr:GetLifecyclePolicy
@@ -727,9 +771,12 @@ Resources:
                   - lambda:List*
                   - logs:Describe*
                   - logs:Get*Deliver*
+                  - logs:GetDataProtectionPolicy
                   - logs:ListTagsForResource
                   - logs:ListTagsLogGroup
                   - polly:GetLexicon
+                  - route53:Get*
+                  - route53:List*
                   - polly:List*
                   - pricingplanmanager:Get*
                   - pricingplanmanager:List*
@@ -823,6 +870,27 @@ Resources:
             Condition:
               StringEquals:
                 aws:RequestedRegion: !Ref AWS::Region
+          # MALWARE_SCANNING (decision 45): GuardDuty's role watches the receipts bucket through its
+          # own events rule, then reads and tags each upload.
+          - Sid: MalwareScan
+            Effect: Allow
+            Action:
+              - events:DeleteRule
+              - events:DescribeRule
+              - events:ListTargetsByRule
+              - events:PutRule
+              - events:PutTargets
+              - events:RemoveTargets
+              - s3:GetBucketNotification
+              - s3:GetObjectTagging
+              - s3:GetObjectVersion
+              - s3:GetObjectVersionTagging
+              - s3:PutBucketNotification
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-receipts-*'
           # Lambda's network interfaces in the platform's private subnets (decision 36); no resource ARN.
           - Sid: LambdaNetwork
             Effect: Allow
