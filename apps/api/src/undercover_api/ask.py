@@ -84,6 +84,9 @@ def ask_undercover(
         found = QuestionAnswer.model_validate(answer)
     except ValidationError as error:
         raise HTTPException(502, "The assistant's answer didn't make sense") from error
+    # A claim the model names is shown only if it's the customer's own.
+    if found.claim_id and not any(c["claim_id"] == found.claim_id for c in mine):
+        found = found.model_copy(update={"claim_id": "", "action": "show_claims"})
     log.info(
         "customer question answered (%d characters, screened=%s)",
         len(body.question),

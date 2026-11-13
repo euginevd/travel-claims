@@ -185,7 +185,7 @@ class FakeAgent:
         return {
             "answer": "Your plan covers delays over 6 hours.",
             "sources": ["Policy wording section 6"],
-            "suggest": "",
+            "action": "",
             "screened": False,
         }
 

@@ -21,15 +21,16 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 2 | **My claims**: only the customer's own claims, in progress and completed, each with its stage, the stage's usual time and a **Send it** link when something is asked for | Done | #37 |
-| 3 | **Make a claim** in three steps, photo first: what happened, up to five receipts (JPEG, PNG or PDF, 5 MB each; an image too small or damaged to read is refused with a plain message, and one the model still can't open refers the claim to a person instead of stalling it), then check what the AI drafted; the customer's words stay the record. A document checklist per claim type, and saving to finish later | Done | #5 |
-| 4 | **Rather just tell us?**: one sentence to the drafting assistant, which fills in the claim | Done | #71 |
+| 2 | **Claims** (side panel): only the customer's own claims, in progress then done, each with a chip; a claim opens to one line on where it stands, the tracker, what we need, the reason and AI disclosure once decided, and folded *In your words*, *What you're claiming* and *What we've sent you* | Done | #37, #108 |
+| 3 | **Make a claim by chat**, one question at a time: what happened (tap or type), only what the records can't say (when, from the trip's dates), then photos or files (JPEG, PNG or PDF, up to five, 5 MB each; an image too small or damaged to read is refused with a plain message, and one the model still can't open refers the claim to a person instead of stalling it); code asks for any day, place or amount still missing, then shows the claim to send. The customer's words stay the record; saved to finish later | Done | #5, #108 |
+| 4 | **Just tell Wattle**: anything typed that sounds like trouble starts the claim with its type, and the drafting assistant fills it in from the customer's words and files | Done | #71, #108 |
 | 5 | Receipts in another currency converted to US dollars, the original kept in the description and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
 | 7 | A tracker per claim (received, checked, assessed, decided, paid) with a plain-English reason and an AI disclosure; upload each document asked for, ask a person to review any decision, and get paid to a PayID | Done | #37 |
-| 8 | **Updates**: every email and text, each showing its first lines with a link to the claim, with filters (an outbox locally) | Done | #37 |
+| 8 | **Messages** (side panel): every email and text, newest first, an email and its text as one, a dot for anything new, each opening to the claim (an outbox locally) | Done | #37, #108 |
 | 9 | **Wattle AI**: questions about the customer's cover, answered with the policy wording cited; cover per trip. Each answer is laid out as data, never markup: a one-line headline, up to three short points each citing a numbered source, and one most likely next question; on a claim's page it answers about that claim (only if it's the customer's own); the Wattle mark animates while it works. The AI engineers' Wattle in the console answers in the same shape | Done | #39 |
 | 10 | Thumbs up or down on Wattle's answers and on each decision's explanation, with an optional comment (spec 21) | Done | #72 |
+| 10a | **Chat-first portal**: Wattle is the home screen: a greeting by name, at most one dismissable line of what matters (something we need, a claim not sent, a delay to claim, then news), a centred composer and three suggestions from the customer's records, all picked in code. Wattle's answer names what the screen shows next (a claim, the claims, the policy, Settings, a person, or a claim to start) and never changes anything itself; cards are filled from the customer's own records. **Settings** (from the avatar): PayID, mobile, texts on or off (emails about a claim always go), each policy's cover in plain words, sign out. Links in emails (`#/claims/CLM-…`) open the panel | Done | #108 |
 
 ## Handlers' dashboard (`dashboard`)
 

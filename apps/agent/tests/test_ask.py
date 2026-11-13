@@ -4,7 +4,14 @@ answers through reply, and a question that tries to instruct it is stopped first
 from anthropic.types import Message
 from stubs import FakeClaude, tool_use
 
-from undercover_agent.ask import SCREENED, UNGROUNDED, Asker, AskRequest, question_for
+from undercover_agent.ask import (
+    SCREENED,
+    UNGROUNDED,
+    Asker,
+    AskRequest,
+    next_step,
+    question_for,
+)
 from undercover_agent.explain import Explainer, ExplainRequest
 from undercover_agent.guardrail import Verdict
 from undercover_agent.models import Call, Json, Screening
@@ -45,7 +52,9 @@ def test_it_searches_the_wording_only_and_answers_through_reply() -> None:
                 {
                     "answer": "Your Premium plan covers delays over 6 hours.",
                     "sources": ["Policy wording section 6"],
-                    "suggest": "start_claim",
+                    "action": "start_claim",
+                    "claim_type": "flight_delay",
+                    "replies": ["Make a claim", "What do I need?"],
                 },
                 3,
             ),
@@ -55,7 +64,8 @@ def test_it_searches_the_wording_only_and_answers_through_reply() -> None:
     answer = Asker(claude, context, "claude-haiku-5-5").ask(REQUEST)
     assert answer.answer.startswith("Your Premium plan")
     assert answer.sources == ["Policy wording section 6"]
-    assert answer.suggest == "start_claim"
+    assert (answer.action, answer.claim_type) == ("start_claim", "flight_delay")
+    assert answer.replies == ["Make a claim", "What do I need?"]
     assert context.calls[1] == ("read_section", {"document": "policy_wording", "number": 6})
     assert claude.systems[0][1] == "claude-haiku-5-5"
 
@@ -162,7 +172,7 @@ def test_an_ungrounded_answer_is_never_shown_and_offers_a_person() -> None:
     claude = answering(tool_use("read_policy_section", {"number": 6}, 1))
     answer = Asker(claude, ManualAndWording(), "m", grounding=Grounding(blocked=True)).ask(REQUEST)
     assert answer.answer == UNGROUNDED
-    assert (answer.sources, answer.suggest, answer.screened) == ([], "ask_person", False)
+    assert (answer.sources, answer.action, answer.screened) == ([], "talk_to_person", False)
 
 
 def test_with_nothing_read_the_customers_records_are_the_source() -> None:
@@ -175,3 +185,16 @@ def test_the_claim_on_screen_goes_with_the_question() -> None:
     asked = question_for(REQUEST.model_copy(update={"about": "CLM-1001"}))
     assert "looking at claim CLM-1001" in asked
     assert "looking at" not in question_for(REQUEST)
+
+
+def test_only_actions_the_screen_knows_get_through() -> None:
+    made_up = next_step({"action": "change_payid", "claim_type": "scuba", "claim_id": "X"})
+    assert (made_up["action"], made_up["claim_type"], made_up["claim_id"]) == ("", "", "")
+    shown = next_step({"action": "show_claim", "claim_id": "clm-1006", "claim_type": "medical"})
+    assert (shown["action"], shown["claim_id"], shown["claim_type"]) == (
+        "show_claim",
+        "CLM-1006",
+        "",
+    )
+    assert next_step({"suggest": "ask_person"})["action"] == "talk_to_person"
+    assert next_step({"replies": ["a", "b", "c", "d", " "]})["replies"] == ["a", "b", "c"]

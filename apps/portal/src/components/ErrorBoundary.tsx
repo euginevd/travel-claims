@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { MY_CLAIMS_HREF } from "../useHashRoute";
+import { HOME_HREF } from "../useHashRoute";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <div className="panel" role="alert">
         <h1>Something went wrong showing this page</h1>
         <p>
-          Try reloading, or go <a href={MY_CLAIMS_HREF}>back to my claims</a>.
+          Try reloading, or <a href={HOME_HREF}>start again</a>.
         </p>
       </div>
     );

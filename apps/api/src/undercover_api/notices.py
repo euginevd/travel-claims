@@ -21,6 +21,14 @@ def first_name(db: Connection, customer_id: str) -> str:
     return (name or "there").split()[0]
 
 
+def texts_wanted(db: Connection, customer_id: str) -> bool:
+    """Whether the customer wants updates by text; emails about a claim always go."""
+    record: dict[str, object] | None = db.execute(
+        select(customers.c.record).where(customers.c.customer_id == customer_id)
+    ).scalar_one_or_none()
+    return bool((record or {}).get("text_updates", True))
+
+
 def send(  # noqa: PLR0913, PLR0917 - one message's parts
     db: Connection,
     customer_id: str,
@@ -30,6 +38,8 @@ def send(  # noqa: PLR0913, PLR0917 - one message's parts
     body: str,
     status: str | None = None,
 ) -> None:
+    if channel == SMS and not texts_wanted(db, customer_id):
+        return
     db.execute(
         insert(notices).values(
             customer_id=customer_id,
@@ -87,7 +97,7 @@ def announce(db: Connection, row: RowMapping) -> None:
                 EMAIL,
                 f"We've got your claim {claim_id}",
                 f"Thanks, {name}. Your claim number is {claim_id}. We'll start on it shortly, "
-                "and you can follow it any time in My claims.",
+                "and you can follow it any time under Claims.",
                 status,
             )
             send(
