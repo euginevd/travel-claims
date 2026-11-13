@@ -62,7 +62,7 @@ env:
   # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the
   # platform team's private subnets, found by its /platform/network/* parameters (database, functions and agent units).
   TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
-  # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
+  # The api and Copilot behind API Gateway with Cognito authorizers and no function URLs (decision 43).
   TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
   # Staff sign in with the company's Okta through the staff pools (decision 44); empty: off.
   TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
