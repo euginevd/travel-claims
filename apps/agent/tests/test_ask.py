@@ -209,3 +209,16 @@ def test_engineers_get_two_versions_to_compare_or_none() -> None:
     assert versions([3, 3]) == []
     assert versions([1, 2, 3]) == []
     assert versions("v2 and v3") == []
+
+
+def test_a_long_point_is_cut_at_a_word_with_no_bold_left_open() -> None:
+    from undercover_agent.answer_shape import short  # noqa: PLC0415 - one helper
+
+    long = (
+        "one two three four five six seven eight nine ten eleven twelve "
+        + "**up to $3,000 for bags**"
+    )
+    assert (
+        short(long, 14) == "one two three four five six seven eight nine ten eleven twelve up to…"
+    )
+    assert short("Short and **bold**") == "Short and **bold**"

@@ -246,6 +246,20 @@ MAX_POINTS = 3
 MAX_SOURCES = 6
 
 
+POINT_WORDS = 18
+
+
+def short(text: str) -> str:
+    """A point held to its length: cut at a word with an ellipsis, no bold mark left open."""
+    parts = text.split()
+    if len(parts) <= POINT_WORDS:
+        return text
+    cut = " ".join(parts[:POINT_WORDS]).rstrip(",;:")
+    if cut.count("**") % 2:
+        cut = cut[::-1].replace("**", "", 1)[::-1]
+    return cut + "…"
+
+
 def laid_out(args: Json) -> Json:
     """The reply tool's arguments, bounded, as the dashboard shows them: a headline, up to three
     points each citing a source that exists, the sources and one next question. Plain text: the
@@ -256,7 +270,7 @@ def laid_out(args: Json) -> Json:
         if not isinstance(raw, dict):
             continue
         point = cast(Json, raw)
-        text = str(point.get("text") or "").strip()[:300]
+        text = short(str(point.get("text") or "").strip()[:300])
         source = point.get("source")
         cited = source if isinstance(source, int) and 0 < source <= len(sources) else 0
         if text:
