@@ -545,6 +545,12 @@ class HoldRequest(Strict):
     reason: Text
 
 
+class SignOffRequest(Strict):
+    """The payout the senior handler saw when they pressed sign off."""
+
+    expected_payout: Dollars = Field(ge=0, le=1_000_000)
+
+
 class OverrideRequest(Strict):
     """A senior handler's own decision in place of the agent's, with a reason code."""
 

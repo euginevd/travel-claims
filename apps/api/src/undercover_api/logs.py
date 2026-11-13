@@ -84,11 +84,16 @@ def configure_logging() -> None:
     logging.getLogger("uvicorn.access").disabled = True
 
 
+_REQUEST_ID = re.compile(r"[A-Za-z0-9-]{1,64}")
+
+
 async def log_requests(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
     """Give each request an ID and log its method, path, status and time, never its body."""
-    token = request_id.set(request.headers.get("X-Request-ID", uuid.uuid4().hex)[:64])
+    # A caller's ID is kept only when it looks like one, as it goes into every log line unredacted.
+    given = request.headers.get("X-Request-ID", "")
+    token = request_id.set(given if _REQUEST_ID.fullmatch(given) else uuid.uuid4().hex)
     started = time.perf_counter()
     try:
         response = await call_next(request)

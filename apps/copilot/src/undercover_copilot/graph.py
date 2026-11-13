@@ -119,6 +119,10 @@ NOT_A_PREFERENCE = re.compile(
 )
 # Values from a tool result shorter than this are too common to say a note copied them.
 SHORTEST_VALUE = 3
+# A quoted JSON string and the colon that marks it as a key, for a result cut too short to parse.
+QUOTED = re.compile(r'"((?:[^"\\]|\\.)*)"(\s*:)?')
+# The most claims the Copilot starts the agent on in one turn; the queue is the switch's job.
+MOST_STARTS_A_TURN = 3
 
 
 def tool(name: str, description: str, properties: Json | None = None) -> Json:
@@ -454,14 +458,16 @@ def leaves(value: object, key: str = "") -> list[str]:
 
 
 def seen_values(results: list[str]) -> set[str]:
-    """The values the turn's tool results showed: names, amounts, stories and the like."""
+    """The values the conversation's tool results showed: names, amounts, stories and the like.
+    A result that isn't whole JSON (cut short for length) still gives up its quoted values, so
+    the check never passes a note because a result couldn't be read."""
     seen: set[str] = set()
     for text in results:
         try:
-            parsed: object = json.loads(text)
+            values = leaves(json.loads(text))
         except ValueError:
-            continue
-        seen |= {v.strip().lower() for v in leaves(parsed) if len(v.strip()) >= SHORTEST_VALUE}
+            values = [value for value, key in QUOTED.findall(text) if not key]
+        seen |= {v.strip().lower() for v in values if len(v.strip()) >= SHORTEST_VALUE}
     return seen
 
 
@@ -505,17 +511,29 @@ def recall(
 
 
 def turn_results(messages: list[Json]) -> list[str]:
-    """The text of every tool result since the handler's latest message."""
+    """The text of every tool result in the conversation: a claim read in an earlier turn is
+    still claim data when the handler asks to remember something from it."""
     found: list[str] = []
-    for message in reversed(messages):
+    for message in messages:
         content = message.get("content")
-        if message.get("role") == "user" and not isinstance(content, list):
-            break
         blocks = cast(list[Json], content) if isinstance(content, list) else []
         found += [str(b.get("content", "")) for b in blocks if b.get("type") == "tool_result"]
-        if any(b.get("type") == "text" for b in blocks) and message.get("role") == "user":
-            break
     return found
+
+
+def starts_this_turn(messages: list[Json]) -> int:
+    """How many times the Copilot has asked the agent to start work since the handler's
+    latest message."""
+    count = 0
+    for message in reversed(messages):
+        content = message.get("content")
+        blocks = cast(list[Json], content) if isinstance(content, list) else []
+        if message.get("role") == "user" and not any(
+            b.get("type") == "tool_result" for b in blocks
+        ):
+            break
+        count += sum(b.get("type") == "tool_use" and b.get("name") == "start_work" for b in blocks)
+    return count
 
 
 def user_turn(messages: list[Json], text: str) -> Json:
@@ -758,6 +776,14 @@ def build_graph(  # noqa: C901, PLR0915 - the nodes are closures over their depe
                 text, shown = why, card("error", "Can't do that", why)
             elif name in ("search_documents", "read_section"):
                 text, shown = lookup(context, name, args, runtime.context.token)
+            elif name == "start_work" and (
+                starts_this_turn(state.get("messages", [])[:-1])
+                + sum(b["name"] == "start_work" for b in calls[: calls.index(block)])
+                >= MOST_STARTS_A_TURN
+            ):
+                # Working the queue is the agent switch's job, a senior handler's to turn on.
+                text = f"At most {MOST_STARTS_A_TURN} claims started in one turn."
+                shown = card("error", "Too many claims at once", text)
             elif name in ("remember", "forget_all"):
                 seen = turn_results(state.get("messages", [])) + [r["content"] for r in results]
                 text, shown = recall(notes, handler_id, name, args, seen)

@@ -59,7 +59,10 @@ def draft_letter(claim_id: ClaimId, _: SignedIn, db: Database, tools: Drafting) 
         "payout": payment.amount if payment else payout,
         "paid_to": (payment.paid_to or "") if payment else "",
         "section": (decision.section if decision else "")[:500],
-        "reason": (decision.reason if decision else "")[:4000],
+        # A handler's own decision is explained by their note, not the agent's earlier reason.
+        "reason": (
+            (decision.override.note if decision.override else decision.reason) if decision else ""
+        )[:4000],
     }
     try:
         answer = service.letter(request)

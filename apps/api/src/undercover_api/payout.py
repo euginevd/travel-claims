@@ -102,10 +102,36 @@ def override_ceiling(policy: PolicyTerms, plans: Plans, amount_claimed: float) -
     return round(min(amount_claimed, largest), 2)
 
 
+def capped(
+    calculation: list[CalculationStep], total: float, maximum: float, amount_claimed: float | None
+) -> float:
+    """The total held to the benefit's maximum and then to what the customer claimed, with a
+    step for each cut."""
+    if total > maximum:
+        calculation.append(
+            step(f"Less the amount over the maximum of ${maximum:,.0f}", maximum - total)
+        )
+        total = maximum
+    if amount_claimed is not None and cents(total) > cents(amount_claimed):
+        calculation.append(
+            step(
+                f"Less the amount over the {dollars(amount_claimed)} claimed",
+                amount_claimed - total,
+            )
+        )
+        total = amount_claimed
+    return total
+
+
 def work_out_payout(
-    policy: PolicyTerms, plans: Plans, request: PayoutRequest, approval_limit: float
+    policy: PolicyTerms,
+    plans: Plans,
+    request: PayoutRequest,
+    approval_limit: float,
+    amount_claimed: float | None = None,
 ) -> Payout:
-    """Work out an approved claim's payout step by step, and whether it needs a sign-off."""
+    """Work out an approved claim's payout step by step, and whether it needs a sign-off. It
+    never comes to more than the customer claimed, whatever lines and benefit the agent sends."""
     plan = next((p for p in plans.plans if p.plan == policy.plan), None)
     if plan is None:
         raise UnknownPlanError(policy.plan)
@@ -134,11 +160,7 @@ def work_out_payout(
     maximum: float = getattr(plan, BENEFIT_MAXIMUM[request.benefit])
     if request.benefit in CAPPED_AT_TRIP_COST:
         maximum = min(maximum, policy.trip_cost)
-    if total > maximum:
-        calculation.append(
-            step(f"Less the amount over the maximum of ${maximum:,.0f}", maximum - total)
-        )
-        total = maximum
+    total = capped(calculation, total, maximum, amount_claimed)
 
     if total < 0:
         calculation.append(step("Nothing is left to pay", -total))

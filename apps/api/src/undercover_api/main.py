@@ -118,6 +118,7 @@ from undercover_api.models import (
     Policy,
     PreviousClaim,
     SendBackRequest,
+    SignOffRequest,
     StartRequest,
     Status,
     Step,
@@ -241,7 +242,9 @@ def calculate_payout(claim_id: ClaimId, request: PayoutRequest, db: Database) ->
         raise HTTPException(409, f"Claim {claim_id} isn't in progress")
     terms = policy_terms(claims_policy(db, claim_id))
     try:
-        payout = work_out_payout(terms, plans(db), request, approval_limit(db))
+        payout = work_out_payout(
+            terms, plans(db), request, approval_limit(db), float(claim["amount_claimed"])
+        )
     except UnknownPlanError as error:
         raise HTTPException(409, f"The payout rules have no plan {error}") from error
     keep_calculation(db, claim_id, claim["thread_id"], payout)
@@ -434,9 +437,16 @@ def hand_over(db: Connection, claim_id: str, service: AgentService) -> Handover:
     raise HTTPException(409, f"Claim {claim_id} isn't waiting or sent back")
 
 
+def refuse_evaluation_copy(db: Connection, claim_id: str) -> None:
+    """An evaluation's copy belongs to its run: a handler neither works nor decides it."""
+    if find_claim(db, claim_id)["source"] == EVALUATION:
+        raise HTTPException(409, f"Claim {claim_id} is an evaluation's copy")
+
+
 @staff_router.post("/claims/{claim_id}/work", operation_id="work_claim")
 def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls) -> Claim:
     """Ask the agent to work a waiting claim, or to take a sent-back one up again."""
+    refuse_evaluation_copy(db, claim_id)
     handover = hand_over(db, claim_id, service)
     try:
         ask_agent(db, handover.ask)
@@ -451,6 +461,7 @@ def work_claim(claim_id: ClaimId, _: SignedIn, db: Database, service: AgentCalls
 def retry_claim(claim_id: ClaimId, handler: SignedIn, db: Database, service: AgentCalls) -> Claim:
     """Ask the agent to carry a stalled claim on from where it stopped, as the handler signed
     in."""
+    refuse_evaluation_copy(db, claim_id)
     recovery = take_stalled(db, claim_id)
     try:
         ask_agent(db, lambda: service.carry_on(claim_id, recovery.thread_id))
@@ -496,11 +507,21 @@ def held(db: Connection, claim_id: str, end: Status) -> Decision:
 
 @staff_router.post("/claims/{claim_id}/sign-off", operation_id="sign_off_claim")
 def sign_off_claim(
-    claim_id: ClaimId, handler: SeniorHandler, db: Database, service: AgentCalls
+    claim_id: ClaimId,
+    handler: SeniorHandler,
+    db: Database,
+    service: AgentCalls,
+    request: SignOffRequest | None = None,
 ) -> Claim:
-    """Sign off a held payout as the handler signed in, which pays it."""
+    """Sign off a held payout as the handler signed in, which pays it. The amount the handler
+    saw goes with it, so a payout that changed while the page was open isn't paid unseen."""
     refuse_while_paused(db)
     decision = held(db, claim_id, Status.DECIDED)
+    if request is not None and not same_amount(request.expected_payout, decision.payout):
+        raise HTTPException(
+            409,
+            f"Claim {claim_id}'s payout is now {dollars(decision.payout)}; reload and check it",
+        )
     if decision.calculation is None or decision.payout != decision.calculation.payout:
         raise HTTPException(409, f"Claim {claim_id}'s payout isn't its calculation's")
     db.execute(
@@ -571,6 +592,7 @@ def override_decision(
 ) -> Claim:
     """Put a senior handler's own decision in place of the agent's, with a reason code. An
     approval is paid at once as the handler's sign-off; nothing already paid can change."""
+    refuse_evaluation_copy(db, claim_id)
     claim = find_claim(db, claim_id)
     current = find_decision(db, claim_id)
     if current is None or claim["status"] not in OVERRIDABLE:
@@ -584,6 +606,7 @@ def decide_referral(
 ) -> Claim:
     """Decide a claim the agent referred to a person, as any handler: approve or decline, with a
     reason code. An approval over the approval limit is a senior handler's to decide."""
+    refuse_evaluation_copy(db, claim_id)
     claim = find_claim(db, claim_id)
     current = find_decision(db, claim_id)
     referred = current is not None and current.decision == DecisionKind.REFER
@@ -775,7 +798,15 @@ def create_app(
         yield
         database.dispose()
 
-    app = FastAPI(title="UnderCover api", lifespan=lifespan)
+    # The route list is for a laptop: a deployed api doesn't publish its schema to passers-by.
+    local = settings.environment == "local"
+    app = FastAPI(
+        title="UnderCover api",
+        lifespan=lifespan,
+        docs_url="/docs" if local else None,
+        redoc_url="/redoc" if local else None,
+        openapi_url="/openapi.json" if local else None,
+    )
     app.add_exception_handler(OperationalError, lost_race)
     app.state.settings = settings
     app.state.engine = database

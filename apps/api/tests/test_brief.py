@@ -8,6 +8,7 @@ from api_helpers import (
     MAYA,
     OLIVER,
     FakeAgent,
+    claiming,
     decide,
     line,
     make_settings,
@@ -38,6 +39,7 @@ def claim(client: TestClient, claim_id: str, headers: dict[str, str]) -> Any:
 
 def approve_with_checklist(client: TestClient, claim_id: str, item: float) -> float:
     start(client, claim_id)
+    claiming(client, claim_id, item * 5)
     amount = payout(client, claim_id, "baggage", [line("Bag", item, quantity=5)])["payout"]
     client.post(
         f"/api/agent/claims/{claim_id}/steps",

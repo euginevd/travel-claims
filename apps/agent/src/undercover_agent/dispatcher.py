@@ -14,7 +14,7 @@ import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Literal, cast
 
-from undercover_agent.api_client import ApiClient, ApiError
+from undercover_agent.api_client import ApiClient
 from undercover_agent.runner import Runner
 
 log = logging.getLogger(__name__)
@@ -53,11 +53,16 @@ class Dispatcher:
             while True:
                 try:
                     ready = self._api.ready_claims()
-                except ApiError:
+                except Exception:
+                    # Any failure, a dropped connection included: the watcher outlives it, as
+                    # nothing else restarts one while the switch is on.
                     log.exception("the watcher couldn't read the queue")
                     time.sleep(self._pause)
                     continue
                 if ready.get("on") is not True:
+                    # Forgotten before the pool drains, so switching back on starts a new one.
+                    with self._lock:
+                        self._watcher = None
                     break
                 for claim_id, future in list(working.items()):
                     if future.done():
@@ -66,7 +71,7 @@ class Dispatcher:
                 raw: object = ready.get("claim_ids")
                 ids = [str(i) for i in cast(list[object], raw)] if isinstance(raw, list) else []
                 for claim_id in [i for i in ids if i not in working][: max(room, 0)]:
-                    working[claim_id] = pool.submit(self.work_one, claim_id)
+                    working[claim_id] = pool.submit(self.work_one, claim_id, waiting_only=True)
                 time.sleep(self._pause)
         log.info("the watcher stopped: the agent is switched off")
 
@@ -84,29 +89,33 @@ class Dispatcher:
         return thread
 
     def _run(self, run_id: int, claim_ids: list[str], concurrency: int, kind: Kind) -> None:
-        with ThreadPoolExecutor(max_workers=max(1, min(concurrency, 25))) as pool:
-            list(pool.map(self.work_one, claim_ids))
         try:
-            if kind == "run":
-                self._api.finish_run(run_id)
-            else:
-                self._api.finish_dispatch(run_id)
-        except ApiError:
-            log.exception("couldn't finish %s %s", kind, run_id)
+            with ThreadPoolExecutor(max_workers=max(1, min(concurrency, 25))) as pool:
+                list(pool.map(self.work_one, claim_ids))
+        finally:
+            # Always reported, or the api keeps it as running and refuses every later one.
+            try:
+                if kind == "run":
+                    self._api.finish_run(run_id)
+                else:
+                    self._api.finish_dispatch(run_id)
+            except Exception:
+                log.exception("couldn't finish %s %s", kind, run_id)
 
-    def work_one(self, claim_id: str) -> None:
+    def work_one(self, claim_id: str, waiting_only: bool = False) -> None:
         """Start, carry on or leave one claim, whichever it needs. A claim someone else started
-        first is left to them (start_claim refuses it), and one bad claim never stops the rest."""
+        first is left to them (start_claim refuses it), and one bad claim never stops the rest.
+        The watcher starts waiting claims only: one already in progress is someone else's."""
         try:
             claim = self._api.claim(claim_id)
             status = claim.get("status")
             if status == "waiting":
                 thread_id = uuid.uuid4().hex
                 self._api.start(claim_id, thread_id)
-            elif status == "in_progress" and claim.get("thread_id"):
+            elif status == "in_progress" and claim.get("thread_id") and not waiting_only:
                 thread_id = str(claim["thread_id"])
             else:
                 return
             self._runner.carry_on(claim_id, thread_id)
-        except ApiError:
-            log.exception("copy %s couldn't be worked", claim_id)
+        except Exception:
+            log.exception("claim %s couldn't be worked", claim_id)

@@ -105,3 +105,32 @@ def test_a_payment_refused_while_payouts_are_paused_is_held_not_lost() -> None:
     api.status = "decided"  # a handler signs it off once payouts are back on
     graph.invoke(Command(resume="signed_off"), config())
     assert ("message", "A handler signed off the payout.") in api.steps_recorded
+
+
+def test_a_file_added_after_the_check_is_checked_before_a_specialist_reads_it() -> None:
+    """A customer can answer a handler's request while a payout is held: the file they add is
+    screened on the send-back, and one with instructions in it never reaches a specialist."""
+    api = FakeApi()
+    api.attached = [RECEIPT]
+    claude = FakeClaude(
+        [
+            decide("approve", 2500.0, 1),
+            tool_use("check_documents", {}, 2),
+            decide("decline", 0.0, 3),
+        ]
+    )
+    graph = graph_for(api, claude)
+    graph.invoke(START, config())
+    api.attached = [RECEIPT, PDF_RECEIPT]  # added while the payout waited
+    api.notes.append("Check the new document.")
+    api.status, api.decision = "in_progress", None
+    claude.flagged = True
+    graph.invoke(Command(resume="sent_back"), config())
+    assert [block["type"] for block in claude.screened[1]] == ["text", "text", "document"]
+    read = [block["type"] for block in claude.consulted_content[0]]
+    assert "image" in read
+    assert "document" not in read
+    assert any(
+        kind == "screening" and text.startswith("Instructions found in a file added later")
+        for kind, text in api.steps_recorded
+    )
