@@ -32,6 +32,7 @@ from undercover_api.db import (
     steps,
 )
 from undercover_api.logs import redact_people
+from undercover_api.model_registry import Effort, Model
 from undercover_api.models import (
     MAX_COST,
     ClaimId,
@@ -50,11 +51,8 @@ EVALUATION = "evaluation"
 CURRENT_VERSION = "current_configuration"
 LabelSet = Literal["evaluation", "held_out"]
 Size = Literal["tiny", "whole"]
-# Models and efforts the claim agent may use; the improver chooses only from these.
-MODELS = ("claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5")
-EFFORTS = ("low", "medium", "high")
-Model = Literal["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"]
-Effort = Literal["low", "medium", "high"]
+# The models and efforts the claim agent may use are in model_registry; the improver keeps
+# to IMPROVER_MODELS and IMPROVER_EFFORTS there.
 Instructions = Annotated[str, StringConstraints(min_length=50, max_length=20_000)]
 # A run still shows as grading for this long after the judge took it, then stops waiting.
 JUDGE_WAIT = timedelta(minutes=10)
@@ -178,6 +176,12 @@ def current_version(db: Connection) -> int | None:
 
 
 def set_current_version(db: Connection, version: int, by: str) -> None:
+    status = db.execute(
+        select(configurations.c.status).where(configurations.c.version == version)
+    ).scalar_one_or_none()
+    if status == "compare":
+        # A model tried in Compare goes live only through a round: a review, then the exam.
+        raise HTTPException(409, "A compared model can't be put in use: propose it")
     exists = db.execute(select(settings.c.key).where(settings.c.key == CURRENT_VERSION)).first()
     values = {"value": version, "changed_by": by, "changed_at": now()}
     if exists:
@@ -387,7 +391,11 @@ def list_traces(_: SignedInEngineer, db: Database) -> list[TraceRow]:
 @staff_eval_router.get("/configuration", operation_id="list_configurations")
 def list_configurations(_: SignedInEngineer, db: Database) -> list[Configuration]:
     """Every version of the claim agent's configuration, newest first."""
-    rows = db.execute(select(configurations).order_by(configurations.c.version.desc()))
+    rows = db.execute(
+        select(configurations)
+        .where(configurations.c.status != "compare")
+        .order_by(configurations.c.version.desc())
+    )
     current = current_version(db)
     return [
         Configuration.model_validate(dict(r) | {"current": r["version"] == current})
@@ -801,12 +809,14 @@ def finish(db: Connection, run_id: int) -> Run:
 def finish_run(run_id: int, db: Database, service: AgentCalls) -> Run:
     """The dispatcher has worked every copy it was given: score the run, and move on any
     improvement round waiting for it."""
+    from undercover_api.compare import after_run as next_compared  # noqa: PLC0415
     from undercover_api.improvement import after_run  # noqa: PLC0415 - improvement imports this
 
     run = finish(db, run_id)
     ask_the_judge(db, service, run_id)
     if run.round_id is not None:
         after_run(db, run.round_id, service)
+    next_compared(db, run_id, service)
     return run_of(db, run_row(db, run_id))
 
 

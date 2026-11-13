@@ -14,6 +14,9 @@ locals {
   # The API takes plain names; Bedrock takes Australia's inference profiles.
   sonnet = local.bedrock ? coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none")) : "claude-sonnet-5-5"
   haiku  = local.bedrock ? coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none")) : "claude-haiku-5-5"
+  # Compare's dearer models, where Australia offers them: their profiles, or none.
+  opus  = local.bedrock ? try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-opus-5-5")])[0], "") : "claude-opus-5-5"
+  fable = local.bedrock ? try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-fable-5-2")])[0], "") : "claude-fable-5-2"
 }
 
 locals {
@@ -200,6 +203,8 @@ locals {
       APP_SECRET      = local.app_parameter
       RECEIPTS_BUCKET = local.receipts
       AUDIT_BUCKET    = local.audit
+      # The models Compare may offer: Sonnet and Haiku always, Opus and Fable where Australia has them.
+      OFFERED_MODELS = join(",", compact(["claude-sonnet-5-5", "claude-haiku-5-5", local.opus == "" ? "" : "claude-opus-5-5", local.fable == "" ? "" : "claude-fable-5-2"]))
       # The demo's test-account buttons and the project page's counts; drop it to turn both off.
       TEST_SIGN_IN = "true"
       # The agent's runtime takes the api's machine token, which AgentCore Identity fetches.

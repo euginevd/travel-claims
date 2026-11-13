@@ -606,7 +606,9 @@ def audit(db: Connection, limit: int = 100) -> list[AuditEntry]:
             )
         )
     for row in db.execute(
-        select(configurations).where(configurations.c.version > 1).limit(limit)
+        select(configurations)
+        .where(configurations.c.version > 1, configurations.c.status != "compare")
+        .limit(limit)
     ).mappings():
         found.append(
             AuditEntry(
@@ -848,7 +850,11 @@ def list_versions(_: SignedInEngineer, db: Database) -> list[VersionCard]:
     """Every version, newest first, each with what it changed and its evidence."""
     in_use = current_version(db)
     rows = (
-        db.execute(select(configurations).order_by(configurations.c.version.desc()))
+        db.execute(
+            select(configurations)
+            .where(configurations.c.status != "compare")
+            .order_by(configurations.c.version.desc())
+        )
         .mappings()
         .all()
     )

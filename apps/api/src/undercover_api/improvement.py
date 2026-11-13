@@ -23,14 +23,10 @@ from undercover_api.claims import find_claim
 from undercover_api.db import configurations, now, rounds, setting_changes, settings
 from undercover_api.evaluations import (
     CURRENT_VERSION,
-    EFFORTS,
-    MODELS,
     AgentCalls,
     Configuration,
-    Effort,
     Instructions,
     LabelSet,
-    Model,
     Scores,
     Size,
     StartRunRequest,
@@ -47,6 +43,7 @@ from undercover_api.evaluations import (
     set_current_version,
     staff_eval_router,
 )
+from undercover_api.model_registry import IMPROVER_EFFORTS, IMPROVER_MODELS, Effort, Model
 from undercover_api.models import Strict
 from undercover_api.redteam import start_gate
 
@@ -222,6 +219,14 @@ def get_round(round_id: int, _: SignedInEngineer, db: Database) -> Round:
 def start_round(engineer: SignedInEngineer, db: Database, service: AgentCalls) -> Round:
     """Start a round: evaluate the current version on the evaluation and held-out sets (their
     tiny claims, in this pilot), then ask the improver."""
+    return round_of(db, round_row(db, start_round_with(db, service, engineer.name)))
+
+
+def start_round_with(
+    db: Connection, service: AgentService, by: str, preset: dict[str, Any] | None = None
+) -> int:
+    """Open a round and its baseline runs; with a preset (from Compare), its model and effort
+    are proposed in the improver's place once the baselines finish."""
     if db.execute(select(func.count()).where(rounds.c.status.in_(OPEN))).scalar_one():
         raise HTTPException(409, "A round is already open; finish or stop it first")
     version = need_current(db)
@@ -232,17 +237,18 @@ def start_round(engineer: SignedInEngineer, db: Database, service: AgentCalls) -
                 baseline_version=version,
                 improver_cost=0,
                 spend_limit=spend_limit(db),
-                started_by=engineer.name,
+                started_by=by,
                 started_at=now(),
+                proposal=(preset | {"preset": True}) if preset else None,
             )
         )
     )
     for label_set, size, column in BASELINES:
         body = StartRunRequest(label_set=label_set, size=size, concurrency=CONCURRENCY)
-        run_id, ids = create_run(db, body, version, engineer.name, round_id=round_id)
+        run_id, ids = create_run(db, body, version, by, round_id=round_id)
         update_round(db, round_id, **{column: run_id})
         dispatch(db, service, run_id, ids, CONCURRENCY)
-    return round_of(db, round_row(db, round_id))
+    return round_id
 
 
 @staff_eval_router.post("/rounds/{round_id}/review", operation_id="review_proposal")
@@ -330,8 +336,8 @@ def get_improver_brief(round_id: int, db: Database) -> Brief:
         configuration=configuration(db, row["baseline_version"]),
         scores=scores_of(db, eval_run),
         misses=misses,
-        models=list(MODELS),
-        efforts=list(EFFORTS),
+        models=list(IMPROVER_MODELS),
+        efforts=list(IMPROVER_EFFORTS),
         history=history_of(db, round_id),
     )
 
@@ -446,6 +452,19 @@ def after_run(db: Connection, round_id: int, service: AgentService) -> None:
         finished(db, row[c]) for c in ("baseline_eval_run", "baseline_held_run")
     ):
         update_round(db, round_id, status="improving")
+        preset: dict[str, Any] = row["proposal"] or {}
+        if preset.get("preset"):
+            # Proposed from Compare: the person's pick stands in for the improver's.
+            base = configuration(db, row["baseline_version"])
+            pick = Proposal(
+                instructions=base.instructions,
+                model=preset["model"],
+                effort=preset["effort"],
+                reason=preset["reason"],
+                cost=0,
+            )
+            propose_configuration(round_id, pick, db)
+            return
         db.commit()
         try:
             service.improve(round_id)

@@ -19,11 +19,15 @@ log = logging.getLogger(__name__)
 
 Json = dict[str, Any]
 
+# Models that think long enough on a turn to need the longer timeout.
+SLOW_MODELS = re.compile(r"claude-(opus|fable)-")
+
 # US dollars per million tokens: input, output, cache read, cache write (5-minute).
 PRICES: dict[str, tuple[float, float, float, float]] = {
     "claude-sonnet-5-5": (2.00, 10.00, 0.20, 2.50),
     "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
     "claude-opus-5-5": (4.00, 20.00, 0.20, 5.00),
+    "claude-fable-5-2": (8.00, 40.00, 0.20, 10.00),
 }
 
 SCREEN_INSTRUCTIONS = (
@@ -318,6 +322,7 @@ def provider_model(model: str, settings: Settings) -> str:
         settings.specialist_model,
         settings.drafting_model,
         settings.improver_model,
+        *(m.strip() for m in settings.extra_models.split(",") if m.strip()),
     )
     return next((m for m in configured if plain_name(m) == name), model)
 
@@ -490,7 +495,12 @@ class AnthropicClaude:
         instructions and tools are cached."""
         model = provider_model(model or self._settings.claim_model, self._settings)
         started = time.monotonic()
-        reply = self._client.messages.create(
+        client = (
+            self._client.with_options(timeout=self._settings.slow_model_timeout_seconds)
+            if SLOW_MODELS.search(plain_name(model))
+            else self._client
+        )
+        reply = client.messages.create(
             model=model,
             max_tokens=self._settings.claim_max_tokens,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],

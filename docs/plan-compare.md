@@ -76,26 +76,26 @@ Ours scores claims to pick a model, so it is an experiment. It's named in the me
 
 ### 1. Compare models on the practice set
 
-- [ ] One model registry shared by the api and the agent: ID, label, prices, speed, efforts, default effort, whether thinking is always on, and Bedrock availability.
+- [x] One model registry shared by the api and the agent: ID, label, prices, speed, efforts, default effort, whether thinking is always on, and Bedrock availability.
   - Opus 5.5 and Fable 5.2 added, efforts up to `max`.
   - A refusal is recorded as *declined*.
   - Bedrock profiles found for Opus and Fable where Australia offers them.
-- [ ] `POST /api/engineering/compare`: up to 3 model and effort pairs, the size (`tiny` or `whole`) and runs each (1 to 3). It makes or reuses a `compare` configuration for each pair, starts the practice runs, and returns a comparison id.
-- [ ] `GET /api/engineering/compare/{id}`, all worked out in code from the runs:
+- [x] `POST /api/engineering/compare`: up to 3 model and effort pairs, the size (`tiny` or `whole`) and runs each (1 to 3). It makes or reuses a `compare` configuration for each pair, starts the practice runs, and returns a comparison id.
+- [x] `GET /api/engineering/compare/{id}`, all worked out in code from the runs:
   - each model's scores, its range and its spread across runs;
   - cost, time and tokens a claim;
   - pass or fail against the targets;
   - the one-line answer;
   - the claims decided differently.
-- [ ] The Compare page under Evaluate, between Scoreboard and Red team: the fact cards, the run bar, the answer, the cost chart, the model cards and the claim boxes.
-- [ ] `compare` configurations are hidden from Versions and refused as current.
-- [ ] Tests: the main path, the answer line's three cases (one cheapest pass, none pass, ranges overlap), and that a compared configuration can't be made current.
+- [x] The Compare page under Evaluate, between Scoreboard and Red team: the fact cards, the run bar, the answer, the cost chart, the model cards and the claim boxes.
+- [x] `compare` configurations are hidden from Versions and refused as current.
+- [x] Tests: the main path, the answer line's three cases (one cheapest pass, none pass, ranges overlap), and that a compared configuration can't be made current.
 
 ### 2. Head to head, one claim, and Propose
 
 - [ ] The judge compares two models' explanations of the same claim, blind to which wrote which, in both orders so position doesn't count. The win rates fill the grid.
 - [ ] One claim, a third choice beside 5 and 25: size-1 runs, shown in the same cards.
-- [ ] **Propose**: a proposed version from the card's model and effort, opened on Versions for review.
+- [x] **Propose**: a proposed version from the card's model and effort, opened on Versions for review.
 - [ ] Tests: the proposal is proposed, not in use; a win rate from known verdicts.
 
 ### 3. A model for each agent

@@ -63,6 +63,7 @@ from undercover_api.claims import (
     policy_terms,
     set_status,
 )
+from undercover_api.compare import compare_router
 from undercover_api.costs import costs_router
 from undercover_api.db import (
     calculations,
@@ -889,6 +890,7 @@ def create_app(
         staff_usage_router,
         budget_router,
         costs_router,
+        compare_router,
         trends_router,
         redteam_router,
         threats_router,

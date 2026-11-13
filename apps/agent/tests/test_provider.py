@@ -142,3 +142,17 @@ def test_the_vaulted_key_is_fetched_only_with_a_provider_and_workload(
     load_vaulted_key(lambda workload, provider: asked.append((workload, provider)) or "sk-vault")
     assert os.environ["ANTHROPIC_API_KEY"] == "sk-vault"
     assert asked == [("travel-claims-dev-app", "travel-claims-dev-anthropic")]
+
+
+def test_compares_dearer_models_reach_bedrock_through_their_australian_profiles() -> None:
+    from undercover_agent.models import price_for, provider_model  # noqa: PLC0415
+
+    bedrock = Settings(
+        model_provider="bedrock",
+        aws_region="ap-southeast-2",
+        extra_models="au.anthropic.claude-opus-5-5-v1:0, au.anthropic.claude-fable-5-2-v1:0",
+        **BASE,  # pyright: ignore[reportArgumentType]
+    )
+    assert provider_model("claude-fable-5-2", bedrock) == "au.anthropic.claude-fable-5-2-v1:0"
+    assert provider_model("claude-opus-5-5", bedrock) == "au.anthropic.claude-opus-5-5-v1:0"
+    assert price_for("au.anthropic.claude-fable-5-2-v1:0")[:2] == (8.00, 40.00)

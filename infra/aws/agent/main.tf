@@ -14,6 +14,9 @@ locals {
   # The API takes plain names; Bedrock takes Australia's inference profiles.
   sonnet = local.bedrock ? coalesce(var.sonnet_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-sonnet-5-5")])[0], "none")) : "claude-sonnet-5-5"
   haiku  = local.bedrock ? coalesce(var.haiku_model, try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-haiku-5-5")])[0], "none")) : "claude-haiku-5-5"
+  # Compare's dearer models, where Australia offers them: their profiles, or none.
+  opus  = local.bedrock ? try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-opus-5-5")])[0], "") : "claude-opus-5-5"
+  fable = local.bedrock ? try(sort([for id in local.profiles : id if startswith(id, "au.anthropic.claude-fable-5-2")])[0], "") : "claude-fable-5-2"
 }
 
 locals {
@@ -794,6 +797,7 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     SCREENING_MODEL             = local.haiku
     SPECIALIST_MODEL            = local.haiku
     DRAFTING_MODEL              = local.haiku
+    EXTRA_MODELS                = join(",", compact([local.opus, local.fable]))
     UNDERCOVER_API              = local.api_endpoint
     UNDERCOVER_CONTEXT          = aws_bedrockagentcore_gateway.context.gateway_url
     MEMORY_ID                   = aws_bedrockagentcore_memory.customers.id
