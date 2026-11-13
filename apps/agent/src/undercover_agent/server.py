@@ -395,6 +395,23 @@ def start(begin: Callable[[], object]) -> JSONResponse:
     return JSONResponse({"accepted": True}, status_code=202)
 
 
+def set_up_tables(*steps: Callable[[], object], attempts: int = 3) -> None:
+    """Create the checkpoint tables. The agent and the Copilot share a database and start
+    together, and two `CREATE TABLE IF NOT EXISTS` at once can still collide in Postgres's
+    catalogue; the loser tries again and finds the table there."""
+    from psycopg import errors  # noqa: PLC0415
+
+    for attempt in range(attempts):
+        try:
+            for step in steps:
+                step()
+            return
+        except errors.UniqueViolation, errors.DuplicateTable, errors.DuplicateObject:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
+
+
 def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
     """PostgreSQL connections for checkpoints and the store, through Supabase's pooler.
 
@@ -452,9 +469,8 @@ def checkpoints(settings: Any, region: str | None) -> tuple[Any, Any]:
     pool = connection_pool(settings.checkpoint_database_url.get_secret_value(), max_size=8)
     pool.open()
     saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
-    saver.setup()
     store = PostgresStore(pool)  # pyright: ignore[reportArgumentType]
-    store.setup()
+    set_up_tables(saver.setup, store.setup)
     return saver, store
 
 

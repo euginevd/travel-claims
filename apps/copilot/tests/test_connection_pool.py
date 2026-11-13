@@ -17,3 +17,32 @@ def test_the_pool_keeps_connections_alive_and_tests_each_before_lending_it() -> 
     assert kwargs["prepare_threshold"] is None  # the transaction pooler can't keep them
     assert (kwargs["keepalives"], kwargs["keepalives_idle"]) == (1, 30)
     assert (kwargs["connect_timeout"], kwargs["tcp_user_timeout"]) == (10, 10_000)
+
+
+def test_a_checkpoint_table_made_at_the_same_moment_elsewhere_is_retried() -> None:
+    from psycopg import errors  # noqa: PLC0415
+
+    from undercover_copilot.server import set_up_tables  # noqa: PLC0415
+
+    calls: list[str] = []
+
+    def racing() -> None:
+        calls.append("saver")
+        if len(calls) == 1:
+            raise errors.UniqueViolation("pg_type_typname_nsp_index")
+
+    set_up_tables(racing, lambda: calls.append("store"), attempts=2)
+    assert calls == ["saver", "saver", "store"]
+
+
+def test_a_table_that_keeps_colliding_still_fails() -> None:
+    import pytest  # noqa: PLC0415
+    from psycopg import errors  # noqa: PLC0415
+
+    from undercover_copilot.server import set_up_tables  # noqa: PLC0415
+
+    def always() -> None:
+        raise errors.DuplicateTable("checkpoint_blobs")
+
+    with pytest.raises(errors.DuplicateTable):
+        set_up_tables(always, attempts=2)

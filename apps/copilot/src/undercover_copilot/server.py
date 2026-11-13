@@ -5,6 +5,7 @@ token; the Copilot checks it with the api and acts with it, one turn at a time p
 conversation."""
 
 import os
+import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -219,6 +220,23 @@ def config_for(conversation_id: str) -> RunnableConfig:
     return {"configurable": {"thread_id": conversation_id}, "recursion_limit": 60}
 
 
+def set_up_tables(*steps: Callable[[], object], attempts: int = 3) -> None:
+    """Create the checkpoint tables. The agent and the Copilot share a database and start
+    together, and two `CREATE TABLE IF NOT EXISTS` at once can still collide in Postgres's
+    catalogue; the loser tries again and finds the table there."""
+    from psycopg import errors  # noqa: PLC0415
+
+    for attempt in range(attempts):
+        try:
+            for step in steps:
+                step()
+            return
+        except errors.UniqueViolation, errors.DuplicateTable, errors.DuplicateObject:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
+
+
 def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
     """PostgreSQL connections for checkpoints and the store, through Supabase's pooler.
 
@@ -285,7 +303,7 @@ def build_app() -> FastAPI:
     def make_graph() -> Graph:
         pool.open()
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
-        saver.setup()
+        set_up_tables(saver.setup)
         return build_graph(
             AnthropicClaude(settings),
             saver,
