@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Api, Configuration, Round, Run, Scores } from "../api";
 import { AiMark } from "../components/AiMark";
 import { Meter } from "../components/Charts";
+import { ReleaseHistory } from "../components/ReleaseHistory";
 import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
@@ -417,7 +418,7 @@ function RoundPanel({ api, round, versions, onChange }: RoundPanelProps) {
   );
 }
 
-/** The version in use, its exam score, and the way back to an earlier kept version. */
+/** The way back to an earlier kept version, with a reason, under the release history. */
 function CurrentVersion(props: {
   api: Api;
   versions: Configuration[];
@@ -433,9 +434,6 @@ function CurrentVersion(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!current) return null;
-  const exam = runs.find(
-    (run) => run.config_version === current.version && run.label_set === "held_out" && run.scores,
-  );
   const examsRun = runs.filter((run) => run.label_set === "held_out").length;
   const chosen = target ?? earlier[0]?.version ?? null;
 
@@ -461,41 +459,7 @@ function CurrentVersion(props: {
   }
 
   return (
-    <div className="panel current-panel">
-      <div className="panel-head">
-        <h2>
-          In use: v{current.version}
-          <span className="tag mono">{current.model}</span>
-        </h2>
-        <span className="chip chip-good">
-          <Check size={13} strokeWidth={1.75} aria-hidden="true" />
-          {current.proposed_by === "Improver"
-            ? "Passed its exam and the red team"
-            : "First version"}
-        </span>
-      </div>
-      <dl className="stage-rows">
-        <div>
-          <dt>Effort</dt>
-          <dd>{current.effort}</dd>
-        </div>
-        <div>
-          <dt>Latest exam: right decision</dt>
-          <dd>
-            {exam?.scores
-              ? `${percent(exam.scores.accuracy)} of ${String(exam.scores.claims)}`
-              : "Not examined yet"}
-          </dd>
-        </div>
-        <div>
-          <dt>Latest exam: cost per claim</dt>
-          <dd>{exam?.scores ? cost(exam.scores.cost_per_claim) : "–"}</dd>
-        </div>
-        <div>
-          <dt>Exam set used</dt>
-          <dd>{`${String(examsRun)} ${examsRun === 1 ? "time" : "times"}`}</dd>
-        </div>
-      </dl>
+    <div className="release-rollback">
       {examsRun >= 10 && (
         <p className="small muted">
           The more often the same exam is used, the more a version can pass it by chance. Add new
@@ -520,7 +484,7 @@ function CurrentVersion(props: {
             >
               {earlier.map((v) => (
                 <option key={v.version} value={v.version}>
-                  v{v.version}: {modelName(v.model)}, {v.effort} effort
+                  #{v.version}: {modelName(v.model)}, {v.effort} effort
                 </option>
               ))}
             </select>
@@ -547,7 +511,7 @@ function CurrentVersion(props: {
               onClick={() => void restore()}
             >
               <RotateCcw size={14} strokeWidth={1.75} aria-hidden="true" />
-              {chosen === null ? "Roll back" : `Roll back to v${String(chosen)}`}
+              {chosen === null ? "Roll back" : `Roll back to #${String(chosen)}`}
             </button>
           </div>
         </details>
@@ -602,14 +566,6 @@ function PastRounds({ rounds, versions }: { rounds: Round[]; versions: Configura
     </section>
   );
 }
-
-const STATUS_WORDS: Record<string, string> = {
-  kept: "Kept",
-  rolled_back: "Rolled back",
-  rejected: "Rejected",
-  proposed: "Proposed",
-  candidate: "Being tested",
-};
 
 export function ImprovementPage({ api }: { api: Api }) {
   const [rounds, setRounds] = useState<Round[] | null>(null);
@@ -667,14 +623,14 @@ export function ImprovementPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="improvement-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evals · Improvement</p>
+          <p className="eyebrow">Govern · Versions</p>
           <h1 id="improvement-heading" ref={heading} tabIndex={-1}>
-            Improvement
+            Versions
           </h1>
           <p className="lede">
-            An AI proposes a better version of the claim agent; you decide whether to try it. It
-            goes live only if it does better on a 25-claim exam it never saw the answers to, worse
-            on nothing, and holds against the red team.
+            The claim agent&apos;s releases: what each changed, whether it did better, and which is
+            in use. The Improver agent proposes; a person approves, and a version goes live only if
+            it does better on a 25-claim exam it never saw the answers to.
           </p>
         </div>
         {!open && (
@@ -710,24 +666,9 @@ export function ImprovementPage({ api }: { api: Api }) {
         </p>
       )}
       {rounds && (
-        <div className="cols wide-side">
-          <div className="stack">
-            {latest ? (
-              <RoundPanel api={api} round={latest} versions={versions} onChange={refresh} />
-            ) : (
-              <div className="panel empty">
-                <span className="icon-tile">
-                  <Sparkles size={19} strokeWidth={1.75} aria-hidden="true" />
-                </span>
-                <h2>No improvement rounds yet</h2>
-                <p className="muted">
-                  Start a round and the improver will propose a new version for you to review.
-                </p>
-              </div>
-            )}
-            <PastRounds rounds={earlier} versions={versions} />
-          </div>
-          <aside className="stack" aria-label="The claim agent's versions">
+        <div className="stack">
+          {/* Keyed by the refresh, so a rollback or a new version shows at once. */}
+          <ReleaseHistory key={generation} api={api}>
             <CurrentVersion
               api={api}
               versions={versions}
@@ -735,30 +676,9 @@ export function ImprovementPage({ api }: { api: Api }) {
               locked={open}
               onChange={refresh}
             />
-            {versions.length > 0 && (
-              <section className="panel" aria-labelledby="versions-heading">
-                <div className="panel-head">
-                  <h2 id="versions-heading">Versions</h2>
-                </div>
-                <ul className="version-list">
-                  {versions.map((version) => (
-                    <li key={version.version}>
-                      <span className="tag">v{version.version}</span>
-                      <span>
-                        {modelName(version.model)}, {version.effort}
-                        <span className="sub">by {version.proposed_by}</span>
-                      </span>
-                      <span className="small">
-                        {version.current
-                          ? "In use"
-                          : (STATUS_WORDS[version.status] ?? version.status)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </aside>
+          </ReleaseHistory>
+          {latest && <RoundPanel api={api} round={latest} versions={versions} onChange={refresh} />}
+          <PastRounds rounds={earlier} versions={versions} />
         </div>
       )}
     </section>

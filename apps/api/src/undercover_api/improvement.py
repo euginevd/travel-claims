@@ -239,7 +239,7 @@ def start_round(engineer: SignedInEngineer, db: Database, service: AgentCalls) -
     )
     for label_set, size, column in BASELINES:
         body = StartRunRequest(label_set=label_set, size=size, concurrency=CONCURRENCY)
-        run_id, ids = create_run(db, body, version, engineer.name, round_id)
+        run_id, ids = create_run(db, body, version, engineer.name, round_id=round_id)
         update_round(db, round_id, **{column: run_id})
         dispatch(db, service, run_id, ids, CONCURRENCY)
     return round_of(db, round_row(db, round_id))
@@ -281,7 +281,7 @@ def review_proposal(
         .values(status="candidate", reviewed_by=engineer.name)
     )
     body_run = StartRunRequest(label_set="held_out", size=EXAM, concurrency=CONCURRENCY)
-    run_id, ids = create_run(db, body_run, candidate, engineer.name, round_id)
+    run_id, ids = create_run(db, body_run, candidate, engineer.name, round_id=round_id)
     update_round(db, round_id, status="evaluating", review=review, candidate_held_run=run_id)
     dispatch(db, service, run_id, ids, CONCURRENCY)
     return round_of(db, round_row(db, round_id))

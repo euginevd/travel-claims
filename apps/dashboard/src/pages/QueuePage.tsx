@@ -1,9 +1,7 @@
 import { AlarmClock, Clock, FileCheck, MessageCircleQuestion, OctagonAlert } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Api, ClaimSummary, Handler } from "../api";
-import { DispatchCard } from "../components/DispatchCard";
+import { useState } from "react";
+import type { ClaimSummary } from "../api";
 import { StatusChip } from "../components/StatusChip";
-import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { date, dollars, words } from "../format";
 import { claimHref } from "../useHashRoute";
 
@@ -145,129 +143,15 @@ export function decisionWords(claim: ClaimSummary): string | null {
   }
 }
 
-function Skeleton() {
-  return (
-    <div aria-hidden="true" className="queue-skeleton">
-      {[0, 1, 2, 3, 4, 5].map((key) => (
-        <span key={key} className="skeleton skeleton-row" />
-      ))}
-    </div>
-  );
-}
-
-export function QueuePage({ api, handler }: { api: Api; handler: Handler }) {
-  const [claims, setClaims] = useState<ClaimSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [generation, setGeneration] = useState(0);
-  const [view, setView] = useState<View | null>(null);
-  const table = useRef<HTMLTableElement>(null);
-  const heading = useFocusHeading();
-
-  // J and K move through the claims, Enter opens one: the links take the focus.
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      // The target is the window when the header's search button sends its own key press.
-      const typing =
-        event.target instanceof Element && event.target.closest("input, textarea, select");
-      if (typing || event.ctrlKey || event.metaKey) return;
-      const key = event.key.toLowerCase();
-      if (key !== "j" && key !== "k") return;
-      const links = [...(table.current?.querySelectorAll<HTMLAnchorElement>("tbody a") ?? [])];
-      if (links.length === 0) return;
-      const at = links.indexOf(document.activeElement as HTMLAnchorElement);
-      const next = key === "j" ? Math.min(at + 1, links.length - 1) : Math.max(at - 1, 0);
-      links[at === -1 ? 0 : next]?.focus();
-      event.preventDefault();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-  }, []);
-  const retry = useCallback(() => {
-    setError(null);
-    setGeneration((value) => value + 1);
-  }, []);
-
-  useEffect(() => {
-    let live = true;
-    api.listClaims().then(
-      (found) => {
-        if (live) setClaims(found);
-      },
-      (caught: unknown) => {
-        if (live) setError(caught instanceof Error ? caught.message : String(caught));
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [api, generation]);
-
-  return (
-    <section aria-labelledby="queue-heading" className="page-in">
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">Handlers&apos; dashboard</p>
-          <h1 id="queue-heading" ref={heading} tabIndex={-1}>
-            Claims queue
-          </h1>
-        </div>
-        {claims && claims.length > 0 && (
-          <ul className="statbar" aria-label="The queue at a glance">
-            {figuresOf(claims).map((figure) => (
-              <li key={figure.label}>
-                <p className="stat-label">{figure.label}</p>
-                <p className={`stat-value${figure.urgent ? " urgent" : ""}`}>{figure.value}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-        {!claims && !error && <span className="skeleton skeleton-stats" aria-hidden="true" />}
-      </div>
-      <DispatchCard api={api} handler={handler} onProgress={retry} />
-      {error && (
-        <p className="error" role="alert">
-          {error}
-          <button type="button" className="button secondary" onClick={retry}>
-            Try again
-          </button>
-        </p>
-      )}
-      {!claims && !error && (
-        <>
-          <p role="status" className="visually-hidden">
-            Loading the queue…
-          </p>
-          <Skeleton />
-        </>
-      )}
-      {claims?.length === 0 && (
-        <div className="panel empty">
-          <h2>The queue is empty</h2>
-          <p className="muted">New claims appear here as customers submit them.</p>
-        </div>
-      )}
-      {claims && claims.length > 0 && (
-        <QueueBody
-          claims={claims}
-          view={view ?? (claims.some(needsMe) ? "needs_me" : "all")}
-          onView={setView}
-          table={table}
-        />
-      )}
-    </section>
-  );
-}
-
-interface QueueBodyProps {
+/** Every claim, in tabs by where it is, with filters and a sort: Today's "Everything else". */
+export function QueueBody({
+  claims,
+  startView = "all",
+}: {
   claims: ClaimSummary[];
-  view: View;
-  onView: (view: View) => void;
-  table: React.RefObject<HTMLTableElement | null>;
-}
-
-function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
+  startView?: View;
+}) {
+  const [view, onView] = useState<View>(startView);
   const [type, setType] = useState("");
   const [plan, setPlan] = useState("");
   const [sort, setSort] = useState<Sort>("queue");
@@ -370,7 +254,7 @@ function QueueBody({ claims, view, onView, table }: QueueBodyProps) {
       ) : (
         <>
           <div className="table-wrap">
-            <table className={`queue${view === "needs_me" ? "" : " queue-mixed"}`} ref={table}>
+            <table className={`queue${view === "needs_me" ? "" : " queue-mixed"}`}>
               <caption className="visually-hidden">{summary}</caption>
               <thead>
                 <tr>

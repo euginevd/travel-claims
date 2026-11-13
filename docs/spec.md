@@ -34,7 +34,7 @@ One design, on AWS (decision 37); Docker only tests it locally.
 
 ## Apps
 
-6. `portal` (customers), `dashboard` (handlers) and `console` (the AI assurance console for AI engineers): React, Vite and TypeScript, each with its own sign-in, token issuer and audience (decisions 10, 12). `home`: a static local project page.
+6. `portal` (customers), `dashboard` (handlers) and `console` (the AI control plane for AI and security engineers): React, Vite and TypeScript, each with its own sign-in, token issuer and audience (decisions 10, 12). `home`: a static local project page.
 7. `api` (claims, decisions, payments, notices; Python, FastAPI, PostgreSQL), `agent` (claim agent, hidden-instruction check, specialists, dispatcher, improver, judge, drafting assistant, red team; LangGraph), `copilot` (handlers' chat agent) and `context` (an MCP server over the policy wording, claims manual and reference data).
 8. Models: Claude Sonnet for the claim agent; Claude Haiku for the hidden-instruction check, specialists, judge and drafting assistant; one module per app chooses the Anthropic API or Bedrock.
 9. Locally: PostgreSQL and receipts in Docker, a sign-in stand-in issuing Cognito-shaped tokens, and a stand-in flight-status feed.

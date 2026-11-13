@@ -1,4 +1,4 @@
-"""Threat coverage for the AI assurance console: each OWASP risk for LLM and agentic apps that
+"""Threat coverage for the AI control plane: each OWASP risk for LLM and agentic apps that
 applies to UnderCover, mapped to MITRE ATLAS where a technique matches, with the control, the
 red-team attacks that test it and their latest result, and when its guardrail last fired."""
 

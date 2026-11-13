@@ -1,5 +1,2 @@
-- Handlers' dashboard UI review: audit every page against the customer portal's standard (minimal, one thing at a time, consistent), fix what it finds, and rate it before and after.
-- Assurance console UI review: the same audit, fixes and rating.
-- Distroless images: a multi-stage build for every container, a distroless runtime stage, health checks that need no shell, and the image scan still passing.
+- Minimal hardened images for the Python services (api, agent, copilot, context): a hardened Python 3.14 base instead of slim, the api started without a shell, and known mistake 43's pip and apt workaround dropped; web apps keep nginx-unprivileged, since AWS serves them from S3 and CloudFront.
 - Project page walkthrough (three minutes): re-record once the above are done, showing the chat portal, the reviewed dashboard and console, and the new Wattle answers.
-- Audit follow-ups, each needing your call: MFA on the staff and engineering Cognito pools (the apps handle it now, but there's no screen to add an authenticator, and `ON` would stop the demo's test accounts); MFA or an IP condition for the `travel-claims-cli` user; keeping Ask's history on the server rather than trusting the browser's; the api checking the agent's thread on decisions and payments; and whether an unreadable receipt should still go to the model as an image (decision 48).

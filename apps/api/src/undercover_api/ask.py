@@ -8,13 +8,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import insert, select
 
 from undercover_api.account import my_cover
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedInCustomer, SignedInEngineer
 from undercover_api.claims import claim_trace
-from undercover_api.db import claims
+from undercover_api.db import assistant_calls, claims, now
 from undercover_api.models import QuestionAnswer, QuestionRequest
 from undercover_api.notices import first_name
 from undercover_api.portal import DraftLimiter, claim_for_customer
@@ -84,6 +84,9 @@ def ask_undercover(
         found = QuestionAnswer.model_validate(answer)
     except ValidationError as error:
         raise HTTPException(502, "The assistant's answer didn't make sense") from error
+    db.execute(
+        insert(assistant_calls).values(agent="wattle", model_calls=1, cost=0, created_at=now())
+    )
     # A claim the model names is shown only if it's the customer's own.
     if found.claim_id and not any(c["claim_id"] == found.claim_id for c in mine):
         found = found.model_copy(update={"claim_id": "", "action": "show_claims"})

@@ -2,7 +2,6 @@ import { CircleCheck, CircleX, LoaderCircle, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Api, ThreatCoverage } from "../api";
 import { when } from "../format";
-import { AgentsTable } from "./AgentsTable";
 import { TableScroll } from "./TableScroll";
 
 /** The attacks testing a risk, each with whether it held; the IDs match the attacks above. */
@@ -122,7 +121,6 @@ export function RisksTable({ api }: { api: Api }) {
           </table>
         </TableScroll>
       </div>
-      <AgentsTable agents={coverage.agents} />
     </>
   );
 }

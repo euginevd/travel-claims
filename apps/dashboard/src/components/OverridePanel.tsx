@@ -11,14 +11,28 @@ import { dollars, REASON_LABELS } from "../format";
 interface OverridePanelProps {
   customerName: string;
   onOverride: (request: OverrideRequest) => Promise<void>;
+  /** "decide": a referral a handler decides, approve or decline, opened by those two buttons. */
+  mode?: "override" | "decide";
+  /** The amount an approval starts at. */
+  suggested?: number;
+  /** The most this handler may approve; none for a senior handler. */
+  limit?: number | null;
 }
 
-/** A senior handler's own decision in place of the agent's, with a reason code. The button says
- * what will happen before anything does. */
-export function OverridePanel({ customerName, onOverride }: OverridePanelProps) {
+/** A handler's own decision in place of the agent's, with a reason code: a senior handler's
+ * override, or any handler deciding a referral. The button says what will happen before anything
+ * does. */
+export function OverridePanel({
+  customerName,
+  onOverride,
+  mode = "override",
+  suggested,
+  limit = null,
+}: OverridePanelProps) {
+  const deciding = mode === "decide";
   const [open, setOpen] = useState(false);
   const [decision, setDecision] = useState<DecisionKind>("approve");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(suggested ? String(suggested) : "");
   const [reason, setReason] = useState<ReasonCode>("evidence");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +52,10 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
       setError("Say why, for the record.");
       return;
     }
+    if (limit !== null && payout > limit) {
+      setError(`That's over your ${dollars(limit)} limit: a senior handler decides this one.`);
+      return;
+    }
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -50,6 +68,26 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
       inFlight.current = false;
       setBusy(false);
     }
+  }
+
+  if (!open && deciding) {
+    return (
+      <div className="decide-buttons">
+        {(["approve", "decline"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            className="button secondary"
+            onClick={() => {
+              setDecision(kind);
+              setOpen(true);
+            }}
+          >
+            {kind === "approve" ? `Approve${suggested ? ` ${dollars(suggested)}` : ""}` : "Decline"}
+          </button>
+        ))}
+      </div>
+    );
   }
 
   if (!open) {
@@ -84,8 +122,8 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
         void submit(event);
       }}
     >
-      <h3 id={`${ids}-heading`}>Override the decision</h3>
-      <label htmlFor={`${ids}-decision`}>New decision</label>
+      <h3 id={`${ids}-heading`}>{deciding ? "Your decision" : "Override the decision"}</h3>
+      <label htmlFor={`${ids}-decision`}>{deciding ? "Decision" : "New decision"}</label>
       <select
         id={`${ids}-decision`}
         value={decision}
@@ -95,7 +133,7 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
       >
         <option value="approve">Approve</option>
         <option value="decline">Decline</option>
-        <option value="refer">Refer</option>
+        {!deciding && <option value="refer">Refer</option>}
       </select>
       {decision === "approve" && (
         <>
@@ -144,7 +182,7 @@ export function OverridePanel({ customerName, onOverride }: OverridePanelProps) 
       )}
       <div className="actions">
         <button type="submit" className="button secondary strong" disabled={busy}>
-          {busy ? "Saving…" : "Confirm override"}
+          {busy ? "Saving…" : deciding ? "Confirm decision" : "Confirm override"}
         </button>
         <button
           type="button"

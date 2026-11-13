@@ -68,6 +68,10 @@ export const ClaimSummarySchema = z.object({
   status: StatusSchema,
   decision: DecisionKindSchema.nullable(),
   payout: z.number().nullable(),
+  // The decision's reason, for the queue's why-it-needs-you line.
+  reason: z.string().nullable().optional(),
+  // The first check that failed, or else warned: what stopped the agent.
+  flag: z.string().nullable().optional(),
   review_requested: z.boolean(),
 });
 
@@ -351,6 +355,54 @@ export type StepKind = z.infer<typeof StepKindSchema>;
 export type Source = z.infer<typeof SourceSchema>;
 export type Handler = z.infer<typeof HandlerSchema>;
 export type ClaimSummary = z.infer<typeof ClaimSummarySchema>;
+
+export const AgentSwitchSchema = z.object({
+  on: z.boolean(),
+  reason: z.string().nullable().optional(),
+  changed_by: z.string().nullable(),
+  changed_at: z.string().nullable(),
+  working: z.number(),
+  waiting: z.number(),
+});
+export type AgentSwitch = z.infer<typeof AgentSwitchSchema>;
+
+export const ResetViewSchema = z.object({
+  claims_worked: z.number(),
+  customer_claims: z.number(),
+  evaluation_runs: z.number(),
+  red_team_runs: z.number(),
+  agent_on: z.boolean(),
+  payouts_paused: z.boolean(),
+  blocked: z.string().nullable(),
+  evaluations_blocked: z.string().nullable(),
+  red_team_blocked: z.string().nullable(),
+});
+export type ResetView = z.infer<typeof ResetViewSchema>;
+export interface ResetRequest {
+  claims: boolean;
+  evaluations: boolean;
+  red_team: boolean;
+  agent_off: boolean;
+  payouts_off: boolean;
+}
+
+export const InsightsSchema = z.object({
+  noticed: z.array(
+    z.object({ headline: z.string(), detail: z.string(), claim_ids: z.array(z.string()) }),
+  ),
+  spot_checks: z.array(
+    z.object({
+      claim_id: z.string(),
+      customer_name: z.string(),
+      claim_type: z.string(),
+      summary: z.string(),
+      payout: z.number(),
+      reason: z.string(),
+    }),
+  ),
+  paid_alone: z.number(),
+});
+export type Insights = z.infer<typeof InsightsSchema>;
 export type Policy = z.infer<typeof PolicySchema>;
 export type CalculationStep = z.infer<typeof CalculationStepSchema>;
 export type Decision = z.infer<typeof DecisionSchema>;
@@ -418,6 +470,13 @@ export interface Api {
   receipt: (claimId: string, receiptId: string) => Promise<Blob>;
   getTrace: (claimId: string, signal?: AbortSignal) => Promise<Trace>;
   override: (claimId: string, request: OverrideRequest) => Promise<Claim>;
+  decide: (claimId: string, request: OverrideRequest) => Promise<Claim>;
+  getAgent: () => Promise<AgentSwitch>;
+  setAgent: (changes: { on: boolean; reason: string }) => Promise<AgentSwitch>;
+  getReset: () => Promise<ResetView>;
+  reset: (request: ResetRequest) => Promise<ResetView>;
+  getInsights: () => Promise<Insights>;
+  spotCheck: (claimId: string, verdict: "right" | "wrong") => Promise<void>;
   getPayouts: () => Promise<PayoutSwitch>;
   setPayouts: (paused: boolean, reason: string) => Promise<PayoutSwitch>;
   getLatestDispatch: (signal?: AbortSignal) => Promise<LatestDispatch>;
@@ -554,6 +613,16 @@ export function createApi(
       call(TraceSchema, "GET", `${claimPath(claimId)}/trace`, { signal }),
     override: (claimId, request) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/override`, { body: request }),
+    decide: (claimId, request) =>
+      call(ClaimSchema, "POST", `${claimPath(claimId)}/decide`, { body: request }),
+    getAgent: () => call(AgentSwitchSchema, "GET", "/agent"),
+    setAgent: (changes) => call(AgentSwitchSchema, "PUT", "/agent", { body: changes }),
+    getReset: () => call(ResetViewSchema, "GET", "/demo/reset"),
+    reset: (request) => call(ResetViewSchema, "POST", "/demo/reset", { body: request }),
+    getInsights: () => call(InsightsSchema, "GET", "/insights"),
+    spotCheck: async (claimId, verdict) => {
+      await send("POST", `${claimPath(claimId)}/spot-check`, { body: { verdict } });
+    },
     getPayouts: () => call(PayoutSwitchSchema, "GET", "/payouts"),
     setPayouts: (paused, reason) =>
       call(PayoutSwitchSchema, "PUT", "/payouts", { body: { paused, reason } }),

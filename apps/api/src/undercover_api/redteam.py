@@ -1,7 +1,10 @@
 """The red-team suite as handlers see it: start a run from the dashboard, see it running, and
 read the latest report. The agent runs the attacks; this keeps whether a run is going."""
 
+import json
 from datetime import UTC, datetime, timedelta
+from functools import cache
+from pathlib import Path
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
@@ -12,12 +15,47 @@ from undercover_api.agent_service import AgentRefusedError, AgentService, AgentU
 from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.db import now, redteam_reports, settings
 from undercover_api.models import RedTeamReport, RedTeamRun
+from undercover_api.settings import Settings
 
 RUNNING = "redteam_running"
 # A run that hasn't reported back by then has stopped, so another may start.
 STALE_AFTER = timedelta(minutes=20)
 
 redteam_router = APIRouter(prefix="/api/engineering", tags=["engineering"])
+
+
+class AttackPlan(BaseModel):
+    """One attack in the suite, before any run: what it tries and the risk it tests."""
+
+    attack_id: str
+    name: str
+    technique: str
+    owasp: str
+
+
+@cache
+def attack_plan(data: Path) -> tuple[AttackPlan, ...]:
+    """The suite from data/redteam/attacks.json, the same file the agent runs; none if absent."""
+    path = data / "redteam" / "attacks.json"
+    if not path.exists():
+        return ()
+    suite = cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+    return tuple(
+        AttackPlan(
+            attack_id=str(a["id"]),
+            name=str(a["name"]),
+            technique=str(a["technique"]),
+            owasp=str(a["owasp"]),
+        )
+        for a in cast(list[dict[str, Any]], suite["attacks"])
+    )
+
+
+@redteam_router.get("/redteam/attacks", operation_id="list_redteam_attacks")
+def list_attacks(_: SignedInEngineer, http: Request) -> list[AttackPlan]:
+    """The attacks a run makes, so the page shows what will be tried before the first run."""
+    settings_now: Settings = http.app.state.settings
+    return list(attack_plan(settings_now.seed_data_dir))
 
 
 class RedTeamStatus(BaseModel):

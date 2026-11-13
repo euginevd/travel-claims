@@ -12,7 +12,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import Connection, RowMapping, func, select
+from sqlalchemy import Connection, RowMapping, func, or_, select
 
 from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.claims import find_claim, find_decision
@@ -28,7 +28,7 @@ from undercover_api.db import (
     sent_back,
     steps,
 )
-from undercover_api.evaluations import COPIED, EVALUATION, costs_of, current_version
+from undercover_api.evaluations import COPIED, EVALUATION, costs_of, current_version, private
 from undercover_api.models import ClaimId, Decision, DecisionKind, Status
 from undercover_api.redteam import REDTEAM_CUSTOMER
 
@@ -611,15 +611,7 @@ def add_to_evaluation(claim_id: ClaimId, engineer: SignedInEngineer, db: Databas
         raise HTTPException(
             409, f"Claim {claim_id} was flagged for hidden instructions; it stays out"
         )
-    label = {
-        "decision": str(decision.decision),
-        "payout": decision.payout,
-        "reason": decision.override.note if decision.override else decision.reason,
-        "calculation": [
-            line.model_dump()
-            for line in (decision.calculation.lines if decision.calculation else [])
-        ],
-    }
+    label = label_of(decision)
     # Two engineers pressing at once: the first one's row stands, and only it says "added".
     inserted = (
         insert_if_new(
@@ -641,4 +633,133 @@ def add_to_evaluation(claim_id: ClaimId, engineer: SignedInEngineer, db: Databas
     log.warning(
         "claim %s added to the evaluation set by engineer %s", claim_id, engineer.engineer_id
     )
+    return added(row, "added" if inserted else "already_added")
+
+
+# --- Growing the exam ---
+
+# The exam's size to aim for: at 100 claims an 84% score's likely range narrows from 65-94% to
+# about 76-90%, enough to tell a real improvement from luck.
+EXAM_TARGET = 100
+HELD_OUT = "held_out"
+CANDIDATES_SHOWN = 20
+
+
+class ExamCandidate(BaseModel):
+    claim_id: str
+    claim_type: str
+    summary: str
+    decision: str
+    payout: float
+    decided_by: str
+    decided_at: str
+
+
+class ExamGrowth(BaseModel):
+    exam_size: int
+    target: int
+    candidates: list[ExamCandidate]
+
+
+def label_of(decision: Decision) -> dict[str, object]:
+    """A person's final decision as an answer key: what was decided, paid and why."""
+    return {
+        "decision": str(decision.decision),
+        "payout": decision.payout,
+        "reason": decision.override.note if decision.override else decision.reason,
+        "calculation": [
+            line.model_dump()
+            for line in (decision.calculation.lines if decision.calculation else [])
+        ],
+    }
+
+
+def exam_size(db: Connection) -> int:
+    return int(
+        db.execute(
+            select(func.count())
+            .select_from(labelled_claims)
+            .where(labelled_claims.c.label_set == HELD_OUT)
+        ).scalar_one()
+    )
+
+
+@live_router.get("/exam-growth", operation_id="get_exam_growth")
+def get_exam_growth(_: SignedInEngineer, db: Database) -> ExamGrowth:
+    """The exam's size against its target, and live claims a person decided that could join it:
+    newest first, never flagged, never already in a set."""
+    labelled = select(labelled_claims.c.claim_id)
+    rows = (
+        db.execute(
+            select(claims)
+            .select_from(claims.join(decisions, decisions.c.claim_id == claims.c.claim_id))
+            .where(
+                *LIVE,
+                claims.c.status == Status.DECIDED,
+                or_(decisions.c.override.is_not(None), decisions.c.signed_off_by.is_not(None)),
+                claims.c.claim_id.not_in(labelled),
+            )
+            .order_by(decisions.c.decided_at.desc())
+            .limit(CANDIDATES_SHOWN * 2)
+        )
+        .mappings()
+        .all()
+    )
+    found: list[ExamCandidate] = []
+    for row in rows:
+        decision = find_decision(db, row["claim_id"])
+        if decision is None or was_flagged(db, row["claim_id"]):
+            continue
+        found.append(
+            ExamCandidate(
+                claim_id=row["claim_id"],
+                claim_type=row["claim_type"],
+                summary=private(row["summary"]),
+                decision=str(decision.decision),
+                payout=decision.payout,
+                decided_by=decision.signed_off_by
+                or (str(decision.override.by) if decision.override else decision.decided_by),
+                decided_at=decision.decided_at,
+            )
+        )
+    return ExamGrowth(
+        exam_size=exam_size(db), target=EXAM_TARGET, candidates=found[:CANDIDATES_SHOWN]
+    )
+
+
+@live_router.post("/claims/{claim_id}/add-to-exam", operation_id="add_claim_to_exam")
+def add_to_exam(claim_id: ClaimId, engineer: SignedInEngineer, db: Database) -> Added:
+    """Add a live claim a person decided to the held-out exam, its answer the person's decision.
+    The exam is never shown to the agent or the improver; a flagged claim never joins."""
+    claim = find_claim(db, claim_id)
+    if claim["source"] == EVALUATION or claim["customer_id"] == REDTEAM_CUSTOMER:
+        raise HTTPException(409, f"Claim {claim_id} isn't a live claim")
+    existing = labelled_row(db, claim_id)
+    if existing is not None:
+        if existing["label_set"] != HELD_OUT:
+            raise HTTPException(409, f"Claim {claim_id} is already in the evaluation set")
+        return added(existing, "already_added")
+    decision = find_decision(db, claim_id)
+    if not handlers_final(claim, decision) or decision is None:
+        raise HTTPException(409, f"Claim {claim_id} has no person's final decision yet")
+    if was_flagged(db, claim_id):
+        raise HTTPException(409, f"Claim {claim_id} was flagged for hidden instructions")
+    inserted = (
+        insert_if_new(
+            db,
+            labelled_claims,
+            claim_id=claim_id,
+            label_set=HELD_OUT,
+            tiny=False,
+            claim={k: claim[k] for k in CLAIM_FIELDS},
+            label=label_of(decision),
+            added_by=engineer.name,
+            added_at=now(),
+        )
+        is not None
+    )
+    row = labelled_row(db, claim_id)
+    if row is None or row["label_set"] != HELD_OUT:
+        raise HTTPException(409, f"Claim {claim_id} can't join the exam")
+    log.warning("claim %s added to the exam by engineer %s", claim_id, engineer.engineer_id)
     return added(row, "added" if inserted else "already_added")

@@ -157,6 +157,9 @@ class FakeAgent:
     ) -> None:
         self._take(("dispatch" if kind == "run" else kind, str(run_id), ",".join(claim_ids)))
 
+    def watch(self, concurrency: int) -> None:
+        self._take(("watch", str(concurrency), None))
+
     def improve(self, round_id: int) -> None:
         self._take(("improve", str(round_id), None))
 

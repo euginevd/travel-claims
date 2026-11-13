@@ -15,12 +15,14 @@ const STAGES = [
 export function StageTracker({ claim }: { claim: Claim }) {
   const working = claim.status === "in_progress";
   const reached = STAGES.map((stage) => claim.stages[stage.key]);
-  const current = reached.findIndex((at) => at === null);
+  // A stage passed without its own time (checked, on a claim decided straight away) still ticks.
+  const last = reached.findLastIndex((at) => at !== null);
+  const current = reached.findIndex((at, index) => at === null && index > last);
   return (
     <ol className="tracker" aria-label="Where this claim is">
       {STAGES.map((stage, index) => {
         const at = reached[index] ?? null;
-        const done = at !== null;
+        const done = at !== null || index < last;
         const active = working && index === current;
         const label = stage.key === "received" && at ? date(at) : at ? when(at) : "";
         return (

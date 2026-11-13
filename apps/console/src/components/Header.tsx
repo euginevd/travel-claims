@@ -1,10 +1,10 @@
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { LogOut } from "lucide-react";
 import { Logo } from "@undercover/web-core/Logo";
 import { ProjectLink, WattleButton } from "./Wattle";
 
 /** The line under the logo's word mark in this app. */
-export const LOGO_SUBTITLE = "AI assurance";
+export const LOGO_SUBTITLE = "Control plane";
 
 export interface NavSection {
   label: string;
@@ -20,6 +20,8 @@ interface HeaderProps {
   current?: string;
   onSignOut: () => void;
   onAssistant?: () => void;
+  /** The agent and payouts switches, before Wattle. */
+  status?: ReactNode;
   assistantOpen?: boolean;
   assistantToggle?: Ref<HTMLButtonElement>;
 }
@@ -34,7 +36,7 @@ export function initials(name: string): string {
     .join("");
 }
 
-// The top bar: logo, a switch between the two sections, Wattle AI, the engineer signed in,
+// The top bar: logo, the control plane's sections, the agent and payouts switches, Wattle AI, the engineer signed in,
 // sign-out and the way back to the project page. Under it, the chosen section's pages as tabs:
 // only four at a time. On small screens the tabs scroll sideways, so nothing pushes the page wide.
 export function Header({
@@ -45,6 +47,7 @@ export function Header({
   current,
   onSignOut,
   onAssistant,
+  status,
   assistantOpen = false,
   assistantToggle,
 }: HeaderProps) {
@@ -69,6 +72,7 @@ export function Header({
           ))}
         </nav>
         <div className="topbar-right">
+          {status}
           {onAssistant && (
             <WattleButton onClick={onAssistant} open={assistantOpen} ref={assistantToggle} />
           )}
@@ -93,21 +97,23 @@ export function Header({
           <ProjectLink />
         </div>
       </div>
-      <nav aria-label={`${active.label} pages`} className="topnav subnav">
-        <ul>
-          {active.links.map(({ href, label }) => (
-            <li key={href}>
-              <a
-                href={href}
-                aria-label={`${active.label}: ${label}`}
-                aria-current={href === current ? "page" : undefined}
-              >
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {active.links.length > 1 && (
+        <nav aria-label={`${active.label} pages`} className="topnav subnav">
+          <ul>
+            {active.links.map(({ href, label }) => (
+              <li key={href}>
+                <a
+                  href={href}
+                  aria-label={`${active.label}: ${label}`}
+                  aria-current={href === current ? "page" : undefined}
+                >
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </header>
   );
 }

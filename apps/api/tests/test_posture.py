@@ -142,7 +142,14 @@ def test_detections_list_each_control_that_fired_on_live_claims(
     decide(client, "CLM-1003", "approve", over["payout"])
 
     found = client.get(DETECTIONS, headers=sam).json()
-    assert found["counts"] == {"guardrail": 1, "hidden_instruction": 1, "refusal": 1, "held": 1}
+    assert found["counts"] == {
+        "guardrail": 1,
+        "hidden_instruction": 1,
+        "refusal": 1,
+        "held": 1,
+        "output": 0,
+        "guardian": 0,
+    }
     kinds = {event["kind"]: event for event in found["events"]}
     assert kinds["hidden_instruction"]["summary"] == "The receipt says to approve it."
     assert kinds["guardrail"]["claim_id"] == "CLM-1006"
@@ -175,7 +182,14 @@ def test_red_team_and_evaluation_claims_never_count_and_a_claim_counts_once(
         "Instructions found. The guardrail couldn't check this, so a person should look at it.",
     )
     found = client.get(DETECTIONS, headers=sam).json()
-    assert found["counts"] == {"guardrail": 1, "hidden_instruction": 1, "refusal": 0, "held": 0}
+    assert found["counts"] == {
+        "guardrail": 1,
+        "hidden_instruction": 1,
+        "refusal": 0,
+        "held": 0,
+        "output": 0,
+        "guardian": 0,
+    }
     assert {(e["claim_id"], e["kind"]) for e in found["events"]} == {
         ("CLM-1009", "hidden_instruction"),
         ("CLM-1009", "guardrail"),

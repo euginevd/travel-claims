@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createApi, type Api, type Handler } from "../api";
 import { needsYou } from "./NeedsYou";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./PayoutsSwitch";
+import { StatusLine } from "./StatusLine";
 import { APPROVAL, claim, DANA, fakeFetch, MARCUS } from "../testing";
 
 // The header status and the page panel wired together, as App does.
@@ -16,6 +17,15 @@ function Harness({ api, handler }: { api: Api; handler: Handler }) {
         state={payouts.state}
         senior={handler.can_approve_over_limit}
         onOpen={() => {
+          setOpen(true);
+        }}
+      />
+      <StatusLine
+        agent={null}
+        payouts={payouts.state}
+        senior={handler.can_approve_over_limit}
+        onTurnOn={() => undefined}
+        onResume={() => {
           setOpen(true);
         }}
       />
@@ -46,18 +56,17 @@ test("a senior handler pauses all payouts with a reason", async () => {
   });
   render(<Harness api={createApi(fetchFn, () => "t")} handler={DANA} />);
   await userEvent.click(await screen.findByRole("button", { name: /pause all payouts/i }));
-  await userEvent.click(screen.getByRole("radio", { name: "Suspected attack or fraud" }));
-  await userEvent.type(screen.getByLabelText(/add a note/i), "fraud ring");
+  await userEvent.type(screen.getByLabelText(/Why\?/), "Checking a fraud ring");
   await userEvent.click(screen.getByRole("button", { name: "Pause all payouts" }));
-  expect(await screen.findByText(/payouts are paused\./i)).toBeInTheDocument();
+  expect(await screen.findByText("Payouts paused", { selector: "strong" })).toBeInTheDocument();
   const put = fetchFn.calls.find((call) => call.method === "PUT");
-  expect(put?.body).toEqual({ paused: true, reason: "Suspected attack or fraud: fraud ring" });
+  expect(put?.body).toEqual({ paused: true, reason: "Checking a fraud ring" });
 });
 
 test("every handler sees the banner while paused, but only a senior can resume", async () => {
   const fetchFn = fakeFetch({ "GET /api/staff/payouts": () => [200, OFF] });
   render(<Harness api={createApi(fetchFn, () => "t")} handler={MARCUS} />);
-  expect(await screen.findByText(/payouts are paused\./i)).toBeInTheDocument();
+  expect(await screen.findByText("Payouts paused", { selector: "strong" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /resume payouts/i })).toBeNull();
 });
 

@@ -80,6 +80,10 @@ class AgentService(Protocol):
         self, run_id: int, claim_ids: list[str], concurrency: int, kind: str = "run"
     ) -> None: ...
 
+    def watch(self, concurrency: int) -> None:
+        """Have the agent work the live queue's ready claims while the agent switch is on."""
+        ...
+
     def improve(self, round_id: int) -> None: ...
 
     def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None: ...
@@ -133,6 +137,9 @@ class HttpAgentService:
             "kind": kind,
         }
         self._accepted(self._post("/dispatch", body, TIMEOUT_SECONDS))
+
+    def watch(self, concurrency: int) -> None:
+        self._accepted(self._post("/watch", {"concurrency": concurrency}, TIMEOUT_SECONDS))
 
     def improve(self, round_id: int) -> None:
         self._accepted(self._post("/improve", {"round_id": round_id}, TIMEOUT_SECONDS))

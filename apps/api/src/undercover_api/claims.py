@@ -2,7 +2,7 @@
 two requests racing for the same claim can't both win."""
 
 from datetime import UTC, date, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException
 from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
@@ -27,6 +27,7 @@ from undercover_api.db import (
 )
 from undercover_api.models import (
     Calculation,
+    Check,
     Claim,
     ClaimRef,
     ClaimSummary,
@@ -201,6 +202,18 @@ def find_customers(db: Connection, name: str, limit: int = 10) -> list[CustomerM
     return matches
 
 
+def first_flag(checklist: object) -> str | None:
+    """The first check that failed, or else the first that warned, as "label: detail"."""
+    if not isinstance(checklist, list):
+        return None
+    checks = [Check.model_validate(c) for c in cast("list[object]", checklist)]
+    for result in ("fail", "warn"):
+        for check in checks:
+            if check.result == result:
+                return f"{check.label}: {check.detail}" if check.detail else check.label
+    return None
+
+
 def list_claims(db: Connection) -> list[ClaimSummary]:
     """The queue, oldest submitted first."""
     query = (
@@ -216,6 +229,8 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
             claims.c.status,
             decisions.c.decision,
             decisions.c.payout,
+            decisions.c.reason,
+            decisions.c.checklist,
             claims.c.review_requested_at,
             claims.c.heartbeat_at,
             policies.c.record.label("policy"),
@@ -247,6 +262,7 @@ def list_claims(db: Connection) -> list[ClaimSummary]:
                 "review_requested": r["review_requested_at"] is not None,
                 "stalled": is_stalled(r["status"], r["heartbeat_at"]),
                 "red_team": r["customer_id"] == REDTEAM_CUSTOMER,
+                "flag": first_flag(r["checklist"]),
                 "due_on": due_on(r["submitted_on"], r["source"], loaded_on),
                 "documents_in": r["claim_id"] in asked
                 and asked[r["claim_id"]][0] == asked[r["claim_id"]][1]

@@ -66,13 +66,13 @@ const PAGES = [
     name: "dashboard",
     url: DASHBOARD,
     signIn: /Continue as Dana/,
-    heading: "Claims queue",
+    heading: /^Good \w+, Dana$/,
   },
   {
     name: "console",
     url: CONSOLE,
     signIn: /Continue as Sam/,
-    heading: "Scoreboard",
+    heading: /^Good \w+, Sam$/,
   },
 ];
 

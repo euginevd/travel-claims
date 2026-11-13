@@ -12,14 +12,13 @@ import {
   type SettingValues,
 } from "../api";
 import { dollars, when, words } from "../format";
+import { DemoControls } from "../components/DemoControls";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 type Kind = "money" | "percent" | "whole";
 
 interface FieldDef {
   label: string;
-  /** What the number is typed in, said in the label. */
-  unit?: string;
   kind: Kind;
   step: number;
   help: string;
@@ -28,37 +27,33 @@ interface FieldDef {
 const FIELDS: Record<SettingKey, FieldDef> = {
   approval_limit: {
     label: "Approval limit",
-    unit: "US dollars",
     kind: "money",
     step: 50,
-    help: "A payout over this waits for a senior handler's sign-off. A new limit applies to decisions made from now on: payouts already held stay held, and nothing already paid changes.",
+    help: "Payouts over this wait for a senior's sign-off",
   },
   round_spend_limit: {
-    label: "AI improvement budget",
-    unit: "US dollars",
+    label: "Improvement budget",
     kind: "money",
     step: 0.5,
-    help: "The most the AI team may spend on Claude each time they try to improve the agent.",
+    help: "The most one improvement round may spend",
   },
   accuracy_objective: {
-    label: "Accuracy target",
-    unit: "%",
+    label: "Accuracy",
     kind: "percent",
     step: 1,
-    help: "How often the agent must reach the same decision a handler did, on test claims it never learns from.",
+    help: "How often it must match a handler on test claims",
   },
   straight_through_objective: {
-    label: "Decided-alone target",
-    unit: "%",
+    label: "Decided alone",
     kind: "percent",
     step: 1,
-    help: "How many claims the agent should settle without passing them to a person.",
+    help: "Claims it should settle without a person",
   },
   agents_at_once: {
     label: "Claims worked at once",
     kind: "whole",
     step: 1,
-    help: "How many claims the agent works side by side when you send it through the queue. You can still change it each time.",
+    help: "Claims the agent works side by side",
   },
 };
 
@@ -75,6 +70,22 @@ export function shown(key: string, value: number): string {
   if (FIELDS[kind].kind === "percent") return `${String(typed("percent", value))}%`;
   return String(value);
 }
+
+/** A range as people read it at a glance: "$100–$5,000", "50–100%", "1–25". */
+function rangeText(key: SettingKey, range: { min: number; max: number }): string {
+  const one = (value: number) => shown(key, value).replace(/\.00$/, "");
+  const low = one(range.min).replace(/%$/, "");
+  return `${low}–${one(range.max)}`;
+}
+
+// The settings in two groups: what handlers feel, then what the AI team is held to.
+const GROUPS: { title: string; keys: SettingKey[] }[] = [
+  { title: "Payouts and the agent", keys: ["approval_limit", "agents_at_once"] },
+  {
+    title: "AI targets",
+    keys: ["accuracy_objective", "straight_through_objective", "round_spend_limit"],
+  },
+];
 
 type Texts = Record<SettingKey, string>;
 
@@ -121,10 +132,12 @@ function Change({ change }: { change: SettingChange }) {
 interface Props {
   api: Api;
   handler: Handler;
+  /** After a reset of the demo: the header's switches load again. */
+  onReset?: () => void;
 }
 
 /** The settings a senior handler changes, with the latest changes; read-only for everyone else. */
-export function SettingsPage({ api, handler }: Props) {
+export function SettingsPage({ api, handler, onReset }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [texts, setTexts] = useState<Texts | null>(null);
   const [reason, setReason] = useState("");
@@ -230,7 +243,7 @@ export function SettingsPage({ api, handler }: Props) {
           <form className="panel settings-card" noValidate onSubmit={(event) => void save(event)}>
             <div className="panel-head">
               <h2>Limits and targets</h2>
-              <p className="muted small">Every change is kept with who made it and why.</p>
+              <p className="muted small">Each change is kept with who and why.</p>
             </div>
             {!senior && (
               <p className="settings-note">
@@ -239,50 +252,61 @@ export function SettingsPage({ api, handler }: Props) {
                 what has changed.
               </p>
             )}
-            <div className="settings-fields">
-              {settingKeys.map((key) => {
-                const field = FIELDS[key];
-                const range = settings.ranges[key];
-                const problem = problems[key];
-                return (
-                  <div key={key} className="settings-field">
-                    <label htmlFor={`${ids}-${key}`}>
-                      {field.label}
-                      {field.unit && <span className="muted"> ({field.unit})</span>}
-                    </label>
-                    <input
-                      id={`${ids}-${key}`}
-                      type="number"
-                      inputMode="decimal"
-                      min={typed(field.kind, range.min)}
-                      max={typed(field.kind, range.max)}
-                      step={field.step}
-                      value={texts[key]}
-                      disabled={!senior || busy}
-                      aria-invalid={problem ? true : undefined}
-                      aria-describedby={`${ids}-${key}-help${problem ? ` ${ids}-${key}-problem` : ""}`}
-                      onChange={(event) => {
-                        setTexts({ ...texts, [key]: event.target.value });
-                        setSaved(false);
-                      }}
-                    />
-                    {problem && (
-                      <p id={`${ids}-${key}-problem`} className="field-error">
-                        {problem}
-                      </p>
-                    )}
-                    <p id={`${ids}-${key}-help`} className="muted small">
-                      {field.help} {shown(key, range.min)} to {shown(key, range.max)}.
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+            {GROUPS.map((group) => (
+              <fieldset key={group.title} className="settings-group">
+                <legend>{group.title}</legend>
+                <div className="settings-fields">
+                  {group.keys.map((key) => {
+                    const field = FIELDS[key];
+                    const range = settings.ranges[key];
+                    const problem = problems[key];
+                    const affix =
+                      field.kind === "money" ? "$" : field.kind === "percent" ? "%" : "";
+                    return (
+                      <div key={key} className="settings-field">
+                        <label htmlFor={`${ids}-${key}`}>{field.label}</label>
+                        <span
+                          className={`field-affix${affix === "$" ? " before" : affix ? " after" : ""}`}
+                        >
+                          {affix === "$" && <span aria-hidden="true">$</span>}
+                          <input
+                            id={`${ids}-${key}`}
+                            type="number"
+                            inputMode="decimal"
+                            min={typed(field.kind, range.min)}
+                            max={typed(field.kind, range.max)}
+                            step={field.step}
+                            value={texts[key]}
+                            disabled={!senior || busy}
+                            aria-invalid={problem ? true : undefined}
+                            aria-describedby={`${ids}-${key}-help${problem ? ` ${ids}-${key}-problem` : ""}`}
+                            onChange={(event) => {
+                              setTexts({ ...texts, [key]: event.target.value });
+                              setSaved(false);
+                            }}
+                          />
+                          {affix === "%" && <span aria-hidden="true">%</span>}
+                        </span>
+                        {problem && (
+                          <p id={`${ids}-${key}-problem`} className="field-error">
+                            {problem}
+                          </p>
+                        )}
+                        <p id={`${ids}-${key}-help`} className="muted small">
+                          {field.help}{" "}
+                          <span className="settings-range">{rangeText(key, range)}</span>
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))}
             {senior && (
               <div className="settings-save">
                 <div className="settings-reason">
                   <label htmlFor={`${ids}-reason`}>
-                    Reason for the change <span className="muted">(optional)</span>
+                    Why? <span className="muted">(optional)</span>
                   </label>
                   <input
                     id={`${ids}-reason`}
@@ -339,6 +363,7 @@ export function SettingsPage({ api, handler }: Props) {
               </ol>
             )}
           </section>
+          {senior && onReset && <DemoControls api={api} onReset={onReset} />}
         </>
       )}
     </section>

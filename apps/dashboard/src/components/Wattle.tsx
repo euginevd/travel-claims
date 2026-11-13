@@ -85,9 +85,9 @@ const PROJECT_URL: string =
 /** Back to the UnderCover project page. */
 export function ProjectLink() {
   return (
-    <a className="project-link" href={PROJECT_URL}>
+    <a className="project-link" href={PROJECT_URL} aria-label="Project">
       <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
-      Project
+      <span>Project</span>
     </a>
   );
 }

@@ -47,6 +47,13 @@ def redact(text: str) -> str:
     return text
 
 
+def redact_people(text: str) -> str:
+    """Customers' names only: for a trace, where claim and policy numbers stay readable."""
+    for pattern in _names:
+        text = pattern.sub("[name]", text)
+    return text
+
+
 class JsonFormatter(logging.Formatter):
     """One JSON object per line, redacted."""
 

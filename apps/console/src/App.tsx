@@ -4,12 +4,19 @@ import { Logo } from "@undercover/web-core/Logo";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
 import { AskWattle } from "./components/AskWattle";
+import { AlertBell } from "./components/AlertBell";
+import { ControlPills } from "./components/ControlPills";
 import { Header, LOGO_SUBTITLE, type NavSection } from "./components/Header";
 import { DetectionsPage } from "./pages/DetectionsPage";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { LivePage } from "./pages/LivePage";
 import { PosturePage } from "./pages/PosturePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
+import { AgentsPage } from "./pages/AgentsPage";
+import { AuditPage } from "./pages/AuditPage";
+import { BudgetsPage } from "./pages/BudgetsPage";
+import { OverviewPage } from "./pages/OverviewPage";
+import { VersionPage } from "./pages/VersionPage";
 import { RunPage } from "./pages/RunPage";
 import { ScoreboardPage } from "./pages/ScoreboardPage";
 import { SignInPage } from "./pages/SignInPage";
@@ -23,6 +30,10 @@ import {
   POSTURE_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
+  AGENTS_HREF,
+  AUDIT_HREF,
+  BUDGETS_HREF,
+  OVERVIEW_HREF,
   TRACE_HREF,
   useHashRoute,
   type Route,
@@ -38,9 +49,9 @@ const defaultFetch: Fetch = (input, init) => fetch(input, init);
 
 const unauthorised = (error: unknown) => error instanceof ApiError && error.status === 401;
 
-/** The AI assurance console, evals first. Evals: the scoreboard, live behaviour, improvement
- * rounds and traces. Security: the posture, detections, and the red team with each risk and
- * agent. */
+/** The AI control plane, the overview first. Observe: the agents, live behaviour and traces.
+ * Evaluate: the exam and the red team. Secure: the posture and guardrails. Govern: versions and
+ * the audit log. The agent and payouts switches show in the header on every page. */
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
   const [person, setPerson] = useState<Engineer | null>(null);
@@ -97,7 +108,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
     return (
       <main className="gate" id="main">
         <Logo subtitle={LOGO_SUBTITLE} />
-        <h1>AI assurance console</h1>
+        <h1>AI control plane</h1>
         <p className="error" role="alert">
           We couldn&apos;t check your sign-in: {meError}
         </p>
@@ -131,6 +142,12 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         sections={NAV}
         current={currentHref(route)}
         onSignOut={signOut}
+        status={
+          <>
+            <AlertBell api={api} />
+            <ControlPills api={api} />
+          </>
+        }
         onAssistant={() => {
           setAssistantOpen((now) => !now);
         }}
@@ -142,11 +159,11 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
           key={routeKey(route)}
           wayBack={
             <>
-              go <a href={HOME_HREF}>back to the scoreboard</a>
+              go <a href={HOME_HREF}>back to the overview</a>
             </>
           }
         >
-          {page(route, api)}
+          {page(route, api, person.name)}
         </ErrorBoundary>
       </main>
       {assistantOpen && <AskWattle api={api} route={route} onClose={closeAssistant} />}
@@ -155,26 +172,44 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
 }
 
 const NAV: NavSection[] = [
+  { label: "Overview", links: [{ href: OVERVIEW_HREF, label: "Overview" }] },
   {
-    label: "Evals",
+    label: "Observe",
     links: [
-      { href: SCOREBOARD_HREF, label: "Scoreboard" },
+      { href: AGENTS_HREF, label: "Agents" },
       { href: LIVE_HREF, label: "Live" },
-      { href: IMPROVEMENT_HREF, label: "Improvement" },
       { href: TRACE_HREF, label: "Trace" },
     ],
   },
   {
-    label: "Security",
+    label: "Evaluate",
+    links: [
+      { href: SCOREBOARD_HREF, label: "Scoreboard" },
+      { href: REDTEAM_HREF, label: "Red team" },
+    ],
+  },
+  {
+    label: "Secure",
     links: [
       { href: POSTURE_HREF, label: "Posture" },
-      { href: DETECTIONS_HREF, label: "Detections" },
-      { href: REDTEAM_HREF, label: "Red team" },
+      { href: DETECTIONS_HREF, label: "Guardrails" },
+    ],
+  },
+  {
+    label: "Govern",
+    links: [
+      { href: IMPROVEMENT_HREF, label: "Versions" },
+      { href: BUDGETS_HREF, label: "Budgets" },
+      { href: AUDIT_HREF, label: "Audit log" },
     ],
   },
 ];
 
-const HREFS: Record<Exclude<Route["page"], "run">, string> = {
+const HREFS: Record<Exclude<Route["page"], "run" | "version">, string> = {
+  overview: OVERVIEW_HREF,
+  agents: AGENTS_HREF,
+  audit: AUDIT_HREF,
+  budgets: BUDGETS_HREF,
   posture: POSTURE_HREF,
   detections: DETECTIONS_HREF,
   redteam: REDTEAM_HREF,
@@ -184,19 +219,32 @@ const HREFS: Record<Exclude<Route["page"], "run">, string> = {
   trace: TRACE_HREF,
 };
 
-/** The navigation link for a route; a run belongs to the scoreboard. */
+/** The navigation link for a route; a run belongs to the scoreboard, a version to Improvement. */
 function currentHref(route: Route): string {
-  return route.page === "run" ? SCOREBOARD_HREF : HREFS[route.page];
+  if (route.page === "run") return SCOREBOARD_HREF;
+  if (route.page === "version") return IMPROVEMENT_HREF;
+  return HREFS[route.page];
 }
 
 function routeKey(route: Route): string {
   if (route.page === "run") return `run:${String(route.runId)}`;
+  if (route.page === "version") return `version:${String(route.version)}`;
   if (route.page === "trace") return `trace:${route.claimId ?? ""}`;
   return route.page;
 }
 
-function page(route: Route, api: Api) {
+function page(route: Route, api: Api, name: string) {
   switch (route.page) {
+    case "overview":
+      return <OverviewPage api={api} name={name} />;
+    case "agents":
+      return <AgentsPage api={api} />;
+    case "audit":
+      return <AuditPage api={api} />;
+    case "budgets":
+      return <BudgetsPage api={api} />;
+    case "version":
+      return <VersionPage key={route.version} api={api} version={route.version} />;
     case "run":
       return <RunPage key={route.runId} api={api} runId={route.runId} />;
     case "detections":

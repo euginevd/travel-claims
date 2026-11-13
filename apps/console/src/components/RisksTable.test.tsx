@@ -64,5 +64,6 @@ test("shows each risk with its tests and what fired, then the agents, after a re
   expect(screen.getByText("No attack yet")).toBeInTheDocument();
   expect(screen.getByText("3 times")).toBeInTheDocument();
   expect(screen.getByText("MITRE ATLAS AML.T0051")).toBeInTheDocument();
-  expect(screen.getByRole("rowheader", { name: /Claim agent/ })).toBeInTheDocument();
+  // Each agent's blast radius is on the agents map now, not repeated here.
+  expect(screen.queryByRole("rowheader", { name: /Claim agent/ })).toBeNull();
 });

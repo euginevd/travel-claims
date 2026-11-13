@@ -9,9 +9,10 @@ run over again after a restart never decides a copy twice.
 
 import logging
 import threading
+import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from typing import Literal
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import Literal, cast
 
 from undercover_agent.api_client import ApiClient, ApiError
 from undercover_agent.runner import Runner
@@ -19,14 +20,55 @@ from undercover_agent.runner import Runner
 log = logging.getLogger(__name__)
 
 Kind = Literal["run", "dispatch"]
+# How often the watcher asks the api for ready claims, and the most it works at once.
+WATCH_SECONDS = 3.0
+MOST_AT_ONCE = 25
 
 
 class Dispatcher:
     """Runs one evaluation or dispatch at a time on a background thread."""
 
-    def __init__(self, runner: Runner, api: ApiClient) -> None:
+    def __init__(self, runner: Runner, api: ApiClient, pause: float = WATCH_SECONDS) -> None:
         self._runner = runner
         self._api = api
+        self._pause = pause
+        self._watcher: threading.Thread | None = None
+        self._lock = threading.Lock()
+
+    def watch(self) -> threading.Thread:
+        """Work the live queue's ready claims while the agent switch is on: one watcher at a
+        time, so asking again while it runs changes nothing."""
+        with self._lock:
+            if self._watcher is None or not self._watcher.is_alive():
+                # Starts "run-", which keeps an AgentCore Runtime session alive while it works.
+                self._watcher = threading.Thread(target=self._watch, name="run-watch", daemon=True)
+                self._watcher.start()
+            return self._watcher
+
+    def _watch(self) -> None:
+        """Ask the api which claims are ready, start each up to the number at once, and stop
+        once the switch is off, leaving the claims already started to finish."""
+        working: dict[str, Future[None]] = {}
+        with ThreadPoolExecutor(max_workers=MOST_AT_ONCE) as pool:
+            while True:
+                try:
+                    ready = self._api.ready_claims()
+                except ApiError:
+                    log.exception("the watcher couldn't read the queue")
+                    time.sleep(self._pause)
+                    continue
+                if ready.get("on") is not True:
+                    break
+                for claim_id, future in list(working.items()):
+                    if future.done():
+                        del working[claim_id]
+                room = int(ready.get("concurrency") or 1) - len(working)
+                raw: object = ready.get("claim_ids")
+                ids = [str(i) for i in cast(list[object], raw)] if isinstance(raw, list) else []
+                for claim_id in [i for i in ids if i not in working][: max(room, 0)]:
+                    working[claim_id] = pool.submit(self.work_one, claim_id)
+                time.sleep(self._pause)
+        log.info("the watcher stopped: the agent is switched off")
 
     def dispatch(
         self, run_id: int, claim_ids: list[str], concurrency: int, kind: Kind = "run"

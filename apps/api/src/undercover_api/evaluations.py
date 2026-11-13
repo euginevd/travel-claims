@@ -21,6 +21,7 @@ from undercover_api.claims import claim_trace, find_claim, find_decision
 from undercover_api.db import (
     claims,
     configurations,
+    decisions,
     dispatches,
     grades,
     labelled_claims,
@@ -30,6 +31,7 @@ from undercover_api.db import (
     settings,
     steps,
 )
+from undercover_api.logs import redact_people
 from undercover_api.models import (
     MAX_COST,
     ClaimId,
@@ -40,6 +42,7 @@ from undercover_api.models import (
     Strict,
     TraceOutcome,
 )
+from undercover_api.pii import scrub
 
 log = logging.getLogger(__name__)
 
@@ -260,15 +263,24 @@ def average_live_cost(db: Connection) -> float | None:
     return None if mean is None else round(float(mean), 6)
 
 
+def private(text: str) -> str:
+    """A trace's text with the customer's personal details masked."""
+    return scrub(redact_people(text))[0]
+
+
 @staff_eval_router.get("/claims/{claim_id}/trace", operation_id="get_trace_for_engineer")
 def engineer_trace(claim_id: ClaimId, _: SignedInEngineer, db: Database) -> EngineerTrace:
     """A claim's steps and model calls with tokens and cost, its outcome and agent version, and
     the average live claim's cost to compare it with, for the AI engineers."""
     claim = find_claim(db, claim_id)
     decision = find_decision(db, claim_id)
+    trace = claim_trace(db, claim_id)
+    # Engineers read how the agent worked, not who the customer is: names, card, phone and tax
+    # file numbers and email addresses are masked in what they see.
+    steps = [step.model_copy(update={"content": private(step.content)}) for step in trace.steps]
     return EngineerTrace(
-        **claim_trace(db, claim_id).model_dump(),
-        summary=claim["summary"],
+        **trace.model_copy(update={"steps": steps}).model_dump(),
+        summary=private(claim["summary"]),
         status=claim["status"],
         outcome=(
             TraceOutcome.model_validate(decision.model_dump()) if decision is not None else None
@@ -310,6 +322,66 @@ def suggest_trace(_: SignedInEngineer, db: Database) -> TraceSuggestion:
     if row is None:
         return TraceSuggestion(claim_id=None, model_calls=0)
     return TraceSuggestion(claim_id=str(row[0]), model_calls=int(row[1]))
+
+
+class TraceRow(BaseModel):
+    """One claim's trace in the list: like LangSmith's or Langfuse's, the run at a glance."""
+
+    claim_id: str
+    summary: str
+    status: str
+    red_team: bool
+    model_calls: int
+    tokens: int
+    cost: float
+    seconds: float
+    started_at: str
+
+
+# The newest traces listed, enough to pick from.
+TRACES_LISTED = 25
+
+
+@staff_eval_router.get("/traces", operation_id="list_traces")
+def list_traces(_: SignedInEngineer, db: Database) -> list[TraceRow]:
+    """The newest claims the agent worked, live and red-team, with their calls, tokens, cost and
+    time; never an evaluation copy."""
+    from undercover_api.redteam import REDTEAM_CUSTOMER  # noqa: PLC0415 - redteam imports this
+
+    since = (datetime.now(UTC) - timedelta(days=SUGGESTION_DAYS)).isoformat()
+    first = func.min(model_calls.c.created_at)
+    rows = db.execute(
+        select(
+            model_calls.c.claim_id,
+            claims.c.summary,
+            claims.c.status,
+            claims.c.customer_id,
+            func.count(model_calls.c.call_id),
+            func.sum(model_calls.c.input_tokens + model_calls.c.output_tokens),
+            func.sum(model_calls.c.cost),
+            func.sum(func.coalesce(model_calls.c.latency_ms, 0)),
+            first,
+        )
+        .select_from(model_calls.join(claims, claims.c.claim_id == model_calls.c.claim_id))
+        .where(claims.c.source != EVALUATION, model_calls.c.created_at >= since)
+        .group_by(model_calls.c.claim_id, claims.c.summary, claims.c.status, claims.c.customer_id)
+        .order_by(first.desc())
+        .limit(TRACES_LISTED)
+    ).all()
+    return [
+        TraceRow(
+            claim_id=str(claim_id),
+            summary=private(str(summary or "")),
+            status=str(status),
+            red_team=customer == REDTEAM_CUSTOMER,
+            model_calls=int(calls),
+            tokens=int(tokens or 0),
+            cost=round(float(cost or 0), 6),
+            seconds=round(int(ms or 0) / 1000, 1),
+            started_at=str(started),
+        )
+        for claim_id, summary, status, customer, calls, tokens, cost, ms, started in rows
+    ]
 
 
 @staff_eval_router.get("/configuration", operation_id="list_configurations")
@@ -361,15 +433,23 @@ COPIED = (
 )
 
 
-def create_run(
-    db: Connection, body: StartRunRequest, version: int, by: str, round_id: int | None = None
+def create_run(  # noqa: PLR0913 - which claims to copy is the one extra choice
+    db: Connection,
+    body: StartRunRequest,
+    version: int,
+    by: str,
+    *,
+    round_id: int | None = None,
+    chosen: list[dict[str, Any]] | None = None,
 ) -> tuple[int, list[str]]:
-    """A new run with its copies, waiting for the dispatcher."""
+    """A new run with its copies, waiting for the dispatcher: of the labelled set, or of the
+    claims given (a shadow run's live claims)."""
     if db.execute(select(dispatches.c.dispatch_id).where(dispatches.c.status == "running")).first():
         raise HTTPException(
             409, "A dispatch of the queue is running. Start the run when it finishes"
         )
-    chosen = labelled(db, body.label_set, body.size)
+    if chosen is None:
+        chosen = [dict(row) for row in labelled(db, body.label_set, body.size)]
     if not chosen:
         raise HTTPException(409, f"No labelled claims in the {body.label_set} set")
     run_id = new_id(
@@ -438,6 +518,55 @@ def start_run(
     return run_of(db, run_row(db, run_id))
 
 
+class ShadowRequest(Strict):
+    version: int = Field(ge=1)
+    claims: int = Field(default=10, ge=3, le=25)
+
+
+# The live claims a shadow run copies: decided ones, newest first.
+SHADOW_STATUSES = ("decided", "paid", "waiting_for_sign_off")
+
+
+@staff_eval_router.post("/shadow", operation_id="start_shadow_run", status_code=201)
+def start_shadow_run(
+    body: ShadowRequest, engineer: SignedInEngineer, db: Database, service: AgentCalls
+) -> Run:
+    """A shadow run: another version decides copies of the newest live claims, beside what was
+    decided on each (copies are never paid). It answers "would this version have decided our
+    real claims the same way?" before it goes live."""
+    from undercover_api.redteam import REDTEAM_CUSTOMER  # noqa: PLC0415 - redteam imports this
+
+    if body.version == current_version(db):
+        raise HTTPException(409, "That version is the one in use: shadow another version")
+    exists = db.execute(
+        select(configurations.c.version).where(configurations.c.version == body.version)
+    ).first()
+    if exists is None:
+        raise HTTPException(404, f"No version {body.version}")
+    rows = (
+        db.execute(
+            select(claims)
+            .select_from(claims.join(decisions, decisions.c.claim_id == claims.c.claim_id))
+            .where(
+                claims.c.source != EVALUATION,
+                claims.c.customer_id != REDTEAM_CUSTOMER,
+                claims.c.status.in_(SHADOW_STATUSES),
+            )
+            .order_by(decisions.c.decided_at.desc())
+            .limit(body.claims)
+        )
+        .mappings()
+        .all()
+    )
+    if len(rows) < 3:  # noqa: PLR2004 - fewer says nothing
+        raise HTTPException(409, "A shadow run needs at least 3 decided live claims")
+    chosen = [{"claim_id": r["claim_id"], "claim": {k: r[k] for k in COPIED}} for r in rows]
+    request = StartRunRequest.model_construct(label_set="shadow", size="whole", concurrency=3)
+    run_id, ids = create_run(db, request, body.version, engineer.name, chosen=chosen)
+    dispatch(db, service, run_id, ids, request.concurrency)
+    return run_of(db, run_row(db, run_id))
+
+
 @staff_eval_router.post("/runs/{run_id}/resume", operation_id="resume_run")
 def resume_run(run_id: int, _: SignedInEngineer, db: Database, service: AgentCalls) -> Run:
     """Hand a run's unfinished copies to the dispatcher again, after a restart: each carries on
@@ -501,7 +630,18 @@ def labels_of(db: Connection, original_ids: list[str]) -> dict[str, dict[str, An
             labelled_claims.c.claim_id.in_(original_ids)
         )
     )
-    return {claim_id: dict(label) for claim_id, label in rows}
+    found = {claim_id: dict(label) for claim_id, label in rows}
+    missing = [claim_id for claim_id in original_ids if claim_id not in found]
+    if missing:
+        # A shadow run's copies: the answer is what was decided on the live claim, after any
+        # handler's override.
+        for claim_id, decision, payout, reason in db.execute(
+            select(
+                decisions.c.claim_id, decisions.c.decision, decisions.c.payout, decisions.c.reason
+            ).where(decisions.c.claim_id.in_(missing))
+        ):
+            found[claim_id] = {"decision": decision, "payout": float(payout), "reason": reason}
+    return found
 
 
 def costs_of(db: Connection, ids: list[str]) -> dict[str, float]:

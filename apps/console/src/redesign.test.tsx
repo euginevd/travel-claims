@@ -177,11 +177,14 @@ test("the navigation marks the page the engineer is on", async () => {
     "GET /api/engineering/threats": () => [500, { detail: "Down" }],
   });
   const pages: [string, string][] = [
-    ["#/runs/3", "Evals: Scoreboard"],
-    ["#/improvement", "Evals: Improvement"],
-    ["#/trace", "Evals: Trace"],
-    ["#/threats", "Security: Red team"],
-    ["#/agents", "Security: Red team"],
+    ["#/runs/3", "Evaluate: Scoreboard"],
+    ["#/improvement", "Govern: Versions"],
+    ["#/trace", "Observe: Trace"],
+    ["#/threats", "Evaluate: Red team"],
+    ["#/agents", "Observe: Agents"],
+    ["#/audit", "Govern: Audit log"],
+    ["#/versions/2", "Govern: Versions"],
+    ["#/detections", "Secure: Guardrails"],
   ];
   for (const [hash, name] of pages) {
     window.location.hash = hash;
@@ -196,7 +199,14 @@ test("the navigation marks the page the engineer is on", async () => {
 test("the scoreboard shows the latest scored run's measures and starts the chosen run", async () => {
   const user = userEvent.setup();
   const runs: Run[] = [
-    { ...RUN, run_id: 4, status: "running", scores: null, finished_at: null },
+    {
+      ...RUN,
+      run_id: 4,
+      status: "running",
+      scores: null,
+      finished_at: null,
+      started_at: new Date().toISOString(),
+    },
     { ...RUN, run_id: 3, status: "stopped", scores: null },
     { ...RUN, run_id: 2, label_set: "held_out", scores: { ...SCORES, accuracy: 1 } },
     RUN,
@@ -253,7 +263,6 @@ test("improvement shows each round's stage, its diff by line and what happens ne
   const earlier = screen.getByRole("region", { name: "Earlier rounds table" });
   expect(within(earlier).getAllByRole("row")).toHaveLength(4);
   expect(within(earlier).getByText("Stopped")).toBeInTheDocument();
-  expect(screen.getByText("Proposed")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /Start an improvement round/ })).toBeNull();
 });
 
@@ -268,8 +277,7 @@ test("improvement with no rounds says what to do, and a round awaiting review is
     },
   });
   render(<ImprovementPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByText("No improvement rounds yet")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Start an improvement round/ }));
+  await userEvent.click(await screen.findByRole("button", { name: /Start an improvement round/ }));
   expect(await screen.findByText("Round 1 needs your review.")).toBeInTheDocument();
   expect(screen.getByText("Needs your review")).toBeInTheDocument();
 });
@@ -309,7 +317,8 @@ test("the claim trace starts empty and totals what it loads", async () => {
     ],
   });
   render(<TracePage api={createApi(fetchFn, () => "t")} />);
-  expect(screen.getByText("No claim open")).toBeInTheDocument();
+  // Nothing open: the newest traces are listed (none here, so it says how to make one).
+  expect(await screen.findByText(/Couldn't list the traces/)).toBeInTheDocument();
   await user.type(screen.getByLabelText("Claim"), "clm-1");
   await user.click(screen.getByRole("button", { name: "Show" }));
   expect(await screen.findByRole("heading", { name: "CLM-1" })).toBeInTheDocument();

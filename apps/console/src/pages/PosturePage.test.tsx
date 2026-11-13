@@ -45,11 +45,8 @@ test("before any red-team run it says so and where to start", async () => {
     issues: [],
   });
   expect(await screen.findByText("No attacks run yet")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "No red-team run yet" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Go to the red team" })).toHaveAttribute(
-    "href",
-    "#/redteam",
-  );
+  // The verdict says it once: no second empty box.
+  expect(screen.queryByRole("heading", { name: "No red-team run yet" })).toBeNull();
   expect(screen.getByText(/No gaps/)).toBeInTheDocument();
 });
 

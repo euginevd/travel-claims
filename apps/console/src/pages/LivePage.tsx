@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { BarSeries, MiniBar, Sparkline } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
+import { TrendsPanels } from "../components/TrendsPanels";
 import { date, dollars, when } from "../format";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { traceHref } from "../useHashRoute";
@@ -50,6 +51,10 @@ function money(value: number | null): string {
   return value === null ? "–" : `$${value.toFixed(3)}`;
 }
 
+// Under this many claims a share can't be told from chance: it says so, never raises an alarm.
+const FEWEST = 10;
+const TOO_FEW = "Too few to judge";
+
 /** The headline tiles: each a number with what it's out of written under it, and a word and
  * icon when it's past its target. */
 function Tiles({ live }: { live: Live }) {
@@ -60,9 +65,13 @@ function Tiles({ live }: { live: Live }) {
       "Straight through",
       percent(t.straight_through_share),
       `${String(t.straight_through)} of ${String(t.decided)} decided and paid with no person`,
-      t.straight_through_share !== null && t.straight_through_share < TARGETS.straightThrough
-        ? `Below ${percent(TARGETS.straightThrough)}`
-        : null,
+      t.straight_through_share === null
+        ? null
+        : t.decided < FEWEST
+          ? TOO_FEW
+          : t.straight_through_share < TARGETS.straightThrough
+            ? `Below ${percent(TARGETS.straightThrough)}`
+            : null,
     ],
     [
       "Cost per claim",
@@ -78,9 +87,13 @@ function Tiles({ live }: { live: Live }) {
       "Handler disagreement",
       percent(t.disagreement_rate),
       `${String(t.disagreements)} of ${String(t.reviewed)} reviewed decisions overridden or sent back`,
-      t.disagreement_rate !== null && t.disagreement_rate > TARGETS.disagreement
-        ? `Above ${percent(TARGETS.disagreement)}`
-        : null,
+      t.disagreement_rate === null
+        ? null
+        : t.reviewed < FEWEST
+          ? TOO_FEW
+          : t.disagreement_rate > TARGETS.disagreement
+            ? `Above ${percent(TARGETS.disagreement)}`
+            : null,
     ],
     ["Referrals", String(t.referrals), "Decisions that went to a handler", null],
     [
@@ -97,11 +110,15 @@ function Tiles({ live }: { live: Live }) {
           <p className="kpi-label">{label}</p>
           <p className="kpi-value">{value}</p>
           <p className="kpi-sub">{sub}</p>
-          {off && (
-            <span className="chip chip-warn">
-              <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
-              {off}
-            </span>
+          {off === TOO_FEW ? (
+            <span className="chip">{off}</span>
+          ) : (
+            off && (
+              <span className="chip chip-warn">
+                <CircleAlert size={13} strokeWidth={1.75} aria-hidden="true" />
+                {off}
+              </span>
+            )
           )}
         </li>
       ))}
@@ -552,7 +569,7 @@ export function LivePage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="live-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evals · Live</p>
+          <p className="eyebrow">Observe · Live</p>
           <h1 id="live-heading" ref={heading} tabIndex={-1}>
             Live
           </h1>
@@ -628,6 +645,7 @@ export function LivePage({ api }: { api: Api }) {
           <CustomerFeedback live={shown} />
         </>
       )}
+      <TrendsPanels api={api} />
     </section>
   );
 }

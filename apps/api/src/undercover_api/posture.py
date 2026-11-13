@@ -28,7 +28,9 @@ posture_router = APIRouter(prefix="/api/engineering")
 
 Days = Annotated[int, Query(ge=1, le=90)]
 Severity = Literal["high", "medium", "low"]
-Kind = Literal["guardrail", "hidden_instruction", "refusal", "held"]
+Kind = Literal["guardrail", "hidden_instruction", "refusal", "held", "output", "guardian"]
+# The step the output guard writes when it removes personal data from the agent's words.
+OUTPUT_CHECK = "output_check"
 LayerKey = Literal["screening", "agent", "limits", "sign_off"]
 Verdict = Literal["untested", "failing", "gap", "holding"]
 POSTURE_DAYS = 14
@@ -71,12 +73,16 @@ CONTROLS: dict[Kind, str] = {
     "hidden_instruction": "Hidden-instruction check",
     "refusal": "Model refused",
     "held": "Payout held",
+    "output": "Output guard",
+    "guardian": "Guardian",
 }
 OUTCOMES: dict[Kind, str] = {
     "guardrail": "Referred to a handler unseen",
     "hidden_instruction": "Referred to a handler unseen",
     "refusal": "The agent stopped",
     "held": "Held for a senior handler",
+    "output": "Personal data removed",
+    "guardian": "Held for a senior handler",
 }
 SEVERITY_ORDER: dict[Severity, int] = {"high": 0, "medium": 1, "low": 2}
 
@@ -136,6 +142,25 @@ class Detection(BaseModel):
     at: str
     summary: str
     outcome: str
+    # What a person did after: approved, declined, signed off, or still waiting.
+    after: str | None = None
+
+
+Where = Literal["Input", "Model", "Action", "Tool", "Person", "Output"]
+
+
+class Guardrail(BaseModel):
+    """One protection: where it sits, what it does, whether it's on, and its evidence."""
+
+    key: str
+    name: str
+    where: Where
+    does: str
+    mode: Literal["Enforcing", "On AWS", "Built in", "Missing"]
+    hits: int | None
+    stopped: int | None
+    reached: int | None
+    false_alarms: int | None
 
 
 class Detections(BaseModel):
@@ -143,6 +168,8 @@ class Detections(BaseModel):
     since: str
     counts: dict[Kind, int]
     events: list[Detection]
+    guardrails: list[Guardrail] = []
+    red_teamed: bool = False
 
 
 class Posture(BaseModel):
@@ -301,6 +328,14 @@ def refused() -> ColumnElement[bool]:
     return and_(*LIVE, steps.c.kind == "refusal")
 
 
+def guarded_by_guardian() -> ColumnElement[bool]:
+    return and_(*LIVE, steps.c.kind == "guardian")
+
+
+def output_checked() -> ColumnElement[bool]:
+    return and_(*LIVE, steps.c.kind == OUTPUT_CHECK)
+
+
 def held() -> ColumnElement[bool]:
     """An approval over the limit waits for a sign-off; a hold reason is any other hold."""
     return and_(
@@ -335,6 +370,8 @@ def counts_since(db: Connection, since: str) -> dict[Kind, int]:
         "guardrail": on_steps(screened(True)),
         "refusal": on_steps(refused()),
         "held": int(db.execute(on_decisions).scalar_one()),
+        "output": on_steps(output_checked()),
+        "guardian": on_steps(guarded_by_guardian()),
     }
 
 
@@ -361,6 +398,8 @@ def detections_since(db: Connection, since: str) -> list[Detection]:
         *step_events(db, "hidden_instruction", screened(False), since),
         *step_events(db, "guardrail", screened(True), since),
         *step_events(db, "refusal", refused(), since),
+        *step_events(db, "output", output_checked(), since),
+        *step_events(db, "guardian", guarded_by_guardian(), since),
     ]
     rows = db.execute(
         select(
@@ -383,6 +422,154 @@ def detections_since(db: Connection, since: str) -> list[Detection]:
     for one in sorted(found, key=lambda d: d.at, reverse=True):
         latest.setdefault((one.claim_id, one.kind), one)
     return list(latest.values())[:MOST_EVENTS]
+
+
+def false_alarms(db: Connection, guardrail: bool, since: str) -> int:
+    """Claims a screening referral stopped that a person then approved: the check was wrong."""
+    query = (
+        select(func.count(func.distinct(steps.c.claim_id)))
+        .select_from(STEPS.join(decisions, decisions.c.claim_id == steps.c.claim_id))
+        .where(
+            screened(guardrail),
+            steps.c.created_at >= since,
+            decisions.c.decision == DecisionKind.APPROVE,
+        )
+    )
+    return int(db.execute(query).scalar_one())
+
+
+def after_of(db: Connection, found: list[Detection]) -> list[Detection]:
+    """What a person did after each detection, from the claim's decision."""
+    ids = list({d.claim_id for d in found})
+    if not ids:
+        return found
+    rows = db.execute(
+        select(
+            decisions.c.claim_id,
+            decisions.c.decision,
+            decisions.c.decided_by,
+            decisions.c.signed_off_by,
+        ).where(decisions.c.claim_id.in_(ids))
+    ).all()
+    made = {claim_id: (decision, by, signed) for claim_id, decision, by, signed in rows}
+    out: list[Detection] = []
+    for d in found:
+        decision, by, signed = made.get(d.claim_id, (None, None, None))
+        if d.kind == "held":
+            after = f"Signed off by {signed}" if signed else "Waiting for sign-off"
+        elif decision is None or by == SCREENING_MAKER:
+            after = "Waiting for a handler"
+        else:
+            after = f"{str(decision).capitalize()}d by {by}"
+        out.append(d.model_copy(update={"after": after}))
+    return out
+
+
+# The red-team attack that tests the output guard.
+OUTPUT_ATTACK = "RT-09"
+
+
+def output_tested(report: RedTeamReport | None) -> dict[str, int | None]:
+    """Whether the output-guard attack held in the latest run: 1 of 1, 0 of 1, or not run."""
+    found = (
+        next((r for r in report.results if r.attack_id == OUTPUT_ATTACK), None) if report else None
+    )
+    if found is None:
+        return {"stopped": None, "reached": None}
+    return {"stopped": int(found.passed), "reached": 1}
+
+
+def guardrails_of(
+    db: Connection, since: str, counts: dict[Kind, int], report: RedTeamReport | None
+) -> list[Guardrail]:
+    """Every protection in the order a claim meets it, the missing one included."""
+    layers = {layer.key: layer for layer in layers_of(report)}
+
+    def tested(key: LayerKey) -> dict[str, int | None]:
+        layer = layers.get(key)
+        if report is None or layer is None:
+            return {"stopped": None, "reached": None}
+        return {"stopped": layer.stopped, "reached": layer.reached}
+
+    none: dict[str, int | None] = {"stopped": None, "reached": None}
+    return [
+        Guardrail(
+            key="guardrail",
+            name="Bedrock guardrail",
+            where="Input",
+            does="Blocks harmful or injected text before anything reads it",
+            mode="On AWS",
+            hits=counts["guardrail"],
+            false_alarms=false_alarms(db, True, since),
+            **none,
+        ),
+        Guardrail(
+            key="hidden_instruction",
+            name="Hidden-instruction check",
+            where="Input",
+            does="A separate model reads the claim and receipts, and refers any hidden "
+            "instruction unseen",
+            mode="Enforcing",
+            hits=counts["hidden_instruction"],
+            false_alarms=false_alarms(db, False, since),
+            **tested("screening"),
+        ),
+        Guardrail(
+            key="refusal",
+            name="Claim agent",
+            where="Model",
+            does="Its model can refuse, and its tools take the claim from the session, never "
+            "from the model",
+            mode="Built in",
+            hits=counts["refusal"],
+            false_alarms=None,
+            **tested("agent"),
+        ),
+        Guardrail(
+            key="held",
+            name="Payout limit",
+            where="Tool",
+            does="The payout is worked out in code; one over the approval limit is held",
+            mode="Enforcing",
+            hits=counts["held"],
+            false_alarms=None,
+            **tested("limits"),
+        ),
+        Guardrail(
+            key="guardian",
+            name="Guardian",
+            where="Action",
+            does="Watches each approval as it happens and holds one that doesn't add up: a failed "
+            "check, a flagged claim, more than was claimed, or a looping agent",
+            mode="Enforcing",
+            hits=counts["guardian"],
+            false_alarms=None,
+            stopped=None,
+            reached=None,
+        ),
+        Guardrail(
+            key="sign_off",
+            name="Senior sign-off",
+            where="Person",
+            does="A senior handler approves every held payout",
+            mode="Enforcing",
+            hits=None,
+            false_alarms=None,
+            **tested("sign_off"),
+        ),
+        Guardrail(
+            key="output",
+            name="Output guard",
+            # The attack that asks the agent to repeat a card number tests this one.
+            **output_tested(report),
+            where="Output",
+            does="Removes card, phone and tax file numbers and email addresses from what the "
+            "agent writes, before anyone reads it",
+            mode="Enforcing",
+            hits=counts["output"],
+            false_alarms=None,
+        ),
+    ]
 
 
 def over_limit(payout: float, limit: float) -> str:
@@ -467,6 +654,13 @@ def get_posture(_: SignedInEngineer, db: Database) -> Posture:
 def list_detections(_: SignedInEngineer, db: Database, days: Days = 14) -> Detections:
     """Each control that fired on a live claim over the last days, today included."""
     since = since_of(days)
+    counts = counts_since(db, since)
+    report = report_in_use(db, current_version(db))
     return Detections(
-        days=days, since=since, counts=counts_since(db, since), events=detections_since(db, since)
+        days=days,
+        since=since,
+        counts=counts,
+        events=after_of(db, detections_since(db, since)),
+        guardrails=guardrails_of(db, since, counts, report),
+        red_teamed=report is not None,
     )

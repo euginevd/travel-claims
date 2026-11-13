@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
 import "./brand.css";
+import "./today.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("The page has no #root element");

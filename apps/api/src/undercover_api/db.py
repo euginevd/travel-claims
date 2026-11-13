@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.engine import Connection, CursorResult, make_url
+from sqlalchemy.engine import Connection, Row, make_url
 from sqlalchemy.sql import Select
 
 # Money is held to the cent and read back as a float.
@@ -101,6 +101,9 @@ claims = Table(
     # When the agent last said it was still working the claim, and how often it was carried on.
     Column("heartbeat_at", String(32)),
     Column("recoveries", Integer, nullable=False, default=0),
+    # When the customer last added to it (the claim, then each receipt); none if seeded. With the
+    # agent switched on, a claim is worked once this is a little while ago.
+    Column("ready_at", String(32)),
 )
 
 # The labelled claims evaluations copy, with the handlers' decisions. No route the agent can
@@ -410,6 +413,40 @@ setting_changes = Table(
     Column("reason", String(200)),
 )
 
+# A senior handler's spot check of a claim the agent paid on its own: right or not, one a claim.
+spot_checks = Table(
+    "spot_checks",
+    metadata,
+    Column("claim_id", String(20), primary_key=True),
+    Column("verdict", String(10), nullable=False),
+    Column("checked_by", String(200), nullable=False),
+    Column("checked_by_id", String(20), nullable=False),
+    Column("checked_at", String(32), nullable=False),
+)
+
+# Each answer from an assistant (Wattle for customers, the Copilot for handlers), so the agents
+# map can count them: which one, its model calls and cost, and when.
+assistant_calls = Table(
+    "assistant_calls",
+    metadata,
+    Column("call_id", Integer, primary_key=True, autoincrement=True),
+    Column("agent", String(20), nullable=False),
+    Column("model_calls", Integer, nullable=False),
+    Column("cost", Numeric(12, 6, asdecimal=False), nullable=False),
+    Column("created_at", String(32), nullable=False),
+)
+
+# The audit log's seals: each entry's digest, chained to the one before (audit_chain.py).
+audit_seals = Table(
+    "audit_seals",
+    metadata,
+    Column("ref", String(80), primary_key=True),
+    Column("seq", Integer, nullable=False, unique=True),
+    Column("digest", String(64), nullable=False),
+    Column("chain", String(64), nullable=False),
+    Column("sealed_at", String(32), nullable=False),
+)
+
 # Each run of the red-team suite, newest last.
 redteam_reports = Table(
     "redteam_reports",
@@ -464,14 +501,19 @@ def make_engine(url: str, role: str | None = None) -> Engine:
     return engine
 
 
-def insert_if_new(db: Connection, table: Table, **values: Any) -> CursorResult[Any] | None:
-    """Insert a row unless one already holds its key or a unique value, and say so: the
-    result, or None when a row was there first (a race lost, a retry, a second press).
+def insert_if_new(db: Connection, table: Table, **values: Any) -> Row[Any] | None:
+    """Insert a row unless one already holds its key or a unique value, and say so: the new
+    row's key, or None when a row was there first (a race lost, a retry, a second press).
     ON CONFLICT DO NOTHING rather than catching the error in a SAVEPOINT, which Aurora DSQL
     doesn't support; the transaction carries on either way."""
     insert_into = sqlite_insert if db.dialect.name == "sqlite" else postgresql_insert
-    result = db.execute(insert_into(table).values(**values).on_conflict_do_nothing())
-    return result if result.rowcount else None
+    # RETURNING says whether a row went in: psycopg reports a rowcount of -1 here, not 0, so a
+    # rowcount check lets a second press through on PostgreSQL.
+    key = list(table.primary_key.columns) or list(table.columns)[:1]
+    result = db.execute(
+        insert_into(table).values(**values).on_conflict_do_nothing().returning(*key)
+    )
+    return result.first()
 
 
 def read_locked[T: Select[Any]](db: Connection, query: T) -> T:

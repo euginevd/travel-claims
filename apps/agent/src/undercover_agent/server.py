@@ -138,6 +138,11 @@ class DispatchRequest(BaseModel):
     kind: Literal["run", "dispatch"] = "run"
 
 
+class WatchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    concurrency: int = Field(ge=1, le=25)
+
+
 class ImproveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     round_id: int = Field(ge=1)
@@ -321,6 +326,14 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         dispatcher["runs"].dispatch(
             request.run_id, request.claim_ids, request.concurrency, request.kind
         )
+        return JSONResponse({"accepted": True}, status_code=202)
+
+    @app.post("/watch", operation_id="watch", dependencies=[Depends(agents_key)])
+    def watch(request: WatchRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Work the live queue while the agent switch is on; the api says how many at once."""
+        if "runs" not in dispatcher:
+            return JSONResponse({"refused": "The dispatcher isn't set up"}, status_code=409)
+        dispatcher["runs"].watch()
         return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/improve", operation_id="improve", dependencies=[Depends(agents_key)])

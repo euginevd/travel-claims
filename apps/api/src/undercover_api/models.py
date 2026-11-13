@@ -211,6 +211,12 @@ class ClaimSummary(BaseModel):
     status: Status
     decision: DecisionKind | None
     payout: float | None
+    reason: str | None = Field(
+        default=None, description="The decision's reason, for the queue's why-it-needs-you line"
+    )
+    flag: str | None = Field(
+        default=None, description="The first check that failed, or else warned: what stopped it"
+    )
     review_requested: bool
     due_on: str = Field(
         description="Ten business days after it was submitted, or for a seeded claim after the "
