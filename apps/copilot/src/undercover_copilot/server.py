@@ -4,6 +4,7 @@
 token; the Copilot checks it with the api and acts with it, one turn at a time per
 conversation."""
 
+import logging
 import os
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
@@ -19,6 +20,8 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 from undercover_copilot.graph import CopilotState, Handler
 from undercover_copilot.staff_api import ApiError, StaffApi
 from undercover_copilot.store import Conversation, Store
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from psycopg_pool import ConnectionPool
@@ -144,7 +147,12 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
             )
         finally:
             store.free(key)
-        return view(conversation)
+        turn = view(conversation)
+        try:
+            who.api.record_turn(turn.model_calls, turn.cost_usd)
+        except Exception:  # noqa: BLE001 - counting is best effort; the answer stands
+            log.warning("the Copilot's turn couldn't be counted on the agents map")
+        return turn
 
     @router.get("/conversations", operation_id="list_conversations")
     def list_conversations(who: Signed) -> list[ConversationSummary]:  # pyright: ignore[reportUnusedFunction]

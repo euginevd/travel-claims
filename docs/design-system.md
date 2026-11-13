@@ -76,7 +76,7 @@ UnderCover's brand, "Canopy" (decision 21): white pages, faint glows, dark text 
 26. **Similar claims (dashboard):** up to five rows under Risk signals, labelled "a guide, not a decision".
 27. **Settings (dashboard):** one card of fields with ranges, a reason and one Save button, enabled only on a change; read-only for handlers.
 28. **Grade chip (console):** the judge's score as a letter, A (3) to F (0); "Not graded" in a plain chip.
-29. **Dispatch card (dashboard):** agents at once and **Work the waiting claims**, confirmed with a count and cost range; then a progress bar.
+29. **Status group (dashboard):** the agent and payouts as one pill in the top bar, each a soft green segment when on or live and soft red when off or paused, with a 7px dot (it pulses while the agent works) and a fixed-width count; never wraps. Changing either opens the same small card asking why in one line. Paused payouts show one quiet line under the header, never a panel.
 30. Anything new is built from the tokens and these components, and added here once settled.
 
 ## Not this
@@ -93,6 +93,6 @@ UnderCover's brand, "Canopy" (decision 21): white pages, faint glows, dark text 
 ## This project
 
 36. **Portal:** the roomiest, and a conversation (decision 53): "Hi Oliver.", one news line, a large centred composer, three suggestions and an at-a-glance row; a reply is a headline, short lines and tappable choices, cards in one ring; the side panel holds Messages, Claims and Settings; from 1100px Claims opens wide, the list beside the claim; lists show three, then five more a tap. Works at 390px; an animated route map at sign-in.
-37. **Dashboard:** `--bg-work`, denser tables, 44px buttons; wide tables scroll inside their card.
-38. **Console:** the dashboard's density. A top-bar switch, **Evals | Security**, with the section's pages as tabs below. A tile can be its own filter; a small-sample score shows its range as a shaded band and its target as a tick. Untested defence layers are hatched in `--acc-tint`.
+37. **Dashboard:** `--bg-work`, denser tables, 44px buttons; wide tables scroll inside their card. **Today** opens on Wattle's brief (a Newsreader sentence on a faint wattle wash), four figures, then the claims that need you, each row saying why. A claim opens on the **verdict** card: by-line, a Newsreader headline, the reason, the one action, and the checks beside it; the evidence sits in tabs below.
+38. **Console:** the dashboard's density. A top-bar switch, **Overview | Observe | Evaluate | Secure | Govern**, the control plane's jobs, with the section's pages as tabs below (none for Overview), and the agent and payouts switches as green or red pills before Wattle (dots only below 1180px). Overview: a verdict ring with the version, then release gates as rows (pass, watch, fail, no evidence), each with its range bar. The agents map is a hand-laid SVG on a grid: boxes tinted by who uses them, the claim's path in one line, gates as pills on it, trust boundaries dashed. A tile can be its own filter; a small-sample score shows its range as a shaded band and its target as a tick. Untested defence layers are hatched in `--acc-tint`.
 39. **Project page:** one screen without scrolling: headline, brief, walkthrough video and app links.

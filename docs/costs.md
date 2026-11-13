@@ -31,3 +31,5 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 
 6. The platform team pays for its shared controls, so they aren't in this bill: Firewall Manager, Shield Advanced, GuardDuty, Security Hub, Config, CloudTrail, KMS keys, backups, Transaction Search and Control Tower.
 7. Each PR that changes `infra/aws/` gets an Infracost comment. It warns above `MONTHLY_COST_LIMIT` but excludes usage such as tokens and data transfer.
+
+Audit seals (S3 with Object Lock, decision 57): a few kilobytes a day; well under $0.01 a month.

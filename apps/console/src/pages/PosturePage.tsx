@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Api, Posture, Severity } from "../api";
+import { RisksTable } from "../components/RisksTable";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -134,8 +135,7 @@ function Tiles({ posture }: { posture: Posture }) {
       <Tile
         label="Risks tested by an attack"
         value={`${String(controls.tested)} of ${String(controls.risks)}`}
-        sub={`OWASP LLM ${String(controls.llm_tested)} of ${String(controls.llm_total)}, agentic ${String(controls.agentic_tested)} of ${String(controls.agentic_total)}`}
-        link={{ href: REDTEAM_HREF, label: "Each risk and its control" }}
+        sub={`OWASP LLM ${String(controls.llm_tested)} of ${String(controls.llm_total)}, agentic ${String(controls.agentic_tested)} of ${String(controls.agentic_total)}; each below`}
       />
       <Tile
         label="Fired on live claims"
@@ -163,20 +163,8 @@ function Tiles({ posture }: { posture: Posture }) {
  * it stopped. A layer no attack reached is marked untested. */
 function Layers({ posture }: { posture: Posture }) {
   const run = posture.redteam;
-  if (!run) {
-    return (
-      <div className="panel empty">
-        <span className="icon-tile" aria-hidden="true">
-          <ShieldQuestionMark size={19} strokeWidth={1.75} />
-        </span>
-        <h2>No red-team run yet</h2>
-        <p className="muted">
-          Run the red team to see which layer stops each attack.{" "}
-          <a href={REDTEAM_HREF}>Go to the red team</a>
-        </p>
-      </div>
-    );
-  }
+  // The verdict above already says no run; no second empty box.
+  if (!run) return null;
   const through = run.attacks - run.held;
   return (
     <div className="panel">
@@ -304,7 +292,7 @@ export function PosturePage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="posture-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Security · Posture</p>
+          <p className="eyebrow">Secure · Posture</p>
           <h1 id="posture-heading" ref={heading} tabIndex={-1}>
             Would we stop an attack?
           </h1>
@@ -334,6 +322,7 @@ export function PosturePage({ api }: { api: Api }) {
           <Tiles posture={posture} />
           <Layers posture={posture} />
           <Gaps posture={posture} />
+          <RisksTable api={api} />
         </>
       )}
     </section>

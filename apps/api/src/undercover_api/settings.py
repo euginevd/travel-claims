@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     # Where receipts are kept: a Docker volume locally, a private S3 bucket when the bucket is set.
     receipts_dir: Path = Path("receipts")
     receipts_bucket: str | None = None
+    # A copy of each audit seal in write-once storage (S3 Object Lock) when set (AWS).
+    audit_bucket: str | None = None
     # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (AWS).
     agent_url: str = "http://127.0.0.1:8080"
     agent_runtime_arn: str | None = None

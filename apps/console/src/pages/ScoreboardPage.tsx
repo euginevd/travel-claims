@@ -11,6 +11,7 @@ import type {
   SuccessCriteria,
 } from "../api";
 import { RangeBar, VersionChart } from "../components/Charts";
+import { ExamGrowth } from "../components/ExamGrowth";
 import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
@@ -661,7 +662,18 @@ function Share({ value, claims }: { value: number; claims: number }) {
   );
 }
 
-function RunsTable({ runs }: { runs: Run[] }) {
+// A run with no word for this long has stalled.
+const STALLED_MS = 60 * 60 * 1000;
+const RUNS_SHOWN = 5;
+
+function stalled(run: Run, now = Date.now()): boolean {
+  return run.status === "running" && now - Date.parse(run.started_at) > STALLED_MS;
+}
+
+function RunsTable({ runs, api, onChanged }: { runs: Run[]; api: Api; onChanged: () => void }) {
+  const [shownCount, setShownCount] = useState(RUNS_SHOWN);
+  const [stopping, setStopping] = useState<number | null>(null);
+  const shownRuns = runs.slice(0, shownCount);
   return (
     <div className="panel">
       <div className="panel-head">
@@ -690,7 +702,7 @@ function RunsTable({ runs }: { runs: Run[] }) {
             </tr>
           </thead>
           <tbody>
-            {runs.map((run) => (
+            {shownRuns.map((run) => (
               <tr key={run.run_id}>
                 <td className="nowrap">
                   <a href={runHref(run.run_id)}>Run {run.run_id}</a>
@@ -739,13 +751,49 @@ function RunsTable({ runs }: { runs: Run[] }) {
                 <td className="num">{run.scores ? cost(run.scores.cost_per_claim) : "–"}</td>
                 <td className="nowrap">{when(run.started_at)}</td>
                 <td>
-                  <RunStatus status={run.status} />
+                  {stalled(run) ? (
+                    <span className="chip-row">
+                      <span className="chip chip-warn">Stalled</span>
+                      <button
+                        type="button"
+                        className="button secondary small-button"
+                        disabled={stopping === run.run_id}
+                        onClick={() => {
+                          setStopping(run.run_id);
+                          api.stopRun(run.run_id).then(
+                            () => {
+                              setStopping(null);
+                              onChanged();
+                            },
+                            () => {
+                              setStopping(null);
+                            },
+                          );
+                        }}
+                      >
+                        {stopping === run.run_id ? "Stopping…" : "Stop"}
+                      </button>
+                    </span>
+                  ) : (
+                    <RunStatus status={run.status} />
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </TableScroll>
+      {runs.length > shownCount && (
+        <button
+          type="button"
+          className="button secondary runs-more"
+          onClick={() => {
+            setShownCount((n) => n + RUNS_SHOWN);
+          }}
+        >
+          Show {Math.min(RUNS_SHOWN, runs.length - shownCount)} more
+        </button>
+      )}
     </div>
   );
 }
@@ -827,7 +875,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="scoreboard-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evals · Evaluations</p>
+          <p className="eyebrow">Evaluate · Scoreboard</p>
           <h1 id="scoreboard-heading" ref={heading} tabIndex={-1}>
             Scoreboard
           </h1>
@@ -838,6 +886,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
         </div>
       </header>
       {runs && <ExamPanel runs={runs} version={version} criteria={criteria} />}
+      <ExamGrowth api={api} />
       <SuccessCard
         api={api}
         found={criteria}
@@ -877,7 +926,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
           <p className="muted">Start a practice run above, or an improvement round for an exam.</p>
         </div>
       )}
-      {runs && runs.length > 0 && <RunsTable runs={runs} />}
+      {runs && runs.length > 0 && <RunsTable runs={runs} api={api} onChanged={refresh} />}
     </section>
   );
 }

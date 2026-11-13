@@ -3,7 +3,6 @@ import {
   ChevronDown,
   CircleAlert,
   LoaderCircle,
-  ScrollText,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -11,6 +10,7 @@ import {
 import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react";
 import type { Api, Trace } from "../api";
 import { Sparkline } from "../components/Charts";
+import { RecentTraces } from "../components/RecentTraces";
 import { dollars, when } from "../format";
 import { modelName, timeline, unscopedCalls, type Entry } from "../traceTimeline";
 import { useFocusHeading } from "../useFocusHeading";
@@ -262,7 +262,6 @@ function Cost({ trace }: { trace: Trace }) {
 export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string }) {
   const heading = useFocusHeading();
   const [claimId, setClaimId] = useState(opened ?? "");
-  const [suggested, setSuggested] = useState<{ claimId: string; calls: number } | null>(null);
   const [shown, setShown] = useState<{ claimId: string; trace: Trace } | null>(null);
   const [loading, setLoading] = useState(Boolean(opened));
   const [error, setError] = useState<string | null>(null);
@@ -303,8 +302,10 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
         (found) => {
           if (!live || found.claim_id === null) return;
           const id = found.claim_id;
-          setSuggested({ claimId: id, calls: found.model_calls });
           setClaimId((now) => now || id);
+          // The fullest trace opens straight away; another claim number replaces it.
+          setLoading(true);
+          fetchTrace(id, () => live);
         },
         () => undefined,
       );
@@ -328,7 +329,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
     <section className="view" aria-labelledby="trace-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evals · Trace</p>
+          <p className="eyebrow">Observe · Trace</p>
           <h1 id="trace-heading" ref={heading} tabIndex={-1}>
             Claim trace
           </h1>
@@ -363,19 +364,6 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
           Loading the trace…
         </p>
       )}
-      {!shown && !loading && !error && (
-        <div className="panel empty">
-          <span className="icon-tile">
-            <ScrollText size={19} strokeWidth={1.75} aria-hidden="true" />
-          </span>
-          <h2>No claim open</h2>
-          <p className="muted">
-            {suggested
-              ? `${suggested.claimId} is filled in: the live claim with the most model calls lately (${String(suggested.calls)}), so the fullest trace to read. Press Show, or enter another claim number.`
-              : "Enter a claim number above to see each model call and step the agent made on it, and what it cost."}
-          </p>
-        </div>
-      )}
       {shown && trace && (
         <>
           <Outcome claimId={shown.claimId} trace={trace} />
@@ -405,6 +393,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
           </div>
         </>
       )}
+      {!loading && <RecentTraces api={api} />}
     </section>
   );
 }

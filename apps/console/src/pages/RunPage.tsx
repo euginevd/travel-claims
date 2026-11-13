@@ -137,8 +137,12 @@ export function RunPage({ api, runId }: { api: Api; runId: number }) {
           </h1>
           {run && (
             <p className="lede">
-              {run.label_set === "evaluation" ? "Evaluation set" : "Held-out set"}, {run.size} ·
-              configuration v{run.config_version} · {run.concurrency} at once ·{" "}
+              {run.label_set === "evaluation"
+                ? "Evaluation set"
+                : run.label_set === "shadow"
+                  ? "Shadow run on live claims, against what was decided on each"
+                  : "Held-out set"}
+              , {run.size} · configuration v{run.config_version} · {run.concurrency} at once ·{" "}
               {running ? "running…" : grading ? "grading…" : run.status}
               {run.scores && ` · ${String(misses)} missed of ${String(run.scores.claims)}`}
             </p>

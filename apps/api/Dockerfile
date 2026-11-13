@@ -24,6 +24,7 @@ COPY --from=build /app/.venv /app/.venv
 COPY data/records/claims.json data/records/policies.json data/records/customers.json data/records/handlers.json data/records/engineers.json data/records/company.json /app/data/records/
 COPY data/evals/decisions.json data/evals/held_out_claims.json data/evals/held_out_decisions.json /app/data/evals/
 COPY data/security/claims.json data/security/policies.json data/security/customers.json /app/data/security/
+COPY data/redteam/attacks.json /app/data/redteam/
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 SEED_DATA_DIR=/app/data RECEIPTS_DIR=/data/receipts
 # Lets the same image run on Lambda; Lambda starts it as an extension, Docker never does.
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0@sha256:17cfd08eff1dfea3f6a9a1e9c65fdac80aa4919b6085e746615530f43f57d2f1 /lambda-adapter /opt/extensions/lambda-adapter

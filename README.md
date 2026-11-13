@@ -39,7 +39,7 @@ One design, the one a regulated insurer would run, with the platform team's cont
 2. **Money never in a prompt:** code pays, after checking the approval limit and the pause switch; a payout can't run twice.
 3. **Tool rules:** AgentCore Policy (Cedar) allows each gateway only its own tools.
 4. **Checked answers:** grounding checks, Automated Reasoning against the policy wording, and letters filtered for personal numbers.
-5. **Red team:** eight attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
+5. **Red team:** nine attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
 6. **Identity:** separate sign-ins per app, machine tokens between services, and GitHub to AWS over OIDC with no stored keys.
 7. **Pipeline:** Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every PR; images shipped with an SBOM; packages at least 7 days old.
 

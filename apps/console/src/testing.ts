@@ -90,7 +90,7 @@ export const POSTURE: Posture = {
       link: "redteam",
     },
   ],
-  detections: { guardrail: 0, hidden_instruction: 2, refusal: 0, held: 1 },
+  detections: { guardrail: 0, hidden_instruction: 2, refusal: 0, held: 1, output: 0, guardian: 0 },
   detection_days: 14,
   readiness: {
     payouts_paused: false,

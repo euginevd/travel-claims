@@ -40,7 +40,7 @@ export function LogoMark({ size = 38, animate = false }: { size?: number; animat
   );
 }
 
-export function Logo({ wordmark = true, subtitle = "AI assurance", animate = false }: LogoProps) {
+export function Logo({ wordmark = true, subtitle = "Control plane", animate = false }: LogoProps) {
   return (
     <span className="logo">
       <LogoMark animate={animate} />

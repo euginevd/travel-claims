@@ -1,23 +1,60 @@
-import { Hourglass, LoaderCircle, Radar, ShieldCheck } from "lucide-react";
+import { Hourglass, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   LIVE_PERIODS,
   type Api,
   type DetectionKind,
   type Detections,
+  type Guardrail,
   type LivePeriod,
 } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { traceHref } from "../useHashRoute";
+import { REDTEAM_HREF, traceHref } from "../useHashRoute";
 
-const KINDS: [kind: DetectionKind, label: string, sub: string][] = [
-  ["hidden_instruction", "Hidden-instruction check", "Claims referred before the agent read them"],
-  ["guardrail", "Bedrock guardrail", "Customer text blocked, on AWS"],
-  ["refusal", "Model refused", "The agent's model declined to go on"],
-  ["held", "Payout held", "Approvals waiting for a senior handler"],
-];
+const CONTROL: Record<DetectionKind, string> = {
+  hidden_instruction: "Hidden-instruction check",
+  guardrail: "Bedrock guardrail",
+  refusal: "Claim agent",
+  held: "Payout limit",
+  output: "Output guard",
+  guardian: "Guardian",
+};
+
+const MODES: Record<Guardrail["mode"], string> = {
+  Enforcing: "chip chip-good",
+  "On AWS": "chip chip-info",
+  "Built in": "chip",
+  Missing: "chip chip-bad",
+};
+
+function isKind(key: string): key is DetectionKind {
+  return key in CONTROL;
+}
+
+/** The page's answer in one line, worked out in code: what's on, what's missing, whether the
+ * red team got through, and what fired on real claims. */
+export function answerOf(found: Detections): string {
+  const rails = found.guardrails;
+  const on = rails.filter((rail) => rail.mode !== "Missing").length;
+  const missing = rails.length - on;
+  const tested = rails.filter((rail) => rail.reached !== null && rail.stopped !== null);
+  const attacks = Math.max(0, ...tested.map((rail) => rail.reached ?? 0));
+  const stopped = tested.reduce((sum, rail) => sum + (rail.stopped ?? 0), 0);
+  const hits = rails.reduce((sum, rail) => sum + (rail.hits ?? 0), 0);
+  return [
+    `${String(on)} guardrails on`,
+    missing > 0 ? `${String(missing)} missing` : null,
+    found.red_teamed
+      ? `the red team: ${String(stopped)} of ${String(attacks)} attacks stopped`
+      : "not red-teamed yet",
+    `${String(hits)} fired on real claims in ${String(found.days)} days`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 type Filter = DetectionKind | "all";
 
 /** Every time a control fired on a live claim: each claim once per control, newest first. A
@@ -56,13 +93,13 @@ export function DetectionsPage({ api }: { api: Api }) {
     <section className="view" aria-labelledby="detections-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Security · Detections</p>
+          <p className="eyebrow">Secure · Guardrails</p>
           <h1 id="detections-heading" ref={heading} tabIndex={-1}>
-            Detections
+            Guardrails
           </h1>
           <p className="lede">
-            Each time a protection fired on a real customer&apos;s claim. Test and red-team claims
-            are never counted.
+            Are the protections on, and do they work? Each guardrail with its proof from the red
+            team, what it caught on real claims, and how often it was wrong.
           </p>
         </div>
         <fieldset className="seg page-head-side">
@@ -101,106 +138,165 @@ export function DetectionsPage({ api }: { api: Api }) {
       )}
       {shown && (
         <>
-          {/* Each tile is also the filter for its control: press it again for every control. */}
-          <ul className="kpis" aria-label="Detections by control">
-            {KINDS.map(([kind, label, sub]) => (
-              <li key={kind}>
-                <button
-                  type="button"
-                  className="kpi kpi-filter"
-                  aria-pressed={filter === kind}
-                  onClick={() => {
-                    setFilter(filter === kind ? "all" : kind);
-                  }}
-                >
-                  <span className="kpi-label">{label}</span>
-                  <span className="kpi-value">{shown.counts[kind]}</span>
-                  <span className="kpi-sub">{sub}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {shown.events.length === 0 ? (
-            <div className="panel empty">
-              <span className="icon-tile" aria-hidden="true">
-                <Radar size={18} strokeWidth={1.75} />
-              </span>
-              <h2>No detections in this period</h2>
-              <p className="muted">
-                Nothing fired on a live claim. Choose a longer period, or make a claim with the
-                sample receipt that hides an instruction.
+          <p className="guard-answer">
+            <ShieldCheck size={18} strokeWidth={1.75} aria-hidden="true" />
+            <span>{answerOf(shown)}</span>
+          </p>
+          <section className="panel" aria-labelledby="guardrails-heading">
+            <div className="panel-head">
+              <h2 id="guardrails-heading">Each guardrail, in the order a claim meets it</h2>
+              <a className="stage-link small" href={REDTEAM_HREF}>
+                Red team
+              </a>
+            </div>
+            <TableScroll label="Guardrails table">
+              <table className="table min-wide guard-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Guardrail</th>
+                    <th scope="col">Where</th>
+                    <th scope="col">Mode</th>
+                    <th scope="col" className="num">
+                      Real claims
+                    </th>
+                    <th scope="col">Red team</th>
+                    <th scope="col" className="num">
+                      False alarms
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.guardrails.map((rail) => (
+                    <tr
+                      key={rail.key}
+                      className={rail.mode === "Missing" ? "is-missing" : undefined}
+                    >
+                      <th scope="row">
+                        {rail.name}
+                        <span className="sub">{rail.does}</span>
+                      </th>
+                      <td>
+                        <span className="tag">{rail.where}</span>
+                      </td>
+                      <td>
+                        <span className={MODES[rail.mode]}>{rail.mode}</span>
+                      </td>
+                      <td className="num">
+                        {rail.hits === null ? (
+                          "—"
+                        ) : rail.hits > 0 && isKind(rail.key) ? (
+                          <button
+                            type="button"
+                            className="link-button"
+                            aria-pressed={filter === rail.key}
+                            onClick={() => {
+                              setFilter(filter === rail.key ? "all" : (rail.key as DetectionKind));
+                            }}
+                          >
+                            {rail.hits}
+                          </button>
+                        ) : (
+                          rail.hits
+                        )}
+                      </td>
+                      <td>
+                        {rail.reached === null || rail.stopped === null ? (
+                          <span className="muted">
+                            {rail.mode === "Missing"
+                              ? "—"
+                              : rail.key === "guardrail"
+                                ? "With the check"
+                                : rail.key === "output"
+                                  ? "Not run"
+                                  : "Not run"}
+                          </span>
+                        ) : (
+                          `Stopped ${String(rail.stopped)} of ${String(rail.reached)} that reached it`
+                        )}
+                      </td>
+                      <td className="num">{rail.false_alarms ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
+            <p className="small muted guard-note">
+              Real claims: how many it fired on in {shown.days} days. False alarms: claims it
+              stopped that a handler then approved. Red-team claims are never counted as real.
+            </p>
+          </section>
+          <section className="panel" aria-labelledby="events-heading">
+            <div className="panel-head">
+              <h2 id="events-heading">What fired</h2>
+              <p className="panel-note">
+                {filter === "all" ? (
+                  "Newest first"
+                ) : (
+                  <>
+                    {CONTROL[filter]} only.{" "}
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        setFilter("all");
+                      }}
+                    >
+                      Show every guardrail
+                    </button>
+                  </>
+                )}
               </p>
             </div>
-          ) : (
-            <div className="panel">
-              <div className="panel-head">
-                <h2>Events</h2>
-                <p className="panel-note">
-                  {filter === "all" ? (
-                    "Every control, newest first. Press a tile above to filter"
-                  ) : (
-                    <>
-                      {KINDS.find(([kind]) => kind === filter)?.[1]} only.{" "}
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => {
-                          setFilter("all");
-                        }}
-                      >
-                        Show every control
-                      </button>
-                    </>
-                  )}
-                </p>
-              </div>
-              {events.length === 0 ? (
-                <p className="muted small">None from this control in the period.</p>
-              ) : (
-                <TableScroll label="Detections table">
-                  <table className="table min-wide">
-                    <thead>
-                      <tr>
-                        <th scope="col">When</th>
-                        <th scope="col">Control</th>
-                        <th scope="col">What it caught</th>
-                        <th scope="col">Claim</th>
-                        <th scope="col">Outcome</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {events.map((event, index) => (
-                        <tr key={`${event.claim_id}-${event.kind}-${String(index)}`}>
-                          <td className="nowrap small">{when(event.at)}</td>
-                          <td className="nowrap">{event.control}</td>
-                          {/* Untrusted model output: text only, never markup. */}
-                          <td className="prose" dir="auto">
-                            {event.summary}
-                          </td>
-                          <td className="mono nowrap">
-                            <a href={traceHref(event.claim_id)}>{event.claim_id}</a>
-                          </td>
-                          <td>
+            {events.length === 0 ? (
+              <p className="muted small">
+                {shown.events.length === 0
+                  ? `Nothing fired on a real claim in ${String(shown.days)} days. Make a claim with the sample receipt that hides an instruction to see one.`
+                  : "None from this guardrail in the period."}
+              </p>
+            ) : (
+              <TableScroll label="Detections table">
+                <table className="table min-wide">
+                  <thead>
+                    <tr>
+                      <th scope="col">When</th>
+                      <th scope="col">Guardrail</th>
+                      <th scope="col">What it caught</th>
+                      <th scope="col">Claim</th>
+                      <th scope="col">Then</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map((event, index) => (
+                      <tr key={`${event.claim_id}-${event.kind}-${String(index)}`}>
+                        <td className="nowrap small">{when(event.at)}</td>
+                        <td className="nowrap">{event.control}</td>
+                        {/* Untrusted model output: text only, never markup. */}
+                        <td className="prose" dir="auto">
+                          {event.summary}
+                        </td>
+                        <td className="mono nowrap">
+                          <a href={traceHref(event.claim_id)}>{event.claim_id}</a>
+                        </td>
+                        <td>
+                          <span
+                            className={event.kind === "held" ? "chip chip-info" : "chip chip-good"}
+                          >
                             {event.kind === "held" ? (
-                              <span className="chip chip-info">
-                                <Hourglass size={13} strokeWidth={1.75} aria-hidden="true" />
-                                {event.outcome}
-                              </span>
+                              <Hourglass size={13} strokeWidth={1.75} aria-hidden="true" />
                             ) : (
-                              <span className="chip chip-good">
-                                <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
-                                {event.outcome}
-                              </span>
+                              <ShieldCheck size={13} strokeWidth={1.75} aria-hidden="true" />
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </TableScroll>
-              )}
-            </div>
-          )}
+                            {event.outcome}
+                          </span>
+                          {event.after && <span className="sub">{event.after}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableScroll>
+            )}
+          </section>
         </>
       )}
     </section>

@@ -27,7 +27,10 @@ from undercover_api.agent_service import (
     RuntimeAgentService,
     runtime_client,
 )
+from undercover_api.agent_switch import agent_queue_router, staff_agent_router
 from undercover_api.ask import ask_router, engineer_ask_router
+from undercover_api.assurance import assurance_router, staff_usage_router
+from undercover_api.audit_chain import Anchor, S3Anchor
 from undercover_api.auth import (
     CUSTOMERS_GROUP,
     ENGINEERS_GROUP,
@@ -41,6 +44,7 @@ from undercover_api.auth import (
     TokenVerifier,
     require_agent,
 )
+from undercover_api.budget import budget_router
 from undercover_api.business_settings import engineer_settings_router, staff_settings_router
 from undercover_api.claims import (
     add_requests,
@@ -78,16 +82,17 @@ from undercover_api.db import (
     sent_back,
 )
 from undercover_api.demo import demo_router
+from undercover_api.demo_reset import demo_reset_router
 from undercover_api.demo_sign_in import CognitoTestSignIn
 from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_router
 from undercover_api.dsql import is_conflict
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.feedback import feedback_router
+from undercover_api.guardian import held_by, hold
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
+from undercover_api.insights import insights_router
 from undercover_api.kill_switch import (
-    PAUSED_REASON,
     payout_switch,
-    payouts_paused,
     refuse_while_paused,
     set_payouts,
 )
@@ -128,8 +133,9 @@ from undercover_api.models import (
     TestSignInRequest,
     Trace,
 )
+from undercover_api.output_guard import guarded, note_removed
 from undercover_api.payments import pay, record_payment
-from undercover_api.payout import UnknownPlanError, needs_sign_off, work_out_payout
+from undercover_api.payout import UnknownPlanError, dollars, needs_sign_off, work_out_payout
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.posture import posture_router
 from undercover_api.records import check_calculation, check_request
@@ -148,6 +154,7 @@ from undercover_api.similar import similar_router
 from undercover_api.storage import Receipts, S3ReceiptStore
 from undercover_api.success import engineer_success_router, staff_success_router
 from undercover_api.threats import threats_router
+from undercover_api.trends import trends_router
 
 log = logging.getLogger(__name__)
 
@@ -256,6 +263,8 @@ def record_decision(
     made it."""
     check_request(request)
     claim = find_claim(db, claim_id)
+    # The output guard: personal data the agent wrote never reaches a handler or the customer.
+    request, removed = guarded(request)
     current = find_decision(db, claim_id)
     if current is not None:
         if (current.decision, current.payout) == (request.decision, request.payout):
@@ -282,19 +291,16 @@ def record_decision(
     )
     if insert_if_new(db, decisions, claim_id=claim_id, **record) is None:
         raise HTTPException(409, f"Claim {claim_id} has already been decided")
+    note_removed(db, claim_id, removed)
     if request.decision != DecisionKind.APPROVE or claim["source"] == EVALUATION:
         # An evaluation's copy is never paid or signed off: its approval is finished here.
         set_status(db, claim_id, Status.DECIDED)
     elif needs_sign_off(request.payout, limit):
         set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
-    elif payouts_paused(db):
-        # Every approval holds while payouts are paused, for a sign-off once they're back on.
+    elif (reason := held_by(db, claim_id, request)) is not None:
+        # The guardian stopped it, or payouts are paused: it waits for a senior's sign-off.
         set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
-        db.execute(
-            update(decisions)
-            .where(decisions.c.claim_id == claim_id)
-            .values(hold_reason=PAUSED_REASON)
-        )
+        hold(db, claim_id, reason)
     if (
         request.decision == DecisionKind.REFER
         and request.maker == "claim_agent"
@@ -576,6 +582,40 @@ def override_decision(
     current = find_decision(db, claim_id)
     if current is None or claim["status"] not in OVERRIDABLE:
         raise HTTPException(409, f"Claim {claim_id} has no decision to override")
+    return put_handler_decision(db, claim_id, request, handler, "overrode the decision")
+
+
+@staff_router.post("/claims/{claim_id}/decide", operation_id="decide_referral")
+def decide_referral(
+    claim_id: ClaimId, request: OverrideRequest, handler: SignedIn, db: Database
+) -> Claim:
+    """Decide a claim the agent referred to a person, as any handler: approve or decline, with a
+    reason code. An approval over the approval limit is a senior handler's to decide."""
+    claim = find_claim(db, claim_id)
+    current = find_decision(db, claim_id)
+    referred = current is not None and current.decision == DecisionKind.REFER
+    if not referred or claim["status"] not in (Status.DECIDED, Status.LEFT_FOR_HANDLER):
+        raise HTTPException(409, f"Claim {claim_id} isn't referred to a person")
+    if request.decision == DecisionKind.REFER:
+        raise HTTPException(422, "Approve or decline it; it's already referred")
+    limit = approval_limit(db)
+    if request.payout > limit and not handler.can_approve_over_limit:
+        raise HTTPException(
+            403, f"Over your approval limit of {dollars(limit)}: a senior handler decides this one"
+        )
+    return put_handler_decision(db, claim_id, request, handler, "decided the referral")
+
+
+def put_handler_decision(
+    db: Connection, claim_id: str, request: OverrideRequest, handler: Handler, did: str
+) -> Claim:
+    """Put a handler's own decision in place of the agent's decision (checked by the caller),
+    recorded as an override with its reason code; an approval is paid at once as the handler's
+    sign-off."""
+    claim = find_claim(db, claim_id)
+    current = find_decision(db, claim_id)
+    if current is None:
+        raise HTTPException(409, f"Claim {claim_id} has no decision")
     if db.execute(select(payments.c.claim_id).where(payments.c.claim_id == claim_id)).first():
         raise HTTPException(409, f"Claim {claim_id} has already been paid")
     approve = request.decision == DecisionKind.APPROVE
@@ -618,7 +658,7 @@ def override_decision(
         NewStep(
             thread_id=claim["thread_id"],
             kind="message",
-            content=f"{handler.name} overrode the decision ({request.reason_code}): {request.note}",
+            content=f"{handler.name} {did} ({request.reason_code}): {request.note}",
             sources=[],
         ),
     )
@@ -865,6 +905,15 @@ def make_receipts(settings: Settings) -> Receipts | None:
     return S3ReceiptStore(settings.receipts_bucket, aws_client("s3"))
 
 
+def make_anchor(settings: Settings) -> Anchor | None:
+    """The write-once copy of the audit seals when its bucket is set (AWS); none locally."""
+    if not settings.audit_bucket:
+        return None
+    from undercover_api.aws import aws_client  # noqa: PLC0415 - only AWS needs it
+
+    return S3Anchor(settings.audit_bucket, aws_client("s3"))
+
+
 async def lost_race(_: Request, error: Exception) -> JSONResponse:
     """A write that lost a race on DSQL was rolled back whole, so nothing was paid or saved:
     409 asks the caller to try again. Any other database error stays a 500."""
@@ -897,6 +946,7 @@ def create_app(
     app.state.engine = database
     app.state.agent = agent_service or make_agent_service(settings)
     app.state.receipts = make_receipts(settings)
+    app.state.audit_anchor = make_anchor(settings)
     staff = (settings.staff_token_issuer, settings.staff_token_audience)
     customer = (settings.customer_token_issuer, settings.customer_token_audience)
     engineering = (settings.engineering_token_issuer, settings.engineering_token_audience)
@@ -924,6 +974,7 @@ def create_app(
         app.include_router(engineering_sign_in_router)
         app.include_router(demo_router)
         app.include_router(dev_router)
+        app.include_router(demo_reset_router)
     else:
         app.state.staff_verifier = TokenVerifier(RemoteKeys(staff[0]), *staff)
         app.state.customer_verifier = TokenVerifier(RemoteKeys(customer[0]), *customer)
@@ -933,6 +984,7 @@ def create_app(
             for router in (staff_demo_router, customer_demo_router, engineering_demo_router):
                 app.include_router(router)
             app.include_router(demo_router)
+            app.include_router(demo_reset_router)
     app.middleware("http")(log_requests)
     for router in (
         health_router,
@@ -947,6 +999,13 @@ def create_app(
         *EVALUATION_ROUTERS,
         staff_dispatch_router,
         agent_dispatch_router,
+        staff_agent_router,
+        agent_queue_router,
+        insights_router,
+        assurance_router,
+        staff_usage_router,
+        budget_router,
+        trends_router,
         redteam_router,
         threats_router,
         posture_router,

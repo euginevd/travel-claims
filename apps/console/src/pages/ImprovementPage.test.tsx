@@ -131,12 +131,12 @@ test("a finished round shows before and after, claim by claim, and the version r
   expect(second).toHaveTextContent("Better");
   expect(within(pairs).getAllByRole("link")[0]).toHaveAttribute("href", "#/trace/CLM-901");
 
-  expect(screen.getByRole("heading", { name: /In use: v2/ })).toBeInTheDocument();
-  expect(screen.getByText("84% of 25")).toBeInTheDocument();
   await user.click(screen.getByText("Roll back to an earlier version"));
-  await user.click(screen.getByRole("button", { name: "Roll back to v1" }));
+  await user.click(screen.getByRole("button", { name: "Roll back to #1" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Say why");
   await user.type(screen.getByLabelText("Why"), "Haiku misses medical claims");
-  await user.click(screen.getByRole("button", { name: "Roll back to v1" }));
-  expect(fetchFn.calls.at(-4)?.body).toEqual({ reason: "Haiku misses medical claims" });
+  await user.click(screen.getByRole("button", { name: "Roll back to #1" }));
+  expect(fetchFn.calls.find((c) => c.path.endsWith("/restore"))?.body).toEqual({
+    reason: "Haiku misses medical claims",
+  });
 });

@@ -19,16 +19,14 @@ test("an AI engineer signs in with the test account and lands on the security po
   render(<App fetchFn={fetchFn} />);
   expect(screen.getByRole("heading", { name: "Every AI decision, measured." })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Continue as Sam" }));
-  // Evals first: the scoreboard is home, and only the Evals pages show as tabs.
-  expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Evals" })).toHaveAttribute("aria-current", "true");
-  expect(screen.getByRole("link", { name: "Evals: Scoreboard" })).toHaveAttribute(
-    "href",
-    "#/scoreboard",
-  );
+  // The overview is home: one page, so no tabs under it.
+  expect(await screen.findByRole("heading", { name: /^Good \w+, Sam$/ })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "true");
+  expect(screen.getByRole("link", { name: "Evaluate" })).toHaveAttribute("href", "#/scoreboard");
   expect(screen.getByText("Sam Carter")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Security" })).toHaveAttribute("href", "#/posture");
-  expect(screen.queryByRole("link", { name: "Security: Red team" })).toBeNull();
+  expect(screen.getByRole("link", { name: "Secure" })).toHaveAttribute("href", "#/posture");
+  expect(screen.getByRole("link", { name: "Observe" })).toHaveAttribute("href", "#/agents");
+  expect(screen.queryByRole("link", { name: "Evaluate: Red team" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Queue" })).not.toBeInTheDocument();
 });
 
@@ -51,7 +49,7 @@ test("a sign-in check that can't reach the server can be tried again", async () 
   expect(await screen.findByRole("alert")).toHaveTextContent("Down");
   fail = false;
   await user.click(screen.getByRole("button", { name: "Try again" }));
-  expect(await screen.findByRole("heading", { name: "Scoreboard" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: /^Good \w+, Sam$/ })).toBeInTheDocument();
 });
 
 test("the email sign-in says when the password is wrong, and signing out returns", async () => {

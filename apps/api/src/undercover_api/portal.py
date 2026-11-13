@@ -290,6 +290,7 @@ def make_claim(body: NewClaimRequest, customer: SignedInCustomer, db: Database) 
         "status": Status.WAITING,
         "attempts": 0,
         "source": SOURCE_CUSTOMER,
+        "ready_at": now(),
     }
     for _ in range(CLAIM_ID_ATTEMPTS):
         claim_id = next_claim_id(db)
@@ -333,6 +334,8 @@ async def add_receipts(
     if not files or held + len(files) > MAX_RECEIPTS:
         raise HTTPException(422, f"A claim can have up to {MAX_RECEIPTS} receipts")
     await save_files(db, receipt_store, claim_id, files)
+    # Still being added to: the agent switch waits until it's quiet.
+    db.execute(update(claims).where(claims.c.claim_id == claim_id).values(ready_at=now()))
     return claim_for_customer(db, row)
 
 

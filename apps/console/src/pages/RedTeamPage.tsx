@@ -1,8 +1,7 @@
 import { LoaderCircle, Play, ShieldAlert, ShieldCheck, Target } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, type Api, type RedTeamStatus } from "../api";
+import { ApiError, type Api, type AttackPlan, type RedTeamStatus } from "../api";
 import { RingChart } from "../components/Charts";
-import { RisksTable } from "../components/RisksTable";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
@@ -40,6 +39,23 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
     void load();
   }, [load]);
 
+  // What a run tries, shown before the first run; the page works without it.
+  const [plan, setPlan] = useState<AttackPlan[]>([]);
+  useEffect(() => {
+    let live = true;
+    api.getAttacks().then(
+      (found) => {
+        if (live) setPlan(found);
+      },
+      () => {
+        // No plan to show; the run button still works.
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api]);
+
   // While a run is going, check on it every few seconds until its report arrives.
   const running = status?.running ?? false;
   useEffect(() => {
@@ -75,7 +91,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
     <section className="view" aria-labelledby="redteam-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Security · Red team</p>
+          <p className="eyebrow">Evaluate · Red team</p>
           <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
             Red team
           </h1>
@@ -117,12 +133,17 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
             </div>
           </div>
         ) : status && !running ? (
-          <div className="panel empty">
-            <span className="icon-tile">
-              <Target size={19} strokeWidth={1.75} aria-hidden="true" />
-            </span>
-            <h2>No run yet</h2>
-            <p className="muted">Run the red team to see how the app stands up to attack claims.</p>
+          <div className="panel">
+            <div className="panel-head">
+              <h2>
+                <Target size={17} strokeWidth={1.75} aria-hidden="true" /> Not run yet
+              </h2>
+            </div>
+            <p className="muted">
+              The {plan.length > 0 ? String(plan.length) : ""} attacks below are what a run tries.
+              Each is a real claim made through the customers&apos; portal, so every layer meets it
+              the way it would meet a customer&apos;s.
+            </p>
           </div>
         ) : (
           <div className="panel">
@@ -142,7 +163,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
             <h2>Run the red team</h2>
           </div>
           <p className="muted small">
-            Makes 8 attack claims as a test customer and has the agent work them. About $0.002 of
+            Makes 9 attack claims as a test customer and has the agent work them. About $0.002 of
             Claude, a few minutes.
           </p>
           <button
@@ -162,7 +183,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
           </button>
           {running && (
             <p role="status" className="redteam-progress small">
-              Running 8 attack claims
+              Running 9 attack claims
               {status?.started_by ? `, started by ${status.started_by}` : ""}
               {status?.started_at ? ` ${when(status.started_at)}` : ""}… The report appears here
               when they're done.
@@ -170,6 +191,49 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
           )}
         </div>
       </div>
+      {!report && plan.length > 0 && (
+        <div className="panel">
+          <div className="panel-head">
+            <h2>The attacks</h2>
+            <p className="panel-note">What a run tries, and the risk each one tests</p>
+          </div>
+          <TableScroll label="Planned attacks table">
+            <table className="table min-wide">
+              <thead>
+                <tr>
+                  <th scope="col">Attack</th>
+                  <th scope="col">What it tries</th>
+                  <th scope="col">OWASP</th>
+                  <th scope="col">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plan.map((attack) => (
+                  <tr key={attack.attack_id}>
+                    <th scope="row" className="nowrap">
+                      <span className="tag mono">{attack.attack_id}</span>
+                    </th>
+                    <td className="prose">
+                      <strong>{attack.name}</strong>
+                      <span className="sub" dir="auto">
+                        {attack.technique}
+                      </span>
+                    </td>
+                    <td>
+                      {owaspIds(attack.owasp).map((id) => (
+                        <span key={id} className="tag tag-owasp">
+                          {id}
+                        </span>
+                      ))}
+                    </td>
+                    <td className="muted">Not run</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        </div>
+      )}
       {report && (
         <div className="panel">
           <div className="panel-head">
@@ -241,7 +305,6 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
           </TableScroll>
         </div>
       )}
-      <RisksTable api={api} />
     </section>
   );
 }

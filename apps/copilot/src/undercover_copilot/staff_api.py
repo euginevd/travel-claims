@@ -32,6 +32,12 @@ class StaffApi:
             raise ApiError(response.status_code, detail_of(response))
         return response.json()
 
+    def record_turn(self, model_calls: int, cost: float) -> None:
+        """Count this turn on the control plane's agents map: calls and cost, nothing said."""
+        self._call(
+            "POST", "/api/staff/assistant-calls", json={"model_calls": model_calls, "cost": cost}
+        )
+
     def me(self) -> Json:
         return cast(Json, self._call("GET", "/api/staff/me"))
 

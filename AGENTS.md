@@ -123,3 +123,7 @@ Web apps
 
 50. CSS `@keyframes` names are global: a new stylesheet's `rise` replaced `brand.css`'s and hid the portal's sign-in form. Prefix a new stylesheet's keyframes (`chat-rise`).
 51. `display: none` on a button's only text removes its name: hide a label visually (clipped, 1px) instead.
+
+Docker
+
+52. Docker Compose 5 builds through bake, which on Windows refuses with *additional privileges requested: fs.read*: build locally with `BUILDX_BAKE_ENTITLEMENTS_FS=0 docker compose ... up -d --build`.

@@ -1,7 +1,7 @@
 {
   "days": 7,
-  "since": "2026-11-06",
-  "until": "2026-11-12",
+  "since": "2026-11-07",
+  "until": "2026-11-13",
   "version": null,
   "exam": null,
   "totals": {
@@ -17,16 +17,6 @@
     "seconds_per_claim": null
   },
   "series": [
-    {
-      "day": "2026-11-06",
-      "decided": 0,
-      "straight_through": 0,
-      "reviewed": 0,
-      "disagreements": 0,
-      "referrals": 0,
-      "hidden_instruction_flags": 0,
-      "cost": 0.0
-    },
     {
       "day": "2026-11-07",
       "decided": 0,
@@ -79,6 +69,16 @@
     },
     {
       "day": "2026-11-12",
+      "decided": 0,
+      "straight_through": 0,
+      "reviewed": 0,
+      "disagreements": 0,
+      "referrals": 0,
+      "hidden_instruction_flags": 0,
+      "cost": 0.0
+    },
+    {
+      "day": "2026-11-13",
       "decided": 1,
       "straight_through": 0,
       "reviewed": 1,
@@ -95,7 +95,7 @@
       "straight_through_share": 0.0,
       "disagreements": 1,
       "cost_per_claim": 0.02,
-      "first_day": "2026-11-12"
+      "first_day": "2026-11-13"
     }
   ],
   "by_claim_type": [
@@ -105,7 +105,7 @@
       "straight_through_share": 0.0,
       "disagreements": 1,
       "cost_per_claim": 0.02,
-      "first_day": "2026-11-12"
+      "first_day": "2026-11-13"
     }
   ],
   "feedback": {
@@ -125,7 +125,7 @@
         "claim_id": "CLM-1001",
         "comment": "It doesn't say which receipt was missing.",
         "question": null,
-        "created_at": "2026-11-12T11:48:47+00:00"
+        "created_at": "2026-11-13T05:30:01+00:00"
       }
     ]
   },
@@ -133,7 +133,7 @@
     {
       "claim_id": "CLM-1001",
       "kind": "override",
-      "at": "2026-11-12T11:48:47+00:00",
+      "at": "2026-11-13T05:30:00+00:00",
       "by": "Dana Whitfield",
       "claim_type": "trip_delay",
       "amount_claimed": 420.0,

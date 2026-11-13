@@ -79,7 +79,7 @@ export const ScoresSchema = z.object({
 
 export const RunSchema = z.object({
   run_id: z.number(),
-  label_set: z.enum(["evaluation", "held_out"]),
+  label_set: z.enum(["evaluation", "held_out", "shadow"]),
   size: z.enum(["tiny", "whole"]),
   concurrency: z.number(),
   config_version: z.number(),
@@ -263,12 +263,21 @@ export const SettingsSchema = z.object({
 });
 
 const SeveritySchema = z.enum(["high", "medium", "low"]);
-const DetectionKindSchema = z.enum(["guardrail", "hidden_instruction", "refusal", "held"]);
+const DetectionKindSchema = z.enum([
+  "guardrail",
+  "hidden_instruction",
+  "refusal",
+  "held",
+  "output",
+  "guardian",
+]);
 const DetectionCountsSchema = z.object({
   guardrail: z.number(),
   hidden_instruction: z.number(),
   refusal: z.number(),
   held: z.number(),
+  output: z.number().default(0),
+  guardian: z.number().default(0),
 });
 
 // Where the latest red-team run's attacks were stopped, the gaps and the detections, worked out
@@ -341,9 +350,27 @@ export const DetectionsSchema = z.object({
       at: z.string(),
       summary: z.string(),
       outcome: z.string(),
+      after: z.string().nullable().optional(),
     }),
   ),
+  guardrails: z
+    .array(
+      z.object({
+        key: z.string(),
+        name: z.string(),
+        where: z.enum(["Input", "Model", "Action", "Tool", "Person", "Output"]),
+        does: z.string(),
+        mode: z.enum(["Enforcing", "On AWS", "Built in", "Missing"]),
+        hits: z.number().nullable(),
+        stopped: z.number().nullable(),
+        reached: z.number().nullable(),
+        false_alarms: z.number().nullable(),
+      }),
+    )
+    .default([]),
+  red_teamed: z.boolean().default(false),
 });
+export type Guardrail = z.infer<typeof DetectionsSchema>["guardrails"][number];
 
 // A live claim worth tracing: the one with the most model calls lately, or none yet.
 export const TraceSuggestionSchema = z.object({
@@ -494,9 +521,219 @@ export const AddedSchema = z.object({
 });
 export type Added = z.infer<typeof AddedSchema>;
 
+export const ExamGrowthSchema = z.object({
+  exam_size: z.number(),
+  target: z.number(),
+  candidates: z.array(
+    z.object({
+      claim_id: z.string(),
+      claim_type: z.string(),
+      summary: z.string(),
+      decision: z.string(),
+      payout: z.number(),
+      decided_by: z.string(),
+      decided_at: z.string(),
+    }),
+  ),
+});
+export type ExamGrowth = z.infer<typeof ExamGrowthSchema>;
+
+// --- The console's home and its evidence (apps/api assurance.py) ---
+
+const GateStatusSchema = z.enum(["pass", "watch", "fail", "none"]);
+export type GateStatus = z.infer<typeof GateStatusSchema>;
+
+export const OverviewSchema = z.object({
+  version: z.object({
+    version: z.number().nullable(),
+    model: z.string().nullable(),
+    effort: z.string().nullable(),
+    since: z.string().nullable(),
+  }),
+  verdict: z.enum(["fit", "watch", "not_fit", "untested"]),
+  headline: z.string(),
+  gates: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      detail: z.string(),
+      status: GateStatusSchema,
+      share: z.number().nullable(),
+      claims: z.number(),
+      target: z.number().nullable(),
+      value: z.string(),
+      note: z.string(),
+      link: z.string(),
+    }),
+  ),
+  brief: z.string(),
+  agent: z.object({
+    on: z.boolean(),
+    reason: z.string().nullable().optional(),
+    changed_by: z.string().nullable(),
+    changed_at: z.string().nullable(),
+    working: z.number(),
+    waiting: z.number(),
+  }),
+  payouts: z.object({
+    paused: z.boolean(),
+    changed_by: z.string().nullable(),
+    changed_at: z.string().nullable(),
+    reason: z.string().nullable(),
+  }),
+  attention: z.array(
+    z.object({
+      kind: z.enum(["stalled", "review", "untested", "gap", "version"]),
+      text: z.string(),
+      link: z.string(),
+      run_ids: z.array(z.number()),
+    }),
+  ),
+});
+export type Overview = z.infer<typeof OverviewSchema>;
+
+export const AttackPlanSchema = z.object({
+  attack_id: z.string(),
+  name: z.string(),
+  technique: z.string(),
+  owasp: z.string(),
+});
+export type AttackPlan = z.infer<typeof AttackPlanSchema>;
+
+export const TraceRowSchema = z.object({
+  claim_id: z.string(),
+  summary: z.string(),
+  status: z.string(),
+  red_team: z.boolean(),
+  model_calls: z.number(),
+  tokens: z.number(),
+  cost: z.number(),
+  seconds: z.number(),
+  started_at: z.string(),
+});
+export type TraceRow = z.infer<typeof TraceRowSchema>;
+
+export const BudgetSchema = z.object({
+  limit: z.number(),
+  spent_today: z.number(),
+  share: z.number(),
+  by_model: z.array(z.object({ model: z.string(), calls: z.number(), cost: z.number() })),
+  changed_by: z.string().nullable(),
+  changed_at: z.string().nullable(),
+});
+export type Budget = z.infer<typeof BudgetSchema>;
+
+export const AlertSchema = z.object({
+  severity: z.enum(["high", "medium"]),
+  text: z.string(),
+  link: z.string(),
+});
+export type Alert = z.infer<typeof AlertSchema>;
+
+export const TrendsSchema = z.object({
+  agents: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      days: z.array(z.object({ day: z.string(), calls: z.number(), cost: z.number() })),
+      today: z.number(),
+      usual: z.number(),
+      unusual: z.boolean(),
+    }),
+  ),
+  weeks: z.array(
+    z.object({
+      week_of: z.string(),
+      decided: z.number(),
+      straight_through_share: z.number().nullable(),
+      disagreement_rate: z.number().nullable(),
+      cost_per_claim: z.number().nullable(),
+    }),
+  ),
+});
+export type Trends = z.infer<typeof TrendsSchema>;
+
+export const ControlsSchema = OverviewSchema.pick({ agent: true, payouts: true });
+export type Controls = z.infer<typeof ControlsSchema>;
+
+export const AuditEntrySchema = z.object({
+  ref: z.string().default(""),
+  at: z.string(),
+  kind: z.enum(["switch", "setting", "decision", "version", "evaluation", "reset"]),
+  label: z.string(),
+  change: z.string(),
+  before: z.string().nullable().default(null),
+  reason: z.string().nullable(),
+  by: z.string(),
+});
+export type AuditEntry = z.infer<typeof AuditEntrySchema>;
+
+export const ChainStatusSchema = z.object({
+  sealed: z.number(),
+  intact: z.boolean(),
+  anchored: z.boolean().default(false),
+  changed: z.array(z.string()),
+  missing: z.array(z.string()),
+  broken_at: z.number().nullable(),
+});
+export type ChainStatus = z.infer<typeof ChainStatusSchema>;
+
+export const VersionCardSchema = z.object({
+  version: z.number(),
+  title: z.string(),
+  model: z.string(),
+  effort: z.string(),
+  status: z.string(),
+  in_use: z.boolean(),
+  reason: z.string(),
+  diff: z.string(),
+  parent_version: z.number().nullable(),
+  proposed_by: z.string(),
+  reviewed_by: z.string().nullable(),
+  created_at: z.string(),
+  exam: z
+    .object({
+      run_id: z.number(),
+      claims: z.number(),
+      accuracy: z.number(),
+      payout_accuracy: z.number(),
+      straight_through: z.number(),
+      grade: z.number().nullable(),
+      cost_per_claim: z.number(),
+      seconds_per_claim: z.number(),
+    })
+    .nullable(),
+  red_team: z.string().nullable(),
+  tools: z.array(z.string()),
+});
+export type VersionCard = z.infer<typeof VersionCardSchema>;
+
+export const AgentsMapSchema = z.object({
+  days: z.number(),
+  agent_on: z.boolean(),
+  payouts_paused: z.boolean(),
+  claim_agent_model: z.string().nullable(),
+  nodes: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      model: z.string().nullable(),
+      who: z.enum(["customer", "handler", "engineer", "system"]),
+      calls: z.number(),
+      detail: z.string(),
+      working: z.number(),
+      failed: z.number(),
+    }),
+  ),
+});
+export type AgentsMap = z.infer<typeof AgentsMapSchema>;
+export type AgentNode = AgentsMap["nodes"][number];
+
 export interface Api {
   getLive: (days: LivePeriod) => Promise<Live>;
   addToEvaluation: (claimId: string) => Promise<Added>;
+  getExamGrowth: () => Promise<ExamGrowth>;
+  addToExam: (claimId: string) => Promise<Added>;
   signIn: (email: string, password: string) => Promise<string>;
   testSignIn: () => Promise<string>;
   me: () => Promise<Engineer>;
@@ -505,6 +742,7 @@ export interface Api {
   listRuns: () => Promise<Run[]>;
   getRun: (runId: number, signal?: AbortSignal) => Promise<RunInFull>;
   startRun: (request: StartRunRequest) => Promise<Run>;
+  startShadow: (version: number) => Promise<Run>;
   resumeRun: (runId: number) => Promise<Run>;
   listConfigurations: () => Promise<Configuration[]>;
   listRounds: () => Promise<Round[]>;
@@ -518,6 +756,20 @@ export interface Api {
   suggestTrace: () => Promise<TraceSuggestion>;
   getDetections: (days: LivePeriod) => Promise<Detections>;
   getSuccessCriteria: () => Promise<SuccessCriteria>;
+  getOverview: () => Promise<Overview>;
+  getControls: () => Promise<Controls>;
+  getAttacks: () => Promise<AttackPlan[]>;
+  listTraces: () => Promise<TraceRow[]>;
+  getBudget: () => Promise<Budget>;
+  setBudget: (limit: number, reason: string) => Promise<Budget>;
+  getAlerts: () => Promise<Alert[]>;
+  getTrends: () => Promise<Trends>;
+  getAudit: () => Promise<AuditEntry[]>;
+  getAuditChain: () => Promise<ChainStatus>;
+  getVersion: (version: number) => Promise<VersionCard>;
+  getVersions: () => Promise<VersionCard[]>;
+  getAgents: (days: LivePeriod) => Promise<AgentsMap>;
+  stopRun: (runId: number) => Promise<void>;
   getSettings: () => Promise<Settings>;
   ask: (question: string, history: AskTurn[]) => Promise<Answer>;
 }
@@ -611,6 +863,7 @@ export function createApi(
     listRuns: () => call(z.array(RunSchema), "GET", "/runs"),
     getRun: (runId, signal) => call(RunInFullSchema, "GET", `/runs/${String(runId)}`, { signal }),
     startRun: (request) => call(RunSchema, "POST", "/runs", { body: request }),
+    startShadow: (version) => call(RunSchema, "POST", "/shadow", { body: { version, claims: 10 } }),
     resumeRun: (runId) => call(RunSchema, "POST", `/runs/${String(runId)}/resume`),
     listConfigurations: () => call(z.array(ConfigurationSchema), "GET", "/configuration"),
     listRounds: () => call(z.array(RoundSchema), "GET", "/rounds"),
@@ -631,11 +884,30 @@ export function createApi(
         "POST",
         `/live/disagreements/${encodeURIComponent(claimId)}/add-to-evaluation`,
       ),
+    getExamGrowth: () => call(ExamGrowthSchema, "GET", "/live/exam-growth"),
+    addToExam: (claimId) =>
+      call(AddedSchema, "POST", `/live/claims/${encodeURIComponent(claimId)}/add-to-exam`),
     getThreats: () => call(ThreatCoverageSchema, "GET", "/threats"),
     getPosture: () => call(PostureSchema, "GET", "/posture"),
     suggestTrace: () => call(TraceSuggestionSchema, "GET", "/trace-suggestion"),
     getDetections: (days) => call(DetectionsSchema, "GET", `/detections?days=${String(days)}`),
     getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
+    getOverview: () => call(OverviewSchema, "GET", "/overview"),
+    getControls: () => call(ControlsSchema, "GET", "/controls"),
+    getAttacks: () => call(z.array(AttackPlanSchema), "GET", "/redteam/attacks"),
+    listTraces: () => call(z.array(TraceRowSchema), "GET", "/traces"),
+    getBudget: () => call(BudgetSchema, "GET", "/budget"),
+    setBudget: (limit, reason) => call(BudgetSchema, "PUT", "/budget", { body: { limit, reason } }),
+    getAlerts: () => call(z.array(AlertSchema), "GET", "/alerts"),
+    getTrends: () => call(TrendsSchema, "GET", "/trends"),
+    getAudit: () => call(z.array(AuditEntrySchema), "GET", "/audit"),
+    getAuditChain: () => call(ChainStatusSchema, "GET", "/audit/chain"),
+    getVersion: (version) => call(VersionCardSchema, "GET", `/versions/${String(version)}`),
+    getVersions: () => call(z.array(VersionCardSchema), "GET", "/versions"),
+    getAgents: (days) => call(AgentsMapSchema, "GET", `/agents?days=${String(days)}`),
+    stopRun: async (runId) => {
+      await send("POST", `/runs/${String(runId)}/stop`);
+    },
     getSettings: () => call(SettingsSchema, "GET", "/settings"),
     ask: (question, history) =>
       call(AnswerSchema, "POST", "/ask", { body: { question, history: history.slice(-8) } }),

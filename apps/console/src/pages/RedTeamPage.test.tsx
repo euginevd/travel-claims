@@ -48,7 +48,7 @@ test("an AI engineer runs it, sees it running, then the report", async () => {
   });
   render(<RedTeamPage api={createApi(fetchFn, () => "t")} pollMs={10} />);
   await user.click(await screen.findByRole("button", { name: /run the red team/i }));
-  expect(await screen.findByText(/running 8 attack claims/i)).toBeInTheDocument();
+  expect(await screen.findByText(/running 9 attack claims/i)).toBeInTheDocument();
   expect(await screen.findByText("1 of 2 attacks held")).toBeInTheDocument();
 });
 

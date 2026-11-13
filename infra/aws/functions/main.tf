@@ -23,6 +23,7 @@ locals {
   prefix    = "${var.project}-${var.environment}"
   boundary  = "arn:${local.partition}:iam::${local.account}:policy/${var.project}-boundary"
   receipts  = "${var.project}-receipts-${var.environment}-${local.account}"
+  audit     = "${var.project}-audit-${var.environment}-${local.account}"
 
   # Size and time for each function; the copilot's chat turns take longest.
   functions = {
@@ -114,6 +115,8 @@ locals {
   grants = {
     api = [
       { actions = ["s3:GetObject", "s3:PutObject"], resources = ["arn:${local.partition}:s3:::${local.receipts}/*"] },
+      # The audit seals' write-once copy: it can add and read seals, never delete them.
+      { actions = ["s3:GetObject", "s3:PutObject"], resources = ["arn:${local.partition}:s3:::${local.audit}/seals/*"] },
       { actions = ["ssm:GetParameter"], resources = [local.app_parameter_arn] },
       # The demo's test buttons: a fresh password per sign-in, so none is stored.
       { actions = ["cognito-idp:AdminSetUserPassword"], resources = [for name, _ in local.audiences : "arn:${local.partition}:cognito-idp:${local.region}:${local.account}:userpool/${one(data.aws_cognito_user_pools.audience[name].ids)}"] },
@@ -193,6 +196,7 @@ locals {
       ENVIRONMENT     = var.environment
       APP_SECRET      = local.app_parameter
       RECEIPTS_BUCKET = local.receipts
+      AUDIT_BUCKET    = local.audit
       # The demo's test-account buttons and the project page's counts; drop it to turn both off.
       TEST_SIGN_IN = "true"
       # The agent's runtime takes the api's machine token, which AgentCore Identity fetches.

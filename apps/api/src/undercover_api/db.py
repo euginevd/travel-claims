@@ -100,6 +100,9 @@ claims = Table(
     # When the agent last said it was still working the claim, and how often it was carried on.
     Column("heartbeat_at", String(32)),
     Column("recoveries", Integer, nullable=False, default=0),
+    # When the customer last added to it (the claim, then each receipt); none if seeded. With the
+    # agent switched on, a claim is worked once this is a little while ago.
+    Column("ready_at", String(32)),
 )
 
 # The labelled claims evaluations copy, with the handlers' decisions. No route the agent can
@@ -407,6 +410,40 @@ setting_changes = Table(
     # The value before, and why it changed; the payouts switch keeps its reason in its value.
     Column("old_value", JSON),
     Column("reason", String(200)),
+)
+
+# A senior handler's spot check of a claim the agent paid on its own: right or not, one a claim.
+spot_checks = Table(
+    "spot_checks",
+    metadata,
+    Column("claim_id", String(20), primary_key=True),
+    Column("verdict", String(10), nullable=False),
+    Column("checked_by", String(200), nullable=False),
+    Column("checked_by_id", String(20), nullable=False),
+    Column("checked_at", String(32), nullable=False),
+)
+
+# Each answer from an assistant (Wattle for customers, the Copilot for handlers), so the agents
+# map can count them: which one, its model calls and cost, and when.
+assistant_calls = Table(
+    "assistant_calls",
+    metadata,
+    Column("call_id", Integer, primary_key=True, autoincrement=True),
+    Column("agent", String(20), nullable=False),
+    Column("model_calls", Integer, nullable=False),
+    Column("cost", Numeric(12, 6, asdecimal=False), nullable=False),
+    Column("created_at", String(32), nullable=False),
+)
+
+# The audit log's seals: each entry's digest, chained to the one before (audit_chain.py).
+audit_seals = Table(
+    "audit_seals",
+    metadata,
+    Column("ref", String(80), primary_key=True),
+    Column("seq", Integer, nullable=False, unique=True),
+    Column("digest", String(64), nullable=False),
+    Column("chain", String(64), nullable=False),
+    Column("sealed_at", String(32), nullable=False),
 )
 
 # Each run of the red-team suite, newest last.
