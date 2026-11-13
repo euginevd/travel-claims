@@ -23,7 +23,8 @@ export const HOME_HREF = "#/";
 export const OVERVIEW_HREF = "#/overview";
 export const AGENTS_HREF = "#/agents";
 export const AUDIT_HREF = "#/audit";
-export const BUDGETS_HREF = "#/budgets";
+export const BUDGETS_HREF = "#/cost";
+const OLD_BUDGETS_HREF = "#/budgets";
 export const POSTURE_HREF = "#/posture";
 export const DETECTIONS_HREF = "#/guardrails";
 export const REDTEAM_HREF = "#/redteam";
@@ -51,6 +52,7 @@ const PAGES: Record<string, Route> = {
   [AGENTS_HREF]: { page: "agents" },
   [AUDIT_HREF]: { page: "audit" },
   [BUDGETS_HREF]: { page: "budgets" },
+  [OLD_BUDGETS_HREF]: { page: "budgets" },
   [POSTURE_HREF]: { page: "posture" },
   [SCOREBOARD_HREF]: { page: "scoreboard" },
   [LIVE_HREF]: { page: "live" },

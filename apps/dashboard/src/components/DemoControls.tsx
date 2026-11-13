@@ -87,7 +87,7 @@ export function DemoControls({ api, onReset }: Props) {
     <section className="panel demo-controls" aria-labelledby={`${ids}-title`}>
       <div className="panel-head">
         <h2 id={`${ids}-title`}>Reset the demo</h2>
-        <span className="muted small">start fresh</span>
+        <span className="muted small">Back to a clean start.</span>
       </div>
       <fieldset className="reset" disabled={busy}>
         <legend className="visually-hidden">What to reset</legend>

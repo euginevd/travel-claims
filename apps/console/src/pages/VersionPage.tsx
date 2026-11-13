@@ -40,16 +40,20 @@ export function VersionPage({ api, version }: { api: Api; version: number }) {
     ? `${card.model.replace("claude-", "").replace(/-\d.*$/, "")}, ${card.effort} effort`
     : "";
   return (
-    <section className="page-in" aria-labelledby="version-heading">
+    <section className="view page-in" aria-labelledby="version-heading">
       <a className="crumb" href={IMPROVEMENT_HREF}>
         <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
         Versions
       </a>
-      <p className="eyebrow">Govern · Versions</p>
-      <h1 id="version-heading" ref={heading} tabIndex={-1}>
-        #{version}
-        {card ? ` ${card.title}` : ""}
-      </h1>
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Govern · Versions</p>
+          <h1 id="version-heading" ref={heading} tabIndex={-1}>
+            #{version}
+            {card ? ` ${card.title}` : ""}
+          </h1>
+        </div>
+      </header>
       {error && (
         <p className="error" role="alert">
           {error}

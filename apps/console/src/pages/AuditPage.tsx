@@ -140,16 +140,20 @@ export function AuditPage({ api }: { api: Api }) {
     else days.push({ day, rows: [entry] });
   }
   return (
-    <section className="page-in" aria-labelledby="audit-heading">
-      <p className="eyebrow">Govern · Audit log</p>
-      <h1 id="audit-heading" ref={heading} tabIndex={-1}>
-        Who changed what, and why
-      </h1>
-      <p className="lede">
-        Every switch, setting, override, reset, version and evaluation-set addition. Read-only, and
-        sealed: each entry&apos;s SHA-256 digest is chained to the one before, so a record changed
-        afterwards shows.
-      </p>
+    <section className="view page-in" aria-labelledby="audit-heading">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Govern · Audit log</p>
+          <h1 id="audit-heading" ref={heading} tabIndex={-1}>
+            Who changed what, and why
+          </h1>
+          <p className="lede">
+            Every switch, setting, override, reset, version and evaluation-set addition. Read-only,
+            and sealed: each entry&apos;s SHA-256 digest is chained to the one before, so a record
+            changed afterwards shows.
+          </p>
+        </div>
+      </header>
       {error && (
         <p className="error" role="alert">
           {error}

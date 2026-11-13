@@ -77,7 +77,9 @@ def draft_letter(claim_id: ClaimId, _: SignedIn, db: Database, tools: Drafting) 
         raise HTTPException(
             502, "The assistant's letter didn't make sense; write it yourself"
         ) from error
-    return LetterDraft(subject=found.subject[:SUBJECT_LIMIT], body=found.body[:BODY_LIMIT])
+    return LetterDraft(
+        subject=found.subject[:SUBJECT_LIMIT], body=found.body[:BODY_LIMIT], note=found.note[:500]
+    )
 
 
 @letters_router.put("/claims/{claim_id}/letter", operation_id="send_letter")

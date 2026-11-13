@@ -121,12 +121,12 @@ function Portal({
   );
   const [seen, setSeen] = useState(lastSeen);
 
-  // A link (from an email, or typed) opens the panel where it points.
+  // A link (from an email, or typed) opens the panel where it points; Back to the start, or a
+  // link to make a claim, closes it.
   const [lastRoute, setLastRoute] = useState(route);
   if (route !== lastRoute) {
     setLastRoute(route);
-    const target = targetFor(route);
-    if (target) setPanel(target);
+    setPanel(targetFor(route));
     if (route.page === "new-claim") setStart({ kind: "claim" });
   }
 

@@ -43,6 +43,20 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
     };
   }, [onClose]);
 
+  // A click anywhere outside closes it too, unless a change is on its way.
+  const card = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (event: PointerEvent) => {
+      if (inFlight.current) return;
+      if (event.target instanceof Node && card.current?.contains(event.target)) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [onClose]);
+
   async function submit() {
     if (inFlight.current || !ready) return;
     inFlight.current = true;
@@ -59,7 +73,7 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
   }
 
   return (
-    <div role="dialog" aria-labelledby={`${ids}-title`}>
+    <div role="dialog" aria-labelledby={`${ids}-title`} ref={card}>
       <form
         className="payouts-popover"
         onSubmit={(event) => {

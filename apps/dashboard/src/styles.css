@@ -1210,6 +1210,17 @@ select.filter:hover {
   gap: 6px;
 }
 
+/* What the AI wants the handler to check, kept out of the letter itself. */
+.letter-note {
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  border: 1px solid #f0dcc0;
+  border-radius: 10px;
+  background: #fdf8ef;
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
 .letter-form .actions {
   margin-top: 6px;
 }

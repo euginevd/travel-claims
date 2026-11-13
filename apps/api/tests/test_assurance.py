@@ -2,10 +2,17 @@
 
 from api_helpers import decide, start
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import insert, update
 
 from undercover_api.assurance import title_of
-from undercover_api.db import audit_seals, make_engine, setting_changes
+from undercover_api.db import (
+    assistant_calls,
+    audit_seals,
+    make_engine,
+    model_calls,
+    now,
+    setting_changes,
+)
 from undercover_api.guardian import concern_of
 from undercover_api.models import DecisionRequest
 from undercover_api.pii import scrub
@@ -182,3 +189,34 @@ def test_a_rewritten_seal_table_shows_against_its_write_once_copy(
         db.execute(update(audit_seals).values(chain="0" * 64))
     engine.dispose()
     assert client.get("/api/engineering/audit/chain", headers=sam).json()["intact"] is False
+
+
+def test_cost_splits_the_spend_by_what_spent_it(
+    client: TestClient, sam: dict[str, str], database_url: str
+) -> None:
+    engine = make_engine(database_url)
+    with engine.begin() as db:
+        db.execute(
+            insert(model_calls).values(
+                claim_id="CLM-1001",
+                model="claude-haiku-5-5",
+                input_tokens=10,
+                output_tokens=5,
+                cost=0.25,
+                created_at=now(),
+            )
+        )
+        db.execute(
+            insert(assistant_calls).values(
+                agent="wattle", model_calls=2, cost=0.1, created_at=now()
+            )
+        )
+    engine.dispose()
+    found = client.get("/api/engineering/costs?days=7", headers=sam).json()
+    assert len(found["days"]) == 7
+    by = {one["key"]: one["cost"] for one in found["by_source"]}
+    assert by["live"] == 0.25
+    assert by["wattle"] == 0.1
+    assert found["today"] == 0.35
+    assert found["dearest"][0]["claim_id"] == "CLM-1001"
+    assert client.get("/api/engineering/costs?days=3", headers=sam).status_code == 422

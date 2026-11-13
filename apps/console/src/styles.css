@@ -995,7 +995,7 @@ main.page {
 }
 
 .criteria-overall {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   color: var(--ink-2);
   font-size: 0.9rem;
 }
@@ -1186,6 +1186,12 @@ main.page {
 .stage-link {
   margin-top: auto;
   padding-top: 12px;
+}
+
+/* In a panel's head the link sits on the title's line. */
+.panel-head .stage-link {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .layers {
@@ -1517,31 +1523,31 @@ main.page {
 }
 
 /* Scoreboard: the exam with each score's likely range, and every version's exam. */
-.score-hero {
+/* Two panels side by side; one alone takes the row. */
+.pair {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 28px;
-}
-
-.measure-list {
-  display: grid;
-  gap: 12px;
-  margin: 8px 0 12px;
-}
-
-.measure-row {
-  display: grid;
-  grid-template-columns: minmax(0, 12em) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
   align-items: start;
 }
 
-.measure-row dt {
-  color: var(--ink-2);
+.pair.wide-first {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
-.measure-row dd {
-  margin: 0;
+.widgets.exam-widgets {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 4px 0 12px;
+}
+
+@media (max-width: 1100px) {
+  .pair.wide-first {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .widgets.exam-widgets {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
 }
 
 .rangebar {
@@ -1623,17 +1629,6 @@ main.page {
 .tag-exam {
   background: var(--good-tint);
   color: var(--good);
-}
-
-@media (max-width: 900px) {
-  .score-hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .measure-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
-  }
 }
 
 /* ---------- Two-level navigation: Evals or Security up top, that section's pages below ---------- */

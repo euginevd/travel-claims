@@ -6,6 +6,7 @@ keep the session while work is going."""
 import json
 import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -206,6 +207,42 @@ def letter_content(request: LetterRequest) -> str:
     )
 
 
+class LaidOutLetter(BaseModel):
+    """The letter as the handler sees it: one shape every time, and the model's note apart."""
+
+    subject: str
+    body: str
+    note: str = ""
+
+
+SIGN_OFF = "Kind regards,\nThe UnderCover claims team"
+# Markdown a model writes out of habit, and a greeting or sign-off code adds itself.
+MARKUP = re.compile(r"[*_#`]+")
+GREETING = re.compile(r"^(dear|hi|hello)\b[^,\n]*,\s*", re.IGNORECASE)
+CLOSING = re.compile(
+    r"\s*((kind|warm|best)\s+regards|regards|sincerely|yours sincerely),?"
+    r"(\s*the undercover claims team)?\.?\s*$|\s*the undercover claims team\.?\s*$",
+    re.IGNORECASE,
+)
+
+
+def laid_out(letter: Letter, first_name: str) -> LaidOutLetter:
+    """The model's paragraphs laid out as a letter: greeting, paragraphs, sign-off, in plain
+    text with a blank line between, whatever shape the model's text came in."""
+    paragraphs: list[str] = []
+    for raw in letter.paragraphs:
+        for part in re.split(r"\n\s*\n", raw.replace("\\n", "\n")):
+            text = " ".join(MARKUP.sub("", part).split())
+            text = CLOSING.sub("", GREETING.sub("", text)).strip()
+            if text:
+                paragraphs.append(text)
+    name = first_name.strip() or "there"
+    body = "\n\n".join([f"Dear {name},", *paragraphs, SIGN_OFF])
+    subject = " ".join(MARKUP.sub("", letter.subject).split())
+    note = " ".join(letter.note_for_handler.split())
+    return LaidOutLetter(subject=subject, body=body, note=note)
+
+
 def picked(case: str) -> str:
     """The tile the customer tapped, in words the assistant can act on."""
     if case == "other":
@@ -392,14 +429,14 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         return explainer["engineers"].explain(request)
 
     @app.post("/letter", operation_id="letter", dependencies=[Depends(agents_key)])
-    def letter(request: LetterRequest) -> Letter:  # pyright: ignore[reportUnusedFunction]
+    def letter(request: LetterRequest) -> LaidOutLetter:  # pyright: ignore[reportUnusedFunction]
         """Draft the customer's letter about a decision, for a handler to edit and send."""
         if "claims" not in drafter:
             raise HTTPException(503, "The drafting assistant isn't set up")
         found, _ = drafter["claims"].letter(letter_content(request))
         if found is None:
             raise HTTPException(502, "The assistant couldn't draft this letter")
-        return found
+        return laid_out(found, request.first_name)
 
     return app
 

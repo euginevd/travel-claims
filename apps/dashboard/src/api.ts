@@ -466,7 +466,7 @@ export interface Api {
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
   getRisk: (claimId: string) => Promise<Risk>;
   getSimilar: (claimId: string) => Promise<SimilarClaims>;
-  draftLetter: (claimId: string) => Promise<{ subject: string; body: string }>;
+  draftLetter: (claimId: string) => Promise<{ subject: string; body: string; note: string }>;
   sendLetter: (
     claimId: string,
     letter: { subject: string; body: string; drafted_by_ai: boolean },
@@ -603,7 +603,7 @@ export function createApi(
     getSimilar: (claimId) => call(SimilarClaimsSchema, "GET", `${claimPath(claimId)}/similar`),
     draftLetter: (claimId) =>
       call(
-        z.object({ subject: z.string(), body: z.string() }),
+        z.object({ subject: z.string(), body: z.string(), note: z.string().default("") }),
         "POST",
         `${claimPath(claimId)}/letter/draft`,
       ),
