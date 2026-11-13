@@ -51,7 +51,7 @@ test("the suggestions come from the records and skip a claim the news already co
   const labels = suggestions([MY_POLICY], [needs, MY_SUMMARY], news).map((s) => s.label);
   expect(labels).toEqual([
     "Something went wrong in Rome",
-    "How's your delay claim going?",
+    "How's my delay claim going?",
     "What am I covered for?",
   ]);
   expect(place("Nairobi and the Maasai Mara, Kenya")).toBe("Nairobi");
@@ -132,7 +132,7 @@ test("a lost bag is claimed by chat, one question at a time, and sent only on th
   await user.click(await screen.findByRole("button", { name: "Lost bag" }));
   // Wattle knows the trip and the plan, and says what the plan covers before asking anything.
   expect(
-    await screen.findByText(/Your Premium plan covers lost bags up to \$1,500/),
+    await screen.findByText(/your Premium plan covers lost bags up to \$1,500/),
   ).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Flying out" }));
   await user.click(await screen.findByRole("button", { name: "I don't have them yet" }));
@@ -416,9 +416,15 @@ test("a claim saved earlier is finished from the arrival line, asking for what's
   expect(await screen.findByText(/What are you claiming for/)).toBeInTheDocument();
   await user.type(box, "The clinic, $120{Enter}");
   expect(await screen.findByText("All set. Happy for me to send this?")).toBeInTheDocument();
+  // The check card changes in place: an amount left empty is caught, then saved.
   await user.click(screen.getByRole("button", { name: "Change something" }));
-  expect(await screen.findByText("Sure. What should I change?")).toBeInTheDocument();
-  await user.type(box, "It was the left ankle{Enter}");
+  const amount = screen.getByLabelText("Amount for item 1");
+  await user.clear(amount);
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByText("Each item needs a name and an amount.")).toBeInTheDocument();
+  await user.type(amount, "150");
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findAllByText("$150.00")).not.toHaveLength(0);
   await user.click(await screen.findByRole("button", { name: "Send claim" }));
   // A refusal says why and keeps the claim to try again.
   expect(await screen.findByText("The database is busy")).toBeInTheDocument();
@@ -449,7 +455,8 @@ test("when Wattle hears trouble it starts the claim; a failed answer offers a pe
   render(<App fetchFn={fetchFn} />);
   const box = await screen.findByLabelText("Message Wattle");
   await user.type(box, "My phone was stolen in Rome{Enter}");
-  expect(await screen.findByText("Sorry to hear that.")).toBeInTheDocument();
+  expect(await screen.findByText(/let's sort it out/)).toBeInTheDocument();
+  expect(screen.queryByText("Sorry to hear that.")).not.toBeInTheDocument();
   expect(await screen.findByText("What was taken, and where were you?")).toBeInTheDocument();
   expect(screen.getByText("Checked your policy")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /New chat/ }));
@@ -466,7 +473,7 @@ test("the claim suggestion and cover need no model, and a file starts a claim", 
   const user = userEvent.setup();
   const fetchFn = fakeFetch(routes);
   render(<App fetchFn={fetchFn} />);
-  await user.click(await screen.findByRole("button", { name: /How's your delay claim going/ }));
+  await user.click(await screen.findByRole("button", { name: /How's my delay claim going/ }));
   expect(await screen.findByRole("button", { name: "See details" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /New chat/ }));
   await user.click(await screen.findByRole("button", { name: /What am I covered for/ }));
@@ -718,4 +725,16 @@ test("a sent claim takes more receipts from its page in the panel", async () => 
   const panel = await screen.findByRole("dialog", { name: "Your claim" });
   await user.upload(await within(panel).findByLabelText("Add receipts"), png("taxi.png"));
   expect(await within(panel).findByText("1 receipt sent.")).toBeInTheDocument();
+});
+
+test("Home shows the start screen and key facts over a chat, and the chat is kept", async () => {
+  const user = userEvent.setup();
+  render(<App fetchFn={fakeFetch(routes)} />);
+  await user.click(await screen.findByRole("button", { name: /How's my delay claim going/ }));
+  expect(await screen.findByRole("button", { name: "See details" })).toBeInTheDocument();
+  await user.click(within(screen.getByRole("banner")).getByRole("button", { name: /Home/ }));
+  expect(await screen.findByRole("region", { name: "At a glance" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "See details" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Back to your chat" }));
+  expect(await screen.findByRole("button", { name: "See details" })).toBeInTheDocument();
 });

@@ -75,6 +75,7 @@ test("each missing detail is asked in plain words, and the claim so far can be s
     "Which of these is it closest to?",
   ]);
   expect(missingText({ question: "Was it locked?" })).toBe("Was it locked?");
+  expect(missingText("items", true)).toMatch(/\$120 sunglasses/);
   const filled = { ...fill(null, "other", ["Something odd."], "2026-06-12"), location: "Rome" };
   expect(filled.summary).toBe("Something else");
   expect(
@@ -193,6 +194,9 @@ test("the customer's own amounts are read in code, one line each", () => {
     { description: "taxi", category: "other", amount: 1250 },
   ]);
   expect(amountsIn("no idea")).toEqual([]);
+  // With a $ anywhere, only numbers with one are money; dates aren't amounts.
+  expect(amountsIn("2 bags, $120").map((line) => line.amount)).toEqual([120]);
+  expect(amountsIn("on the 3rd, $60 shoes").map((line) => line.amount)).toEqual([60]);
   expect(amountsIn("$80")[0]?.description).toBe("What I paid for");
 });
 

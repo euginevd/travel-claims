@@ -1,5 +1,5 @@
 import { ArrowUp, Camera, Check, FileText, Paperclip, Shield, Luggage, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
   caseChips,
@@ -10,6 +10,7 @@ import {
   type Cover,
   type CustomerClaim,
   type DelayOffer,
+  type Policy,
 } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
 import { Feedback } from "../components/Feedback";
@@ -42,10 +43,12 @@ import {
   toSaved,
   total,
   type Filled,
+  type Line,
   type Missing,
   type Reply,
 } from "./claimFlow";
 import { coverLine, coverRows, planName } from "./cover";
+import { Glance } from "./Glance";
 import type { Records } from "./records";
 import type { PanelTarget } from "./SidePanel";
 import { claimHeadline } from "./SidePanel";
@@ -59,7 +62,8 @@ type Card =
   | { type: "needs"; claimId: string }
   | { type: "upload" }
   | { type: "date"; min: string; max: string }
-  | { type: "check" }
+  // What the claim says, kept on the card so it stays after the claim is sent.
+  | { type: "check"; filled: Filled }
   | { type: "delay"; offer: DelayOffer }
   | { type: "settings" }
   | { type: "person" };
@@ -84,6 +88,8 @@ type Turn =
       /** The question an answer was to, for its thumbs. */
       voteOn?: string;
       policyChip?: boolean;
+      /** The trip a claim is on, with a way to pick another when there's more than one. */
+      trip?: { label: string; change?: () => void };
       error?: boolean;
     };
 
@@ -110,6 +116,8 @@ interface HomeProps {
   onChanged: () => void;
   /** Something to start with, set from outside the conversation. */
   start: { kind: "claim" } | { kind: "policy"; cover: Cover } | null;
+  /** Goes up by one each time the customer presses Home. */
+  homeTick?: number;
 }
 
 const GREETING_TYPES: CaseChip[] = [
@@ -123,7 +131,16 @@ const GREETING_TYPES: CaseChip[] = [
   "other",
 ];
 
-export function Home({ api, firstName, records, loaded, onOpen, onChanged, start }: HomeProps) {
+export function Home({
+  api,
+  firstName,
+  records,
+  loaded,
+  onOpen,
+  onChanged,
+  start,
+  homeTick = 0,
+}: HomeProps) {
   const ids = useId();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
@@ -148,23 +165,55 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
   const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
   // Something we need comes back next visit, so it's hidden for this visit only.
   const [hiddenNow, setHiddenNow] = useState<Set<string>>(new Set());
-  const end = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  const spacer = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
 
   const empty = turns.length === 0;
+  // Home shows the start screen over a conversation, which is kept to go back to.
+  const [showHome, setShowHome] = useState(false);
+  const [seenTick, setSeenTick] = useState(homeTick);
+  if (homeTick !== seenTick) {
+    setSeenTick(homeTick);
+    setShowHome(true);
+  }
+  const atHome = empty || showHome;
+  const narrow = useNarrow();
+  const glance = atHome && loaded && <Glance records={records} onOpen={onOpen} />;
+  const returning = useRef(false);
+  const shownTurns = useRef(0);
   const news = loaded
     ? pickNews(records.claims, records.delays, records.draft, new Set([...dismissed, ...hiddenNow]))
     : null;
   const suggested = loaded ? suggestions(records.policies, records.claims, news) : [];
 
-  useEffect(() => {
-    if (typeof end.current?.scrollIntoView === "function")
-      end.current.scrollIntoView({ block: "end" });
-  }, [turns, busy]);
+  // What the customer just said goes to the top of the screen, with Wattle's reply below it to
+  // read from the start. The space under the thread is only what that needs.
+  useLayoutEffect(() => {
+    const box = scroller.current;
+    const pad = spacer.current;
+    if (!box || !pad) return;
+    pad.style.height = "0px";
+    const mine = box.querySelectorAll<HTMLElement>(".thread > li.is-me");
+    const latest = mine[mine.length - 1];
+    if (!latest) return;
+    const top =
+      latest.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 16;
+    pad.style.height = `${String(Math.max(0, box.clientHeight - (box.scrollHeight - top)))}px`;
+    // Also when something above it closed (a sent claim's check card) and pushed it out of sight.
+    const added = turns.length > shownTurns.current;
+    shownTurns.current = turns.length;
+    const hidden = added && latest.getBoundingClientRect().top < box.getBoundingClientRect().top;
+    const back = returning.current;
+    returning.current = false;
+    if ((turns.at(-1)?.who === "me" || hidden || back) && typeof box.scrollTo === "function")
+      box.scrollTo({ top, behavior: hidden || back ? "auto" : "smooth" });
+  }, [turns, busy, showHome]);
 
   const say = (turn: Turn) => {
+    setShowHome(false);
     setTurns((now) => [...now, turn]);
   };
   const me = (said: string, count?: number) => {
@@ -183,7 +232,13 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
     saveDismissed(next);
   }
 
+  /** Something else started: typing no longer answers the claim in progress. */
+  function leaveFlow() {
+    if (flowNow.current && flowNow.current.waiting !== "none") setFlow(null);
+  }
+
   function openNews(item: News) {
+    if (item.go.to !== "draft") leaveFlow();
     if (item.go.to === "claim") {
       const claimId = item.go.claimId;
       const claim = records.claims.find((c) => c.claim_id === claimId);
@@ -211,6 +266,7 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
   }
 
   function pick(suggestion: Suggestion) {
+    leaveFlow();
     if (suggestion.kind === "trip") {
       me(suggestion.label);
       askWhatHappened(suggestion.policyId, true);
@@ -298,26 +354,58 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
       waiting: "first",
       missing: null,
     });
+    const covered = Boolean(cover && chip !== "other");
     say({
       who: "wattle",
+      checked: covered ? "Checked your policy" : undefined,
       headline: intro
         ? chip === "other"
           ? "Let's sort it out."
           : `Sorry ${firstName}, let's sort it out.`
         : undefined,
       lines: [
-        ...(cover && chip !== "other"
-          ? [`${coverLine(cover, chip)} For your ${place(policy.trip.destination)} trip.`]
+        ...(cover && covered
+          ? [
+              `On your ${place(policy.trip.destination)} trip, ${lowerFirst(coverLine(cover, chip))}`,
+            ]
           : []),
         question.text,
       ],
-      policyChip: Boolean(cover && chip !== "other"),
+      policyChip: covered,
+      trip: {
+        label: `${place(policy.trip.destination)} trip`,
+        change:
+          records.policies.length > 1
+            ? () => {
+                pickTrip(chip, words);
+              }
+            : undefined,
+      },
       choices: question.replies.map((reply) => ({
         label: reply.label,
         run: () => {
           answerFirst(reply.says, reply);
         },
       })),
+    });
+  }
+
+  function pickTrip(chip: CaseChip, words: string[]) {
+    me("Change the trip");
+    setFlow(null);
+    say({
+      who: "wattle",
+      headline: "Which trip was it?",
+      choices: records.policies.map((p) => {
+        const label = `${place(p.trip.destination)} · ${date(p.trip.departs_on)}`;
+        return {
+          label,
+          run: () => {
+            me(label);
+            startClaim(chip, p.policy_id, false, words);
+          },
+        };
+      }),
     });
   }
 
@@ -439,19 +527,20 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
         who: "wattle",
         checked,
         headline: "All set. Happy for me to send this?",
-        card: { type: "check" },
+        card: { type: "check", filled: current.filled },
       });
       return;
     }
     const asked =
       typeof missing === "object" ? new Set([...current.asked, missing.question]) : current.asked;
+    const again = current.missing === missing;
     setFlow({ ...current, asked, waiting: "missing", missing });
     const policy = records.policies.find((p) => p.policy_id === current.policyId);
     if (missing === "date" && policy) {
       say({
         who: "wattle",
         checked,
-        headline: missingText(missing),
+        headline: missingText(missing, again),
         card: { type: "date", min: policy.trip.departs_on, max: policy.trip.returns_on },
       });
     } else if (missing === "type") {
@@ -476,7 +565,7 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
           })),
       });
     } else {
-      say({ who: "wattle", checked, headline: missingText(missing) });
+      say({ who: "wattle", checked, headline: missingText(missing, again) });
     }
     input.current?.focus();
   }
@@ -496,7 +585,9 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
           headline: trip
             ? `Pick the day from the calendar, between ${date(trip.departs_on)} and ${date(trip.returns_on)}.`
             : "Pick the day from the calendar.",
+          card: trip ? { type: "date", min: trip.departs_on, max: trip.returns_on } : undefined,
         });
+        return;
       }
       continueClaim({ ...flow, filled: { ...flow.filled, incidentDate: said } });
     } else if (flow.missing === "place") {
@@ -699,6 +790,14 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
       default:
         break;
     }
+    // Starting a claim: straight into it, one warm turn, without the general answer before it.
+    if (answer.action === "start_claim" && policy) {
+      const chip = (caseChips as readonly string[]).includes(answer.claim_type)
+        ? (answer.claim_type as CaseChip)
+        : "other";
+      startClaim(chip, policy.policy_id, true, [question]);
+      return;
+    }
     say({
       who: "wattle",
       checked: fromPolicy ? "Checked your policy" : undefined,
@@ -706,15 +805,9 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
       points: answer.headline ? answer.points : [],
       policyChip: fromPolicy,
       card,
-      choices: answer.action === "start_claim" ? [] : replies,
+      choices: replies,
       voteOn: answer.screened ? undefined : question,
     });
-    if (answer.action === "start_claim" && policy) {
-      const chip = (caseChips as readonly string[]).includes(answer.claim_type)
-        ? (answer.claim_type as CaseChip)
-        : "other";
-      startClaim(chip, policy.policy_id, false, [question]);
-    }
   }
 
   // Something to start with, from the side panel or a link; once each, after the records load.
@@ -734,6 +827,8 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
     const said = text.trim();
     if (!said || busyNow.current) return;
     setText("");
+    // Typed on the start screen: a new question, not an answer to the claim left in the chat.
+    if (showHome) leaveFlow();
     const flow = flowNow.current;
     if (flow?.waiting === "first") answerFirst(said);
     else if (flow?.waiting === "missing") answerMissing(said);
@@ -843,10 +938,10 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
 
   const last = turns.length - 1;
   return (
-    <div className={`home${empty ? " is-empty" : ""}`}>
-      <div className="home-scroll">
+    <div className={`home${atHome ? " is-empty" : ""}`}>
+      <div className="home-scroll" ref={scroller}>
         <div className="home-col">
-          {empty ? (
+          {atHome ? (
             <section className="hello" aria-labelledby={`${ids}-hi`}>
               <WattleMark size={44} />
               <h1 id={`${ids}-hi`}>
@@ -854,14 +949,27 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
               </h1>
               <p className="hello-sub">What can we help with?</p>
               {news && <NewsLine news={news} onOpen={openNews} onDismiss={dismiss} />}
+              {!empty && (
+                <button
+                  type="button"
+                  className="button secondary back-to-chat"
+                  onClick={() => {
+                    returning.current = true;
+                    setShowHome(false);
+                  }}
+                >
+                  Back to your chat
+                </button>
+              )}
+              {narrow && glance}
             </section>
           ) : (
             <h1 className="visually-hidden">Hi {firstName}</h1>
           )}
-          {!empty && (
+          {!atHome && (
             <ol className="thread" aria-live="polite">
               {turns.map((turn, index) => (
-                <li key={String(index)}>
+                <li key={String(index)} className={turn.who === "me" ? "is-me" : undefined}>
                   {turn.who === "me" ? (
                     <MyTurn turn={turn} />
                   ) : (
@@ -880,12 +988,23 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
                       onSend={() => {
                         void send();
                       }}
-                      onEdit={() => {
-                        me("Change something");
+                      onSaveCheck={(filled) => {
                         const now = flowNow.current;
-                        if (now) setFlow({ ...now, waiting: "edit" });
-                        say({ who: "wattle", headline: "Sure. What should I change?" });
-                        input.current?.focus();
+                        if (!now) return;
+                        setFlow({ ...now, filled });
+                        setTurns((all) => {
+                          const at = all.findLastIndex(
+                            (t) => t.who === "wattle" && t.card?.type === "check",
+                          );
+                          return all.map((t, i) =>
+                            i === at && t.who === "wattle"
+                              ? { ...t, card: { type: "check", filled } }
+                              : t,
+                          );
+                        });
+                        void api
+                          .saveDraft(toSaved(now.policyId, now.chip, now.words, filled))
+                          .catch(() => undefined);
                       }}
                       onClaimDelay={(offer) => {
                         void claimDelay(offer);
@@ -906,12 +1025,12 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
               )}
             </ol>
           )}
-          <div ref={end} />
+          <div ref={spacer} aria-hidden="true" />
         </div>
       </div>
       <div className="dock">
         {composer}
-        {empty && suggested.length > 0 && (
+        {atHome && suggested.length > 0 && (
           <ul className="suggestions" aria-label="Suggestions">
             {suggested.map((s) => (
               <li key={s.label}>
@@ -937,7 +1056,8 @@ export function Home({ api, firstName, records, loaded, onOpen, onChanged, start
             ))}
           </ul>
         )}
-        {!empty && <p className="dock-note">Wattle is AI · a person makes every final call</p>}
+        {!narrow && glance}
+        {!atHome && <p className="dock-note">Wattle is AI · a person makes every final call</p>}
       </div>
     </div>
   );
@@ -1020,7 +1140,7 @@ interface WattleTurnProps {
   onFiles: (files: File[]) => void;
   onDate: (day: string) => void;
   onSend: () => void;
-  onEdit: () => void;
+  onSaveCheck: (filled: Filled) => void;
   onClaimDelay: (offer: DelayOffer) => void;
   onPolicy: () => void;
 }
@@ -1050,7 +1170,7 @@ function WattleTurn(props: WattleTurnProps) {
           <ul className="turn-points">
             {turn.points.map((point, i) => (
               <li key={String(i)} dir="auto">
-                {bolded(point.text)}
+                <span>{bolded(point.text)}</span>
               </li>
             ))}
           </ul>
@@ -1059,6 +1179,22 @@ function WattleTurn(props: WattleTurnProps) {
           <button type="button" className="source-chip" onClick={onPolicy}>
             <FileText size={13} strokeWidth={1.75} aria-hidden="true" /> Your policy
           </button>
+        )}
+        {(turn.policyChip || turn.card?.type === "cover") && (
+          <p className="turn-note">General information only; your policy wording decides.</p>
+        )}
+        {turn.trip && (
+          <p className="turn-note">
+            {turn.trip.label}
+            {live && turn.trip.change && (
+              <>
+                {" · "}
+                <button type="button" className="text-link" onClick={turn.trip.change}>
+                  change
+                </button>
+              </>
+            )}
+          </p>
         )}
         {turn.card && <TurnCard {...props} card={turn.card} />}
         {live && turn.choices && turn.choices.length > 0 && (
@@ -1080,6 +1216,28 @@ function WattleTurn(props: WattleTurnProps) {
   );
 }
 
+// A phone puts the key facts in the scrolling page, not under the composer.
+const NARROW = "(max-width: 640px)";
+function useNarrow(): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof window.matchMedia === "function" && window.matchMedia(NARROW).matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(NARROW);
+    const change = () => {
+      setNarrow(query.matches);
+    };
+    query.addEventListener("change", change);
+    return () => {
+      query.removeEventListener("change", change);
+    };
+  }, []);
+  return narrow;
+}
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
 function CardShell({ children }: { children: ReactNode }) {
   return (
     <div className="card-ring">
@@ -1099,7 +1257,7 @@ function TurnCard({
   onFiles,
   onDate,
   onSend,
-  onEdit,
+  onSaveCheck,
   onClaimDelay,
 }: WattleTurnProps & { card: Card }) {
   switch (card.type) {
@@ -1172,41 +1330,18 @@ function TurnCard({
       return live && flow?.waiting === "missing" ? (
         <DateCard min={card.min} max={card.max} onDate={onDate} />
       ) : null;
-    case "check":
-      return flow?.filled ? (
-        <CardShell>
-          <p className="card-title" dir="auto">
-            {flow.filled.summary}
-          </p>
-          <p className="card-meta" dir="auto">
-            {flow.filled.location} · {date(flow.filled.incidentDate)}
-          </p>
-          <ul className="card-lines">
-            {flow.filled.lines.map((line, i) => (
-              <li key={String(i)}>
-                <span dir="auto">{line.description}</span>
-                <span>{dollars(line.amount)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="card-figures one">
-            <div>
-              <small>You&apos;re claiming</small>
-              <b>{dollars(total(flow.filled.lines))}</b>
-            </div>
-          </div>
-          {live && flow.waiting === "edit" && (
-            <div className="card-actions">
-              <button type="button" className="button" onClick={onSend}>
-                Send claim
-              </button>
-              <button type="button" className="text-link" onClick={onEdit}>
-                Change something
-              </button>
-            </div>
-          )}
-        </CardShell>
-      ) : null;
+    case "check": {
+      const trip = records.policies.find((p) => p.policy_id === flow?.policyId)?.trip;
+      return (
+        <CheckCard
+          filled={card.filled}
+          ready={live && flow?.waiting === "edit"}
+          trip={trip}
+          onSend={onSend}
+          onSave={onSaveCheck}
+        />
+      );
+    }
     case "delay":
       return (
         <CardShell>
@@ -1264,23 +1399,8 @@ function ClaimCard({
   claimId: string;
   onOpen: (t: PanelTarget) => void;
 }) {
-  const [claim, setClaim] = useState<CustomerClaim | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let live = true;
-    api.myClaim(claimId).then(
-      (found) => {
-        if (live) setClaim(found);
-      },
-      () => {
-        if (live) setFailed(true);
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [api, claimId]);
-  if (failed) return <p className="card-meta">I couldn&apos;t load that claim.</p>;
+  const { claim, failed, retry } = useClaim(api, claimId);
+  if (failed) return <LoadFailed retry={retry} />;
   if (!claim)
     return (
       <p className="card-meta" role="status">
@@ -1309,6 +1429,47 @@ function ClaimCard({
   );
 }
 
+/** One of the customer's claims, loaded for a card, with a way to try again. */
+function useClaim(api: Api, claimId: string) {
+  const [claim, setClaim] = useState<CustomerClaim | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    api.myClaim(claimId).then(
+      (found) => {
+        if (live) setClaim(found);
+      },
+      () => {
+        if (live) setFailed(true);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, claimId, attempt]);
+  return {
+    claim,
+    setClaim,
+    failed,
+    retry: () => {
+      setFailed(false);
+      setAttempt((n) => n + 1);
+    },
+  };
+}
+
+function LoadFailed({ retry }: { retry: () => void }) {
+  return (
+    <p className="card-meta" role="alert">
+      I couldn&apos;t load that claim.{" "}
+      <button type="button" className="text-link" onClick={retry}>
+        Try again
+      </button>
+    </p>
+  );
+}
+
 function NeedsCard({
   api,
   claimId,
@@ -1318,19 +1479,8 @@ function NeedsCard({
   claimId: string;
   onChanged: () => void;
 }) {
-  const [claim, setClaim] = useState<CustomerClaim | null>(null);
-  useEffect(() => {
-    let live = true;
-    api.myClaim(claimId).then(
-      (found) => {
-        if (live) setClaim(found);
-      },
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [api, claimId]);
+  const { claim, setClaim, failed, retry } = useClaim(api, claimId);
+  if (failed) return <LoadFailed retry={retry} />;
   if (!claim)
     return (
       <p className="card-meta" role="status">
@@ -1385,7 +1535,7 @@ function UploadCard({ onFiles }: { onFiles: (files: File[]) => void }) {
     };
   }, []);
   return (
-    <CardShell>
+    <>
       <label ref={zone} htmlFor={id} className={`drop${dragging ? " is-over" : ""}`}>
         <span className="drop-icon" aria-hidden="true">
           <Paperclip size={18} strokeWidth={1.75} />
@@ -1408,7 +1558,7 @@ function UploadCard({ onFiles }: { onFiles: (files: File[]) => void }) {
           if (chosen.length > 0) onFiles(chosen);
         }}
       />
-    </CardShell>
+    </>
   );
 }
 
@@ -1474,6 +1624,183 @@ function PersonCard({ records, onOpen }: { records: Records; onOpen: (t: PanelTa
         >
           Open {decided.summary}
         </button>
+      )}
+    </CardShell>
+  );
+}
+
+/** The claim before it's sent. The day (inside the trip), the place and each item's amount can
+ * be changed right here, no chat needed. */
+function CheckCard({
+  filled,
+  ready,
+  trip,
+  onSend,
+  onSave,
+}: {
+  filled: Filled;
+  ready: boolean;
+  trip?: Pick<Policy["trip"], "departs_on" | "returns_on">;
+  onSend: () => void;
+  onSave: (filled: Filled) => void;
+}) {
+  const id = useId();
+  const [editing, setEditing] = useState<Filled | null>(null);
+  const [problem, setProblem] = useState("");
+
+  if (editing && ready) {
+    const setLine = (index: number, change: Partial<Line>) => {
+      setEditing({
+        ...editing,
+        lines: editing.lines.map((line, i) => (i === index ? { ...line, ...change } : line)),
+      });
+    };
+    return (
+      <CardShell>
+        <form
+          className="check-edit"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!dayInTrip(editing.incidentDate, trip)) {
+              setProblem("Pick a day during the trip.");
+              return;
+            }
+            if (!editing.location.trim()) {
+              setProblem("Say where it happened.");
+              return;
+            }
+            if (editing.lines.some((line) => !line.description.trim() || !(line.amount > 0))) {
+              setProblem("Each item needs a name and an amount.");
+              return;
+            }
+            setProblem("");
+            onSave({ ...editing, location: editing.location.trim() });
+            setEditing(null);
+          }}
+        >
+          <label htmlFor={`${id}-day`}>Day</label>
+          <input
+            id={`${id}-day`}
+            type="date"
+            min={trip?.departs_on}
+            max={trip?.returns_on}
+            value={editing.incidentDate}
+            onChange={(event) => {
+              setEditing({ ...editing, incidentDate: event.target.value });
+            }}
+          />
+          <label htmlFor={`${id}-place`}>Where</label>
+          <input
+            id={`${id}-place`}
+            value={editing.location}
+            maxLength={120}
+            onChange={(event) => {
+              setEditing({ ...editing, location: event.target.value });
+            }}
+          />
+          {editing.lines.map((line, i) => (
+            <div key={String(i)} className="check-line">
+              <label htmlFor={`${id}-item-${String(i)}`} className="visually-hidden">
+                Item {i + 1}
+              </label>
+              <input
+                id={`${id}-item-${String(i)}`}
+                value={line.description}
+                maxLength={120}
+                onChange={(event) => {
+                  setLine(i, { description: event.target.value });
+                }}
+              />
+              <label htmlFor={`${id}-amount-${String(i)}`} className="visually-hidden">
+                Amount for item {i + 1}
+              </label>
+              <input
+                id={`${id}-amount-${String(i)}`}
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={line.amount || ""}
+                onChange={(event) => {
+                  setLine(i, { amount: Number(event.target.value) });
+                }}
+              />
+              {editing.lines.length > 1 && (
+                <button
+                  type="button"
+                  className="text-link"
+                  aria-label={`Remove item ${String(i + 1)}`}
+                  onClick={() => {
+                    setEditing({ ...editing, lines: editing.lines.filter((_, at) => at !== i) });
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+          {problem && (
+            <p className="field-error" role="alert">
+              {problem}
+            </p>
+          )}
+          <div className="card-actions">
+            <button type="submit" className="button">
+              Save
+            </button>
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => {
+                setEditing(null);
+                setProblem("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </CardShell>
+    );
+  }
+
+  return (
+    <CardShell>
+      <p className="card-title" dir="auto">
+        {filled.summary}
+      </p>
+      <p className="card-meta" dir="auto">
+        {filled.location} · {date(filled.incidentDate)}
+      </p>
+      <ul className="card-lines">
+        {filled.lines.map((line, i) => (
+          <li key={String(i)}>
+            <span dir="auto">{line.description}</span>
+            <span>{dollars(line.amount)}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="card-figures one">
+        <div>
+          <small>You&apos;re claiming</small>
+          <b>{dollars(total(filled.lines))}</b>
+        </div>
+      </div>
+      {ready && (
+        <div className="card-actions">
+          <button type="button" className="button" onClick={onSend}>
+            Send claim
+          </button>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setEditing(filled);
+            }}
+          >
+            Change something
+          </button>
+        </div>
       )}
     </CardShell>
   );

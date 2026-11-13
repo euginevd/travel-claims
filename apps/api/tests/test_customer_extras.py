@@ -8,7 +8,9 @@ import pytest
 from api_helpers import AGENT, MAYA, OLIVER, line, payout, png, sign_in, start
 from fastapi.testclient import TestClient
 
+from undercover_api.models import CustomerClaimSummary, DecisionKind
 from undercover_api.payments import mask_payid
+from undercover_api.portal import APPROVED_IN_FULL, REFERRED_REASON, customer_reason
 
 PNG = png()
 NEW_CLAIM: dict[str, Any] = {
@@ -372,3 +374,26 @@ def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
         client.post("/api/engineering/ask", json={"question": "hi"}, headers=maya).status_code
         == 401
     )
+
+
+def test_an_approval_is_explained_in_plain_words_and_a_decline_keeps_its_reason() -> None:
+    summary = CustomerClaimSummary(
+        claim_id="CLM-1001",
+        policy_id="POL-2001",
+        claim_type="baggage",
+        summary="Bag lost",
+        amount_claimed=300.0,
+        submitted_on="2026-06-24",
+        status="paid",
+        status_text="Paid.",
+        open_requests=0,
+    )
+    working = "Receipts match; no prior claims."
+    assert customer_reason(DecisionKind.APPROVE, working, 300.0, summary) == APPROVED_IN_FULL
+    part = customer_reason(DecisionKind.APPROVE, working, 250.0, summary)
+    assert "$250.00 of the $300.00" in part
+    assert "prior" not in part
+    assert customer_reason(DecisionKind.DECLINE, "Filed after 90 days.", 0, summary) == (
+        "Filed after 90 days."
+    )
+    assert customer_reason(DecisionKind.REFER, working, 0, summary) == REFERRED_REASON

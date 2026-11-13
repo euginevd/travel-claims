@@ -152,7 +152,6 @@ export function fill(draft: Draft | null, chip: CaseChip, words: string[], day =
 
 export type Missing = "date" | "place" | "items" | "type" | { question: string };
 
-/** The one thing still needed before the claim can be sent, or null when it's ready. */
 /** Whether a day is a real calendar day inside the trip; with no trip, any real day. */
 export function dayInTrip(
   day: string,
@@ -162,6 +161,7 @@ export function dayInTrip(
   return !trip || (day >= trip.departs_on && day <= trip.returns_on);
 }
 
+/** The one thing still needed before the claim can be sent, or null when it's ready. */
 export function nextMissing(
   filled: Filled,
   asked: ReadonlySet<string>,
@@ -175,8 +175,17 @@ export function nextMissing(
   return question ? { question } : null;
 }
 
-export function missingText(missing: Missing): string {
+/** The question for what's missing; asked again, it says what would do, never the same words. */
+const MISSING_AGAIN: Record<Exclude<Missing, object>, string> = {
+  date: "Sorry, I still need the day. Pick it below.",
+  place: "Where exactly? An airport, hotel or city is fine.",
+  items: 'I need a rough amount for each thing, like "$120 sunglasses, $60 shoes".',
+  type: "Which of these is it closest to?",
+};
+
+export function missingText(missing: Missing, again = false): string {
   if (typeof missing === "object") return missing.question;
+  if (again) return MISSING_AGAIN[missing];
   switch (missing) {
     case "date":
       return "What day did it happen?";
@@ -193,9 +202,14 @@ export function missingText(missing: Missing): string {
  * medicine $45" is two lines. Empty when there's no amount to read. */
 export function amountsIn(said: string): Line[] {
   const lines: Line[] = [];
-  const pattern = /([^$\d]*?)\$?\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)(?![\d.])/g;
-  for (const match of said.matchAll(pattern)) {
-    const amount = Number((match[2] ?? "").replace(/,/g, ""));
+  const pattern =
+    /([^$\d]*?)(\$?)\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)(?![\d.]|st|nd|rd|th)/g;
+  const found = [...said.matchAll(pattern)];
+  // "2 bags, $120" is one amount: with any $ in the message, only numbers with one count.
+  const dollars = found.some((match) => match[2] === "$");
+  for (const match of found) {
+    if (dollars && match[2] !== "$") continue;
+    const amount = Number((match[3] ?? "").replace(/,/g, ""));
     if (!(amount > 0)) continue;
     const description = (match[1] ?? "")
       .replace(/^[\s,;:.-]*(and|plus)?\s*/i, "")

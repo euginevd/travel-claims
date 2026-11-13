@@ -620,11 +620,13 @@
     var(--shadow);
 }
 
-.composer textarea {
+.composer textarea,
+.composer textarea:focus {
   width: 100%;
   min-height: 28px;
   border: 0;
   outline: 0;
+  box-shadow: none;
   background: none;
   color: var(--ink);
   font: inherit;
@@ -1071,10 +1073,19 @@
     padding: 12px 16px;
   }
 
-  .top-label,
   .topbar .logo-sub,
+  .topbar .logo-word,
   .topbar .project-link {
     display: none;
+  }
+
+  .top-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .home-col {
@@ -1120,4 +1131,150 @@
   .sheet-backdrop {
     animation: none;
   }
+}
+
+.message-more {
+  margin: 12px 0 0;
+}
+
+.turn-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+
+.turn-note .text-link {
+  font-size: inherit;
+}
+
+.check-edit {
+  display: grid;
+  gap: 8px;
+}
+
+.check-edit label {
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.check-edit input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.check-line {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 8px;
+}
+
+/* --- At a glance: key facts under the suggestions, for a customer who only wants to look --- */
+
+.glance {
+  width: 100%;
+  max-width: 768px;
+  margin: 28px auto 0;
+}
+
+.glance-head {
+  margin: 0 0 10px;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.glance ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.glance-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.glance-card:hover {
+  background: var(--soft);
+}
+
+.glance-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+}
+
+.glance-go {
+  margin-left: auto;
+}
+
+.glance-card b {
+  font-weight: 600;
+}
+
+.glance-sub {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.glance-tag {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font-size: 0.72rem;
+}
+
+.glance-steps {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.glance-steps span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.glance-steps .done {
+  background: var(--ink);
+}
+
+.glance-steps .current {
+  background: var(--acc);
+}
+
+.back-to-chat {
+  margin-top: 14px;
 }

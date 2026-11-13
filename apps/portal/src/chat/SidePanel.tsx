@@ -127,8 +127,17 @@ function Head({
 
 // --- Messages ---
 
+// The newest few first; the rest on a tap, so the sheet stays short.
+const MESSAGES_SHOWN = 3;
+
+// Keeps a claim number on one line: CLM-1925 never breaks at its hyphen.
+const unbroken = (text: string) => text.replace(/CLM-(\d)/g, "CLM‑$1");
+
 function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
-  const messages = groupNotices(records.notices);
+  const all = groupNotices(records.notices);
+  const [showAll, setShowAll] = useState(false);
+  const messages = showAll ? all : all.slice(0, MESSAGES_SHOWN);
+  const hidden = all.length - messages.length;
   return (
     <>
       <Head onClose={onClose}>Messages</Head>
@@ -148,7 +157,7 @@ function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
                     <MessageSquare size={16} strokeWidth={1.75} />
                   )}
                 </span>
-                <b dir="auto">{main.subject}</b>
+                <b dir="auto">{unbroken(main.subject)}</b>
                 <span className="message-when">{date(main.sent_at)}</span>
                 <span className="message-first" dir="auto">
                   {main.body}
@@ -180,6 +189,17 @@ function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
           </li>
         ))}
       </ul>
+      {hidden > 0 && (
+        <button
+          type="button"
+          className="text-link message-more"
+          onClick={() => {
+            setShowAll(true);
+          }}
+        >
+          Show {hidden} older
+        </button>
+      )}
     </>
   );
 }
@@ -501,6 +521,9 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
   const [settings, setSettings] = useState<Settings | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [payid, setPayid] = useState<string | null | undefined>(undefined);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -508,7 +531,9 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
       (found) => {
         if (live) setSettings(found);
       },
-      () => undefined,
+      () => {
+        if (live) setLoadFailed(true);
+      },
     );
     api.myPayId().then(
       (found) => {
@@ -521,11 +546,26 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
     return () => {
       live = false;
     };
-  }, [api]);
+  }, [api, attempt]);
 
   return (
     <>
       <Head onClose={onClose}>Settings</Head>
+      {loadFailed && (
+        <p className="error" role="alert">
+          We couldn&apos;t load your details.{" "}
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => {
+              setLoadFailed(false);
+              setAttempt((n) => n + 1);
+            }}
+          >
+            Try again
+          </button>
+        </p>
+      )}
       <section className="sheet-group">
         <h3>Getting paid</h3>
         <EditRow
@@ -542,7 +582,7 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
         <h3>Your details</h3>
         <div className="sheet-row static">
           <span className="grow">Email</span>
-          <span className="sheet-meta">{settings?.email ?? "…"}</span>
+          <span className="sheet-meta">{settings?.email ?? (loadFailed ? "" : "…")}</span>
         </div>
         {settings && (
           <EditRow
@@ -552,9 +592,14 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
             hint="Digits, with + for a country code; leave it empty to remove it"
             allowEmpty
             save={async (value) => {
-              setSettings(
-                await api.setSettings({ mobile: value, text_updates: settings.text_updates }),
-              );
+              setSaving(true);
+              try {
+                setSettings(
+                  await api.setSettings({ mobile: value, text_updates: settings.text_updates }),
+                );
+              } finally {
+                setSaving(false);
+              }
             }}
           />
         )}
@@ -578,16 +623,20 @@ function SettingsView({ api, records, onClose, onTarget, onSignOut }: SidePanelP
               role="switch"
               className="switch"
               checked={settings.text_updates}
+              disabled={saving}
               onChange={(event) => {
                 const text_updates = event.target.checked;
                 const before = settings;
                 setProblem(null);
                 setSettings({ ...before, text_updates });
+                setSaving(true);
                 api.setSettings({ mobile: before.mobile, text_updates }).then(
                   (saved) => {
+                    setSaving(false);
                     setSettings((now) => (now?.text_updates === text_updates ? saved : now));
                   },
                   (caught: unknown) => {
+                    setSaving(false);
                     setSettings((now) => (now?.text_updates === text_updates ? before : now));
                     setProblem(
                       caught instanceof ApiError ? caught.message : "We couldn't save that.",

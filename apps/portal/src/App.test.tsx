@@ -28,7 +28,7 @@ test("a customer signs in and sees their own claims", async () => {
   expect(await screen.findByRole("heading", { level: 1, name: /^Hi Maya/ })).toBeInTheDocument();
   // Her open claim is one of the three suggestions, from her own records.
   expect(
-    await screen.findByRole("button", { name: /How's your delay claim going\?/ }),
+    await screen.findByRole("button", { name: /How's my delay claim going\?/ }),
   ).toBeInTheDocument();
   const signIn = fetchFn.calls.find((c) => c.path === "/api/customer/dev/sign-in");
   expect(signIn?.body).toEqual({ email: "maya.patel@example.com", password: "secret" });

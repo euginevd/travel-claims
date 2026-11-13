@@ -17,6 +17,8 @@ export interface Records {
   delays: DelayOffer[];
   draft: SavedDraft | null;
   notices: Notice[];
+  /** Their PayID as the api shows it (masked), or null when there's none. */
+  payid: string | null;
 }
 
 const EMPTY: Records = {
@@ -26,6 +28,7 @@ const EMPTY: Records = {
   delays: [],
   draft: null,
   notices: [],
+  payid: null,
 };
 
 /** Each part loads on its own: one that fails leaves the rest of the portal working. */
@@ -48,9 +51,10 @@ export function useRecords(api: Api): {
       quietly(api.myDelays(), [] as DelayOffer[]),
       quietly(api.myDraft(), null),
       quietly(api.myNotices(), [] as Notice[]),
-    ]).then(([policies, claims, cover, delays, draft, notices]) => {
+      quietly(api.myPayId(), null),
+    ]).then(([policies, claims, cover, delays, draft, notices, payid]) => {
       if (!live) return;
-      setRecords({ policies, claims, cover, delays, draft, notices });
+      setRecords({ policies, claims, cover, delays, draft, notices, payid });
       setLoaded(true);
     });
     return () => {

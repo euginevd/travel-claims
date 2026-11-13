@@ -130,6 +130,8 @@ function Portal({
   const { records, loaded, refresh } = useRecords(api);
   const [panel, setPanel] = useState<PanelTarget | null>(() => targetFor(route));
   const [restart, setRestart] = useState(0);
+  // Each press of Home: back to the start screen, the conversation kept.
+  const [homeTick, setHomeTick] = useState(0);
   const [start, setStart] = useState<{ kind: "claim" } | { kind: "policy"; cover: Cover } | null>(
     () => (route.page === "new-claim" ? { kind: "claim" } : null),
   );
@@ -190,6 +192,10 @@ function Portal({
             setStart(null);
             setRestart((value) => value + 1);
           }}
+          onHome={() => {
+            setPanel(null);
+            setHomeTick((value) => value + 1);
+          }}
           onMessages={() => {
             open({ view: "messages" });
           }}
@@ -205,6 +211,7 @@ function Portal({
         <ErrorBoundary>
           <Home
             key={restart}
+            homeTick={homeTick}
             api={api}
             firstName={firstName}
             records={records}

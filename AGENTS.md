@@ -80,3 +80,4 @@ When you or the user find a mistake an agent made, add a one-line fix here in th
 41. Never rewrite a source file with Windows PowerShell `Get-Content`/`Set-Content`: it reads UTF-8 without a BOM as ANSI and writes a BOM, turning `·` into `Â·` on the Live page. Edit with the Edit tool or Python with `encoding="utf-8"`.
 42. A script pasted into CloudShell runs in an interactive shell, where `!word` is history expansion: `!starts_with` in a JMESPath query dropped `teardown-aws.sh`'s check for other repos' GitHub roles. Write `== \`false\`` instead.
 43. CSS `@keyframes` names are global: a new stylesheet's `rise` replaced `brand.css`'s and left the portal's sign-in form invisible. Prefix a new stylesheet's keyframes (`chat-rise`), and load the sign-in page after a styles change.
+44. `display: none` on a button's only text removes its name: the portal's phone top bar had three nameless icon buttons. Hide a label visually (clipped, 1px) and keep it readable.

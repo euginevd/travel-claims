@@ -36,6 +36,9 @@ function yourClaim(claim: CustomerClaimSummary): string {
   return word ? `your ${word} claim` : "your claim";
 }
 
+// A suggestion is the customer's own words.
+const myClaim = (claim: CustomerClaimSummary) => yourClaim(claim).replace(/^your/, "my");
+
 const DONE = new Set(["paid", "declined"]);
 
 /** The one thing worth saying on arrival, most important first: something we need, a claim
@@ -88,7 +91,10 @@ export function pickNews(
         key: `${claim.status}:${claim.claim_id}`,
         tone: claim.status === "declined" ? "plain" : "good",
         title: `${yourClaim(claim).replace(/^y/, "Y")} is ${word}`,
-        detail: claim.status_text,
+        detail:
+          claim.status === "declined"
+            ? "See why, and how to ask us to look again."
+            : claim.status_text,
         go: { to: "claim", claimId: claim.claim_id },
         action: "See",
         sticky: false,
@@ -129,7 +135,7 @@ export function suggestions(
   if (open) {
     out.push({
       kind: "claim",
-      label: `How's ${yourClaim(open)} going?`,
+      label: `How's ${myClaim(open)} going?`,
       claimId: open.claim_id,
     });
   }

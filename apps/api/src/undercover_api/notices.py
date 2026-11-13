@@ -22,11 +22,13 @@ def first_name(db: Connection, customer_id: str) -> str:
 
 
 def texts_wanted(db: Connection, customer_id: str) -> bool:
-    """Whether the customer wants updates by text; emails about a claim always go."""
+    """Whether to text the customer updates: they want them and have a mobile. Emails about a
+    claim always go."""
     record: dict[str, object] | None = db.execute(
         select(customers.c.record).where(customers.c.customer_id == customer_id)
     ).scalar_one_or_none()
-    return bool((record or {}).get("text_updates", True))
+    found = record or {}
+    return bool(found.get("text_updates", True)) and bool(found.get("phone"))
 
 
 def send(  # noqa: PLR0913, PLR0917 - one message's parts
