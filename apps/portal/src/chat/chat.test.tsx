@@ -833,3 +833,20 @@ test("done claims stay folded until asked for", async () => {
   await user.click(within(panel).getByRole("button", { name: /Done/ }));
   expect(within(panel).getByText("An old paid claim")).toBeInTheDocument();
 });
+
+test("a list that couldn't be loaded is never shown as empty", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    ...routes,
+    "GET /api/customer/claims": () => [500, { detail: "down" }],
+    "GET /api/customer/policies": () => [500, { detail: "down" }],
+  });
+  render(<App fetchFn={fetchFn} />);
+  const banner = await screen.findByRole("banner");
+  await user.click(within(banner).getByRole("button", { name: /^Claims$/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your claims");
+  expect(screen.queryByText("No claims yet. Tell Wattle what happened.")).toBeNull();
+  const panel = await screen.findByRole("dialog", { name: "Your claims" });
+  await user.click(within(panel).getByRole("button", { name: "Make a claim" }));
+  expect(await screen.findByText(/I couldn't load your policies just now/)).toBeInTheDocument();
+});

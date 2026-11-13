@@ -9,7 +9,7 @@ from where it got to, and a held payout waits with interrupt() until the api res
 
 import operator
 from importlib.resources import files  # nosemgrep: python37-compatibility-importlib2 - Python 3.14
-from typing import Annotated, Any, Literal, TypedDict, cast
+from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
 
 from anthropic.types import Message
 from langchain_core.runnables import RunnableConfig
@@ -52,6 +52,8 @@ class ClaimState(TypedDict):
     payout: float
     # The attempt's configuration: instructions, model and effort, read once at the start.
     configuration: Json
+    # The receipts the hidden-instruction check has read: only these reach a specialist.
+    screened: NotRequired[list[str]]
 
 
 def ids(config: RunnableConfig) -> tuple[str, str]:
@@ -110,7 +112,8 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
         claim_id, thread_id = ids(config)
         claim = claim_as_read(api.claim(claim_id))
         # Each receipt read once: the check and the claim agent get the same content.
-        attached = receipt_content(api.receipts(claim_id), receipts)
+        sent = api.receipts(claim_id)
+        attached = receipt_content(sent, receipts)
         found, call = claude.screen([{"type": "text", "text": as_text(claim)}, *attached])
         record_call(claim_id, thread_id, call)
         if found is None:
@@ -138,7 +141,32 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             "messages": [first],
             "outcome": "",
             "configuration": attempts_configuration(claim_id),
+            "screened": receipt_ids(sent),
         }
+
+    def screen_added(claim_id: str, thread_id: str, seen: list[str]) -> list[str]:
+        """Check the files added since the first check, before a specialist can read them
+        (a customer answers a handler's request at any time). The ones found clean join the
+        screened list; one with instructions in it is never read, and the trace says so."""
+        added = [r for r in api.receipts(claim_id) if str(r["receipt_id"]) not in seen]
+        if not added:
+            return seen
+        claim = claim_as_read(api.claim(claim_id))
+        content = [{"type": "text", "text": as_text(claim)}, *receipt_content(added, receipts)]
+        found, call = claude.screen(content)
+        record_call(claim_id, thread_id, call)
+        if found is None or found.instructions_found:
+            why = found.reason if found else "The check couldn't read a file added later."
+            note = f"Instructions found in a file added later, which wasn't read. {why}"
+            api.record_step(claim_id, thread_id, "screening", note)
+            return seen
+        api.record_step(
+            claim_id,
+            thread_id,
+            "screening",
+            f"No instructions found in the files added later. {found.reason}",
+        )
+        return [*seen, *receipt_ids(added)]
 
     def attempts_configuration(claim_id: str) -> Json:
         """The attempt's configuration, or the built-in one when the api has none yet."""
@@ -176,9 +204,13 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             return {"messages": [assistant, nudge], "model_calls": 1}
         return {"messages": [assistant], "model_calls": 1}
 
-    def consult(claim_id: str, thread_id: str, kind: str, used: list[int]) -> Result:
+    def consult(
+        claim_id: str, thread_id: str, kind: str, used: list[int], seen: list[str] | None
+    ) -> Result:
         """Ask a specialist for its findings on the claim, its receipts and the trip. Each
-        consult is a model call, counted against the attempt's limit in `used`."""
+        consult is a model call, counted against the attempt's limit in `used`. It reads only
+        the receipts the hidden-instruction check has read (`seen`; all of them for a claim
+        started before the list was kept)."""
         if used[0] >= max_model_calls:
             return Result("The model-call limit is reached: decide without it.", is_error=True)
         used[0] += 1
@@ -186,7 +218,10 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
         claim = claim_as_read(api.claim(claim_id))
         trip = api.policy(claim_id).get("trip", {})
         facts = as_text({"claim": claim, "trip": trip})
-        content = with_receipts(facts, api.receipts(claim_id), receipts)
+        sent = api.receipts(claim_id)
+        if seen is not None:
+            sent = [r for r in sent if str(r["receipt_id"]) in seen]
+        content = with_receipts(facts, sent, receipts)
         found, call = claude.specialist(specialist, content)
         record_call(claim_id, thread_id, call)
         if found is None:
@@ -215,7 +250,7 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
                     claim_id,
                     name,
                     args,
-                    lambda k: consult(claim_id, thread_id, k, used),
+                    lambda k: consult(claim_id, thread_id, k, used, state.get("screened")),
                 )
             kind = "error" if result.is_error else ("lookup" if result.sources else "tool_result")
             api.record_step(claim_id, thread_id, kind, result.text, result.sources)
@@ -262,7 +297,10 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             "A senior handler sent your decision back with this note. Check it against the "
             f"wording and the manual, then decide again:\n\n{note}"
         )
-        return {"messages": [{"role": "user", "content": review}], "outcome": ""}
+        again: Json = {"messages": [{"role": "user", "content": review}], "outcome": ""}
+        if "screened" in state:
+            again["screened"] = screen_added(claim_id, thread_id, state["screened"])
+        return again
 
     graph = StateGraph(ClaimState)
     graph.add_node("screen", screen)
@@ -275,6 +313,10 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
     graph.add_conditional_edges("act", lambda s: "settle" if s["outcome"] else "agent")
     graph.add_conditional_edges("settle", after_settle)
     return graph.compile(checkpointer=checkpointer)
+
+
+def receipt_ids(receipts: list[Json]) -> list[str]:
+    return [str(r["receipt_id"]) for r in receipts]
 
 
 def after_settle(state: ClaimState) -> str:

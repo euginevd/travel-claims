@@ -112,6 +112,7 @@ AWS
 43. The base Python image's `pip` bundles old `urllib3`, `msgpack` and `setuptools`, and lags Debian's fixes, failing the image scan: runtime stages uninstall `pip` and run `apt-get upgrade`.
 44. An AgentCore Gateway Lambda target takes `gateway_iam_role {}` with no `service`.
 45. CloudFront's `web_acl_id` is optional and computed, so `null` leaves an attached web ACL in place: set `""` to detach, `null` only where Firewall Manager owns it.
+61. A role is limited by the bootstrap's permissions boundary as well as its own policy (the api's grant on the audit bucket was refused, and the copy failed silently): add a new resource to the boundary in the same PR, and say in the PR that the bootstrap needs redeploying.
 46. AgentCore Identity checks `GetResourceApiKey` and `GetResourceOauth2Token` against `workload-identity-directory/default` too: grant the directory, the workload and the vault.
 
 Aurora DSQL
@@ -137,7 +138,7 @@ CI and tooling
 55. npm 10 drops the `libc` fields that npm 11 writes, so CI's `npm ci` on Node 24 sees a changed lock: write lock files with the npm CI uses (`npx npm@11 install`).
 56. axe flags low contrast on text caught mid fade-in: run accessibility checks with `reducedMotion: "reduce"` so they see the settled page.
 57. The agent and Copilot both create LangGraph's checkpoint tables at start, racing on Postgres's catalog (`UniqueViolation` on `pg_type`): keep the setup inside `set_up_tables`, which retries.
-58. Semgrep blocks `urllib` and `http.client` calls to a URL from a variable, even when the scheme is checked: use `httpx`.
+58. Semgrep blocks `urllib` and `http.client` calls to a URL from a variable, even when the scheme is checked: use `httpx2`, the client the apps already pin.
 
 Docker
 

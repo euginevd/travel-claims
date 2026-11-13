@@ -59,9 +59,15 @@ function sentence(entry: AuditEntry): string {
   return entry.change.charAt(0).toUpperCase() + entry.change.slice(1);
 }
 
-/** The rows shown, as CSV for an auditor: one quoted field each, quotes doubled. */
+/** The rows shown, as CSV for an auditor: one quoted field each, quotes doubled. A field a
+ * spreadsheet would run as a formula (a reason starting "=", "+", "-" or "@") gets a leading
+ * apostrophe, so opening the file never evaluates what a handler or a model wrote. */
 export function auditCsv(entries: AuditEntry[]): string {
-  const cell = (value: string | null) => `"${(value ?? "").replace(/"/g, '""')}"`;
+  const cell = (value: string | null) => {
+    const text = value ?? "";
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   const rows = entries.map((e) =>
     [e.at, e.kind, e.label, sentence(e), e.reason, e.by].map(cell).join(","),
   );
@@ -77,6 +83,8 @@ export function AuditPage({ api }: { api: Api }) {
   const [who, setWho] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [chain, setChain] = useState<ChainStatus | null>(null);
+  // The seal check failed to run: said on the page, as a missing line would read as "sealed".
+  const [unchecked, setUnchecked] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -84,7 +92,9 @@ export function AuditPage({ api }: { api: Api }) {
       (found) => {
         if (live) setChain(found);
       },
-      () => undefined,
+      () => {
+        if (live) setUnchecked(true);
+      },
     );
     return () => {
       live = false;
@@ -147,6 +157,13 @@ export function AuditPage({ api }: { api: Api }) {
       )}
       {entries && (
         <>
+          {unchecked && (
+            <p className="audit-chain is-broken" role="alert">
+              <ShieldAlert size={15} strokeWidth={1.75} aria-hidden="true" />
+              Couldn&apos;t check the seals, so these entries aren&apos;t verified. Reload to try
+              again.
+            </p>
+          )}
           {chain && (
             <p className={chain.intact ? "audit-chain" : "audit-chain is-broken"}>
               {chain.intact ? (
@@ -156,7 +173,11 @@ export function AuditPage({ api }: { api: Api }) {
               )}
               {chain.intact
                 ? `${String(chain.sealed)} entries sealed in a SHA-256 hash chain · intact${chain.anchored ? " · copied to write-once storage" : ""}`
-                : `Changed after sealing: ${[...chain.changed, ...chain.missing].join(", ")}${
+                : `${
+                    chain.changed.length + chain.missing.length
+                      ? `Changed after sealing: ${[...chain.changed, ...chain.missing].join(", ")}`
+                      : "The seals don't match their write-once copy"
+                  }${
                     chain.broken_at === null
                       ? ""
                       : ` · chain broken at seal ${String(chain.broken_at)}`

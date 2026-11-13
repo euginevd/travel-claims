@@ -1106,6 +1106,14 @@ Resources:
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-receipts-*/*'
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-checkpoints-*'
               - !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-checkpoints-*/*'
+          # The audit seals' write-once copy (decision 60): the api adds and reads seals, and
+          # can't delete them. Without this the boundary refuses every copy.
+          - Sid: AuditSeals
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::${ProjectName}-audit-*/seals/*'
           - Sid: KmsThroughServices
             Effect: Allow
             Action:

@@ -1,4 +1,4 @@
-# Reference code, never switched on here (decision 41): how the handlers' and AI engineers' pools
+# Reference code, never switched on here (decision 44): how the handlers' and AI engineers' pools
 # would federate with the company's Okta (SAML) when STAFF_SAML_METADATA_URL is
 # set, and the api would accept those sign-ins. The apps' sign-in pages don't change. Customers keep
 # their own pool's email and password.

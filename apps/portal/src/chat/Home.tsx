@@ -272,7 +272,9 @@ export function Home({
     if (!policyId) {
       say({
         who: "wattle",
-        headline: "I can't find a policy to claim on. A person can help.",
+        headline: records.failed.includes("policies")
+          ? "I couldn't load your policies just now. Try again in a moment, or a person can help."
+          : "I can't find a policy to claim on. A person can help.",
         card: { type: "person" },
       });
       return;

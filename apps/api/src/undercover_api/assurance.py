@@ -58,12 +58,15 @@ Status = Literal["pass", "watch", "fail", "none"]
 # A run with no word for this long is stalled.
 STALLED_AFTER = timedelta(hours=1)
 Z = 1.96
+# The fewest claims a gate passes on; under it the best it says is watch.
+FEWEST_TO_PASS = 5
 
 
 def wilson(share: float, n: int) -> tuple[float, float]:
     """Where the true share likely sits, measured on n claims (Wilson, 95%)."""
     if n <= 0:
         return (0.0, 1.0)
+    share = min(1.0, max(0.0, share))
     centre = (share + Z * Z / (2 * n)) / (1 + Z * Z / n)
     half = Z * math.sqrt(share * (1 - share) / n + Z * Z / (4 * n * n)) / (1 + Z * Z / n)
     return (max(0.0, centre - half), min(1.0, centre + half))
@@ -74,7 +77,8 @@ def judged(share: float | None, n: int, target: float) -> Status:
     if share is None or n == 0:
         return "none"
     if share >= target:
-        return "pass"
+        # A handful of claims proves little either way: not a pass until there are enough.
+        return "pass" if n >= FEWEST_TO_PASS else "watch"
     return "watch" if wilson(share, n)[1] >= target else "fail"
 
 
@@ -195,7 +199,8 @@ def gates_of(db: Connection) -> list[Gate]:
     )
     period = live(db, 14)
     decided = period.totals.decided
-    kept = (decided - period.totals.disagreements) / decided if decided else None
+    # A claim sent back twice counts twice, so the share is held at zero, never below.
+    kept = max(0.0, (decided - period.totals.disagreements) / decided) if decided else None
     exam_share = period.exam.accuracy if period.exam else None
     found.append(
         Gate(
@@ -433,6 +438,15 @@ def alerts_of(db: Connection, anchor: Anchor | None = None) -> list[Alert]:
         if trend.unusual
     )
     chain = chain_status(db, anchor)
+    if anchor is not None and chain.sealed and not chain.anchored:
+        # Configured but unreadable (a refused write, an outage): said, never passed over.
+        found.append(
+            Alert(
+                severity="medium",
+                text="The audit seals have no write-once copy to check against",
+                link="audit",
+            )
+        )
     if not chain.intact:
         found.append(
             Alert(
@@ -772,8 +786,13 @@ def card_of(db: Connection, row: dict[str, Any], in_use: int | None) -> VersionC
     exam = (
         db.execute(
             select(runs)
-            .where(runs.c.config_version == version, runs.c.status == "finished")
-            .order_by(runs.c.label_set.desc(), runs.c.run_id.desc())
+            # The exam is the held-out run: a shadow test's scores are never shown as it.
+            .where(
+                runs.c.config_version == version,
+                runs.c.status == "finished",
+                runs.c.label_set == "held_out",
+            )
+            .order_by(runs.c.run_id.desc())
             .limit(1)
         )
         .mappings()

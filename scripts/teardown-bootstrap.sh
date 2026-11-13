@@ -9,14 +9,18 @@
 
   # Empties a bucket, every version and delete marker, a thousand at a time; versioned buckets can't be deleted otherwise.
   empty() {
-    local kind
+    local kind list
+    list=$(mktemp)
     for kind in Versions DeleteMarkers; do
       while aws s3api list-object-versions --bucket "$1" --max-items 1000 \
-        --query "{Objects: ${kind}[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > /tmp/del.json 2>/dev/null \
-        && grep -q '"Key"' /tmp/del.json; do
-        aws s3api delete-objects --bucket "$1" --delete file:///tmp/del.json >/dev/null
+        --query "{Objects: ${kind}[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > "$list" 2>/dev/null \
+        && grep -q '"Key"' "$list"; do
+        # A refused delete would list the same objects for ever: stop and say so instead.
+        aws s3api delete-objects --bucket "$1" --delete "file://$list" >/dev/null \
+          || { echo "Couldn't empty $1; it's left as it is."; break 2; }
       done
     done
+    rm -f "$list"
   }
 
   # No "!" in this script: a paste into CloudShell reads it as history and drops the line.

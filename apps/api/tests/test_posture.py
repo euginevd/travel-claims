@@ -23,7 +23,7 @@ def attack(
         "name": f"Attack {attack_id}",
         "technique": "Hidden text",
         "owasp": "LLM01, ASI01",
-        "claim_id": None,
+        "claim_id": "CLM-1001",
         "outcome": outcome,
         "decided_by": decided_by,
         "paid": 0,

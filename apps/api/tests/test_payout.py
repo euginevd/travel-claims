@@ -3,7 +3,7 @@
 from typing import Any
 
 import pytest
-from api_helpers import line, payout, start
+from api_helpers import claiming, line, payout, start
 from fastapi.testclient import TestClient
 
 
@@ -103,6 +103,7 @@ def test_meals_without_receipts_per_traveler_per_day(client: TestClient) -> None
 
 def test_the_benefit_maximum(client: TestClient) -> None:
     lines = [line("Hotel", 700, kind="hotel", nights=2), line("Meals", 300, kind="expense")]
+    claiming(client, "CLM-1001", 1000)
     result = payout(client, "CLM-1001", "trip_delay", lines)
     assert steps(result)[-1] == ("Less the amount over the maximum of $800", -200.0)
     assert result["payout"] == 800.0
@@ -110,6 +111,7 @@ def test_the_benefit_maximum(client: TestClient) -> None:
 
 @pytest.mark.parametrize("benefit", ["trip_cancellation", "trip_interruption"])
 def test_cancellation_is_capped_at_the_trip_cost(client: TestClient, benefit: str) -> None:
+    claiming(client, "CLM-1019", 1600)
     result = payout(client, "CLM-1019", benefit, [line("Flights and hotel", 1600, kind="expense")])
     assert steps(result) == [
         ("Flights and hotel", 1600.0),
@@ -118,6 +120,7 @@ def test_cancellation_is_capped_at_the_trip_cost(client: TestClient, benefit: st
 
 
 def test_an_interruption_is_capped_at_the_plan_maximum(client: TestClient) -> None:
+    claiming(client, "CLM-1015", 12000)
     result = payout(
         client, "CLM-1015", "trip_interruption", [line("Flights home", 12000, kind="expense")]
     )
@@ -146,3 +149,12 @@ def test_money_is_compared_in_cents_not_floats() -> None:
     assert not same_amount(100.0, 100.01)
     assert not needs_sign_off(1000.0000001, 1000.0)
     assert needs_sign_off(1000.01, 1000.0)
+
+
+def test_a_payout_never_comes_to_more_than_was_claimed(client: TestClient) -> None:
+    """Whatever benefit and lines the agent sends: CLM-1001 claims $420 for a trip delay."""
+    result = payout(
+        client, "CLM-1001", "emergency_medical", [line("Hospital", 990, kind="expense")]
+    )
+    assert steps(result)[-1] == ("Less the amount over the $420.00 claimed", -520.0)
+    assert result["payout"] == 420.0

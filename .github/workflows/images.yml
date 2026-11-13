@@ -5,7 +5,8 @@ name: images
 on:
   push:
     branches: [main]
-    paths: [apps/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
+    # packages/** too: the web apps compile the shared code in packages/web-core.
+    paths: [apps/**, packages/**, data/**, pyproject.toml, uv.lock, .github/workflows/images.yml]
   workflow_dispatch:
     inputs:
       deploy:
@@ -60,9 +61,13 @@ jobs:
         id: build
         run: |
           repo="$PROJECT_NAME/$APP"
-          if ! aws ecr describe-repositories --repository-names "$repo" > /dev/null 2>&1; then
-            echo "::notice::No repository $repo yet: apply the registry unit first."
-            exit 0
+          # Only "not there yet" skips the build: any other failure (an expired token, a missing
+          # permission, throttling) fails it, or nothing would be built and the run would be green.
+          if ! found="$(aws ecr describe-repositories --repository-names "$repo" 2>&1)"; then
+            case "$found" in
+              *RepositoryNotFoundException*) echo "::notice::No repository $repo yet: apply the registry unit first."; exit 0 ;;
+              *) echo "::error::Couldn't read the repository $repo: $found"; exit 1 ;;
+            esac
           fi
           # Tags are immutable, so a rerun for the same commit keeps the image it pushed.
           if aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$GITHUB_SHA" > /dev/null 2>&1; then
@@ -145,9 +150,12 @@ jobs:
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"
           bucket="$PROJECT_NAME-web-dev-$APP-$account"
-          if ! aws s3api head-bucket --bucket "$bucket" > /dev/null 2>&1; then
-            echo "::notice::No bucket $bucket yet: apply the web unit first."
-            exit 0
+          # Only a bucket that isn't there (404) skips the upload; anything else fails it.
+          if ! found="$(aws s3api head-bucket --bucket "$bucket" 2>&1)"; then
+            case "$found" in
+              *"(404)"*|*"Not Found"*) echo "::notice::No bucket $bucket yet: apply the web unit first."; exit 0 ;;
+              *) echo "::error::Couldn't read the bucket $bucket: $found"; exit 1 ;;
+            esac
           fi
           site() { aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='$PROJECT_NAME-dev-$1'].$2 | [0]" --output text; }
           # A site's address: the company's domain where DOMAIN_NAME gave it one, else CloudFront's own.
@@ -158,7 +166,9 @@ jobs:
             printf '{"portal":"https://%s/","dashboard":"https://%s/","console":"https://%s/"}\n' "$(address portal)" "$(address dashboard)" "$(address console)" > dist/links.json
           else
             pool="$(aws cognito-idp list-user-pools --max-results 60 --query "UserPools[?Name=='$PROJECT_NAME-dev-$AUDIENCE'].Id | [0]" --output text)"
+            case "$pool" in ""|None) echo "::error::No user pool for $AUDIENCE: apply the identity unit first."; exit 1 ;; esac
             client="$(aws cognito-idp list-user-pool-clients --user-pool-id "$pool" --query 'UserPoolClients[0].ClientId' --output text)"
+            case "$client" in ""|None) echo "::error::No app client in the $AUDIENCE pool."; exit 1 ;; esac
             # The header's back link goes to the project page's own site, not port 5172.
             home="$(address home)"
             case "$home" in ""|None) echo "::error::No project page site: apply the web unit first."; exit 1 ;; esac

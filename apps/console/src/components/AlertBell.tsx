@@ -24,16 +24,21 @@ const LINKS: Record<string, string> = {
 export function AlertBell({ api }: { api: Api }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [open, setOpen] = useState(false);
+  // Whether the last read failed: the bell then says it can't tell, never "no alerts", as it
+  // carries the alert for a changed audit record.
+  const [unread, setUnread] = useState(false);
 
   useEffect(() => {
     let live = true;
     const load = () => {
       api.getAlerts().then(
         (found) => {
-          if (live) setAlerts(found);
+          if (!live) return;
+          setAlerts(found);
+          setUnread(false);
         },
         () => {
-          // No bell count until alerts can be read.
+          if (live) setUnread(true);
         },
       );
     };
@@ -52,7 +57,13 @@ export function AlertBell({ api }: { api: Api }) {
         type="button"
         className="icon-button"
         aria-expanded={open}
-        aria-label={alerts.length ? `${String(alerts.length)} alerts` : "No alerts"}
+        aria-label={
+          unread
+            ? "Alerts unavailable"
+            : alerts.length
+              ? `${String(alerts.length)} alerts`
+              : "No alerts"
+        }
         onClick={() => {
           setOpen((now) => !now);
         }}
@@ -64,7 +75,11 @@ export function AlertBell({ api }: { api: Api }) {
       </button>
       {open && (
         <div className="bell-list" role="region" aria-label="Alerts">
-          {alerts.length === 0 ? (
+          {unread ? (
+            <p className="muted small" role="alert">
+              Couldn&apos;t read the alerts. Trying again shortly.
+            </p>
+          ) : alerts.length === 0 ? (
             <p className="muted small">Nothing needs you now.</p>
           ) : (
             <ul>

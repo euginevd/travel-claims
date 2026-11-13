@@ -35,7 +35,7 @@ The idea and synthetic data come from [the UnderCover project](https://github.co
 | Red team | 8 of 8 attacks held: hidden instructions in receipt images and PDFs, forged approvals, goal hijacking, payout inflation, cross-customer access and a forged tool call ([report](docs/redteam-report.md)) |
 | Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.0016 |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
-| Tests | 641 Python tests at 88% coverage, 292 web app tests, and browser tests with an accessibility scan in CI |
+| Tests | 676 Python tests at 88% coverage, 322 web app tests, and browser tests with an accessibility scan in CI |
 | Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
 
 Deployed to AWS from the pipeline and tested end to end, then torn down to keep the bill near zero. The [walkthrough](#walkthrough) shows it running.

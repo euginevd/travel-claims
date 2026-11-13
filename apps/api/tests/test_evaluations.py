@@ -1,6 +1,7 @@
+import json
 from typing import Any, cast
 
-from api_helpers import AGENT, FakeAgent, decide, line, payout, start
+from api_helpers import AGENT, DATA, FakeAgent, decide, line, payout, start
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, insert, select
 
@@ -257,7 +258,7 @@ def test_an_engineer_restores_a_kept_version_with_a_reason_on_the_record(
     client: TestClient, sam: dict[str, str], dana: dict[str, str]
 ) -> None:
     round_id = gated_round(client, 2)
-    report = {"results": [attack(True)]}
+    report = {"results": suite()}
     assert client.put("/api/engineering/redteam", json=report, headers=sam).status_code == 200
     assert client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()["status"] == "kept"
     restore = "/api/engineering/configuration/{}/restore"
@@ -337,13 +338,24 @@ def gated_round(client: TestClient, version: int) -> int:
     return round_id
 
 
+ATTACKS = [
+    a["id"]
+    for a in json.loads((DATA / "redteam" / "attacks.json").read_text(encoding="utf-8"))["attacks"]
+]
+
+
+def suite() -> list[dict[str, Any]]:
+    """Every attack in the suite, held."""
+    return [attack(True) | {"attack_id": attack_id} for attack_id in ATTACKS]
+
+
 def attack(passed: bool) -> dict[str, Any]:
     return {
         "attack_id": "RT-01",
         "name": "Hidden instruction",
         "technique": "Receipt text",
         "owasp": "LLM01",
-        "claim_id": None,
+        "claim_id": "CLM-1001",
         "outcome": "Referred" if passed else "Paid",
         "decided_by": "Hidden-instruction check",
         "paid": 0 if passed else 500,
@@ -356,11 +368,11 @@ def test_a_candidate_is_kept_only_if_every_red_team_attack_holds(
     client: TestClient, sam: dict[str, str]
 ) -> None:
     round_id = gated_round(client, 2)
-    report = {"results": [attack(True), attack(True) | {"attack_id": "RT-02"}]}
+    report = {"results": suite()}
     assert client.put("/api/engineering/redteam", json=report, headers=sam).status_code == 200
     done = client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()
     assert done["status"] == "kept"
-    assert done["verdict"]["redteam"] == {"held": 2, "attacks": 2}
+    assert done["verdict"]["redteam"] == {"held": len(ATTACKS), "attacks": len(ATTACKS)}
     current = [
         c for c in client.get("/api/engineering/configuration", headers=sam).json() if c["current"]
     ]
@@ -371,8 +383,25 @@ def test_a_candidate_an_attack_gets_through_is_rolled_back(
     client: TestClient, sam: dict[str, str]
 ) -> None:
     round_id = gated_round(client, 2)
-    report = {"results": [attack(True), attack(False) | {"attack_id": "RT-02"}]}
+    report = {"results": [attack(False) | {"attack_id": "RT-01"}, *suite()[1:]]}
     client.put("/api/engineering/redteam", json=report, headers=sam)
     done = client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()
     assert done["status"] == "rolled_back"
-    assert "1 of 2" in done["verdict"]["why"]
+    assert f"1 of {len(ATTACKS)}" in done["verdict"]["why"]
+
+
+def test_a_red_team_report_can_not_claim_what_the_records_do_not_show(
+    client: TestClient, sam: dict[str, str]
+) -> None:
+    """The report comes from an engineer's token: a pass with no claim, a claim that isn't
+    there, or attacks left out never keeps a candidate."""
+    round_id = gated_round(client, 2)
+    padding = [attack(True) | {"attack_id": "RT-02"}] * 48
+    forged = [attack(True) | {"claim_id": None}, attack(True) | {"attack_id": "RT-02"}, *padding]
+    kept = client.put("/api/engineering/redteam", json={"results": forged}, headers=sam).json()
+    by_id = {r["attack_id"]: r for r in kept["results"]}
+    assert by_id["RT-01"]["passed"] is False
+    assert by_id["RT-02"]["passed"] is True
+    assert by_id["RT-03"]["outcome"] == "Not run"
+    done = client.get(f"/api/engineering/rounds/{round_id}", headers=sam).json()
+    assert done["status"] == "rolled_back"

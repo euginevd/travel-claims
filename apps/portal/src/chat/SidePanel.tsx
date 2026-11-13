@@ -47,6 +47,15 @@ export function SidePanel(props: SidePanelProps) {
 
   useEscape(backdrop, onClose);
 
+  // Something didn't load last time: opening a panel asks again, so "try again" is true.
+  const { onChanged } = props;
+  const retry = props.records.failed.length > 0;
+  useEffect(() => {
+    if (retry) onChanged();
+    // Once, when the panel opens: a reload that fails again mustn't loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     sheet.current?.querySelector<HTMLElement>("h2")?.focus();
   }, [target]);
@@ -269,9 +278,14 @@ function ClaimsView({
   return (
     <>
       <Head onClose={onClose}>Your claims</Head>
-      {records.claims.length === 0 && (
-        <p className="sheet-empty">No claims yet. Tell Wattle what happened.</p>
-      )}
+      {records.claims.length === 0 &&
+        (records.failed.includes("claims") ? (
+          <p className="sheet-empty" role="alert">
+            We couldn&apos;t load your claims. Close this and open it again to retry.
+          </p>
+        ) : (
+          <p className="sheet-empty">No claims yet. Tell Wattle what happened.</p>
+        ))}
       {open.length > 0 && (
         <section className="sheet-group claims-group">
           <h3>

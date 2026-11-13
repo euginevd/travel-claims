@@ -62,7 +62,7 @@ env:
   # Where the code runs (decisions 36 and 39): public, no VPC, the cost-optimized default; or private, the
   # platform team's private subnets, found by its /platform/network/* parameters (database, functions and agent units).
   TF_VAR_network: ${{ vars.NETWORK_MODE || 'public' }}
-  # The api and Copilot behind API Gateway with JWT authorizers and no function URLs (decision 39).
+  # The api and Copilot behind API Gateway with Cognito authorizers and no function URLs (decision 43).
   TF_VAR_api_gateway: ${{ vars.API_GATEWAY || 'false' }}
   # Staff sign in with the company's Okta through the staff pools (decision 44); empty: off.
   TF_VAR_staff_saml_metadata_url: ${{ vars.STAFF_SAML_METADATA_URL }}
@@ -105,7 +105,7 @@ jobs:
           if [ "$EVENT" = workflow_dispatch ] && [ "$INPUT_UNIT" = all ]; then
             units="$all"
           elif [ "$EVENT" = workflow_dispatch ]; then
-            units=$(echo "$INPUT_UNIT" | grep -Fx "$all" || { echo "No unit infra/aws/$INPUT_UNIT"; exit 1; })
+            units=$(echo "$INPUT_UNIT" | grep -Fx "$all" || { echo "::error::No unit infra/aws/$INPUT_UNIT" >&2; exit 1; })
           elif [ "$EVENT" = push ]; then
             units="$all"
           else
@@ -290,25 +290,24 @@ jobs:
     defaults:
       run:
         working-directory: infra/aws/${{ matrix.unit }}
-    # Passed to the shell as a variable, never pasted into the script. Only the secrets unit gets the
-    # Anthropic key, which its fill script reads from the environment into the settings.
+    # Passed to the shell as a variable, never pasted into the script.
     env:
       UNIT: ${{ matrix.unit }}
-      ANTHROPIC_API_KEY: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_API_KEY || '' }}
-      ANTHROPIC_WORKSPACE_ID: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_WORKSPACE_ID || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # The ready job listed this unit's plan, so a plan that can't be fetched (expired on a
+      # late rerun, or a failed download) fails the job: it must never pass having applied nothing.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        continue-on-error: true
         with:
           name: tfplan-${{ matrix.unit }}
           path: infra/aws/${{ matrix.unit }}
 
       - id: has_plan
-        run: echo "found=$([ -f tfplan ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        run: |
+          if [ -f tfplan ]; then echo "found=true" >> "$GITHUB_OUTPUT"; else echo "::error::No plan for $UNIT: run the workflow again to plan it."; exit 1; fi
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         if: steps.has_plan.outputs.found == 'true'
@@ -328,5 +327,10 @@ jobs:
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
 
       # Applies the reviewed plan exactly; fails if state changed since.
+      # Only this step, and only for the secrets unit, gets the Anthropic key, which the unit's
+      # fill script reads from the environment into the settings: no other step or action sees it.
       - if: steps.has_plan.outputs.found == 'true'
         run: terraform apply -input=false tfplan
+        env:
+          ANTHROPIC_API_KEY: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_API_KEY || '' }}
+          ANTHROPIC_WORKSPACE_ID: ${{ matrix.unit == 'secrets' && secrets.ANTHROPIC_WORKSPACE_ID || '' }}
