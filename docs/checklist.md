@@ -8,7 +8,7 @@ The guardrails in DevSecOps stage order. This project is a prototype throughout 
 | 2 | Plan | Cost estimate | `costs.md` | Production | Done |
 | 3 | Code, IDE | Secrets, SCA, IaC scanning | Gitleaks, Trivy | Both | Done: the pre-push scan |
 | 4 | Code, repo | Push protection, SCA | GitHub, Dependabot | Both | Done |
-| 5 | Code, agent | Agent guardrails | `AGENTS.md`, harness settings | Both | `AGENTS.md` only: no deny rules (trade-offs 8) |
+| 5 | Code, agent | Agent guardrails | `AGENTS.md`, harness settings | Both | Partly: `AGENTS.md` and the deny rules in `.claude/settings.json` (trade-offs 8) |
 | 6 | Build | Secrets, SCA, IaC scanning | Gitleaks, Trivy, Checkov | Both | Done: the `security` workflow |
 | 7 | Build | SAST | Semgrep, CodeQL, GitHub AI Scan | Both | Done: Semgrep and CodeQL |
 | 8 | Build | Supply chain security | Pinned versions, SBOM | Both | Done: pins, a 7-day wait, an SBOM per run, and each image scanned with its own SBOM before it reaches ECR |
