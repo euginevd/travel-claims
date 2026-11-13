@@ -128,3 +128,4 @@ Web apps
 Docs
 
 52. A rule cited by number elsewhere goes stale when `AGENTS.md` renumbers (`pyproject.toml` cited rule 18 for rule 24): after renumbering, grep the repo for `rule <n>` and fix each.
+53. A `file:` dependency's path in `package-lock.json` is relative to the app's folder (`../../packages/web-core`): build in the image at the repo's depth (`/web/apps/<app>`), or `npm ci` can't find it and prints only its usage.
