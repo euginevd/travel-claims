@@ -23,8 +23,25 @@ The lesson: a single prompt shows style, but a model choice needs a scored set, 
    - cost and seconds a claim;
    - pass or fail against the gate's floors (`data/evals/gate.json`).
 
-   A table below shows the claims they decided differently. The cheapest model that passes is marked.
+   Below them, a small square box for each claim they decided differently: the handler's answer, and which model missed. The cheapest model that passes is marked.
 3. **Use it.** "Propose for the claim agent" turns a card into a proposed version (model and effort changed, instructions kept) on Versions, where a person approves it and the exam decides, exactly as an improver's proposal does. Nothing changes the live agent from the playground.
+
+**The models it tests.** The current four, with every effort each takes. The agent today knows only the first three, and only low to high:
+
+| Model | ID | $ per 1M in / out | Efforts | Note |
+|---|---|---|---|---|
+| Haiku 5.5 | `claude-haiku-5-5` | 0.10 / 0.50 | low to max, default medium | In use today |
+| Sonnet 5.5 | `claude-sonnet-5-5` | 2 / 10 | low to max, default high | |
+| Opus 5.5 | `claude-opus-5-5` | 4 / 20 | low to max, default medium | Thinking always on |
+| Fable 5.2 | `claude-fable-5-2` | 8 / 40 | low to max; start at high | The most capable. Thinking always on; may decline (`refusal`); longer turns; needs 30-day data retention |
+
+- **One list.** The models and their prices live in one registry the api and the agent share; it replaces `MODELS`, the agent's `PRICES` and the improver's three-model choice. Each model's efforts come from the list, and effort is always set explicitly, since the defaults differ by model.
+- **A model that declines** (`stop_reason: "refusal"`) counts as no decision on that claim, shown as *declined*, not as an error, so a Fable card still scores.
+- **Cost guard.** Fable costs about 80 times Haiku per token. The estimate is worked out from the last run's tokens per claim times each model's price:
+  - it is shown before starting;
+  - Opus and Fable start at 5 claims;
+  - each run keeps the round spending limit and stops at it, marked *stopped at the limit*.
+- **On AWS.** `dev` calls models through Bedrock's Australian inference profiles, found at deploy as Sonnet's and Haiku's are now. A model with no profile there shows as *Not offered in Australia* and can't be picked. Locally, through the Anthropic API, all four are offered.
 
 **Built on what exists.**
 - A playground model is a configuration with status `playground`: never current, hidden from Versions.
@@ -49,6 +66,11 @@ The lesson: a single prompt shows style, but a model choice needs a scored set, 
 
 ### 1. Compare models on the practice set
 
+- [ ] One model registry (ID, label, prices, efforts, default effort, thinking always on or not) shared by the api and the agent:
+  - Opus 5.5 and Fable 5.2 added;
+  - efforts up to `max`;
+  - a refusal recorded as *declined*;
+  - Bedrock profiles found for Opus and Fable where Australia offers them.
 - [ ] `POST /api/engineering/playground/compare`: up to 3 model and effort pairs, size `tiny` or `whole`. It makes or reuses a `playground` configuration for each pair, starts a practice run per pair, and returns the run ids.
 - [ ] `GET /api/engineering/playground`: recent comparisons, each with its runs' scores, cost, seconds and pass or fail against the gate floors.
 - [ ] The Playground page under Evaluate, between Scoreboard and Red team:
@@ -60,7 +82,7 @@ The lesson: a single prompt shows style, but a model choice needs a scored set, 
 
 ### 2. One claim, side by side, and Use it
 
-- [ ] Try one claim: size-1 runs, shown as columns with the handler's answer, the decision, reason, calls, tokens, cost and time.
+- [ ] One claim, a third choice beside 5 and 25 claims: size-1 runs, shown in the same cards, with the handler's answer.
 - [ ] "Propose for the claim agent": a proposed version from the card's model and effort, opened on Versions for review.
 - [ ] Tests: the proposal appears on Versions as proposed, not in use.
 
@@ -76,4 +98,4 @@ The lesson: a single prompt shows style, but a model choice needs a scored set, 
 
 ## Ask first
 
-None: no new AWS service, package or permission. Cost is the practice runs themselves: about $0.15 for 5 claims and $0.75 for 25 per model on Haiku, more on Sonnet and Opus. The page shows the estimate, and the daily budget caps it.
+None: no new AWS service, package or permission. Cost is the practice runs themselves. Haiku costs about $0.005 a claim on the last runs; Sonnet is about 20 times that, Opus 40 and Fable 80, so 5 claims on Fable is about $2 and 25 about $10. The page shows the estimate, Opus and Fable start at 5 claims, and the daily budget and per-run limit cap it.
