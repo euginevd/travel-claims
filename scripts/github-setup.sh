@@ -13,7 +13,7 @@ root=$(git rev-parse --show-toplevel)
 # Whether deploys were already on, so a change of provider redeploys the units that use it.
 deployed=$(gh variable get PROJECT_NAME 2>/dev/null || true)
 
-# The environments: plan with no rules; apply from main only, with no reviewer, as a prototype's dev (AGENTS.md 24).
+# The environments: plan with no rules; apply from main only, with no reviewer, as a prototype's dev (AGENTS.md 26).
 gh api -X PUT "repos/{owner}/{repo}/environments/aws-dev-plan" --silent
 printf '%s' '{"reviewers":[],"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}'   | gh api -X PUT "repos/{owner}/{repo}/environments/aws-dev-apply" --input - --silent
 gh api "repos/{owner}/{repo}/environments/aws-dev-apply/deployment-branch-policies" --jq '.branch_policies[].name' | grep -qx main   || gh api -X POST "repos/{owner}/{repo}/environments/aws-dev-apply/deployment-branch-policies" -f name=main -f type=branch --silent

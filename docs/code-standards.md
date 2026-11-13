@@ -24,7 +24,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 ## Tests
 
 11. Add tests with each change, including the abuse cases in `threat-model.md`. Stub models, cloud and paid services.
-12. Keep test coverage at 80% or more; the checks fail below it. A prototype's tests, in place of 11's abuse cases: `AGENTS.md` rule 24.
+12. Keep test coverage at 80% or more; the checks fail below it. A prototype's tests, in place of 11's abuse cases: `AGENTS.md` rule 15.
 
 ## Terraform
 
@@ -50,7 +50,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 
 ## Docs
 
-23. Each fact lives in one place; everywhere else links to it. Keep docs short, and write what's true now; mark future work *(planned)*.
+23. Each fact lives in one place; everywhere else links to it. Write what's true now; mark future work *(planned)*. Keep docs short, as numbered points or tables: each point or cell is at most two short sentences, and a doc stays under about 1,000 words (`AGENTS.md` 1,500, the README 800). Past that, cut or link rather than add.
 24. Root files are uppercase (`README.md`, `AGENTS.md`); everything in `docs/` and `guides/` is lowercase kebab-case.
 
 ## Web UI

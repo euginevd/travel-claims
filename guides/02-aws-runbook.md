@@ -1,17 +1,19 @@
 # AWS runbook
 
-The AWS build from nothing to running in `dev`, the only environment (decision 31), and back to nothing: about an hour and a half to deploy and 45 minutes to tear down, mostly waiting. What it builds and why: [the AWS architecture](03-aws-architecture.md).
+The AWS build from nothing to running in `dev`, the only environment (decision 31), and back: about 1.5 hours to deploy, 45 minutes to tear down. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
-**Cost:** up to about $10 a month idle with the default, cost-optimized settings; the recommended ones (the [architecture guide's settings](03-aws-architecture.md#settings)) add about $165 to $220 a month while up, mostly the private network; about $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
+**Cost:** up to about $10 a month idle with the default settings; the recommended ones add about $165 to $220 a month, mostly the private network. About $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
 ## How it fits together
 
-- **Bootstrap** (CloudFormation, deployed once by you): GitHub's sign-in to AWS without stored keys, the Terraform state bucket, a read-only plan role, a deploy role, a read-only troubleshoot role for an agent, and a boundary every Terraform role stays inside.
-- **GitHub** (variables and secrets): which roles, bucket and Claude the workflows use, and the switch that turns deploys on.
-- **The `aws` workflow**: ten Terraform units in `infra/aws/`, planned with the plan role and applied with the deploy role, only from `main`.
-- **The `images` workflow**: the four app images into ECR, and the web apps into S3.
+| Part | What it does |
+|---|---|
+| Bootstrap | CloudFormation you deploy once: GitHub's keyless sign-in, the state bucket, plan, deploy and read-only troubleshoot roles, and a boundary on every Terraform role. |
+| GitHub | Variables and secrets: the roles, bucket and Claude the workflows use, and the switch that turns deploys on. |
+| `aws` workflow | Ten Terraform units in `infra/aws/`, planned with the plan role and applied with the deploy role, from `main` only. |
+| `images` workflow | The four app images into ECR, and the web apps into S3. |
 
-Scripts run on your machine (with `gh`) or in CloudShell (pasted); the AWS work itself runs in GitHub Actions. One unit at any time: `gh workflow run aws.yml -f target=dev -f unit=<unit>` (add `-f action=destroy` to remove it).
+Scripts run on your machine (with `gh`) or pasted into CloudShell; the AWS work runs in GitHub Actions. One unit at any time: `gh workflow run aws.yml -f target=dev -f unit=<unit>` (add `-f action=destroy` to remove it).
 
 ## 1. Merge the branch
 
@@ -19,34 +21,35 @@ The workflows deploy only from `main`, and only once step 4 switches deploys on.
 
 ## 2. Check the account (1 minute)
 
-Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Sydney (under $0.001). It checks:
+Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Sydney (under $0.001). Success means:
 
-- the account plan is `PAID ACTIVE`;
-- Titan Text Embeddings V2 answers (needed now);
-- Claude Haiku and Sonnet 5.5 answer (needed only for [Bedrock](#switching-to-claude-on-bedrock));
-- after step 3, the bootstrap's IAM policies, with IAM Access Analyzer: an `ERROR` or unknown action needs fixing; a `SECURITY_WARNING` on the wide statements is expected (decision 32).
+1. The account plan is `PAID ACTIVE`.
+2. Titan Text Embeddings V2 answers (needed now).
+3. Claude Haiku and Sonnet 5.5 answer (needed only for [Bedrock](#switching-to-claude-on-bedrock)).
+4. After step 3, IAM Access Analyzer finds no `ERROR` or unknown action in the bootstrap. A `SECURITY_WARNING` on the wide statements is expected (decision 32).
 
 ## 3. Deploy the bootstrap (3 minutes)
 
-In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default (`GitHubRepo` and `GitHubIds` already point at this repo). It grants every service the build uses, the private network included (decision 36), and the paid options in decision 30, so it's deployed once; a stack made before decision 36 needs **Update stack** with the new template. Then paste `check-aws.sh` again.
+1. In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default.
+2. A stack made before decision 36 needs **Update stack** with the new template.
+3. Paste `check-aws.sh` again.
 
 ## 4. Set up GitHub (1 minute)
 
-Put these in `.env` (git-ignored):
+1. Put these in `.env` (git-ignored):
+   - `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for local testing.
+   - `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs**, not needed if the AWS CLI is signed in. Their names are fixed: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
+   - Optional settings, such as `ALERT_EMAIL`, `CLOUDFRONT_WAF`, `NETWORK_MODE` and `API_GATEWAY`: see [the architecture guide's settings](03-aws-architecture.md#settings). The platform team's pieces are assumed (decision 41).
+2. Run `bash scripts/use-anthropic.sh`. It prints no value and sets, under the repo's **Settings**:
 
-- `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID`: already there for testing locally.
-- `TF_STATE_BUCKET`, `AWS_PLAN_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`: the stack's **Outputs** (not needed if the AWS CLI is signed in). The names are fixed, so they survive a redeploy: `travel-claims-tfstate-<account>`, `travel-claims-github-plan`, `travel-claims-github-deploy`.
-- Optional: `ALERT_EMAIL` for the alarms, `CLOUDFRONT_WAF=on` where the platform's Firewall Manager publishes a CloudFront WAF policy (`check-aws.sh` says), `NETWORK_MODE=private` for the platform team's private network, `EVALUATION_SAMPLING` for the share of live agent sessions scored online (default 0, off; 10 recommended), and `API_GATEWAY=true` to put the api and Copilot behind API Gateway (decision 39), and `ENCRYPTION_KEYS`, `DOMAIN_NAME`, `MALWARE_SCANNING`, `LOG_MASKING` and `DATABASE_APP_ROLE` for the other enterprise patterns (decision 45), all described in [the architecture guide's settings](03-aws-architecture.md#settings). The platform team's pieces, such as the budget, backups and Transaction Search, are assumed (decision 41).
+   | Where | What |
+   |---|---|
+   | Environments > `aws-dev-plan` | The state bucket and plan role. |
+   | Environments > `aws-dev-apply` | The state bucket, deploy role, and the Anthropic key and workspace (secrets). |
+   | Secrets and variables > Actions > Variables | `MODEL_PROVIDER`, the optional settings, and `PROJECT_NAME` last, which switches deploys on. |
 
-Then run `bash scripts/use-anthropic.sh`. It prints no value, and sets, under the repo's **Settings**:
-
-| Where | What |
-|---|---|
-| Environments > `aws-dev-plan` | the state bucket and plan role |
-| Environments > `aws-dev-apply` | the state bucket, deploy role, and the Anthropic key and workspace (secrets) |
-| Secrets and variables > Actions > Variables | `MODEL_PROVIDER`, the optional settings, and `PROJECT_NAME` last, which switches deploys on |
-
-It makes the two environments if they're missing: `aws-dev-plan` with no rules, and `aws-dev-apply` from `main` only with no reviewer, so `dev` applies unattended (AGENTS.md rule 24); you still see each PR's plan and cost before merging. `gh variable list` and `gh secret list --env aws-dev-apply` show the names.
+3. Missing environments are created: `aws-dev-plan` with no rules, `aws-dev-apply` from `main` only with no reviewer (AGENTS.md rule 26). You still see each PR's plan and cost before merging.
+4. Success: `gh variable list` and `gh secret list --env aws-dev-apply` show the names.
 
 ## 5. Deploy (about an hour)
 
@@ -54,26 +57,26 @@ It makes the two environments if they're missing: `aws-dev-plan` with no rules, 
 bash scripts/deploy-aws.sh apply
 ```
 
-It runs each workflow in turn and waits for it, in this order, because each unit reads what the earlier ones made:
+It runs each workflow in turn and waits, because each unit reads what earlier ones made:
 
 | # | Run | Makes |
 |---|---|---|
-| 1 | `registry` | Amazon ECR repositories for the four app images |
-| 2 | `secrets` | An AWS Systems Manager Parameter Store SecureString for the apps' settings; the Anthropic key in AgentCore Identity's token vault |
-| 3 | `database` | Amazon Aurora DSQL for the records (through its own endpoint with `NETWORK_MODE=private`), tagged for the platform's backups; Amazon DynamoDB tables for agent checkpoints and Copilot chats |
-| 4 | `storage` | An Amazon S3 bucket for customers' receipts |
-| 5 | `identity` | Amazon Cognito user pools for customers, handlers and AI engineers, with test accounts, and a services pool for the api's machine sign-in; AgentCore Identity's workload identities and token vault |
-| 6 | `guardrail` | Amazon Bedrock Guardrails: one on customers' text, and two on the model's output (answers checked for grounding, letters for personal data) |
-| 7 | `images` | A workflow, not a unit: builds the four app images and pushes them to Amazon ECR |
-| 8 | `functions` | AWS Lambda functions (in the platform's private subnets with `NETWORK_MODE=private`): the api, the context server and the Copilot |
-| 9 | `agent` | Amazon Bedrock AgentCore Runtime (the claim agent; in the private subnets with `NETWORK_MODE=private`), two AgentCore Gateways (tools: IAM for the agent, handlers' tokens for the Copilot) with AgentCore Policy allow-lists, AgentCore Memory (customer memory) and a Bedrock Knowledge Base on S3 Vectors (policy search) |
-| 10 | `web` | Amazon S3 and Amazon CloudFront for the four websites; with `CLOUDFRONT_WAF=on`, in the platform's Firewall Manager WAF policy |
-| 11 | `monitoring` | Amazon CloudWatch alarms on the functions, an Amazon SNS email topic, and Bedrock model invocation logging to S3 |
-| 12 | `images` | The workflow again: uploads the web apps to S3, now that their sites exist |
+| 1 | `registry` | ECR repositories for the four app images. |
+| 2 | `secrets` | A Parameter Store SecureString for the apps' settings; the Anthropic key in AgentCore Identity's vault. |
+| 3 | `database` | Aurora DSQL for records; DynamoDB tables for agent checkpoints and Copilot chats. |
+| 4 | `storage` | An S3 bucket for receipts. |
+| 5 | `identity` | Cognito pools for customers, handlers, AI engineers and services; AgentCore workload identities. |
+| 6 | `guardrail` | Bedrock Guardrails on customers' text and on the model's answers and letters. |
+| 7 | `images` | Builds the four app images and pushes them to ECR. |
+| 8 | `functions` | Lambda functions: the api, the context server and the Copilot. |
+| 9 | `agent` | AgentCore Runtime, two Gateways with Policy allow-lists, Memory, and a Knowledge Base on S3 Vectors. |
+| 10 | `web` | S3 and CloudFront for the four websites. |
+| 11 | `monitoring` | CloudWatch alarms, an SNS email topic, and model invocation logging. |
+| 12 | `images` | Uploads the web apps to S3, now that their sites exist. |
 
-If a run fails, the script stops: fix it, run that unit alone, then the rest. If `ALERT_EMAIL` is set, confirm the email AWS sends.
-
-**Why a script, not just a merge:** a merge plans every unit at once, so from nothing the later units fail on what doesn't exist yet. The script is needed only from nothing (the first deploy, and after a tear down); between those, merges deploy on their own. It's the smallest change, over one Terraform root (a rebuild, with images needed mid-apply) and a layered workflow (a larger workflow change), which would replace it if deploys from nothing become frequent.
+1. If a run fails, the script stops: fix it, run that unit alone, then the rest.
+2. If `ALERT_EMAIL` is set, confirm the email AWS sends.
+3. The script is needed only from nothing (first deploy, or after tear down), because a merge plans every unit at once and later units fail on what doesn't exist yet. After that, merges deploy on their own.
 
 ## 6. Smoke check (15 minutes)
 
@@ -82,27 +85,27 @@ If a run fails, the script stops: fix it, run that unit alone, then the rest. If
    aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment,'travel-claims')].[Comment,DomainName]" --output text
    ```
 2. Open the project page and each app, and sign in with **Use test account**.
-3. Make a claim in the portal, and watch the agent work it in the dashboard.
-4. If anything fails, read the Lambda logs in CloudWatch, starting with `/aws/lambda/travel-claims-dev-api`: the api builds the database's schema on its first start, which can take a minute, so the first page or sign-in may fail once; reload after a minute.
+3. Make a claim in the portal and watch the agent work it in the dashboard.
+4. If anything fails, read the Lambda logs, starting with `/aws/lambda/travel-claims-dev-api`. The api builds the schema on first start, so the first page may fail once; reload after a minute.
 
-Proven on AWS on 2026-11-12, with the default settings: the schema builds on DSQL, claims are worked and signed off, the agent and the Copilot reach their gateways and the context server with their machine tokens, receipts are read by Textract and answers checked by Automated Reasoning. The first deploy's fixes are `AGENTS.md`'s known mistakes 30 to 39; if a step fails, check those first, then record anything new in [01-findings.md](01-findings.md).
+Proven on AWS on 2026-11-12 with the default settings. If a step fails, check `AGENTS.md`'s known mistakes 38 to 49 first, then record anything new in [01-findings.md](01-findings.md).
 
 ## 7. Tear down (about 45 minutes)
 
-Removes everything the build put in AWS. The code, the repo and its GitHub environments stay (free), so steps 3 to 5 bring it back.
+Removes everything in AWS. The code, repo and GitHub environments stay, so steps 3 to 5 bring it back.
 
-1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`, so the workflows skip AWS. If a run fails, it stops: fix it, destroy that unit alone, then run it again. With `NETWORK_MODE=private`, AgentCore keeps its network interfaces for up to 8 hours after the agent goes, so the agent's security group may not delete at once: destroy `agent` again later.
-2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). It empties and deletes leftover `travel-claims` buckets and AgentCore's log groups, keeping the bootstrap, then prints `Clean but the bootstrap` or `LEFT` with what's still there. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left.
-3. Have the agent confirm the account is empty through its read-only troubleshoot role, which the bootstrap still holds.
-4. Last, in CloudShell: paste [scripts/teardown-bootstrap.sh](../scripts/teardown-bootstrap.sh). It empties the state bucket, deletes the CLI user's access key and the bootstrap stack (ending the agent's access), and the bootstrap template the console uploaded to a `cf-templates-*` bucket (and that bucket, if nothing else is in it), then prints `Clean` or `LEFT`. It stops before deleting the bootstrap if another repo's roles use its GitHub sign-in.
+1. On your machine: `bash scripts/deploy-aws.sh destroy`. It removes the units, last made first, then `PROJECT_NAME`. If a run fails, fix it, destroy that unit alone, then run it again. With `NETWORK_MODE=private`, destroy `agent` again later: AgentCore keeps its network interfaces for up to 8 hours.
+2. In CloudShell: paste [scripts/teardown-aws.sh](../scripts/teardown-aws.sh). Success prints `Clean but the bootstrap`; `LEFT` lists what remains. CloudFront takes up to 15 minutes, so paste it again if only CloudFront is left.
+3. The agent confirms the account is empty through its read-only troubleshoot role.
+4. Last, in CloudShell: paste [scripts/teardown-bootstrap.sh](../scripts/teardown-bootstrap.sh). It deletes the state bucket, the CLI user's key and the bootstrap stack, and prints `Clean` or `LEFT`. It stops if another repo's roles use its GitHub sign-in.
 
 ## Switching to Claude on Bedrock
 
-Once step 2's script shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a deployed setup it also applies the `secrets`, `functions` and `agent` units, so the apps call Bedrock and the Anthropic key leaves the token vault. `use-anthropic.sh` switches back the same way.
+Once step 2 shows Claude `OK`, run `bash scripts/use-bedrock.sh`. On a deployed setup it also applies `secrets`, `functions` and `agent`, so the apps call Bedrock. `use-anthropic.sh` switches back.
 
 ## Letting an agent troubleshoot
 
-The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess`: it reads the setup, logs, traces and metrics, and can't change anything (decision 46). Its `travel-claims-cli` user can do one thing, assume that role, so its access key on your machine reads at most.
+The bootstrap's `travel-claims-troubleshoot` role has AWS's `ReadOnlyAccess` and can't change anything (decision 46). Its `travel-claims-cli` user can only assume that role.
 
 1. In CloudShell: paste [scripts/cli-key.sh](../scripts/cli-key.sh). It replaces the user's access key and prints three lines.
 2. Paste those lines into your own terminal, not an agent's chat; then `clear` CloudShell.
@@ -115,4 +118,4 @@ source_profile = travel-claims-cli
 region = ap-southeast-2
 ```
 
-Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour; tear down deletes the key, the user and the role.
+4. Check it with `aws sts get-caller-identity --profile travel-claims-troubleshoot`, then tell the agent the profile's name. Sessions last an hour; tear down deletes the key, the user and the role.
