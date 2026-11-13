@@ -2,7 +2,7 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 
 ## Medium: a plan, then one to two days each
 
-1. **Model playground** in the control plane. Run the same claims on different models and effort levels, and compare time, cost, pass or fail, and quality side by side. An engineer can then pick a model for each agent from the results. Check how others build playgrounds (Bedrock, LangSmith, Braintrust). Deliver a plan and a mockup.
+1. **Compare models** in the control plane (Evaluate · Compare): the same claims on up to three models and efforts, with right decisions, cost, time, head-to-head reasons and the cheapest that passes, then Propose. Plan and mockup ready: [docs/plan-compare.md](docs/plan-compare.md), [docs/mockups/compare.html](docs/mockups/compare.html).
 2. **Red team, rethought.** First check whether a red-team run works at all; it seems not to. Then reconsider the name and the scope:
    - is "red team" the right word, or is something more common (AI security testing, adversarial testing) clearer and wider than prompt injection?
    - what do real tools test beyond prompt injection (Garak, PyRIT, Promptfoo)?

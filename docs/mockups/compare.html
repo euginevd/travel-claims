@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Compare mockup</title>
+<style>
+  :root {
+    --bg: #fff; --page: #faf9f7; --ink: #1f1d1a; --ink-2: #57534c; --ink-3: #8a857c;
+    --line: #e9e5de; --line-2: #f1eee9; --soft: #f3f1ed; --good: #3d6b3a; --good-tint: #eef5ea;
+    --warn: #a6472f; --warn-tint: #fdf2ee;
+    --haiku: #3d6b3a; --sonnet: #2f5f8a; --opus: #7a4f9a; --fable: #b0632a;
+    --head: Georgia, "Times New Roman", serif; --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 var(--body); }
+  a { color: var(--ink); }
+
+  .bar { display: flex; gap: 16px; align-items: center; padding: 12px 88px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .brand b { display: block; font-size: 1.1rem; } .brand small { color: var(--ink-3); }
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--soft); }
+  .seg span { padding: 5px 12px; border-radius: 8px; color: var(--ink-2); font-size: .9rem; }
+  .seg .on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px #0001; }
+  .pages { display: flex; gap: 6px; }
+  .pages span { padding: 5px 12px; border-radius: 8px; color: var(--ink-2); font-size: .92rem; }
+  .pages .on { background: var(--soft); color: var(--ink); }
+
+  main { max-width: 1264px; margin: 0 auto; padding: 28px 16px 60px; display: grid; gap: 16px; }
+  .eyebrow { margin: 0; color: var(--ink-2); font-size: .85rem; }
+  h1 { margin: 2px 0 4px; font: 400 2.2rem/1.1 var(--head); }
+  .lede { margin: 0; color: var(--ink-2); }
+  .label { margin: 10px 0 0; color: var(--ink-3); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+  .panel { padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--bg); }
+  .panel h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 600; }
+  .hint { color: var(--ink-3); font-size: .78rem; }
+  .dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+  /* Pick: a fact card a model */
+  .models { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .model { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+  .model.on { border: 2px solid var(--ink); padding: 13px; }
+  .model.off { opacity: .55; }
+  .model-top { display: flex; justify-content: space-between; align-items: center; }
+  .model-top b { font-size: 1rem; }
+  .tick { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--line); display: grid; place-items: center; font-size: .8rem; }
+  .on .tick { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin: 0; font-size: .82rem; }
+  .facts dt { color: var(--ink-3); } .facts dd { margin: 0; text-align: right; }
+  .effort { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--soft); font-size: .75rem; }
+  .effort span { flex: 1; text-align: center; padding: 3px 0; border-radius: 6px; color: var(--ink-3); }
+  .effort .on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px #0001; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--good-tint); color: var(--good); font-size: .74rem; }
+  .chip.plain { background: var(--soft); color: var(--ink-2); }
+  .chip.bad { background: var(--warn-tint); color: var(--warn); }
+
+  .run { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+  .run label { color: var(--ink-2); font-size: .85rem; margin-right: 8px; }
+  .go { display: flex; gap: 14px; align-items: center; margin-left: auto; }
+  .button { padding: 10px 22px; border: 0; border-radius: 12px; background: var(--ink); color: #fff; font: 600 .92rem var(--body); }
+  .button.light { padding: 6px 12px; background: var(--soft); color: var(--ink); font-weight: 500; font-size: .85rem; }
+
+  /* Results */
+  .two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; }
+  .verdict { display: flex; gap: 14px; align-items: center; padding: 14px 18px; border: 1px solid #cfe3c6; border-radius: 16px; background: #f6faf3; }
+  .verdict b { font-size: 1.05rem; }
+  svg text { font: 11px var(--body); fill: var(--ink-3); }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+  .card.best { border-color: #cfe3c6; background: #f6faf3; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; }
+  .big { font: 400 2.1rem/1 var(--head); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; margin: 0; font-size: .88rem; }
+  .stats dt { color: var(--ink-3); font-size: .75rem; } .stats dd { margin: 0; }
+  .repeats { display: flex; gap: 4px; align-items: end; height: 28px; }
+  .repeats i { width: 18px; border-radius: 3px; background: #bcd9b1; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--line-2); font-size: .85rem; }
+
+  table.h2h { width: 100%; border-collapse: collapse; font-size: .88rem; text-align: center; }
+  .h2h th, .h2h td { padding: 10px 6px; }
+  .h2h th { color: var(--ink-3); font-weight: 400; font-size: .78rem; }
+  .h2h td.win { background: var(--good-tint); border-radius: 8px; }
+  .h2h td.lose { background: var(--warn-tint); border-radius: 8px; }
+  .h2h td.self { color: var(--line); }
+
+  .boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .box { display: flex; flex-direction: column; gap: 4px; min-height: 160px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+  .box h3 { margin: 0; font-size: .95rem; font-weight: 600; }
+  .box .big { font-size: 1.8rem; margin-top: 4px; }
+  .marks { display: flex; gap: 6px; margin-top: auto; font-size: .78rem; }
+  .marks span { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; background: var(--good-tint); }
+  .marks .no { background: var(--warn-tint); }
+
+  @media (max-width: 960px) {
+    .bar { padding-left: 16px; padding-right: 16px; }
+    .models, .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .two { grid-template-columns: minmax(0, 1fr); }
+    .go { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="brand"><b>undercover</b><small>Control plane</small></div>
+  <div class="seg"><span>Overview</span><span>Observe</span><span class="on">Evaluate</span><span>Secure</span><span>Govern</span></div>
+</div>
+<div class="bar"><div class="pages"><span>Scoreboard</span><span class="on">Compare</span><span>Red team</span></div></div>
+
+<main>
+  <header>
+    <p class="eyebrow">Evaluate · Compare</p>
+    <h1>Compare models</h1>
+    <p class="lede">The right answer for the least money: pick up to three.</p>
+  </header>
+
+  <!-- 1. Pick: what each model is, before running it -->
+  <div class="models">
+    <div class="model on">
+      <div class="model-top"><b><span class="dot" style="background:var(--haiku)"></span>Haiku 5.5</b><span class="tick">✓</span></div>
+      <span class="chip plain" style="justify-self:start">In use</span>
+      <dl class="facts"><dt>Price in / out</dt><dd>$0.10 / $0.50</dd><dt>Speed</dt><dd>Fastest</dd><dt>Context</dt><dd>1M</dd><dt>Australia</dt><dd>Yes</dd></dl>
+      <div class="effort"><span>low</span><span class="on">med</span><span>high</span><span>xhigh</span><span>max</span></div>
+    </div>
+    <div class="model on">
+      <div class="model-top"><b><span class="dot" style="background:var(--sonnet)"></span>Sonnet 5.5</b><span class="tick">✓</span></div>
+      <span class="hint">Everyday agent work</span>
+      <dl class="facts"><dt>Price in / out</dt><dd>$2 / $10</dd><dt>Speed</dt><dd>Fast</dd><dt>Context</dt><dd>1M</dd><dt>Australia</dt><dd>Yes</dd></dl>
+      <div class="effort"><span>low</span><span>med</span><span class="on">high</span><span>xhigh</span><span>max</span></div>
+    </div>
+    <div class="model">
+      <div class="model-top"><b><span class="dot" style="background:var(--opus)"></span>Opus 5.5</b><span class="tick"></span></div>
+      <span class="hint">Hard reasoning</span>
+      <dl class="facts"><dt>Price in / out</dt><dd>$4 / $20</dd><dt>Speed</dt><dd>Medium</dd><dt>Context</dt><dd>1M</dd><dt>Australia</dt><dd>Yes</dd></dl>
+      <div class="effort"><span>low</span><span class="on">med</span><span>high</span><span>xhigh</span><span>max</span></div>
+    </div>
+    <div class="model on">
+      <div class="model-top"><b><span class="dot" style="background:var(--fable)"></span>Fable 5.2</b><span class="tick">✓</span></div>
+      <span class="hint">Most capable · may decline</span>
+      <dl class="facts"><dt>Price in / out</dt><dd>$8 / $40</dd><dt>Speed</dt><dd>Slowest</dd><dt>Context</dt><dd>1M</dd><dt>Australia</dt><dd>Where offered</dd></dl>
+      <div class="effort"><span>low</span><span>med</span><span class="on">high</span><span>xhigh</span><span>max</span></div>
+    </div>
+  </div>
+
+  <!-- 2. Run -->
+  <div class="panel run">
+    <div><label>Claims</label><span class="seg"><span class="on">5</span><span>25</span><span>One claim</span></span></div>
+    <div><label>Runs each</label><span class="seg"><span>1</span><span class="on">2</span><span>3</span></span></div>
+    <div class="go"><span class="hint">About $4.80 · 2 min</span><button class="button">Compare</button></div>
+  </div>
+
+  <!-- 3. The answer -->
+  <p class="label">5 claims · 2 runs each · 6 min ago</p>
+  <div class="verdict">
+    <span class="dot" style="background:var(--haiku);width:14px;height:14px"></span>
+    <div><b>Haiku 5.5 at medium is enough.</b> <span class="hint">It meets the 80% target at a fifth of a cent a claim; Sonnet and Fable score higher, but the ranges overlap.</span></div>
+  </div>
+
+  <div class="two">
+    <!-- Quality against cost: the one chart that decides -->
+    <section class="panel">
+      <h2>Right decisions against cost a claim</h2>
+      <svg viewBox="0 0 560 260" width="100%" role="img" aria-label="Haiku 80% at $0.005, Sonnet 100% at $0.09, Fable 100% at $0.38; target 80%">
+        <line x1="50" y1="220" x2="540" y2="220" stroke="#e9e5de" />
+        <line x1="50" y1="20" x2="50" y2="220" stroke="#e9e5de" />
+        <!-- target 80% -->
+        <line x1="50" y1="76" x2="540" y2="76" stroke="#1f1d1a" stroke-dasharray="4 4" opacity=".5" />
+        <text x="54" y="70">target 80%</text>
+        <text x="20" y="24">100%</text><text x="24" y="148">60%</text><text x="24" y="222">40%</text>
+        <!-- shade: below target -->
+        <rect x="50" y="76" width="490" height="144" fill="#fdf2ee" opacity=".45" />
+        <!-- x: cost, log scale -->
+        <text x="60" y="240">$0.001</text><text x="200" y="240">$0.01</text><text x="340" y="240">$0.10</text><text x="480" y="240">$1</text>
+        <text x="250" y="256">cost a claim, log scale</text>
+        <!-- Haiku: 80%, range 38–96% -->
+        <line x1="150" y1="31" x2="150" y2="220" stroke="#3d6b3a" stroke-width="3" opacity=".25" />
+        <circle cx="150" cy="76" r="9" fill="#3d6b3a" />
+        <text x="164" y="80" style="fill:#3d6b3a;font-weight:600">Haiku 80%</text>
+        <!-- Sonnet: 100%, range 57–100% -->
+        <line x1="327" y1="20" x2="327" y2="138" stroke="#2f5f8a" stroke-width="3" opacity=".25" />
+        <circle cx="327" cy="20" r="9" fill="#2f5f8a" />
+        <text x="341" y="38" style="fill:#2f5f8a;font-weight:600">Sonnet 100%</text>
+        <!-- Fable: 100%, range 57–100% -->
+        <line x1="414" y1="20" x2="414" y2="138" stroke="#b0632a" stroke-width="3" opacity=".25" />
+        <circle cx="414" cy="20" r="9" fill="#b0632a" />
+        <text x="428" y="38" style="fill:#b0632a;font-weight:600">Fable 100%</text>
+      </svg>
+      <p class="hint">Up and to the left is better. The faint bars are each model's likely range.</p>
+    </section>
+
+    <!-- Head to head: the judge picks the better explanation -->
+    <section class="panel">
+      <h2>Better reasons, head to head</h2>
+      <table class="h2h">
+        <tr><th></th><th>vs Haiku</th><th>vs Sonnet</th><th>vs Fable</th></tr>
+        <tr><th>Haiku</th><td class="self">·</td><td class="lose">30%</td><td class="lose">20%</td></tr>
+        <tr><th>Sonnet</th><td class="win">70%</td><td class="self">·</td><td class="lose">40%</td></tr>
+        <tr><th>Fable</th><td class="win">80%</td><td class="win">60%</td><td class="self">·</td></tr>
+      </table>
+      <p class="hint">How often the row's explanation beat the column's, on the same claims. The judge doesn't know which model wrote which.</p>
+    </section>
+  </div>
+
+  <!-- 4. Each model in full -->
+  <div class="cards">
+    <article class="card best">
+      <div class="card-top"><b><span class="dot" style="background:var(--haiku)"></span>Haiku 5.5 <span class="hint">medium</span></b><span class="chip">Cheapest pass</span></div>
+      <div><span class="big">80%</span> <span class="hint">right · likely 38–96%</span></div>
+      <div class="repeats" title="Run 1 80%, run 2 80%"><i style="height:22px"></i><i style="height:22px"></i><span class="hint">&nbsp;same both runs</span></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>80%</dd></div><div><dt>Decided alone</dt><dd>60%</dd></div><div><dt>Declined</dt><dd>0</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.005</dd></div><div><dt>Time a claim</dt><dd>26 s</dd></div><div><dt>Tokens a claim</dt><dd>11k</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Runs 21, 24</a><span class="chip plain">In use</span></div>
+    </article>
+    <article class="card">
+      <div class="card-top"><b><span class="dot" style="background:var(--sonnet)"></span>Sonnet 5.5 <span class="hint">high</span></b><span class="chip">Pass</span></div>
+      <div><span class="big">100%</span> <span class="hint">right · likely 57–100%</span></div>
+      <div class="repeats" title="Run 1 100%, run 2 100%"><i style="height:28px"></i><i style="height:28px"></i><span class="hint">&nbsp;same both runs</span></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>100%</dd></div><div><dt>Decided alone</dt><dd>80%</dd></div><div><dt>Declined</dt><dd>0</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.09</dd></div><div><dt>Time a claim</dt><dd>41 s</dd></div><div><dt>Tokens a claim</dt><dd>10k</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Runs 22, 25</a><button class="button light">Propose</button></div>
+    </article>
+    <article class="card">
+      <div class="card-top"><b><span class="dot" style="background:var(--fable)"></span>Fable 5.2 <span class="hint">high</span></b><span class="chip">Pass</span></div>
+      <div><span class="big">100%</span> <span class="hint">right · likely 57–100%</span></div>
+      <div class="repeats" title="Run 1 100%, run 2 100%"><i style="height:28px"></i><i style="height:28px"></i><span class="hint">&nbsp;same both runs</span></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>100%</dd></div><div><dt>Decided alone</dt><dd>80%</dd></div><div><dt>Declined</dt><dd>0</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.38</dd></div><div><dt>Time a claim</dt><dd>95 s</dd></div><div><dt>Tokens a claim</dt><dd>14k</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Runs 23, 26</a><button class="button light">Propose</button></div>
+    </article>
+  </div>
+
+  <!-- 5. Where they differ -->
+  <p class="label">Decided differently · 2 of 5</p>
+  <div class="boxes">
+    <div class="box">
+      <h3><a href="#">CLM-2014</a></h3><span class="hint">Trip delay · the handler approved</span>
+      <span class="big">$250</span>
+      <div class="marks"><span class="no"><span class="dot" style="background:var(--haiku)"></span>Refer</span><span><span class="dot" style="background:var(--sonnet)"></span>✓</span><span><span class="dot" style="background:var(--fable)"></span>✓</span></div>
+    </div>
+    <div class="box">
+      <h3><a href="#">CLM-2022</a></h3><span class="hint">Medical · the handler approved</span>
+      <span class="big">$890</span>
+      <div class="marks"><span class="no"><span class="dot" style="background:var(--haiku)"></span>$940</span><span><span class="dot" style="background:var(--sonnet)"></span>✓</span><span><span class="dot" style="background:var(--fable)"></span>✓</span></div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
