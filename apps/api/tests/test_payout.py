@@ -136,3 +136,13 @@ def test_working_out_a_payout_decides_nothing(client: TestClient) -> None:
     payout(client, "CLM-1001", "trip_delay", [line("Taxis", 80, kind="expense")])
     claim = client.get("/api/agent/claims/CLM-1001", headers={"X-API-Key": "k" * 64}).json()
     assert (claim["status"], claim["decision"]) == ("in_progress", None)
+
+
+def test_money_is_compared_in_cents_not_floats() -> None:
+    from undercover_api.payout import needs_sign_off, same_amount  # noqa: PLC0415
+
+    assert 0.1 + 0.2 != 0.3  # noqa: PLR2004
+    assert same_amount(0.1 + 0.2, 0.3)
+    assert not same_amount(100.0, 100.01)
+    assert not needs_sign_off(1000.0000001, 1000.0)
+    assert needs_sign_off(1000.01, 1000.0)

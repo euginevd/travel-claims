@@ -1,5 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "@undercover/web-core/ErrorBoundary";
+
+const wayBack = (
+  <>
+    go <a href="#/">back to the scoreboard</a>
+  </>
+);
 
 function Broken(): never {
   throw new Error("A field was missing");
@@ -8,7 +14,7 @@ function Broken(): never {
 test("a page that fails to render shows a way back, not a blank app", () => {
   const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
   render(
-    <ErrorBoundary>
+    <ErrorBoundary wayBack={wayBack}>
       <Broken />
     </ErrorBoundary>,
   );
@@ -22,7 +28,7 @@ test("a page that fails to render shows a way back, not a blank app", () => {
 
 test("a page that renders is shown as it is", () => {
   render(
-    <ErrorBoundary>
+    <ErrorBoundary wayBack={wayBack}>
       <p>The queue</p>
     </ErrorBoundary>,
   );

@@ -167,7 +167,7 @@ jobs:
           DESTROY: ${{ inputs.action == 'destroy' && '-destroy' || '' }}
         run: |
           ec=0
-          terraform plan -input=false $DESTROY -out=tfplan -detailed-exitcode || ec=$?
+          terraform plan -input=false ${DESTROY:+"$DESTROY"} -out=tfplan -detailed-exitcode || ec=$?
           [ "$ec" -eq 1 ] && exit 1
           terraform show -json tfplan > plan.json
           # No changes: no plan and no zip are kept, so nothing is uploaded and no approval is asked for.

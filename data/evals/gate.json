@@ -1,0 +1,7 @@
+{
+  "about": "Floors the quality workflow holds the claim agent to on the evaluation set. Set each from a good run on dev and raise it as the agent improves; never lower one to get a green run.",
+  "floors": {
+    "accuracy": 0.8,
+    "payout_accuracy": 0.7
+  }
+}

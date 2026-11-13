@@ -4,7 +4,7 @@ import type { Api, VersionCard } from "../api";
 import { when } from "../format";
 import { wilson } from "../stats";
 import { madeBy } from "../components/ReleaseHistory";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { IMPROVEMENT_HREF, runHref } from "../useHashRoute";
 
 function share(value: number, claims: number): string {

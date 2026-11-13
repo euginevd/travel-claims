@@ -51,7 +51,7 @@ UnderCover's brand, "Canopy" (decision 21): white pages, faint glows, dark text 
 
 11. **Primary:** near-black glass (`#4a4844` to `#171614`), white text, radius 16px, 54px high (44px in dashboard and console), a faint coral bottom hairline; its arrow square turns coral on hover. Loading shows a spinner and the action.
 12. **Secondary:** `--soft` background, ink text, radius 10px. **Tertiary:** a text link with a light underline.
-13. **Inputs:** floating labels in 54px fields, radius 13px, 1px border; focus adds a coral glow. An error is one sentence under the field in `--acc-d`.
+13. **Inputs:** floating labels in 54px fields, radius 13px, 1px border; `:focus-visible` adds a 2px `--acc-d` ring (3:1 against white; the old glow was 1.6:1). An error is one sentence under the field in `--acc-d`.
 14. **Focus:** a 2px `--acc` outline with 2px offset on every control; 3px white plus 2px coral on primary buttons.
 
 ## Motion

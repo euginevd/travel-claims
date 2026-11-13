@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { useId } from "react";
+import { useId, type Ref } from "react";
 
 // The dashboard's Wattle AI panel is the Copilot, with its sign-off cards; this file holds the
 // shared mark, header button, project link and footer.
@@ -48,10 +48,28 @@ export function WattleMark({ size = 20, working = false }: { size?: number; work
   );
 }
 
-/** The header button that opens Wattle AI. */
-export function WattleButton({ onClick }: { onClick: () => void }) {
+export const COPILOT_PANEL_ID = "copilot-panel";
+
+/** The header button that opens and closes Wattle AI's panel. */
+export function WattleButton({
+  onClick,
+  open,
+  ref,
+}: {
+  onClick: () => void;
+  open: boolean;
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
-    <button type="button" className="wattle-pill" aria-label="Ask Wattle AI" onClick={onClick}>
+    <button
+      ref={ref}
+      type="button"
+      className="wattle-pill"
+      aria-label="Ask Wattle AI"
+      aria-expanded={open}
+      aria-controls={COPILOT_PANEL_ID}
+      onClick={onClick}
+    >
       <WattleMark size={20} />
       <span className="wattle-pill-label">Ask Wattle</span>
       <span className="wattle-ai-tag">AI</span>

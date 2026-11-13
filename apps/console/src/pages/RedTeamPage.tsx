@@ -4,7 +4,7 @@ import { ApiError, type Api, type AttackPlan, type RedTeamStatus } from "../api"
 import { RingChart } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { traceHref } from "../useHashRoute";
 
 // How often the page checks on a run while it's going.

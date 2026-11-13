@@ -10,7 +10,7 @@ import {
 } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { REDTEAM_HREF, traceHref } from "../useHashRoute";
 
 const CONTROL: Record<DetectionKind, string> = {

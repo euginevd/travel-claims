@@ -8,7 +8,7 @@ import {
   type ThreatCoverage,
   type Trace,
 } from "../api";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 // While the agent works, the map follows it.
 const POLL_MS = 4000;

@@ -9,15 +9,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint . && prettier --check .",
-    "format": "prettier --write .",
+    "lint": "eslint . node_modules/@undercover/web-core/src && prettier --check . && prettier --check --with-node-modules node_modules/@undercover/web-core/src",
+    "format": "prettier --write . && prettier --write --with-node-modules node_modules/@undercover/web-core/src",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --coverage"
   },
   "dependencies": {
     "@fontsource/newsreader": "5.3.0",
     "@fontsource/plus-jakarta-sans": "5.3.0",
-    "lucide-react": "1.67.0",
+    "@undercover/web-core": "file:../../packages/web-core",
+    "lucide-react": "1.69.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "zod": "4.6.7"
@@ -40,7 +41,7 @@
     "prettier": "3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
-    "vite": "8.3.5",
+    "vite": "8.3.6",
     "vitest": "5.1.0"
   }
 }

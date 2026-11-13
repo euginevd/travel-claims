@@ -1,3 +1,4 @@
+import { useEscape } from "@undercover/web-core/useEscape";
 import { ArrowLeft, ChevronDown, ChevronRight, Mail, MessageSquare, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ApiError, type Api, type Cover, type CustomerClaim, type Settings } from "../api";
@@ -33,38 +34,37 @@ interface SidePanelProps {
 
 const DONE = new Set(["paid", "declined"]);
 
+export const SIDE_PANEL_ID = "side-panel";
+
 /** Messages, Claims and Settings: one quiet sheet from the top bar, everything else the
  * customer might look for, so the home screen can stay a conversation. */
 export function SidePanel(props: SidePanelProps) {
   const { target, onClose } = props;
   const sheet = useRef<HTMLElement>(null);
+  const backdrop = useRef<HTMLDivElement>(null);
   const roomy = useMedia("(min-width: 1100px)");
   const split = roomy && target.view === "claims" && props.records.claims.length > 0;
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+  useEscape(backdrop, onClose);
 
   useEffect(() => {
     sheet.current?.querySelector<HTMLElement>("h2")?.focus();
   }, [target]);
 
-  // Focus goes back to whatever opened the panel when it closes.
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => {
+  // Focus goes back to whatever opened the panel when it closes. Read on the first render,
+  // before the effect above moves focus into the panel.
+  const [opener] = useState(() =>
+    document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  );
+  useEffect(
+    () => () => {
       opener?.focus();
-    };
-  }, []);
+    },
+    [opener],
+  );
 
   return (
-    <div className="sheet-backdrop">
+    <div className="sheet-backdrop" ref={backdrop}>
       {/* A click outside closes it; Escape and the Close button are the other ways. */}
       <button
         type="button"
@@ -76,6 +76,7 @@ export function SidePanel(props: SidePanelProps) {
       <aside
         className={`sheet${split ? " sheet-wide" : ""}`}
         ref={sheet}
+        id={SIDE_PANEL_ID}
         role="dialog"
         aria-modal="true"
         aria-label={title(target)}

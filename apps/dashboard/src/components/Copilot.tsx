@@ -1,4 +1,5 @@
 import { AlertCircle, CheckCircle2, Plus, Search, Send, X } from "lucide-react";
+import { useEscape } from "@undercover/web-core/useEscape";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   Answer,
@@ -11,7 +12,7 @@ import type {
 import type { Api } from "../api";
 import { dollars } from "../format";
 import { ClaimFactsCard } from "./ClaimFactsCard";
-import { WATTLE_FOOTER, WattleMark } from "./Wattle";
+import { COPILOT_PANEL_ID, WATTLE_FOOTER, WattleMark } from "./Wattle";
 
 interface CopilotProps {
   copilot: CopilotApi;
@@ -38,17 +39,18 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(false);
+  // Bumped by New conversation, so an answer still on its way lands nowhere.
+  const generation = useRef(0);
   const end = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
 
+  useEscape(panel, onClose);
+
+  // Opening the panel puts focus in its composer, ready to ask.
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+    composer.current?.focus();
+  }, []);
 
   useEffect(() => {
     copilot.list().then(setPast, () => {
@@ -64,17 +66,31 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
 
   async function act(work: () => Promise<Conversation>) {
     if (inFlight.current) return;
+    const asked = generation.current;
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      setCurrent(await work());
+      const conversation = await work();
+      if (asked === generation.current) setCurrent(conversation);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      if (asked === generation.current) {
+        setError(caught instanceof Error ? caught.message : String(caught));
+      }
     } finally {
-      inFlight.current = false;
-      setBusy(false);
+      if (asked === generation.current) {
+        inFlight.current = false;
+        setBusy(false);
+      }
     }
+  }
+
+  function startOver() {
+    generation.current += 1;
+    inFlight.current = false;
+    setBusy(false);
+    setError(null);
+    setCurrent(null);
   }
 
   async function ask(question: string) {
@@ -88,7 +104,7 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
   }
 
   return (
-    <aside className="wattle-panel" aria-label="Wattle AI">
+    <aside className="wattle-panel" aria-label="Wattle AI" id={COPILOT_PANEL_ID} ref={panel}>
       <div className="wattle-head">
         <h2>
           <WattleMark size={22} /> Ask Wattle AI
@@ -96,9 +112,7 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
         <button
           type="button"
           className="wattle-icon"
-          onClick={() => {
-            setCurrent(null);
-          }}
+          onClick={startOver}
           aria-label="New conversation"
         >
           <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
@@ -201,6 +215,7 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
           Your question
         </label>
         <textarea
+          ref={composer}
           id="copilot-text"
           rows={2}
           maxLength={MESSAGE_LIMIT}

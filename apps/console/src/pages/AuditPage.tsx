@@ -2,7 +2,7 @@ import { Download, Lock, Search, ShieldAlert } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import type { Api, AuditEntry, ChainStatus } from "../api";
 import { TableScroll } from "../components/TableScroll";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 const KINDS: { key: AuditEntry["kind"] | "all"; label: string }[] = [
   { key: "all", label: "All" },

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { ErrorBoundary } from "./ErrorBoundary";
+import { ErrorBoundary } from "@undercover/web-core/ErrorBoundary";
 
 function Broken(): never {
   throw new Error("boom");
@@ -8,7 +8,7 @@ function Broken(): never {
 test("a page that fails to render says so and links back to the start", () => {
   const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
   render(
-    <ErrorBoundary>
+    <ErrorBoundary wayBack={<a href="#/">start again</a>}>
       <Broken />
     </ErrorBoundary>,
   );

@@ -8,7 +8,7 @@ the chain whenever the log is read and raises an alert if it's broken.
 
 Entries are sealed when the log or the alerts are read, so a record changed before its first
 seal isn't caught; the seals are only as safe as the database role that could rewrite them,
-which is why on AWS this table would also be copied to write-once storage (decision 57)."""
+which is why on AWS this table would also be copied to write-once storage (decision 60)."""
 
 import hashlib
 import json

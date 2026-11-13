@@ -16,6 +16,10 @@ FIRST_ERROR_STATUS = 400
 REFUSED = {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
 
 
+# The api's words for a write that lost a race on DSQL and was rolled back (its main.lost_race).
+LOST_RACE = "Someone else changed this at the same time"
+
+
 class ApiError(Exception):
     """The api refused a request, or the agent couldn't get its token to ask, with the reason."""
 
@@ -88,8 +92,16 @@ class ApiClient:
         return cast(Json, self._call("POST", f"/api/agent/claims/{claim_id}/decision", request))
 
     def pay(self, claim_id: str, amount: float) -> Json:
+        """Pay a claim. On Aurora DSQL two payments at once can conflict on the settings both
+        read; the loser was rolled back whole, and a claim is paid at most once, so one retry is
+        safe."""
         path = f"/api/agent/claims/{claim_id}/payment"
-        return cast(Json, self._call("POST", path, {"amount": amount}))
+        try:
+            return cast(Json, self._call("POST", path, {"amount": amount}))
+        except ApiError as error:
+            if error.status != HTTPStatus.CONFLICT or LOST_RACE not in error.detail:
+                raise
+            return cast(Json, self._call("POST", path, {"amount": amount}))
 
     def hold(self, claim_id: str, reason: str) -> Json:
         path = f"/api/agent/claims/{claim_id}/hold"

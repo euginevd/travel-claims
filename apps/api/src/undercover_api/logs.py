@@ -18,6 +18,8 @@ REDACTIONS = [
     (re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+"), "[email]"),
     (re.compile(r"\bPOL-\d+\b"), "[policy]"),
     (re.compile(r"\bCUS-\d+\b"), "[customer]"),
+    # Australian mobile numbers, which a PayID can be: 0412 345 678, +61 412 345 678.
+    (re.compile(r"(?<!\d)(?:\+61\s?|0)4\d{2}\s?\d{3}\s?\d{3}(?!\d)"), "[phone]"),
 ]
 # Customers' names, loaded from the database when the app starts.
 _names: list[re.Pattern[str]] = []

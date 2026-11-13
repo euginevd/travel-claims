@@ -12,7 +12,7 @@ import type { Api, Posture, Severity } from "../api";
 import { RisksTable } from "../components/RisksTable";
 import { TableScroll } from "../components/TableScroll";
 import { dollars, when } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { DETECTIONS_HREF, REDTEAM_HREF } from "../useHashRoute";
 
 const SEVERITY: Record<Severity, { label: string; chip: string; icon: ReactNode }> = {

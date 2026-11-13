@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Connection, CursorResult, make_url
+from sqlalchemy.sql import Select
 
 # Money is held to the cent and read back as a float.
 Money = Numeric(12, 2, asdecimal=False)
@@ -508,3 +509,17 @@ def insert_if_new(db: Connection, table: Table, **values: Any) -> CursorResult[A
     insert_into = sqlite_insert if db.dialect.name == "sqlite" else postgresql_insert
     result = db.execute(insert_into(table).values(**values).on_conflict_do_nothing())
     return result if result.rowcount else None
+
+
+def read_locked[T: Select[Any]](db: Connection, query: T) -> T:
+    """A read that holds its rows until the transaction ends, so a change landing at the same
+    moment waits for it or is seen by it. PostgreSQL takes a shared lock, so readers never wait
+    for each other; Aurora DSQL has only FOR UPDATE, so two such reads at once can conflict at
+    commit, which the caller sees as a 409 to retry."""
+    from undercover_api.dsql import is_dsql  # noqa: PLC0415
+
+    if db.dialect.name != "postgresql":
+        return query
+    if is_dsql(db.engine.url.render_as_string(hide_password=True)):
+        return query.with_for_update()
+    return query.with_for_update(read=True)

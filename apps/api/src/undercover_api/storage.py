@@ -2,9 +2,12 @@
 on AWS. Files are stored under random names, never the customer's own, and read back by
 those names."""
 
+import logging
 import secrets
 from pathlib import Path
 from typing import Any, Protocol
+
+log = logging.getLogger(__name__)
 
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
 MAX_RECEIPTS = 5
@@ -31,6 +34,8 @@ class Receipts(Protocol):
 
     def read(self, name: str) -> bytes: ...
 
+    def delete(self, name: str) -> None: ...
+
 
 class ReceiptStore:
     """Receipts in a folder, each under a random 32-character hex name."""
@@ -48,6 +53,9 @@ class ReceiptStore:
     def read(self, name: str) -> bytes:
         return (self._folder / name).read_bytes()
 
+    def delete(self, name: str) -> None:
+        (self._folder / name).unlink(missing_ok=True)
+
 
 class S3ReceiptStore:
     """Receipts in a private S3 bucket, under the same random names as the folder."""
@@ -63,3 +71,27 @@ class S3ReceiptStore:
 
     def read(self, name: str) -> bytes:
         return self._client.get_object(Bucket=self._bucket, Key=name)["Body"].read()
+
+    def delete(self, name: str) -> None:
+        self._client.delete_object(Bucket=self._bucket, Key=name)
+
+
+SAVED_RECEIPTS = "saved_receipts"
+
+
+def keep_for_cleanup(db: Any, store: Receipts, content: bytes) -> str:
+    """Save a receipt and note it for this request, so a rollback can remove it again."""
+    name = store.save(content)
+    db.info.setdefault(SAVED_RECEIPTS, []).append((store, name))
+    return name
+
+
+def remove_unsaved(db: Any) -> None:
+    """Remove the files a rolled-back request saved, which no row points to. A file that can't
+    be removed is logged rather than hiding the first error."""
+    saved: list[tuple[Receipts, str]] = db.info.pop(SAVED_RECEIPTS, [])
+    for store, name in saved:
+        try:
+            store.delete(name)
+        except Exception:  # noqa: BLE001
+            log.warning("receipt %s outlived a rolled-back request", name)

@@ -6,7 +6,7 @@ from statistics import median
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select
 
 from undercover_api.auth import Database
 from undercover_api.db import claims, decisions, model_calls, payments, runs, steps
@@ -69,19 +69,23 @@ def demo_stats(db: Database) -> DemoStats:
         if done and first
     ]
     # Claims waiting on a handler's judgement: sign-offs, referrals and review requests.
-    waiting = db.execute(
-        select(
-            claims.c.claim_id, claims.c.status, claims.c.review_requested_at, decisions.c.decision
-        )
+    need = db.execute(
+        select(func.count())
         .select_from(claims.outerjoin(decisions))
-        .where(real)
-    ).all()
-    need = sum(
-        1
-        for _, status, review, decision in waiting
-        if status in (Status.WAITING_FOR_SIGN_OFF, Status.LEFT_FOR_HANDLER)
-        or (status == Status.DECIDED and (decision == DecisionKind.REFER or review is not None))
-    )
+        .where(
+            real,
+            or_(
+                claims.c.status.in_([Status.WAITING_FOR_SIGN_OFF, Status.LEFT_FOR_HANDLER]),
+                and_(
+                    claims.c.status == Status.DECIDED,
+                    or_(
+                        decisions.c.decision == DecisionKind.REFER,
+                        claims.c.review_requested_at.is_not(None),
+                    ),
+                ),
+            ),
+        )
+    ).scalar_one()
     # Decided by AI agents outright: an approval or decline by the agent, not overridden.
     outright = db.execute(
         select(decisions.c.claim_id, decisions.c.decided_at)
@@ -108,12 +112,12 @@ def demo_stats(db: Database) -> DemoStats:
         .select_from(payments.join(claims))
         .where(real, payments.c.signed_off_by.is_(None))
     ).scalar_one()
-    every = (
-        db.execute(select(decisions.c.claim_id).select_from(decisions.join(claims)).where(real))
-        .scalars()
-        .all()
-    )
-    traced = sum(1 for cid in every if cid in starts)
+    # Decisions with a trace: at least one step recorded on the way.
+    traced = db.execute(
+        select(func.count())
+        .select_from(decisions.join(claims))
+        .where(real, exists().where(steps.c.claim_id == decisions.c.claim_id))
+    ).scalar_one()
     held = db.execute(
         select(runs.c.scores)
         .where(runs.c.label_set == "held_out", runs.c.status == "finished")

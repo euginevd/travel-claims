@@ -99,9 +99,20 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
   // Set at once on the first click, before React re-renders, so a double click acts once.
   const inFlight = useRef(false);
   const signOff = useRef<HTMLButtonElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Set when the confirm closes: focus goes back to the button that opened it once that can
+  // take focus again, or to this section's heading when a refusal has disabled it.
+  const returnFocus = useRef(false);
   const ids = useId();
   const payout = claim.decision?.payout ?? 0;
   const blocked = refusal !== null;
+
+  useEffect(() => {
+    if (!returnFocus.current || confirming || busy) return;
+    returnFocus.current = false;
+    if (signOff.current && !signOff.current.disabled) signOff.current.focus();
+    else heading.current?.focus();
+  }, [confirming, busy]);
 
   async function run(action: () => Promise<void>) {
     if (inFlight.current) return;
@@ -136,7 +147,9 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
 
   return (
     <section className="held" aria-labelledby={`${ids}-heading`}>
-      <h3 id={`${ids}-heading`}>Your sign-off</h3>
+      <h3 id={`${ids}-heading`} ref={heading} tabIndex={-1}>
+        Your sign-off
+      </h3>
       <p className="limit-note">
         <Lock size={16} strokeWidth={1.75} aria-hidden="true" />
         <span>
@@ -179,10 +192,11 @@ export function HeldPayout({ claim, handler, onSignOff, onSendBack }: HeldPayout
           handler={handler}
           payout={payout}
           onCancel={() => {
+            returnFocus.current = true;
             setConfirming(false);
-            signOff.current?.focus();
           }}
           onConfirm={() => {
+            returnFocus.current = true;
             setConfirming(false);
             void run(onSignOff);
           }}

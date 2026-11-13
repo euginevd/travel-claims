@@ -12,6 +12,9 @@
 <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
 <img src="https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white" alt="uv">
 <img src="https://img.shields.io/badge/Trivy-1904DA?style=flat-square&logo=trivy&logoColor=white" alt="Trivy">
+<br>
+<a href="https://github.com/euginevd/travel-claims/actions/workflows/security.yml"><img src="https://github.com/euginevd/travel-claims/actions/workflows/security.yml/badge.svg?branch=main" alt="Security scans"></a>
+<a href="https://github.com/euginevd/travel-claims/actions/workflows/codeql.yml"><img src="https://github.com/euginevd/travel-claims/actions/workflows/codeql.yml/badge.svg?branch=main" alt="CodeQL"></a>
 
 </div>
 
@@ -21,9 +24,21 @@ The idea and synthetic data come from [the UnderCover project](https://github.co
 
 <div align="center">
 
-[Architecture](#architecture) · [Security](#security) · [Walkthrough](#walkthrough) · [Quick start](#quick-start) · [Apps](#apps) · [Guides](#guides)
+[Results](#results) · [Architecture](#architecture) · [Security](#security) · [Walkthrough](#walkthrough) · [Quick start](#quick-start) · [Apps](#apps) · [Next for production](#next-for-production) · [Guides](#guides)
 
 </div>
+
+## Results
+
+| | |
+|---|---|
+| Red team | 8 of 8 attacks held: hidden instructions in receipt images and PDFs, forged approvals, goal hijacking, payout inflation, cross-customer access and a forged tool call ([report](docs/redteam-report.md)) |
+| Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.0016 |
+| Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
+| Tests | 641 Python tests at 88% coverage, 292 web app tests, and browser tests with an accessibility scan in CI |
+| Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
+
+Deployed to AWS from the pipeline and tested end to end, then torn down to keep the bill near zero. The [walkthrough](#walkthrough) shows it running.
 
 ## Architecture
 
@@ -80,6 +95,18 @@ A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
 Behind them: `api` (claims, decisions, payments), `agent` (the claim agent), `copilot` (the handlers' Wattle AI) and `context` (policy lookups as an MCP server). Every feature: [features.md](docs/features.md).
 
 **Built with:** Claude, LangGraph, MCP, FastAPI, PostgreSQL and Aurora DSQL, React and Vite, AgentCore, Bedrock, Textract, Terraform, GitHub Actions, Python 3.14 and uv, Playwright.
+
+## Next for production
+
+This is a `prototype`: made-up data, one `dev` account, one owner. Before real customers:
+
+1. A second reviewer on every PR and deploy, and a separate `prod` account.
+2. MFA for staff, and least-privilege deploy roles once the permissions audit is done.
+3. Chat history kept on the server, and the agent's run checked on every decision and payment.
+4. Authenticated DAST (OWASP ZAP) and CloudWatch alarms, with GuardDuty findings routed to a person.
+5. The evaluation floors and red team run after every deploy, not by hand.
+
+Each is tracked in the [security trade-offs](guides/04-security-trade-offs.md) and [TODO.md](TODO.md).
 
 ## Guides
 

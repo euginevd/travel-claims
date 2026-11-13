@@ -1,4 +1,4 @@
-# The audit log's seals, write-once (decision 57): each seal the api makes is copied here, and
+# The audit log's seals, write-once (decision 60): each seal the api makes is copied here, and
 # S3 Object Lock keeps it from being changed or deleted for a day. Governance mode, not
 # compliance, so this prototype's teardown can still empty the bucket (rule 27); production
 # would use compliance mode and a longer retention.

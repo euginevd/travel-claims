@@ -165,7 +165,7 @@ jobs:
             project="https://$home/"
             docker build --target build --build-arg VITE_COGNITO_CLIENT_ID="$client" --build-arg VITE_COGNITO_REGION="$AWS_REGION" --build-arg VITE_TEST_SIGN_IN=true --build-arg VITE_PROJECT_URL="$project" -f "apps/$APP/Dockerfile" -t "web-$APP" .
             id="$(docker create "web-$APP")"
-            docker cp "$id:/web/dist" ./dist
+            docker cp "$id:/web/apps/$APP/dist" ./dist
           fi
           aws s3 sync ./dist "s3://$bucket" --delete
           distribution="$(site "$APP" Id)"

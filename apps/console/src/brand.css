@@ -381,8 +381,16 @@ input:not([type="radio"], [type="checkbox"]):focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--acc-edge);
-  box-shadow: 0 0 0 4px var(--acc-glow);
+}
+
+input:not([type="radio"], [type="checkbox"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--acc-d);
+  /* With the border, a 2px ring in --acc-d (3:1 on every page colour), then the glow. */
+  box-shadow:
+    0 0 0 1px var(--acc-d),
+    0 0 0 5px var(--acc-glow);
 }
 
 input::placeholder,
@@ -1071,8 +1079,11 @@ a.tag:hover {
 }
 
 .wattle-form:focus-within {
-  border-color: var(--acc-edge);
-  box-shadow: 0 0 0 4px var(--acc-glow);
+  border-color: var(--acc-d);
+  /* With the border, a 2px ring in --acc-d (3:1 on every page colour), then the glow. */
+  box-shadow:
+    0 0 0 1px var(--acc-d),
+    0 0 0 5px var(--acc-glow);
 }
 
 .wattle-form input:not([type="radio"], [type="checkbox"]) {
@@ -1780,6 +1791,41 @@ main.signin-main {
   margin: 10px 0 0;
   color: var(--ink-3);
   font-size: 13.5px;
+}
+
+/* The authenticator step: the setup key as text to type or paste into an authenticator app. */
+.mfa-key {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--soft);
+  font-size: 13px;
+}
+
+.mfa-key dt {
+  color: var(--ink-2);
+}
+
+.mfa-key dd {
+  margin: 0 0 6px;
+}
+
+.mfa-key code {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.mfa-key .mfa-uri {
+  font-size: 12px;
+}
+
+.signin-meta .link-button {
+  min-height: 24px;
 }
 
 /* The sign-in button: a glass knob with the arrow, which widens and turns coral on hover. */

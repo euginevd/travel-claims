@@ -104,14 +104,19 @@ def uses_memory(claim: Json) -> bool:
 
 
 def memory_of(claim: Json) -> str:
-    """What to remember of a decided claim: the facts and the decision, not the customer's
-    words."""
+    """What to remember of a decided claim: its decision, payout, the sections it rests on and
+    its checklist's labels and results. Never the model's free-text reason, which can quote the
+    customer."""
     decision: Json = claim.get("decision") or {}
     outcome = str(decision.get("decision", "undecided"))
     payout = float(decision.get("payout") or 0)
     amount = f" ${payout:,.2f}" if outcome == "approve" else ""
+    checks = [
+        f"{str(check.get('label', ''))[:80]}: {check.get('result', '')}"
+        for check in cast(list[Json], decision.get("checklist") or [])
+    ]
     return (
-        f"{claim.get('claim_id')} ({claim.get('claim_type')}, incident "
-        f"{claim.get('incident_date')}, claimed ${float(claim.get('amount_claimed') or 0):,.2f}): "
-        f"{outcome}{amount}. Reason: {str(decision.get('reason', ''))[:300]}"
+        f"{claim.get('claim_id')} ({claim.get('claim_type')}): {outcome}{amount}. "
+        f"Sections: {str(decision.get('section', ''))[:200]}. "
+        f"Checks: {'; '.join(checks) or 'none recorded'}."
     )

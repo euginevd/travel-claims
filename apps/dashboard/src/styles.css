@@ -2008,8 +2008,11 @@ h3.sub-head {
 }
 
 .wattle-form:focus-within {
-  border-color: var(--acc-edge);
-  box-shadow: 0 0 0 4px var(--acc-glow);
+  border-color: var(--acc-d);
+  /* With the border, a 2px ring in --acc-d (3:1 on every page colour), then the glow. */
+  box-shadow:
+    0 0 0 1px var(--acc-d),
+    0 0 0 5px var(--acc-glow);
 }
 
 .wattle-form textarea,

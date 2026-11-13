@@ -4,7 +4,6 @@ Start it with uvicorn's factory mode: uvicorn undercover_api.main:create_app --f
 """
 
 import logging
-import secrets
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
@@ -13,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import Connection, Engine, delete, func, insert, select, update
+from sqlalchemy import Connection, Engine, delete, insert, select, update
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
@@ -32,9 +31,6 @@ from undercover_api.ask import ask_router, engineer_ask_router
 from undercover_api.assurance import assurance_router, staff_usage_router
 from undercover_api.audit_chain import Anchor, S3Anchor
 from undercover_api.auth import (
-    CUSTOMERS_GROUP,
-    ENGINEERS_GROUP,
-    HANDLERS_GROUP,
     AgentTokenVerifier,
     Database,
     LocalKeys,
@@ -72,8 +68,6 @@ from undercover_api.db import (
     claims,
     customers,
     decisions,
-    engineers,
-    handlers,
     insert_if_new,
     make_engine,
     model_calls,
@@ -98,7 +92,7 @@ from undercover_api.kill_switch import (
 )
 from undercover_api.letters import letters_router
 from undercover_api.live import live_router
-from undercover_api.local_sign_in import TOKEN_LIFETIME, LocalIssuer
+from undercover_api.local_sign_in import LocalIssuer
 from undercover_api.logs import configure_logging, log_requests, redact_names
 from undercover_api.models import (
     SCREENING_MAKER,
@@ -124,18 +118,23 @@ from undercover_api.models import (
     Policy,
     PreviousClaim,
     SendBackRequest,
-    SignIn,
-    SignInRequest,
     StartRequest,
     Status,
     Step,
     StepRequest,
-    TestSignInRequest,
     Trace,
 )
 from undercover_api.output_guard import guarded, note_removed
 from undercover_api.payments import pay, record_payment
-from undercover_api.payout import UnknownPlanError, dollars, needs_sign_off, work_out_payout
+from undercover_api.payout import (
+    UnknownPlanError,
+    cents,
+    dollars,
+    needs_sign_off,
+    override_ceiling,
+    same_amount,
+    work_out_payout,
+)
 from undercover_api.portal import agent_receipt_router, customer_router, receipt_router
 from undercover_api.posture import posture_router
 from undercover_api.records import check_calculation, check_request
@@ -150,6 +149,7 @@ from undercover_api.recovery import (
 from undercover_api.redteam import redteam_router
 from undercover_api.risk import risk_router
 from undercover_api.settings import Settings, get_settings
+from undercover_api.sign_in_routes import AUDIENCES, demo_routes, local_routes
 from undercover_api.similar import similar_router
 from undercover_api.storage import Receipts, S3ReceiptStore
 from undercover_api.success import engineer_success_router, staff_success_router
@@ -165,13 +165,6 @@ agent_router = APIRouter(prefix="/api/agent/claims/{claim_id}", dependencies=AGE
 # Staff and customers each have their own prefix; the dashboard's and the portal's web servers
 # each forward only theirs.
 staff_router = APIRouter(prefix="/api/staff")
-staff_sign_in_router = APIRouter(prefix="/api/staff/dev")
-customer_sign_in_router = APIRouter(prefix="/api/customer/dev")
-engineering_sign_in_router = APIRouter(prefix="/api/engineering/dev")
-# The AWS demo's test-account buttons, at the same paths as the stand-in's.
-staff_demo_router = APIRouter(prefix="/api/staff/dev")
-customer_demo_router = APIRouter(prefix="/api/customer/dev")
-engineering_demo_router = APIRouter(prefix="/api/engineering/dev")
 
 
 @health_router.get("/api/health", operation_id="health")
@@ -267,7 +260,7 @@ def record_decision(
     request, removed = guarded(request)
     current = find_decision(db, claim_id)
     if current is not None:
-        if (current.decision, current.payout) == (request.decision, request.payout):
+        if current.decision == request.decision and same_amount(current.payout, request.payout):
             return claim_in_full(db, claim_id)
         raise HTTPException(409, f"Claim {claim_id} has already been decided")
     if claim["status"] != Status.IN_PROGRESS:
@@ -621,11 +614,21 @@ def put_handler_decision(
     approve = request.decision == DecisionKind.APPROVE
     if approve != (request.payout > 0):
         raise HTTPException(422, "An approval needs a payout above zero; anything else pays 0")
+    try:
+        ceiling = override_ceiling(
+            policy_terms(claims_policy(db, claim_id)), plans(db), claim["amount_claimed"]
+        )
+    except UnknownPlanError as error:
+        raise HTTPException(409, f"The payout rules have no plan {error}") from error
+    if cents(request.payout) > cents(ceiling):
+        raise HTTPException(
+            422, f"An override pays at most {dollars(ceiling)}: the amount claimed, within the plan"
+        )
     if not move_claim(db, claim_id, claim["status"], Status.DECIDED):
         raise HTTPException(409, f"Claim {claim_id} changed; reload and try again")
     stamp = now()
     # The calculation stays only when the amount does; a new amount is the handler's own.
-    kept = current.calculation if request.payout == current.payout else None
+    kept = current.calculation if same_amount(request.payout, current.payout) else None
     override = {
         "reason_code": request.reason_code,
         "note": request.note,
@@ -697,174 +700,6 @@ def set_payout_switch(
 def get_trace(claim_id: ClaimId, _: SignedIn, db: Database) -> Trace:
     """Every step and model call on a claim, for the trace view."""
     return claim_trace(db, claim_id)
-
-
-# --- The local sign-in stand-in ---
-
-
-def check_local_password(settings: Settings, password: str) -> bool:
-    """Whether the shared local password is right, compared in constant time."""
-    expected = settings.handler_password.get_secret_value() if settings.handler_password else ""
-    return secrets.compare_digest(password.encode(), expected.encode())
-
-
-def known_email(db: Connection, email: str, people: Any) -> str | None:
-    """The seeded email matching one given, ignoring case, or none."""
-    found = db.execute(
-        select(people.c.email).where(func.lower(people.c.email) == email.lower())
-    ).scalar_one_or_none()
-    return None if found is None else str(found).lower()
-
-
-@staff_sign_in_router.post("/sign-in", operation_id="sign_in_staff")
-def sign_in_staff(request: Request, body: SignInRequest, db: Database) -> SignIn:
-    """Sign a seeded handler in with the shared local password; local only."""
-    email = known_email(db, body.email, handlers)
-    right = check_local_password(request.app.state.settings, body.password)
-    if email is None or not right:
-        raise HTTPException(401, "The email or password is wrong")
-    issuer: LocalIssuer = request.app.state.staff_issuer
-    return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-# The only people the test buttons sign in as, on the laptop; no password reaches the browser.
-STAFF_TEST_ACCOUNTS = {
-    "senior": "dana.whitfield@undercover.example",
-    "handler": "marcus.oyelaran@undercover.example",
-}
-CUSTOMER_TEST_ACCOUNTS = {"customer": "oliver.grant@example.com"}
-# The red team files its attack claims as its own customer, never a test customer people use.
-REDTEAM_TEST_ACCOUNTS = {"attacker": "derek.vance@example.com"}
-
-
-@staff_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_staff")
-def test_sign_in_staff(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
-    """Sign in as one of the fixed staff test accounts; local only."""
-    email = STAFF_TEST_ACCOUNTS.get(body.account)
-    if email is None or known_email(db, email, handlers) is None:
-        raise HTTPException(404, "No such test account")
-    issuer: LocalIssuer = request.app.state.staff_issuer
-    return SignIn(id_token=issuer.issue(email, HANDLERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-@customer_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_customer")
-def test_sign_in_customer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
-    """Sign in as the fixed customer test account; local only."""
-    email = CUSTOMER_TEST_ACCOUNTS.get(body.account)
-    if email is None or known_email(db, email, customers) is None:
-        raise HTTPException(404, "No such test account")
-    issuer: LocalIssuer = request.app.state.customer_issuer
-    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-@customer_sign_in_router.post("/redteam-sign-in", operation_id="redteam_sign_in_customer")
-def redteam_sign_in_customer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
-    """Sign in as the red team's attacker customer; local only, never offered in the portal."""
-    email = REDTEAM_TEST_ACCOUNTS.get(body.account)
-    if email is None or known_email(db, email, customers) is None:
-        raise HTTPException(404, "No such red-team account")
-    issuer: LocalIssuer = request.app.state.customer_issuer
-    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-ENGINEERING_TEST_ACCOUNTS = {"engineer": "sam.carter@undercover.example"}
-
-
-@engineering_sign_in_router.post("/sign-in", operation_id="sign_in_engineer")
-def sign_in_engineer(request: Request, body: SignInRequest, db: Database) -> SignIn:
-    """Sign a seeded AI engineer in with the shared local password; local only."""
-    email = known_email(db, body.email, engineers)
-    right = check_local_password(request.app.state.settings, body.password)
-    if email is None or not right:
-        raise HTTPException(401, "The email or password is wrong")
-    issuer: LocalIssuer = request.app.state.engineering_issuer
-    return SignIn(id_token=issuer.issue(email, ENGINEERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-@engineering_sign_in_router.post("/test-sign-in", operation_id="test_sign_in_engineer")
-def test_sign_in_engineer(request: Request, body: TestSignInRequest, db: Database) -> SignIn:
-    """Sign in as the fixed AI engineer test account; local only."""
-    email = ENGINEERING_TEST_ACCOUNTS.get(body.account)
-    if email is None or known_email(db, email, engineers) is None:
-        raise HTTPException(404, "No such test account")
-    issuer: LocalIssuer = request.app.state.engineering_issuer
-    return SignIn(id_token=issuer.issue(email, ENGINEERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-def demo_sign_in(
-    request: Request, accounts: dict[str, str], account: str, issuer: str, client_id: str
-) -> SignIn:
-    """A fixed test account signed in through Cognito; the AWS demo only. The pool's ID ends
-    its issuer."""
-    email = accounts.get(account)
-    if email is None:
-        raise HTTPException(404, "No such test account")
-    signer: CognitoTestSignIn = request.app.state.test_sign_in
-    return signer.sign_in(email, issuer.rsplit("/", 1)[-1], client_id)
-
-
-@staff_demo_router.post("/test-sign-in", operation_id="demo_sign_in_staff")
-def demo_sign_in_staff(request: Request, body: TestSignInRequest) -> SignIn:
-    """Sign in as one of the fixed staff test accounts, through Cognito."""
-    settings = request.app.state.settings
-    issuer, audience = settings.staff_token_issuer, settings.staff_token_audience
-    return demo_sign_in(request, STAFF_TEST_ACCOUNTS, body.account, issuer, audience)
-
-
-@customer_demo_router.post("/test-sign-in", operation_id="demo_sign_in_customer")
-def demo_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
-    """Sign in as the fixed customer test account, through Cognito."""
-    settings = request.app.state.settings
-    issuer, audience = settings.customer_token_issuer, settings.customer_token_audience
-    return demo_sign_in(request, CUSTOMER_TEST_ACCOUNTS, body.account, issuer, audience)
-
-
-@customer_demo_router.post("/redteam-sign-in", operation_id="demo_redteam_sign_in_customer")
-def demo_redteam_sign_in_customer(request: Request, body: TestSignInRequest) -> SignIn:
-    """Sign in as the red team's attacker customer, through Cognito; never offered in the portal."""
-    settings = request.app.state.settings
-    issuer, audience = settings.customer_token_issuer, settings.customer_token_audience
-    return demo_sign_in(request, REDTEAM_TEST_ACCOUNTS, body.account, issuer, audience)
-
-
-@engineering_demo_router.post("/test-sign-in", operation_id="demo_sign_in_engineer")
-def demo_sign_in_engineer(request: Request, body: TestSignInRequest) -> SignIn:
-    """Sign in as the fixed AI engineer test account, through Cognito."""
-    settings = request.app.state.settings
-    issuer, audience = settings.engineering_token_issuer, settings.engineering_token_audience
-    return demo_sign_in(request, ENGINEERING_TEST_ACCOUNTS, body.account, issuer, audience)
-
-
-@engineering_sign_in_router.get("/.well-known/jwks.json", operation_id="get_engineering_jwks")
-def engineering_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
-    """The engineering issuer's public signing keys, at the path Cognito uses."""
-    issuer: LocalIssuer = request.app.state.engineering_issuer
-    return issuer.jwks()
-
-
-@staff_sign_in_router.get("/.well-known/jwks.json", operation_id="get_staff_jwks")
-def staff_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
-    """The staff issuer's public signing keys, at the path Cognito uses."""
-    issuer: LocalIssuer = request.app.state.staff_issuer
-    return issuer.jwks()
-
-
-@customer_sign_in_router.post("/sign-in", operation_id="sign_in_customer")
-def sign_in_customer(request: Request, body: SignInRequest, db: Database) -> SignIn:
-    """Sign a seeded customer in with the shared local password; local only."""
-    email = known_email(db, body.email, customers)
-    right = check_local_password(request.app.state.settings, body.password)
-    if email is None or not right:
-        raise HTTPException(401, "The email or password is wrong")
-    issuer: LocalIssuer = request.app.state.customer_issuer
-    return SignIn(id_token=issuer.issue(email, CUSTOMERS_GROUP), expires_in=TOKEN_LIFETIME)
-
-
-@customer_sign_in_router.get("/.well-known/jwks.json", operation_id="get_customer_jwks")
-def customer_jwks(request: Request) -> dict[str, list[dict[str, Any]]]:
-    """The customer issuer's public signing keys, at the path Cognito uses."""
-    issuer: LocalIssuer = request.app.state.customer_issuer
-    return issuer.jwks()
 
 
 def load_names_to_redact(engine: Engine) -> None:
@@ -969,9 +804,8 @@ def create_app(
         app.state.engineering_verifier = TokenVerifier(
             LocalKeys(app.state.engineering_issuer), *engineering
         )
-        app.include_router(staff_sign_in_router)
-        app.include_router(customer_sign_in_router)
-        app.include_router(engineering_sign_in_router)
+        for audience in AUDIENCES:
+            app.include_router(local_routes(audience))
         app.include_router(demo_router)
         app.include_router(dev_router)
         app.include_router(demo_reset_router)
@@ -981,8 +815,8 @@ def create_app(
         app.state.engineering_verifier = TokenVerifier(RemoteKeys(engineering[0]), *engineering)
         if settings.test_sign_in:
             app.state.test_sign_in = CognitoTestSignIn()
-            for router in (staff_demo_router, customer_demo_router, engineering_demo_router):
-                app.include_router(router)
+            for audience in AUDIENCES:
+                app.include_router(demo_routes(audience))
             app.include_router(demo_router)
             app.include_router(demo_reset_router)
     app.middleware("http")(log_requests)

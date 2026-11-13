@@ -1,11 +1,12 @@
+import { ErrorBoundary } from "@undercover/web-core/ErrorBoundary";
+import { guarded } from "@undercover/web-core/guarded";
 import { House, SlidersHorizontal } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, createApi, type AgentSwitch, type Api, type Handler } from "./api";
 import { AgentToggle, useAgent } from "./components/AgentSwitch";
 import { CommandPalette } from "./components/CommandPalette";
 import { Copilot } from "./components/Copilot";
 import { createCopilot } from "./copilot";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import { StatusLine } from "./components/StatusLine";
 import { Header } from "./components/Header";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./components/PayoutsSwitch";
@@ -25,24 +26,7 @@ interface AppProps {
 
 const defaultFetch: Fetch = (input, init) => fetch(input, init);
 
-// A rejected token (expired, or the api restarted with new keys) signs the person out.
-function guarded(api: Api, signOut: () => void): Api {
-  const wrapped = {} as Record<string, unknown>;
-  for (const [name, call] of Object.entries(api) as [string, (...args: unknown[]) => unknown][]) {
-    wrapped[name] =
-      name === "signIn"
-        ? call
-        : async (...args: unknown[]) => {
-            try {
-              return await call(...args);
-            } catch (error) {
-              if (error instanceof ApiError && error.status === 401) signOut();
-              throw error;
-            }
-          };
-  }
-  return wrapped as unknown as Api;
-}
+const unauthorised = (error: unknown) => error instanceof ApiError && error.status === 401;
 
 export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
@@ -52,6 +36,12 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const copilotToggle = useRef<HTMLButtonElement>(null);
+  // Closing the panel puts focus back on the button that opens it.
+  const closeCopilot = useCallback(() => {
+    setCopilotOpen(false);
+    copilotToggle.current?.focus();
+  }, []);
 
   const signOut = useCallback(() => {
     saveToken(null);
@@ -60,7 +50,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
   }, []);
 
   const api: Api = useMemo(
-    () => guarded(createApi(fetchFn, loadToken), signOut),
+    () => guarded(createApi(fetchFn, loadToken), signOut, unauthorised),
     [fetchFn, signOut],
   );
 
@@ -153,6 +143,8 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         onCopilot={() => {
           setCopilotOpen((open) => !open);
         }}
+        copilotOpen={copilotOpen}
+        copilotToggle={copilotToggle}
         status={
           <span className="status-group">
             <AgentToggle
@@ -197,7 +189,14 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
           editing={payoutsOpen}
           onEditing={setPayoutsOpen}
         />
-        <ErrorBoundary key={routeKey(route)}>
+        <ErrorBoundary
+          key={routeKey(route)}
+          wayBack={
+            <>
+              go <a href={QUEUE_HREF}>back to Today</a>
+            </>
+          }
+        >
           {handlerPage(route, api, person, pollMs, agent.state, {
             onReset: () => {
               agent.refresh();
@@ -222,9 +221,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
                 ]
               : undefined
           }
-          onClose={() => {
-            setCopilotOpen(false);
-          }}
+          onClose={closeCopilot}
         />
       )}
       <CommandPalette api={api} onSignOut={signOut} />

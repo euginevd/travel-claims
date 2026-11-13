@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ErrorBoundary } from "@undercover/web-core/ErrorBoundary";
+import { guarded } from "@undercover/web-core/guarded";
+import { Logo } from "@undercover/web-core/Logo";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, createApi, type Api, type Engineer } from "./api";
 import { AskWattle } from "./components/AskWattle";
 import { AlertBell } from "./components/AlertBell";
 import { ControlPills } from "./components/ControlPills";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Header, type NavSection } from "./components/Header";
-import { Logo } from "./components/Logo";
+import { Header, LOGO_SUBTITLE, type NavSection } from "./components/Header";
 import { DetectionsPage } from "./pages/DetectionsPage";
 import { ImprovementPage } from "./pages/ImprovementPage";
 import { LivePage } from "./pages/LivePage";
@@ -46,24 +47,7 @@ interface AppProps {
 
 const defaultFetch: Fetch = (input, init) => fetch(input, init);
 
-// A rejected token (expired, or the api restarted with new keys) signs the person out.
-function guarded(api: Api, signOut: () => void): Api {
-  const wrapped = {} as Record<string, unknown>;
-  for (const [name, call] of Object.entries(api) as [string, (...args: unknown[]) => unknown][]) {
-    wrapped[name] =
-      name === "signIn" || name === "testSignIn"
-        ? call
-        : async (...args: unknown[]) => {
-            try {
-              return await call(...args);
-            } catch (error) {
-              if (error instanceof ApiError && error.status === 401) signOut();
-              throw error;
-            }
-          };
-  }
-  return wrapped as unknown as Api;
-}
+const unauthorised = (error: unknown) => error instanceof ApiError && error.status === 401;
 
 /** The AI control plane, the overview first. Observe: the agents, live behaviour and traces.
  * Evaluate: the exam and the red team. Secure: the posture and guardrails. Govern: versions and
@@ -75,6 +59,12 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   const [meAttempt, setMeAttempt] = useState(0);
   const route = useHashRoute();
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const assistantToggle = useRef<HTMLButtonElement>(null);
+  // Closing the panel puts focus back on the button that opens it.
+  const closeAssistant = useCallback(() => {
+    setAssistantOpen(false);
+    assistantToggle.current?.focus();
+  }, []);
 
   const signOut = useCallback(() => {
     saveToken(null);
@@ -83,7 +73,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   }, []);
 
   const api: Api = useMemo(
-    () => guarded(createApi(fetchFn, loadToken), signOut),
+    () => guarded(createApi(fetchFn, loadToken), signOut, unauthorised),
     [fetchFn, signOut],
   );
 
@@ -117,7 +107,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   if (token && !person && meError) {
     return (
       <main className="gate" id="main">
-        <Logo />
+        <Logo subtitle={LOGO_SUBTITLE} />
         <h1>AI control plane</h1>
         <p className="error" role="alert">
           We couldn&apos;t check your sign-in: {meError}
@@ -161,19 +151,22 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
         onAssistant={() => {
           setAssistantOpen((now) => !now);
         }}
+        assistantOpen={assistantOpen}
+        assistantToggle={assistantToggle}
       />
       <main id="main" className="page" tabIndex={-1}>
-        <ErrorBoundary key={routeKey(route)}>{page(route, api, person.name)}</ErrorBoundary>
+        <ErrorBoundary
+          key={routeKey(route)}
+          wayBack={
+            <>
+              go <a href={HOME_HREF}>back to the overview</a>
+            </>
+          }
+        >
+          {page(route, api, person.name)}
+        </ErrorBoundary>
       </main>
-      {assistantOpen && (
-        <AskWattle
-          api={api}
-          route={route}
-          onClose={() => {
-            setAssistantOpen(false);
-          }}
-        />
-      )}
+      {assistantOpen && <AskWattle api={api} route={route} onClose={closeAssistant} />}
     </>
   );
 }

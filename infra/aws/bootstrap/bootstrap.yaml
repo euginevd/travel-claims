@@ -1,7 +1,7 @@
 # Deploy once per account as stack <ProjectName>-bootstrap; copy its outputs to the aws-dev-plan/-apply environments.
 # Costs about $0 a month: IAM is free, and the state bucket holds a few small files; it runs nothing itself.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: GitHub OIDC, Terraform state, plan and deploy roles, a read-only troubleshoot role and its CLI user, and a role boundary; deployed once.
+Description: GitHub OIDC, Terraform state, plan and deploy roles, a read-only troubleshoot role and its CLI user, a role boundary and a monthly budget alert; deployed once.
 
 Parameters:
   ProjectName:
@@ -19,6 +19,17 @@ Parameters:
     Default: 55682357/1449903483
     AllowedPattern: '([0-9]+/[0-9]+)?'
     Description: ownerId/repoId for GitHub's immutable OIDC subject (public, from GitHub's API); empty for the name-only subject
+  BudgetEmail:
+    Type: String
+    Default: ''
+    AllowedPattern: '([^@\s]+@[^@\s]+\.[^@\s]+)?'
+    ConstraintDescription: An email address, or empty
+    Description: Address emailed at 80% spent, 100% forecast and 100% spent of the monthly budget (AGENTS.md rule 28); empty for no budget
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 20
+    MinValue: 1
+    Description: The account's monthly budget in US dollars (docs/costs.md); about 250 while the private network is up
   CreateOidcProvider:
     Type: String
     AllowedValues: ['true', 'false']
@@ -27,9 +38,31 @@ Parameters:
 
 Conditions:
   CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
+  CreateBudget: !Not [!Equals [!Ref BudgetEmail, '']]
   ImmutableSubject: !Not [!Equals [!Ref GitHubIds, '']]
 
 Resources:
+
+  # Free (an account's first two budgets cost nothing). Alerts at 80% spent, at 100% forecast and
+  # at 100% spent, so a flood or a forgotten resource shows up in days rather than on the invoice.
+  MonthlyBudgetAlert:
+    Type: AWS::Budgets::Budget
+    Condition: CreateBudget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${ProjectName}-monthly'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref BudgetEmail }]
+        - Notification: { NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref BudgetEmail }]
+        - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE }
+          Subscribers: [{ SubscriptionType: EMAIL, Address: !Ref BudgetEmail }]
 
   GitHubOidcProvider:
     Type: AWS::IAM::OIDCProvider
@@ -219,7 +252,11 @@ Resources:
               - Sid: DenyPipelineRoles
                 Effect: Deny
                 Action: iam:*
-                Resource: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-github-*'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-github-*'
+                  # The troubleshoot role's trust policy would otherwise be the pipeline's to rewrite.
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-troubleshoot'
+                  - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:user/${ProjectName}-*'
               - Sid: DenyBoundaryRemoval
                 Effect: Deny
                 Action: iam:DeleteRolePermissionsBoundary
@@ -378,27 +415,9 @@ Resources:
               - secretsmanager:ListSecrets
               - ssm:DescribeParameters
             Resource: '*'
-          # Customer-managed keys, if ever turned on (decisions): only keys tagged with the project.
-          - Sid: KmsCreateTagged
-            Effect: Allow
-            Action:
-              - kms:CreateKey
-              - kms:TagResource
-            Resource: '*'
-            Condition:
-              StringEquals:
-                aws:RequestTag/Project: !Ref ProjectName
-          - Sid: KmsProjectKeys
-            Effect: Allow
-            Action: kms:*
-            Resource: '*'
-            Condition:
-              StringEquals:
-                aws:ResourceTag/Project: !Ref ProjectName
-          - Sid: KmsProjectAliases
-            Effect: Allow
-            Action: kms:*Alias
-            Resource: !Sub 'arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:alias/${ProjectName}-*'
+          # No key creation, tagging or kms:* here: the workload uses the platform's data key
+          # through the service-scoped grant below (decision 45). Tagging any key with the project
+          # tag used to unlock kms:* on it, the platform's own keys included.
           - Sid: KmsList
             Effect: Allow
             Action:
@@ -521,6 +540,15 @@ Resources:
               - aws-marketplace:Subscribe
               - bedrock:CreateProvisionedModelThroughput
               - bedrock:UpdateProvisionedModelThroughput
+              # Hundreds of dollars a month each, and nothing in the design uses them yet.
+              - bedrock:CreateModelCustomizationJob
+              - bedrock:CreateModelImportJob
+              - kendra:CreateIndex
+              - aoss:CreateCollection
+              - comprehend:CreateEndpoint
+              - comprehend:CreateDocumentClassifier
+              - comprehend:CreateEntityRecognizer
+              - rekognition:CreateProjectVersion
             Resource: '*'
           - Sid: S3VectorsProject
             Effect: Allow
@@ -978,6 +1006,15 @@ Resources:
             Action:
               - bedrock:CreateProvisionedModelThroughput
               - bedrock:UpdateProvisionedModelThroughput
+              # Hundreds of dollars a month each, and nothing in the design uses them yet.
+              - bedrock:CreateModelCustomizationJob
+              - bedrock:CreateModelImportJob
+              - kendra:CreateIndex
+              - aoss:CreateCollection
+              - comprehend:CreateEndpoint
+              - comprehend:CreateDocumentClassifier
+              - comprehend:CreateEntityRecognizer
+              - rekognition:CreateProjectVersion
             Resource: '*'
           # Agent workflows: queues, state machines, events and alerts, by name.
           - Sid: Workflows

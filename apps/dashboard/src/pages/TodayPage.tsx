@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentSwitch, Api, ClaimSummary, Handler, Insights } from "../api";
 import { WattleMark } from "../components/Wattle";
 import { date, dollars, words } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { claimHref } from "../useHashRoute";
 import { arrange, daysOverdue, decisionWords, needsMe, QueueBody, urgency } from "./QueuePage";
 

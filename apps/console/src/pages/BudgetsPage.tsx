@@ -3,7 +3,7 @@ import type { Api, Budget } from "../api";
 import { Meter } from "../components/Charts";
 import { when } from "../format";
 import { modelName } from "../traceTimeline";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 const dollars = (value: number, places = 2) => `$${value.toFixed(places)}`;
 

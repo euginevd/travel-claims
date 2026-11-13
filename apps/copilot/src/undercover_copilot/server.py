@@ -6,6 +6,7 @@ conversation."""
 
 import logging
 import os
+import time
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -17,8 +18,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
-from undercover_copilot.graph import CopilotState, Handler
-from undercover_copilot.staff_api import ApiError, StaffApi
+from undercover_copilot.graph import CopilotState, Handler, user_turn
+from undercover_copilot.staff_api import UNREACHABLE, ApiError, StaffApi
 from undercover_copilot.store import Conversation, Store
 
 log = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def caller(request: Request, authorization: Annotated[str | None, Header()] = No
     try:
         handler = api.me()
     except ApiError as error:
-        status = error.status if error.status == UNAUTHORISED else 403
+        status = error.status if error.status in {UNAUTHORISED, UNREACHABLE} else 403
         raise HTTPException(status, error.detail) from error
     return Caller(str(handler["handler_id"]), api, token)
 
@@ -183,8 +184,10 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
                 raise HTTPException(409, "Confirm or cancel the card first")
             if not current.transcript:
                 cast(Store, ready["store"]).retitle(conversation_id, request.text)
+            graph = cast(Graph, ready["graph"])
+            saved = cast(Json, graph.get_state(config_for(conversation_id)).values or {})
             return {
-                "messages": [{"role": "user", "content": request.text}],
+                "messages": [user_turn(saved.get("messages") or [], request.text)],
                 "transcript": [{"role": "user", "text": request.text}],
                 "pending": {},
                 "held_results": [],
@@ -223,6 +226,23 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
 
 def config_for(conversation_id: str) -> RunnableConfig:
     return {"configurable": {"thread_id": conversation_id}, "recursion_limit": 60}
+
+
+def set_up_tables(*steps: Callable[[], object], attempts: int = 3) -> None:
+    """Create the checkpoint tables. The agent and the Copilot share a database and start
+    together, and two `CREATE TABLE IF NOT EXISTS` at once can still collide in Postgres's
+    catalogue; the loser tries again and finds the table there."""
+    from psycopg import errors  # noqa: PLC0415
+
+    for attempt in range(attempts):
+        try:
+            for step in steps:
+                step()
+            return
+        except errors.UniqueViolation, errors.DuplicateTable, errors.DuplicateObject:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.5 * (attempt + 1))
 
 
 def connection_pool(url: str, max_size: int) -> ConnectionPool[Any]:
@@ -291,7 +311,7 @@ def build_app() -> FastAPI:
     def make_graph() -> Graph:
         pool.open()
         saver = PostgresSaver(pool)  # pyright: ignore[reportArgumentType]
-        saver.setup()
+        set_up_tables(saver.setup)
         return build_graph(
             AnthropicClaude(settings),
             saver,

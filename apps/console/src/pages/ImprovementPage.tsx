@@ -20,7 +20,7 @@ import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
 import { modelName } from "../traceTimeline";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { runHref } from "../useHashRoute";
 import { cost } from "./ScoreboardPage";
 

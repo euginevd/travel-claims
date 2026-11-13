@@ -13,7 +13,7 @@ import { BarSeries, MiniBar, Sparkline } from "../components/Charts";
 import { TableScroll } from "../components/TableScroll";
 import { TrendsPanels } from "../components/TrendsPanels";
 import { date, dollars, when } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { traceHref } from "../useHashRoute";
 
 const DECISIONS: Record<string, string> = {

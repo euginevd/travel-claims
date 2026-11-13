@@ -70,5 +70,6 @@ In menu order: Overview, then the control plane's four jobs: Observe (Agents, Li
 | 28d | **Budgets** (Govern): today's model spend against a daily budget engineers set, by model; at the budget the agent switches itself off and the audit log says why | Done | Next |
 | 28e | **Alerts**: a bell on every page with what needs an engineer now: a failing gate, the budget, a guardrail spike against its usual rate, the output guard, stalled runs | Done | Next |
 | 29 | **Red team**: nine attacks (the ninth asks the agent to repeat a card number, so it tests the output guard), listed with the risk each tests before the first run; after one, what stopped each | Done | #8, Next |
+| 30 | **Quality gate**: the `quality` workflow, by hand on `dev`, runs the evaluation set against the floors in `data/evals/gate.json` and the red team, and fails on any miss or any attack not held | Done | (this branch) |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

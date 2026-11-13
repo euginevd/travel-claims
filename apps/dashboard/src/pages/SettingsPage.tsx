@@ -13,7 +13,7 @@ import {
 } from "../api";
 import { dollars, when, words } from "../format";
 import { DemoControls } from "../components/DemoControls";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 type Kind = "money" | "percent" | "whole";
 

@@ -52,7 +52,14 @@ from undercover_api.models import (
     Status,
 )
 from undercover_api.notices import announce
-from undercover_api.storage import MAX_RECEIPT_BYTES, MAX_RECEIPTS, Receipts, ReceiptStore, sniff
+from undercover_api.storage import (
+    MAX_RECEIPT_BYTES,
+    MAX_RECEIPTS,
+    Receipts,
+    ReceiptStore,
+    keep_for_cleanup,
+    sniff,
+)
 
 log = logging.getLogger(__name__)
 
@@ -359,7 +366,7 @@ async def save_files(
     for content, media_type in checked:
         db.execute(
             insert(receipts).values(
-                receipt_id=receipt_store.save(content),
+                receipt_id=keep_for_cleanup(db, receipt_store, content),
                 claim_id=claim_id,
                 media_type=media_type,
                 size=len(content),

@@ -79,3 +79,25 @@ test("each page opens from its route", async () => {
   render(<App fetchFn={fetchFn} />);
   expect(await screen.findByRole("heading", { name: "Red team" })).toBeInTheDocument();
 });
+
+test("the Wattle button says whether its panel is open, and closing returns focus to it", async () => {
+  const user = userEvent.setup();
+  saveToken("t");
+  render(
+    <App
+      fetchFn={fakeFetch({
+        "GET /api/engineering/me": () => [200, SAM],
+        "GET /api/engineering/runs": () => [200, []],
+      })}
+    />,
+  );
+  const toggle = await screen.findByRole("button", { name: "Ask Wattle AI" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveAttribute("aria-controls", "wattle-panel");
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByLabelText("Your question")).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Close Wattle AI" }));
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveFocus();
+});

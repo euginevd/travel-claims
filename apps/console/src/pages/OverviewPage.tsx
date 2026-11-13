@@ -13,7 +13,7 @@ import { AgentsWidget, AlertsList, KpiRow, ReleasesWidget } from "../components/
 import { WattleMark } from "../components/Wattle";
 import { when } from "../format";
 import { wilson } from "../stats";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import {
   AGENTS_HREF,
   DETECTIONS_HREF,
