@@ -230,3 +230,31 @@ test("the header shows the person signed in and wraps instead of clipping", asyn
   expect(within(banner).getByRole("link", { name: /Queue/ })).toHaveAttribute("href", "#/");
   expect(within(banner).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
 });
+
+test("the Wattle button says whether its panel is open, and closing returns focus to it", async () => {
+  const user = userEvent.setup();
+  saveToken("token-1");
+  render(
+    <App
+      fetchFn={fakeFetch({
+        ...signedInRoutes,
+        "GET /api/copilot/conversations": () => [200, []],
+      })}
+    />,
+  );
+  const toggle = await screen.findByRole("button", { name: "Ask Wattle AI" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(toggle).toHaveAttribute("aria-controls", "copilot-panel");
+
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("complementary", { name: "Wattle AI" })).toHaveAttribute(
+    "id",
+    "copilot-panel",
+  );
+  expect(screen.getByLabelText("Your question")).toHaveFocus();
+
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("complementary", { name: "Wattle AI" })).not.toBeInTheDocument();
+  expect(toggle).toHaveFocus();
+});

@@ -1,8 +1,14 @@
 import { ArrowRight, Check, LoaderCircle, Lock, Route, ShieldCheck } from "lucide-react";
+import {
+  AuthenticatorStep,
+  authenticatorCode,
+  CODE_PROMPT,
+} from "@undercover/web-core/AuthenticatorStep";
+import { type CognitoChallenge, SignInChallenge } from "@undercover/web-core/cognito";
 import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, type Api } from "../api";
-import { initials } from "../components/Header";
-import { Logo } from "../components/Logo";
+import { Logo } from "@undercover/web-core/Logo";
+import { initials, LOGO_SUBTITLE } from "../components/Header";
 import { ProjectLink } from "../components/Wattle";
 import { prefersStill, SignInRun } from "../components/SignInRun";
 
@@ -34,8 +40,9 @@ interface SignInPageProps {
   checking: boolean;
 }
 
-function problem(caught: unknown): string {
-  if (caught instanceof ApiError && caught.status === 401) {
+// Why sign-in failed; after the password, Cognito's own words about the code are clearer.
+function problem(caught: unknown, step: "password" | "code"): string {
+  if (caught instanceof ApiError && caught.status === 401 && step === "password") {
     return "That email and password don't match an AI engineer's account.";
   }
   return caught instanceof ApiError ? caught.message : "We couldn't reach the server.";
@@ -47,6 +54,8 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState<CognitoChallenge | null>(null);
+  const [code, setCode] = useState("");
   const [done, setDone] = useState(false);
   const exit = useRef<number | undefined>(undefined);
   const ids = useId();
@@ -58,7 +67,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     [],
   );
 
-  async function attempt(signIn: () => Promise<string>) {
+  async function attempt(signIn: () => Promise<string>, step: "password" | "code" = "password") {
     setBusy(true);
     setError(null);
     try {
@@ -77,13 +86,38 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
         setBusy(false);
       }, EXIT_MS);
     } catch (caught) {
-      setError(problem(caught));
       setBusy(false);
+      if (caught instanceof SignInChallenge) {
+        setChallenge(caught.challenge);
+        setCode("");
+        return;
+      }
+      // An expired session can only start again from the password.
+      if (step === "code" && caught instanceof ApiError && caught.status === 401) {
+        setChallenge(null);
+      }
+      setError(problem(caught, step));
     }
+  }
+
+  function restart() {
+    setChallenge(null);
+    setCode("");
+    setPassword("");
+    setError(null);
   }
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (challenge) {
+      const digits = authenticatorCode(code);
+      if (!digits) {
+        setError(CODE_PROMPT);
+        return;
+      }
+      void attempt(() => api.answerChallenge(challenge, digits), "code");
+      return;
+    }
     if (!email.trim() || !password) {
       setError("Enter your email and password.");
       return;
@@ -94,7 +128,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   if (checking) {
     return (
       <main className="gate" id="main">
-        <Logo />
+        <Logo subtitle={LOGO_SUBTITLE} />
         <p role="status" className="loading">
           <LoaderCircle className="spin" size={16} strokeWidth={1.75} aria-hidden="true" />
           Checking your sign-in…
@@ -105,6 +139,30 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
   const state = done ? " ok" : busy ? " loading" : "";
   const firstName = TEST_ACCOUNT.name.split(" ")[0] ?? TEST_ACCOUNT.name;
+  const go = (label: string) => (
+    <button type="submit" className={`go${state}`} disabled={busy}>
+      {done ? (
+        <span className="go-state">
+          <span className="go-tick">
+            <Check size={12} strokeWidth={3.2} aria-hidden="true" />
+          </span>
+          Welcome back
+        </span>
+      ) : busy ? (
+        <span className="go-state">
+          <span className="go-spin" aria-hidden="true" />
+          Signing you in
+        </span>
+      ) : (
+        <span className="go-label">
+          <span>{label}</span>
+          <span className="go-knob" aria-hidden="true">
+            <ArrowRight size={16} strokeWidth={2.2} />
+          </span>
+        </span>
+      )}
+    </button>
+  );
   return (
     <div className={`signin${done ? " leaving" : ""}`}>
       <div className="page-glow" aria-hidden="true">
@@ -116,7 +174,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
       <div className="signin-page">
         <header className="signin-top rise d1">
           <span className="brand">
-            <Logo animate />
+            <Logo subtitle={LOGO_SUBTITLE} animate />
           </span>
           <p className="signin-staff">
             <ProjectLink />
@@ -162,78 +220,72 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
           <section className="signin-shell rise d6" aria-labelledby={`${ids}-title`}>
             <form className="signin-card" onSubmit={submit} noValidate>
-              <h2 id={`${ids}-title`}>Welcome back</h2>
-              <p className="signin-sub">Use your UnderCover work account.</p>
-              <div className="float-field">
-                <input
-                  id={`${ids}-email`}
-                  type="email"
-                  autoComplete="username"
-                  placeholder=" "
-                  aria-describedby={error ? `${ids}-error` : undefined}
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                  }}
+              {challenge ? (
+                <AuthenticatorStep
+                  challenge={challenge}
+                  idPrefix={ids}
+                  code={code}
+                  onCode={setCode}
+                  error={error}
+                  busy={busy}
+                  submit={go(challenge.kind === "mfa-setup" ? "Add and sign in" : "Verify code")}
+                  onRestart={restart}
                 />
-                <label htmlFor={`${ids}-email`}>Work email</label>
-              </div>
-              <div className="float-field">
-                <input
-                  id={`${ids}-password`}
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder=" "
-                  aria-describedby={error ? `${ids}-error` : undefined}
-                  value={password}
-                  onChange={(event) => {
-                    setPassword(event.target.value);
-                  }}
-                />
-                <label htmlFor={`${ids}-password`}>Password</label>
-                <button
-                  type="button"
-                  className="field-eye"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  aria-pressed={showPassword}
-                  onClick={() => {
-                    setShowPassword((now) => !now);
-                  }}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-              {error && (
-                <p id={`${ids}-error`} className="field-error" role="alert">
-                  {error}
-                </p>
+              ) : (
+                <>
+                  <h2 id={`${ids}-title`}>Welcome back</h2>
+                  <p className="signin-sub">Use your UnderCover work account.</p>
+                  <div className="float-field">
+                    <input
+                      id={`${ids}-email`}
+                      type="email"
+                      autoComplete="username"
+                      placeholder=" "
+                      aria-describedby={error ? `${ids}-error` : undefined}
+                      value={email}
+                      onChange={(event) => {
+                        setEmail(event.target.value);
+                      }}
+                    />
+                    <label htmlFor={`${ids}-email`}>Work email</label>
+                  </div>
+                  <div className="float-field">
+                    <input
+                      id={`${ids}-password`}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder=" "
+                      aria-describedby={error ? `${ids}-error` : undefined}
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                      }}
+                    />
+                    <label htmlFor={`${ids}-password`}>Password</label>
+                    <button
+                      type="button"
+                      className="field-eye"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      onClick={() => {
+                        setShowPassword((now) => !now);
+                      }}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {error && (
+                    <p id={`${ids}-error`} className="field-error" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <p className="signin-meta">
+                    <span>Forgot password?</span>
+                  </p>
+                  {go("Sign in")}
+                </>
               )}
-              <p className="signin-meta">
-                <span>Forgot password?</span>
-              </p>
-              <button type="submit" className={`go${state}`} disabled={busy}>
-                {done ? (
-                  <span className="go-state">
-                    <span className="go-tick">
-                      <Check size={12} strokeWidth={3.2} aria-hidden="true" />
-                    </span>
-                    Welcome back
-                  </span>
-                ) : busy ? (
-                  <span className="go-state">
-                    <span className="go-spin" aria-hidden="true" />
-                    Signing you in
-                  </span>
-                ) : (
-                  <span className="go-label">
-                    <span>Sign in</span>
-                    <span className="go-knob" aria-hidden="true">
-                      <ArrowRight size={16} strokeWidth={2.2} />
-                    </span>
-                  </span>
-                )}
-              </button>
-              {LOCAL_SIGN_IN && (
+              {LOCAL_SIGN_IN && !challenge && (
                 <fieldset className="accounts">
                   <legend>
                     Test accounts <em className="tag-demo">Demo</em>

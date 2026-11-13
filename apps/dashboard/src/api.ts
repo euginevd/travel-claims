@@ -5,7 +5,15 @@
  * and src/fixtures/ holds real responses from it that the tests parse.
  */
 import { z } from "zod";
-import { type CognitoConfig, cognitoConfig, cognitoSignIn } from "./cognito";
+import {
+  type CognitoChallenge,
+  type CognitoConfig,
+  type CognitoResult,
+  cognitoAnswer,
+  cognitoConfig,
+  cognitoSignIn,
+  SignInChallenge,
+} from "@undercover/web-core/cognito";
 
 export const statuses = [
   "waiting",
@@ -387,7 +395,9 @@ export class ApiError extends Error {
 }
 
 export interface Api {
+  /** Throws SignInChallenge when Cognito wants an authenticator code first. */
   signIn: (email: string, password: string) => Promise<string>;
+  answerChallenge: (challenge: CognitoChallenge, code: string) => Promise<string>;
   testSignIn: (account: TestAccount) => Promise<string>;
   me: () => Promise<Handler>;
   listClaims: () => Promise<ClaimSummary[]>;
@@ -446,10 +456,17 @@ async function errorFrom(response: Response): Promise<ApiError> {
   return new ApiError(response.status, FALLBACK_ERROR);
 }
 
+// A Cognito answer as the api's sign-in would give it: a token, the next step, or an ApiError.
+function signedIn(result: CognitoResult): string {
+  if ("token" in result) return result.token;
+  if ("challenge" in result) throw new SignInChallenge(result.challenge);
+  throw new ApiError(result.status, result.message);
+}
+
 export function createApi(
   fetchFn: Fetch,
   getToken: () => string | null,
-  cognito: CognitoConfig | null = cognitoConfig(),
+  cognito: CognitoConfig | null = cognitoConfig(import.meta.env),
 ): Api {
   async function send(
     method: "GET" | "POST" | "PUT",
@@ -491,14 +508,16 @@ export function createApi(
   return {
     signIn: async (email, password) => {
       if (cognito) {
-        const result = await cognitoSignIn(fetchFn, cognito, email, password);
-        if ("token" in result) return result.token;
-        throw new ApiError(result.status, result.message);
+        return signedIn(await cognitoSignIn(fetchFn, cognito, email, password));
       }
       const answer = await call(SignInSchema, "POST", "/dev/sign-in", {
         body: { email, password },
       });
       return answer.id_token;
+    },
+    answerChallenge: async (challenge, code) => {
+      if (!cognito) throw new ApiError(400, "This sign-in has no authenticator step.");
+      return signedIn(await cognitoAnswer(fetchFn, cognito, challenge, code));
     },
     testSignIn: async (account) => {
       const answer = await call(SignInSchema, "POST", "/dev/test-sign-in", { body: { account } });

@@ -1,0 +1,21 @@
+{
+  "name": "@undercover/web-core",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Code the portal, dashboard and console share: sign-in, the session token, the logo and page helpers.",
+  "type": "module",
+  "exports": {
+    "./AuthenticatorStep": "./src/AuthenticatorStep.tsx",
+    "./cognito": "./src/cognito.ts",
+    "./env": "./src/env.d.ts",
+    "./ErrorBoundary": "./src/ErrorBoundary.tsx",
+    "./guarded": "./src/guarded.ts",
+    "./Logo": "./src/Logo.tsx",
+    "./session": "./src/session.ts",
+    "./useEscape": "./src/useEscape.ts",
+    "./useFocusHeading": "./src/useFocusHeading.ts"
+  },
+  "peerDependencies": {
+    "react": "19.3.1"
+  }
+}

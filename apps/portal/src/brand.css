@@ -411,8 +411,16 @@ input:not([type="radio"], [type="checkbox"], [type="file"]):focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--acc-edge);
-  box-shadow: 0 0 0 4px rgb(226 121 95 / 10%);
+}
+
+input:not([type="radio"], [type="checkbox"], [type="file"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--acc-d);
+  /* With the border, a 2px ring in --acc-d (3:1 on every page colour), then the glow. */
+  box-shadow:
+    0 0 0 1px var(--acc-d),
+    0 0 0 5px rgb(226 121 95 / 10%);
 }
 
 .error,

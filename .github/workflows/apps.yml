@@ -39,6 +39,7 @@ jobs:
               apps/dashboard/*) dashboard=true ;;
               apps/console/*) console=true ;;
               apps/portal/*) portal=true ;;
+              packages/web-core/*) dashboard=true; console=true; portal=true ;;
               apps/* | data/* | *.py | pyproject.toml | uv.lock | .python-version) python=true ;;
               *.md | docs/* | guides/* | LICENSE | infra/* | .vscode/*) ;;
               *) python=true; dashboard=true; console=true; portal=true ;;
@@ -150,3 +151,39 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # The browser tests against the whole Docker Compose stack, as on a laptop: each app signs in,
+  # each audience's token is refused on the others' routes, and axe finds nothing serious. The
+  # Claude key is a dummy, so tests that call a model (tagged @model) run only on a laptop.
+  e2e:
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.outputs.python != 'false' || needs.changes.outputs.dashboard != 'false' || needs.changes.outputs.console != 'false' || needs.changes.outputs.portal != 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Throwaway values for a stack that lives only in this job.
+      POSTGRES_USER: undercover
+      POSTGRES_PASSWORD: e2e-only
+      POSTGRES_DB: undercover
+      ENVIRONMENT: local
+      LOCAL_SIGN_IN: "true"
+      HANDLER_PASSWORD: e2e-only
+      UNDERCOVER_API_KEY: e2e-only-key-for-a-throwaway-stack-000
+      ANTHROPIC_API_KEY: sk-ant-not-a-real-key
+      ANTHROPIC_WORKSPACE_ID: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start the stack
+        working-directory: e2e
+        run: docker compose -p undercover-e2e -f ../docker-compose.yml -f compose.ports.yml up --build -d --wait
+      - name: Browser tests, without model calls
+        run: >-
+          docker run --rm --network host --ipc host -v "$PWD/e2e:/e2e" -w /e2e
+          mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+          sh -c "npm ci --ignore-scripts && npx playwright test --grep-invert @model"
+      - name: Stack logs on failure
+        if: failure()
+        working-directory: e2e
+        run: docker compose -p undercover-e2e -f ../docker-compose.yml -f compose.ports.yml logs --no-color --tail 200

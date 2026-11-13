@@ -1,6 +1,10 @@
+import type { Ref } from "react";
 import { LogOut } from "lucide-react";
-import { Logo } from "./Logo";
+import { Logo } from "@undercover/web-core/Logo";
 import { ProjectLink, WattleButton } from "./Wattle";
+
+/** The line under the logo's word mark in this app. */
+export const LOGO_SUBTITLE = "AI assurance";
 
 export interface NavSection {
   label: string;
@@ -16,6 +20,8 @@ interface HeaderProps {
   current?: string;
   onSignOut: () => void;
   onAssistant?: () => void;
+  assistantOpen?: boolean;
+  assistantToggle?: Ref<HTMLButtonElement>;
 }
 
 /** Up to two initials for the avatar, e.g. "Dana Whitfield" -> "DW". */
@@ -39,6 +45,8 @@ export function Header({
   current,
   onSignOut,
   onAssistant,
+  assistantOpen = false,
+  assistantToggle,
 }: HeaderProps) {
   // The section the page belongs to; the first one when it belongs to none.
   const active = sections.find((section) => section.links.some((link) => link.href === current)) ??
@@ -47,7 +55,7 @@ export function Header({
     <header className="topbar">
       <div className="topbar-in">
         <a className="brand" href={home} aria-label="UnderCover Claims, home">
-          <Logo />
+          <Logo subtitle={LOGO_SUBTITLE} />
         </a>
         <nav aria-label="Sections" className="section-switch">
           {sections.map((section) => (
@@ -61,7 +69,9 @@ export function Header({
           ))}
         </nav>
         <div className="topbar-right">
-          {onAssistant && <WattleButton onClick={onAssistant} />}
+          {onAssistant && (
+            <WattleButton onClick={onAssistant} open={assistantOpen} ref={assistantToggle} />
+          )}
           <div className="who">
             <span className="avatar" aria-hidden="true">
               {initials(name)}

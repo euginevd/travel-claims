@@ -1,8 +1,14 @@
 import { ArrowRight, Check, FileSearch, Lock, UserRound } from "lucide-react";
+import {
+  AuthenticatorStep,
+  authenticatorCode,
+  CODE_PROMPT,
+} from "@undercover/web-core/AuthenticatorStep";
+import { type CognitoChallenge, SignInChallenge } from "@undercover/web-core/cognito";
 import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, type Api, type TestAccount } from "../api";
-import { initials } from "../components/Header";
-import { Logo } from "../components/Logo";
+import { Logo } from "@undercover/web-core/Logo";
+import { initials, LOGO_SUBTITLE } from "../components/Header";
 import { ProjectLink } from "../components/Wattle";
 import { prefersStill, SignInScene } from "../components/SignInScene";
 
@@ -20,6 +26,16 @@ const ACCOUNTS: { account: TestAccount; name: string; detail: string }[] = [
   { account: "senior", name: "Dana Whitfield", detail: "Senior handler · can sign off" },
   { account: "handler", name: "Marcus Oyelaran", detail: "Handler · no sign-off rights" },
 ];
+
+const SENIOR_LOCAL_ONLY =
+  "The senior handler is only on the laptop version, so the public demo can't pause payouts or sign them off.";
+
+// The AWS demo (a test build that isn't a local image) offers the handler only: its api
+// refuses the senior account, so nobody there can pause payouts or sign them off.
+export function testAccounts(env: ImportMetaEnv = import.meta.env) {
+  const awsDemo = env.VITE_TEST_SIGN_IN === "true" && env.VITE_LOCAL_SIGN_IN !== "true";
+  return awsDemo ? ACCOUNTS.filter((option) => option.account !== "senior") : ACCOUNTS;
+}
 
 // Each is true of the app: a decision names what it relied on and each check its source; a
 // payout over the approval limit waits for a senior handler; a customer can ask for a person.
@@ -40,18 +56,24 @@ interface SignInPageProps {
   checking: boolean;
 }
 
-function problem(caught: unknown): string {
-  if (caught instanceof ApiError && caught.status === 401) {
+// Why sign-in failed; after the password, Cognito's own words about the code are clearer.
+function problem(caught: unknown, step: "password" | "code" | TestAccount): string {
+  if (!(caught instanceof ApiError)) return "We couldn't reach the server.";
+  if (caught.status === 401 && step === "password") {
     return "That email and password don't match a staff account.";
   }
-  return caught instanceof ApiError ? caught.message : "We couldn't reach the server.";
+  if (caught.status === 404 && step === "senior") return SENIOR_LOCAL_ONLY;
+  return caught.message;
 }
 
 export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [account, setAccount] = useState<TestAccount>("senior");
+  const [accounts] = useState(testAccounts);
+  const [account, setAccount] = useState<TestAccount>(() => accounts[0]?.account ?? "handler");
+  const [challenge, setChallenge] = useState<CognitoChallenge | null>(null);
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -65,7 +87,10 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     [],
   );
 
-  async function attempt(signIn: () => Promise<string>) {
+  async function attempt(
+    signIn: () => Promise<string>,
+    step: "password" | "code" | TestAccount = "password",
+  ) {
     setBusy(true);
     setError(null);
     try {
@@ -79,13 +104,38 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
         onSignedIn(token);
       }, EXIT_MS);
     } catch (caught) {
-      setError(problem(caught));
       setBusy(false);
+      if (caught instanceof SignInChallenge) {
+        setChallenge(caught.challenge);
+        setCode("");
+        return;
+      }
+      // An expired session can only start again from the password.
+      if (step === "code" && caught instanceof ApiError && caught.status === 401) {
+        setChallenge(null);
+      }
+      setError(problem(caught, step));
     }
+  }
+
+  function restart() {
+    setChallenge(null);
+    setCode("");
+    setPassword("");
+    setError(null);
   }
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (challenge) {
+      const digits = authenticatorCode(code);
+      if (!digits) {
+        setError(CODE_PROMPT);
+        return;
+      }
+      void attempt(() => api.answerChallenge(challenge, digits), "code");
+      return;
+    }
     if (!email.trim() || !password) {
       setError("Enter your email and password.");
       return;
@@ -96,7 +146,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   if (checking) {
     return (
       <main className="landing" id="main">
-        <Logo />
+        <Logo subtitle={LOGO_SUBTITLE} />
         <p role="status" className="muted">
           Checking your sign-in…
         </p>
@@ -104,8 +154,32 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
     );
   }
 
-  const chosen = ACCOUNTS.find((option) => option.account === account) ?? ACCOUNTS[0];
+  const chosen = accounts.find((option) => option.account === account) ?? accounts[0];
   const state = done ? " ok" : busy ? " loading" : "";
+  const go = (label: string) => (
+    <button type="submit" className={`go${state}`} disabled={busy}>
+      {done ? (
+        <span className="go-state">
+          <span className="go-tick">
+            <Check size={12} strokeWidth={1.75} nonScalingStroke aria-hidden="true" />
+          </span>
+          Welcome back
+        </span>
+      ) : busy ? (
+        <span className="go-state">
+          <span className="go-spin" aria-hidden="true" />
+          Signing you in
+        </span>
+      ) : (
+        <span className="go-label">
+          <span>{label}</span>
+          <span className="go-knob" aria-hidden="true">
+            <ArrowRight size={16} strokeWidth={1.75} />
+          </span>
+        </span>
+      )}
+    </button>
+  );
   return (
     <div className={`signin${done ? " leaving" : ""}`}>
       <div className="page-glow" aria-hidden="true">
@@ -117,7 +191,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
       <div className="signin-page">
         <header className="signin-top rise d1">
           <span className="brand">
-            <Logo animate />
+            <Logo subtitle={LOGO_SUBTITLE} animate />
           </span>
           <p className="signin-staff">
             <ProjectLink />
@@ -163,84 +237,78 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
           <section className="signin-shell rise d6" aria-labelledby={`${ids}-title`}>
             <div className="signin-card">
               <form onSubmit={submit} noValidate>
-                <h2 id={`${ids}-title`}>Welcome back</h2>
-                <p className="signin-sub">Use your UnderCover work account.</p>
-                <div className="float-field">
-                  <input
-                    id={`${ids}-email`}
-                    type="email"
-                    autoComplete="username"
-                    placeholder=" "
-                    aria-describedby={error ? `${ids}-error` : undefined}
-                    value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
-                    }}
+                {challenge ? (
+                  <AuthenticatorStep
+                    challenge={challenge}
+                    idPrefix={ids}
+                    code={code}
+                    onCode={setCode}
+                    error={error}
+                    busy={busy}
+                    submit={go(challenge.kind === "mfa-setup" ? "Add and sign in" : "Verify code")}
+                    onRestart={restart}
                   />
-                  <label htmlFor={`${ids}-email`}>Work email</label>
-                </div>
-                <div className="float-field">
-                  <input
-                    id={`${ids}-password`}
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    placeholder=" "
-                    aria-describedby={error ? `${ids}-error` : undefined}
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                    }}
-                  />
-                  <label htmlFor={`${ids}-password`}>Password</label>
-                  <button
-                    type="button"
-                    className="field-eye"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    aria-pressed={showPassword}
-                    onClick={() => {
-                      setShowPassword((now) => !now);
-                    }}
-                  >
-                    {showPassword ? "Hide" : "Show"}
-                  </button>
-                </div>
-                {error && (
-                  <p id={`${ids}-error`} className="field-error" role="alert">
-                    {error}
-                  </p>
+                ) : (
+                  <>
+                    <h2 id={`${ids}-title`}>Welcome back</h2>
+                    <p className="signin-sub">Use your UnderCover work account.</p>
+                    <div className="float-field">
+                      <input
+                        id={`${ids}-email`}
+                        type="email"
+                        autoComplete="username"
+                        placeholder=" "
+                        aria-describedby={error ? `${ids}-error` : undefined}
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                        }}
+                      />
+                      <label htmlFor={`${ids}-email`}>Work email</label>
+                    </div>
+                    <div className="float-field">
+                      <input
+                        id={`${ids}-password`}
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        placeholder=" "
+                        aria-describedby={error ? `${ids}-error` : undefined}
+                        value={password}
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                        }}
+                      />
+                      <label htmlFor={`${ids}-password`}>Password</label>
+                      <button
+                        type="button"
+                        className="field-eye"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
+                        onClick={() => {
+                          setShowPassword((now) => !now);
+                        }}
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                    {error && (
+                      <p id={`${ids}-error`} className="field-error" role="alert">
+                        {error}
+                      </p>
+                    )}
+                    <p className="signin-meta">
+                      <span>Forgot password?</span>
+                    </p>
+                    {go("Sign in")}
+                  </>
                 )}
-                <p className="signin-meta">
-                  <span>Forgot password?</span>
-                </p>
-                <button type="submit" className={`go${state}`} disabled={busy}>
-                  {done ? (
-                    <span className="go-state">
-                      <span className="go-tick">
-                        <Check size={12} strokeWidth={1.75} nonScalingStroke aria-hidden="true" />
-                      </span>
-                      Welcome back
-                    </span>
-                  ) : busy ? (
-                    <span className="go-state">
-                      <span className="go-spin" aria-hidden="true" />
-                      Signing you in
-                    </span>
-                  ) : (
-                    <span className="go-label">
-                      <span>Sign in</span>
-                      <span className="go-knob" aria-hidden="true">
-                        <ArrowRight size={16} strokeWidth={1.75} />
-                      </span>
-                    </span>
-                  )}
-                </button>
               </form>
-              {LOCAL_SIGN_IN && chosen && (
+              {LOCAL_SIGN_IN && !challenge && chosen && (
                 <fieldset className="accounts" disabled={busy}>
                   <legend>
                     Test accounts <span className="tag-demo">Demo</span>
                   </legend>
-                  {ACCOUNTS.map((option) => (
+                  {accounts.map((option) => (
                     <label key={option.account} className="account">
                       <input
                         type="radio"
@@ -265,7 +333,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
                     type="button"
                     className="button secondary wide"
                     onClick={() => {
-                      void attempt(() => api.testSignIn(chosen.account));
+                      void attempt(() => api.testSignIn(chosen.account), chosen.account);
                     }}
                   >
                     Continue as {chosen.name.split(" ")[0]}

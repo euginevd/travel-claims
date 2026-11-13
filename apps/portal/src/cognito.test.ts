@@ -1,5 +1,5 @@
 import { ApiError, createApi } from "./api";
-import { cognitoConfig, cognitoSignIn } from "./cognito";
+import { cognitoConfig, cognitoSignIn } from "@undercover/web-core/cognito";
 
 const CONFIG = { clientId: "client-1", region: "ap-southeast-2" };
 
@@ -46,4 +46,12 @@ test("an account that must change its password says so", async () => {
 test("without a client in the build, sign-in stays local", () => {
   expect(cognitoConfig({ VITE_COGNITO_REGION: "ap-southeast-2" } as ImportMetaEnv)).toBeNull();
   expect(cognitoConfig({} as ImportMetaEnv)).toBeNull();
+});
+
+test("a second sign-in step is refused clearly: the customer pool asks for none", async () => {
+  const { fetchFn } = answering(200, { ChallengeName: "SOFTWARE_TOKEN_MFA", Session: "s-1" });
+  const api = createApi(fetchFn, () => null, CONFIG);
+  await expect(api.signIn("a@b.example", "pw")).rejects.toEqual(
+    new ApiError(403, "This account needs a sign-in step the portal doesn't offer."),
+  );
 });

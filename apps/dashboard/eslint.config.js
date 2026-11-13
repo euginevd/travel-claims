@@ -6,7 +6,18 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["dist", "coverage"] },
+  {
+    // The shared package is linted with each app that uses it, by this app's rules.
+    ignores: [
+      "dist",
+      "coverage",
+      "!node_modules/",
+      "node_modules/*",
+      "!node_modules/@undercover/",
+      "node_modules/@undercover/*",
+      "!node_modules/@undercover/web-core/",
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   jsxA11y.flatConfigs.strict,

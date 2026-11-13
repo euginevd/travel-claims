@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Api, ClaimSummary, Handler } from "../api";
 import { DispatchCard } from "../components/DispatchCard";
 import { StatusChip } from "../components/StatusChip";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { date, dollars, words } from "../format";
 import { claimHref } from "../useHashRoute";
 

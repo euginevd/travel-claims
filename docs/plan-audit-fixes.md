@@ -31,13 +31,13 @@ Fixes from the end-to-end audit of 13 Nov 2026, with no new features. The api, a
 - [x] A budget alert in the bootstrap; KMS tagging grants removed; troubleshoot role protected; costly AI creates denied; teardown matches only this project's buckets
 - [x] Lock files for `agent` and `web`
 - [x] The `quality` workflow: evaluation floors and the red team, by hand on `dev`
-- [ ] Playwright in CI
+- [x] Playwright in CI: sign-in, tokens refused across audiences, axe on each main page
 
 ### 4. Web apps
 
-- [ ] Shared code in one package; staff sign-in handles MFA challenges; panel and dialog focus; focus ring contrast; draft and New-chat races; captions
+- [x] Shared code in `packages/web-core`; staff sign-in handles MFA challenges; panel and dialog focus; focus ring contrast; draft and New-chat races; captions on the walkthrough
 
 ## Ask first
 
 - The bootstrap gains a budget (free) and a required `BudgetEmail` parameter: the user updates the stack.
-- Left for the user: the CLI user's MFA (changes how the developer signs in), sending the raw receipt image when Textract can't read it (decision 48), server-side Ask history, and checking the agent's thread on decisions and payments (a contract change between the api and the agent).
+- Left for the user: the CLI user's MFA (changes how the developer signs in), sending the raw receipt image when Textract can't read it (decision 48), server-side Ask history, checking the agent's thread on decisions and payments (a contract change between the api and the agent), and turning Cognito MFA on for the staff and engineering pools (the apps now handle it, but there's no screen to add an authenticator yet, and `ON` would stop the demo's test accounts signing in).

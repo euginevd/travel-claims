@@ -1,10 +1,11 @@
+import { ErrorBoundary } from "@undercover/web-core/ErrorBoundary";
+import { guarded } from "@undercover/web-core/guarded";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, createApi, type Api, type Cover, type Customer } from "./api";
 import { Home } from "./chat/Home";
 import { lastSeen, markSeen } from "./chat/messages";
 import { useRecords } from "./chat/records";
 import { SidePanel, type PanelTarget } from "./chat/SidePanel";
-import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
 import { SignInPage } from "./pages/SignInPage";
 import { loadToken, saveToken } from "./session";
@@ -18,24 +19,7 @@ interface AppProps {
 
 const defaultFetch: Fetch = (input, init) => fetch(input, init);
 
-// A rejected token (expired, or the api restarted with new keys) signs the customer out.
-function guarded(api: Api, signOut: () => void): Api {
-  const wrapped = {} as Record<string, unknown>;
-  for (const [name, call] of Object.entries(api) as [string, (...args: unknown[]) => unknown][]) {
-    wrapped[name] =
-      name === "signIn"
-        ? call
-        : async (...args: unknown[]) => {
-            try {
-              return await call(...args);
-            } catch (error) {
-              if (error instanceof ApiError && error.status === 401) signOut();
-              throw error;
-            }
-          };
-  }
-  return wrapped as unknown as Api;
-}
+const unauthorised = (error: unknown) => error instanceof ApiError && error.status === 401;
 
 export function App({ fetchFn = defaultFetch }: AppProps) {
   const [token, setToken] = useState<string | null>(loadToken);
@@ -51,7 +35,7 @@ export function App({ fetchFn = defaultFetch }: AppProps) {
   }, []);
 
   const api: Api = useMemo(
-    () => guarded(createApi(fetchFn, loadToken), signOut),
+    () => guarded(createApi(fetchFn, loadToken), signOut, unauthorised),
     [fetchFn, signOut],
   );
 
@@ -187,6 +171,7 @@ function Portal({
         <Header
           name={customer.name}
           unread={unread}
+          open={panel?.view ?? null}
           onHome={() => {
             setPanel(null);
             setHomeTick((value) => value + 1);
@@ -203,7 +188,7 @@ function Portal({
         />
       </div>
       <main id="main" tabIndex={-1} className="portal-main" inert={panel !== null}>
-        <ErrorBoundary>
+        <ErrorBoundary wayBack={<a href={HOME_HREF}>start again</a>}>
           <Home
             key={restart}
             onNewChat={() => {

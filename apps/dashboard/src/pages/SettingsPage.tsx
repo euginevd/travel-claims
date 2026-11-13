@@ -12,7 +12,7 @@ import {
   type SettingValues,
 } from "../api";
 import { dollars, when, words } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 type Kind = "money" | "percent" | "whole";
 

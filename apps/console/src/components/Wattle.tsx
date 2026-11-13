@@ -1,5 +1,6 @@
 import { ArrowLeft, Plus, Send, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEscape } from "@undercover/web-core/useEscape";
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from "react";
 
 /** Wattle AI's mark: a wattle sprig with coral blossoms on ink, the same in every UnderCover
     app. The blossoms swell in turn only while Wattle is working. */
@@ -46,9 +47,27 @@ export function WattleMark({ size = 20, working = false }: { size?: number; work
 }
 
 /** The header button that opens Wattle AI. */
-export function WattleButton({ onClick }: { onClick: () => void }) {
+export const WATTLE_PANEL_ID = "wattle-panel";
+
+export function WattleButton({
+  onClick,
+  open,
+  ref,
+}: {
+  onClick: () => void;
+  open: boolean;
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
-    <button type="button" className="wattle-pill" aria-label="Ask Wattle AI" onClick={onClick}>
+    <button
+      ref={ref}
+      type="button"
+      className="wattle-pill"
+      aria-label="Ask Wattle AI"
+      aria-expanded={open}
+      aria-controls={WATTLE_PANEL_ID}
+      onClick={onClick}
+    >
       <WattleMark size={20} />
       <span className="wattle-pill-label">Ask Wattle</span>
       <span className="wattle-ai-tag">AI</span>
@@ -159,16 +178,17 @@ export function WattlePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const field = useRef<HTMLInputElement>(null);
+  // Bumped by New conversation, so an answer still on its way lands nowhere.
+  const generation = useRef(0);
 
+  useEscape(panel, onClose);
+
+  // Opening the panel puts focus in its question field, ready to ask.
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
+    field.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (typeof end.current?.scrollIntoView === "function") {
@@ -184,18 +204,33 @@ export function WattlePanel({
     setText("");
     setBusy(true);
     setError(null);
+    const asked = generation.current;
     try {
       const answer = await ask(trimmed, history);
+      if (asked !== generation.current) return;
       setMessages((now) => [...now, { role: "assistant", text: answer.answer, answer }]);
     } catch (caught) {
+      if (asked !== generation.current) return;
       setError(caught instanceof Error ? caught.message : "Wattle AI is not available.");
     } finally {
-      setBusy(false);
+      if (asked === generation.current) setBusy(false);
     }
   }
 
+  function startOver() {
+    generation.current += 1;
+    setMessages([]);
+    setError(null);
+    setBusy(false);
+  }
+
   return (
-    <aside className="wattle-panel" aria-labelledby={`${id}-title`}>
+    <aside
+      className="wattle-panel"
+      aria-labelledby={`${id}-title`}
+      id={WATTLE_PANEL_ID}
+      ref={panel}
+    >
       <header className="wattle-head">
         <h2 id={`${id}-title`}>
           <WattleMark size={22} working={busy} /> Ask Wattle AI
@@ -204,10 +239,7 @@ export function WattlePanel({
           type="button"
           className="wattle-icon"
           aria-label="New conversation"
-          onClick={() => {
-            setMessages([]);
-            setError(null);
-          }}
+          onClick={startOver}
         >
           <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -309,6 +341,7 @@ export function WattlePanel({
           Your question
         </label>
         <input
+          ref={field}
           id={`${id}-q`}
           placeholder={placeholder ?? "Ask anything…"}
           maxLength={500}

@@ -13,7 +13,7 @@ import type { Api, Trace } from "../api";
 import { Sparkline } from "../components/Charts";
 import { dollars, when } from "../format";
 import { modelName, timeline, unscopedCalls, type Entry } from "../traceTimeline";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 
 const OUTCOMES = {
   approve: "Approved",

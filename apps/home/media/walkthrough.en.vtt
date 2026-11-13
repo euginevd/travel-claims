@@ -1,0 +1,82 @@
+WEBVTT
+
+NOTE
+The walkthrough has no sound: these are the captions shown on screen, with their timings.
+
+00:00:00.000 --> 00:00:04.000
+UnderCover: AI agents for travel insurance claims, end to end
+
+00:00:04.000 --> 00:00:09.000
+First, the customer's side
+
+00:00:09.000 --> 00:00:12.000
+1 · Customer portal
+
+00:00:12.000 --> 00:00:26.000
+Wattle answers from the customer's own policy and cites its sources
+
+00:00:26.000 --> 00:00:42.000
+Making a claim: a receipt is enough
+
+00:00:42.000 --> 00:00:51.000
+Wattle reads the receipt and drafts the claim
+
+00:00:51.000 --> 00:01:02.000
+The customer checks the draft, fixes anything wrong, and sends it
+
+00:01:02.000 --> 00:01:05.000
+Sent. The customer can follow it from here
+
+00:01:07.000 --> 00:01:09.000
+Next, the claims team
+
+00:01:09.000 --> 00:01:12.000
+2 · Handlers' dashboard
+
+00:01:12.000 --> 00:01:17.000
+A handler sends the claim agents to work the waiting claims
+
+00:01:17.000 --> 00:01:26.000
+The agent screens the claim for hidden instructions, then checks the policy and the documents
+
+00:01:26.000 --> 00:01:36.000
+Its recommendation, with its reasons and the sources it relied on
+
+00:01:36.000 --> 00:01:42.000
+It spots the same receipt on an earlier claim, and refers this one to a person
+
+00:01:42.000 --> 00:01:47.000
+Larger payouts always wait for a person
+
+00:01:47.000 --> 00:02:00.000
+Wattle briefs the handler on any claim, with the handler's own access
+
+00:02:00.000 --> 00:02:04.000
+Larger payouts always wait for a person
+
+00:02:04.000 --> 00:02:09.000
+A senior handler signs off, and the customer is paid
+
+00:02:10.000 --> 00:02:13.000
+Last, the engineers who keep the AI honest
+
+00:02:13.000 --> 00:02:16.000
+3 · AI assurance console
+
+00:02:16.000 --> 00:02:19.000
+Every version of the agent is scored against claims experts' decisions
+
+00:02:19.000 --> 00:02:29.000
+An improver agent proposes changes. Nothing ships until an engineer approves
+
+00:02:29.000 --> 00:02:39.000
+A red team attacks the agent with fraud and hidden instructions
+
+00:02:39.000 --> 00:02:48.000
+Each OWASP risk is mapped to a control and the attacks that test it
+
+00:02:48.000 --> 00:02:59.000
+And every decision is traced: each step, model call and cent
+
+00:03:02.000 --> 00:03:06.000
+UnderCover: customers, claims experts and AI engineers, one system

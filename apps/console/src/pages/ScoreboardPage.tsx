@@ -15,7 +15,7 @@ import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
 import { rangeText, wilson } from "../stats";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { IMPROVEMENT_HREF, runHref } from "../useHashRoute";
 
 const POLL_MS = 3000;
