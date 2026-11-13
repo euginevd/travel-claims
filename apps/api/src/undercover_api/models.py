@@ -50,8 +50,18 @@ class DecisionKind(StrEnum):
     REFER = "refer"
 
 
+# "guardian" and "output_check" are the api's own notes on a trace (guardian.py, output_guard.py).
 StepKind = Literal[
-    "screening", "tool_call", "tool_result", "message", "lookup", "refusal", "error", "sent_back"
+    "screening",
+    "tool_call",
+    "tool_result",
+    "message",
+    "lookup",
+    "refusal",
+    "error",
+    "sent_back",
+    "guardian",
+    "output_check",
 ]
 Benefit = Literal[
     "trip_cancellation",
@@ -543,6 +553,12 @@ class PaymentRequest(Strict):
 
 class HoldRequest(Strict):
     reason: Text
+
+
+class SignOffRequest(Strict):
+    """The payout the senior handler saw when they pressed sign off."""
+
+    expected_payout: Dollars = Field(ge=0, le=1_000_000)
 
 
 class OverrideRequest(Strict):

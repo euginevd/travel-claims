@@ -132,6 +132,7 @@ class FakeClaude:
         self.flagged = flagged
         self.turns_taken = 0
         self.screened: list[list[Json]] = []
+        self.consulted_content: list[list[Json]] = []
         self.first_messages: list[Json] = []
         self.consulted: list[str] = []
         self.systems: list[tuple[str, str | None, str | None]] = []
@@ -145,6 +146,7 @@ class FakeClaude:
         self, kind: SpecialistKind, content: list[Json]
     ) -> tuple[SpecialistReview | None, Call]:
         self.consulted.append(kind)
+        self.consulted_content.append(content)
         finding = Finding(
             check="Receipt matches the story", result="pass", detail="", source="Receipt 1"
         )

@@ -4,6 +4,7 @@ documents, nothing from a claim the hidden-instruction check referred, and nothi
 evaluation. The claim history in the records still counts for repeat claims."""
 
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Protocol, cast
@@ -98,25 +99,33 @@ def namespace_of(customer_id: str) -> str:
     return f"{NAMESPACE}/{customer_id}/"
 
 
+# Sections as people cite them: "Policy wording 10", "Claims manual section 14.2",
+# "Policy wording, sections 5 and 10". Numbers and the two documents' names only.
+SECTION = re.compile(
+    r"(?:policy wording|claims manual),?(?: sections?)? "
+    r"\d+(?:\.\d+)*(?:(?:, | and )\d+(?:\.\d+)*)*",
+    re.IGNORECASE,
+)
+
+
 def uses_memory(claim: Json) -> bool:
     """Whether memory applies to a claim: never to an evaluation's copies."""
     return not claim.get("evaluation")
 
 
 def memory_of(claim: Json) -> str:
-    """What to remember of a decided claim: its decision, payout, the sections it rests on and
-    its checklist's labels and results. Never the model's free-text reason, which can quote the
-    customer."""
+    """What to remember of a decided claim: its decision, payout, the section numbers it rests
+    on and how many checks passed and failed. Never free text the model wrote (the reason, a
+    check's label), which can carry the customer's words into a later claim."""
     decision: Json = claim.get("decision") or {}
     outcome = str(decision.get("decision", "undecided"))
     payout = float(decision.get("payout") or 0)
     amount = f" ${payout:,.2f}" if outcome == "approve" else ""
-    checks = [
-        f"{str(check.get('label', ''))[:80]}: {check.get('result', '')}"
-        for check in cast(list[Json], decision.get("checklist") or [])
-    ]
+    results = [str(c.get("result", "")) for c in cast(list[Json], decision.get("checklist") or [])]
+    counts = [f"{results.count(r)} {r}" for r in ("pass", "warn", "fail") if r in results]
+    sections = SECTION.findall(str(decision.get("section", "")))
     return (
         f"{claim.get('claim_id')} ({claim.get('claim_type')}): {outcome}{amount}. "
-        f"Sections: {str(decision.get('section', ''))[:200]}. "
-        f"Checks: {'; '.join(checks) or 'none recorded'}."
+        f"Sections: {', '.join(sections[:6]) or 'none recorded'}. "
+        f"Checks: {', '.join(counts) or 'none recorded'}."
     )

@@ -568,3 +568,21 @@ test("each agent's days and the weeks show, an unusual day marked", async () => 
     await screen.findByText(/No live claims decided in the last eight weeks/),
   ).toBeInTheDocument();
 });
+
+test("the bell says it can't read the alerts rather than that there are none", async () => {
+  const user = userEvent.setup();
+  const failing = fakeFetch({ "GET /api/engineering/alerts": () => [500, { detail: "down" }] });
+  render(<AlertBell api={createApi(failing, () => "t")} />);
+  await user.click(await screen.findByRole("button", { name: "Alerts unavailable" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Couldn't read the alerts");
+  expect(screen.queryByText("Nothing needs you now.")).toBeNull();
+});
+
+test("the audit page says when the seals couldn't be checked", async () => {
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/audit": () => [200, []],
+    "GET /api/engineering/audit/chain": () => [500, { detail: "down" }],
+  });
+  render(<AuditPage api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't check the seals");
+});

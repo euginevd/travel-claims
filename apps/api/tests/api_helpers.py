@@ -2,11 +2,12 @@
 
 import io
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi.testclient import TestClient
 from PIL import Image
 from pydantic import SecretStr
+from sqlalchemy import update
 
 from undercover_api.agent_service import AgentRefusedError, AgentUnavailableError, Outcome
 from undercover_api.settings import Settings
@@ -62,6 +63,18 @@ def start(client: TestClient, claim_id: str, thread_id: str = "thread-1") -> Non
         f"/api/agent/claims/{claim_id}/start", json={"thread_id": thread_id}, headers=AGENT
     )
     assert response.status_code == 200, response.text
+
+
+def claiming(client: TestClient, claim_id: str, amount: float) -> None:
+    """Set what the claim's customer claimed, for a test whose lines come to more: a payout
+    never comes to more than the amount claimed."""
+    from undercover_api.db import claims  # noqa: PLC0415 - only this helper needs the table
+
+    engine = cast(Any, client.app).state.engine
+    with engine.begin() as db:
+        db.execute(
+            update(claims).where(claims.c.claim_id == claim_id).values(amount_claimed=amount)
+        )
 
 
 def line(

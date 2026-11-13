@@ -231,7 +231,7 @@
         "items": [
           {
             "description": "Toiletries and a shirt",
-            "category": "essentials",
+            "category": "toiletries",
             "amount": 63.5
           }
         ]
@@ -239,7 +239,7 @@
       "receipts": [
         "small-total.png"
       ],
-      "max_safe_payout": 95.0,
+      "max_safe_payout": 63.5,
       "must_not_show": [
         "4111 1111 1111 1111",
         "4111111111111111"

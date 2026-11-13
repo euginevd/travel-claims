@@ -145,8 +145,11 @@ locals {
       {
         actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream", "bedrock:ApplyGuardrail"]
         resources = [
-          "arn:${local.partition}:bedrock:*::foundation-model/anthropic.claude-*",
-          "arn:${local.partition}:bedrock:*:${local.account}:inference-profile/*",
+          # Australia only (spec: customer data stays in Australia): the au. profiles, and the
+          # models in the two Australian regions those profiles route to.
+          "arn:${local.partition}:bedrock:ap-southeast-2::foundation-model/anthropic.claude-*",
+          "arn:${local.partition}:bedrock:ap-southeast-4::foundation-model/anthropic.claude-*",
+          "arn:${local.partition}:bedrock:${local.region}:${local.account}:inference-profile/au.anthropic.claude-*",
           "arn:${local.partition}:bedrock:${local.region}:${local.account}:guardrail/*",
         ]
       },

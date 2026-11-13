@@ -2,24 +2,37 @@ import { useCallback, useEffect, useState } from "react";
 import type { Api, Handler, PayoutSwitch } from "../api";
 import { ReasonCard } from "./ReasonCard";
 
-/** The payouts switch as the api reports it, loaded once a person is signed in. */
-export function usePayouts(api: Api, enabled: boolean) {
+// How often the header asks again: another senior handler may pause payouts at any time.
+export const PAYOUTS_POLL_MS = 15000;
+
+/** The payouts switch as the api reports it, followed while a person is signed in. */
+export function usePayouts(api: Api, enabled: boolean, pollMs = PAYOUTS_POLL_MS) {
   const [state, setState] = useState<PayoutSwitch | null>(null);
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    api.getPayouts().then(
-      (value) => {
-        if (live) setState(value);
-      },
-      () => {
-        // The status is advisory; the api refuses payments whatever the page shows.
-      },
-    );
+    let timer: number | undefined;
+    const load = () => {
+      api
+        .getPayouts()
+        .then(
+          (value) => {
+            if (live) setState(value);
+          },
+          () => {
+            // The status is advisory; the api refuses payments whatever the page shows.
+          },
+        )
+        .finally(() => {
+          if (live) timer = window.setTimeout(load, pollMs);
+        });
+    };
+    load();
     return () => {
       live = false;
+      window.clearTimeout(timer);
     };
-  }, [api, enabled]);
+  }, [api, enabled, pollMs]);
   return { state, setState };
 }
 
@@ -76,25 +89,35 @@ export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing
   const close = useCallback(() => {
     onEditing(false);
   }, [onEditing]);
+  // What the handler asked for when the card opened: pause (true) or resume. The status keeps
+  // polling under the open card, so the card never reads it: another senior handler pausing
+  // first would turn "Pause all payouts" into "Resume" under a reason written for pausing.
+  const [target, setTarget] = useState<boolean | null>(null);
+  if (editing && target === null && state) setTarget(!state.paused);
+  if (!editing && target !== null) setTarget(null);
+  const done = editing && target !== null && state?.paused === target;
+  useEffect(() => {
+    // Someone else already made the change: nothing left to confirm.
+    if (done) onEditing(false);
+  }, [done, onEditing]);
   if (!state) return null;
   const senior = handler.can_approve_over_limit;
   if (!state.paused && !senior) return null;
+  const pause = target ?? !state.paused;
 
-  const form = editing && (
+  const form = editing && !done && (
     <ReasonCard
-      title={state.paused ? "Resume payouts?" : "Pause all payouts?"}
+      title={pause ? "Pause all payouts?" : "Resume payouts?"}
       detail={
-        state.paused
-          ? "Held approvals can then be signed off and paid."
-          : "The agent keeps deciding, but nothing is paid until payouts are back on."
+        pause
+          ? "The agent keeps deciding, but nothing is paid until payouts are back on."
+          : "Held approvals can then be signed off and paid."
       }
-      example={
-        state.paused ? "e.g. Checks done, safe to pay" : "e.g. Checking a run of odd approvals"
-      }
-      confirm={state.paused ? "Resume payouts" : "Pause all payouts"}
+      example={pause ? "e.g. Checking a run of odd approvals" : "e.g. Checks done, safe to pay"}
+      confirm={pause ? "Pause all payouts" : "Resume payouts"}
       failed="Couldn't change payouts. Try again."
       onConfirm={async (reason) => {
-        onState(await api.setPayouts(!state.paused, reason));
+        onState(await api.setPayouts(pause, reason));
         close();
       }}
       onClose={close}

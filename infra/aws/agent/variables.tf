@@ -19,12 +19,22 @@ variable "sonnet_model" {
   description = "A Bedrock model or inference profile ID for Claude Sonnet; found in the region when empty"
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.sonnet_model == "" || startswith(var.sonnet_model, "au.anthropic.") || startswith(var.sonnet_model, "anthropic.")
+    error_message = "Use an Australian inference profile (au.anthropic...) or an in-region model ID: a global or apac profile sends claim text overseas."
+  }
 }
 
 variable "haiku_model" {
   description = "A Bedrock model or inference profile ID for Claude Haiku; found in the region when empty"
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.haiku_model == "" || startswith(var.haiku_model, "au.anthropic.") || startswith(var.haiku_model, "anthropic.")
+    error_message = "Use an Australian inference profile (au.anthropic...) or an in-region model ID: a global or apac profile sends claim text overseas."
+  }
 }
 
 

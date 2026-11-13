@@ -14,7 +14,7 @@ Who the business is, unnumbered so the spec's numbers stay put. It changes only 
 - Plans: Economy, Premium and First. A small claims team works the queue by hand.
 - Regulators and laws: APRA (CPS 234 information security, CPS 230 operational risk), ASIC, the Privacy Act (including the automated decision-making rules from 10 December 2026) and the Notifiable Data Breaches scheme.
 - Data: customer data stays in Australia.
-- Risk appetite: low for customer data and payments. Changes ship to `dev`, the only environment while the profile is `prototype` (decision 28).
+- Risk appetite: low for customer data and payments. Changes ship to `dev`, the only environment while the profile is `prototype` (decision 31).
 - Systems: the policy and claims records are the system of record; payments are simulated; handlers sign in with Amazon Cognito (a stand-in locally).
 - People: the head of claims operations owns the claims rules and the approval limit; data governance owns the context layer; the security team approves new data flows.
 - Tone: plain, friendly English; no insurance jargon.
@@ -34,7 +34,7 @@ One design, on AWS (decision 37); Docker only tests it locally.
 
 ## Apps
 
-6. `portal` (customers), `dashboard` (handlers) and `console` (the AI control plane for AI and security engineers): React, Vite and TypeScript, each with its own sign-in, token issuer and audience (decisions 10, 12). `home`: a static local project page.
+6. `portal` (customers), `dashboard` (handlers) and `console` (the AI control plane for AI and security engineers): React, Vite and TypeScript, each with its own sign-in, token issuer and audience (decisions 10, 12). `home`: a static project page.
 7. `api` (claims, decisions, payments, notices; Python, FastAPI, PostgreSQL), `agent` (claim agent, hidden-instruction check, specialists, dispatcher, improver, judge, drafting assistant, red team; LangGraph), `copilot` (handlers' chat agent) and `context` (an MCP server over the policy wording, claims manual and reference data).
 8. Models: Claude Sonnet for the claim agent; Claude Haiku for the hidden-instruction check, specialists, judge and drafting assistant; one module per app chooses the Anthropic API or Bedrock.
 9. Locally: PostgreSQL and receipts in Docker, a sign-in stand-in issuing Cognito-shaped tokens, and a stand-in flight-status feed.

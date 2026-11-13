@@ -49,6 +49,8 @@ export const STEP_LABELS: Record<StepKind, string> = {
   refusal: "Refused",
   error: "Something went wrong",
   sent_back: "Handler's note",
+  guardian: "Guardian",
+  output_check: "Output guard",
 };
 
 /** A file size as people read it: kilobytes, or megabytes from 1 MB. */

@@ -15,8 +15,8 @@ resource "aws_dsql_cluster" "records" {
 
 # The agent's checkpoints (LangGraph DynamoDBSaver's schema), compressed and expired after a week.
 resource "aws_dynamodb_table" "checkpoints" {
-  #checkov:skip=CKV_AWS_119: an AWS-owned key is enough for made-up data; a customer key is in decision 30
-  #checkov:skip=CKV_AWS_28: point-in-time recovery costs and the data is made up; on before real data (decision 30)
+  #checkov:skip=CKV_AWS_119: an AWS-owned key is enough for made-up data; a customer key is a setting (decision 45)
+  #checkov:skip=CKV_AWS_28: point-in-time recovery costs and the data is made up; on before real data
   name         = "${local.prefix}-checkpoints"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
@@ -49,8 +49,8 @@ resource "aws_dynamodb_table" "checkpoints" {
 
 # The Copilot's conversations and each handler's notes, found by handler through by_handler.
 resource "aws_dynamodb_table" "copilot" {
-  #checkov:skip=CKV_AWS_119: an AWS-owned key is enough for made-up data; a customer key is in decision 30
-  #checkov:skip=CKV_AWS_28: point-in-time recovery costs and the data is made up; on before real data (decision 30)
+  #checkov:skip=CKV_AWS_119: an AWS-owned key is enough for made-up data; a customer key is a setting (decision 45)
+  #checkov:skip=CKV_AWS_28: point-in-time recovery costs and the data is made up; on before real data
   name         = "${local.prefix}-copilot"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"

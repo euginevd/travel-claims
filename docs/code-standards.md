@@ -29,7 +29,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 ## Terraform
 
 13. One root per unit in `infra/aws/<unit>/`, copied from an existing unit: `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf` and the lock file. Pin Terraform and providers; never commit state.
-14. No hardcoded IDs, regions, ARNs, project names or environments. Name resources `${var.project}-<unit>-<what>-${var.environment}`, give every IAM role the `${var.project}-boundary` boundary, and tag through `default_tags`.
+14. No hardcoded IDs, regions, ARNs, project names or environments. Name resources `${var.project}-${var.environment}-<what>` (buckets `${var.project}-<what>-${var.environment}-<account>`), give every IAM role the `${var.project}-boundary` boundary, and tag through `default_tags`.
 
 ## Languages
 
@@ -41,7 +41,7 @@ How to write the code, numbered so reviews can cite them. `AGENTS.md` covers wha
 17. The model decides; deterministic code acts. Limits, payments and permissions are enforced in code, never in a prompt.
 18. Model output and uploaded content are untrusted: keep content apart from instructions, ask for structured output, and validate it against a schema.
 19. Every model call uses an explicit model ID (never "latest"), a timeout, a token limit and a retry cap.
-20. Prompts and model settings live in the repo; changing them is a code change. Evals run in CI against a held-out answer set the agent never sees, plus a red-team set in `data/redteam/`: prompt-injection attacks, each with its OWASP ID. A case passes only when no action goes beyond what the input honestly supports.
+20. Prompts and model settings live in the repo; changing them is a code change. Evals run by hand through the `quality` workflow against the evaluation set (trade-off 10), with a held-out answer set the agent never sees kept for improvement rounds, plus a red-team set in `data/redteam/`: prompt-injection attacks, each with its OWASP ID. A case passes only when no action goes beyond what the input honestly supports.
 21. Instructions give the goal, the inputs and what done looks like, not the steps.
 
 ## Containers

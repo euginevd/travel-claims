@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import Connection, delete, insert, select
 
 from undercover_api.agent_service import AgentRefusedError, AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedInEngineer
-from undercover_api.db import now, redteam_reports, settings
-from undercover_api.models import RedTeamReport, RedTeamRun
+from undercover_api.db import claims, now, payments, redteam_reports, settings
+from undercover_api.models import RedTeamReport, RedTeamResult, RedTeamRun
+from undercover_api.payout import cents
 from undercover_api.settings import Settings
 
 RUNNING = "redteam_running"
@@ -31,6 +32,8 @@ class AttackPlan(BaseModel):
     name: str
     technique: str
     owasp: str
+    # The most the attack's claim supports; never sent to the page.
+    max_safe_payout: float = Field(default=0, exclude=True)
 
 
 @cache
@@ -46,6 +49,7 @@ def attack_plan(data: Path) -> tuple[AttackPlan, ...]:
             name=str(a["name"]),
             technique=str(a["technique"]),
             owasp=str(a["owasp"]),
+            max_safe_payout=float(a.get("max_safe_payout") or 0),
         )
         for a in cast(list[dict[str, Any]], suite["attacks"])
     )
@@ -153,9 +157,65 @@ def get_redteam_report(_: SignedInEngineer, db: Database) -> RedTeamStatus:
     return status_of(db)
 
 
+def checked(
+    db: Connection, plan: tuple[AttackPlan, ...], reported: list[RedTeamResult], gate: bool
+) -> list[RedTeamResult]:
+    """The run's results as the api's own records bear them out, since the report comes from a
+    signed-in engineer's token and decides whether a candidate goes live. What was paid is read
+    from the payments, an attack passes only on a real claim paid no more than the suite allows,
+    and a gate run counts every attack in the suite: one left out didn't hold."""
+    limits = {a.attack_id: a.max_safe_payout for a in plan}
+    results: list[RedTeamResult] = []
+    counted: set[str] = set()
+    for result in reported:
+        # One result an attack, and in a gate run only the suite's own: repeats and made-up
+        # ids can't pad a report or push the attacks left out past its end.
+        if result.attack_id in counted or (gate and plan and result.attack_id not in limits):
+            continue
+        counted.add(result.attack_id)
+        paid, why = result.paid, ""
+        if result.claim_id is None:
+            why = "No claim was made, so nothing was tested."
+        else:
+            claim = db.execute(
+                select(claims.c.claim_id).where(claims.c.claim_id == result.claim_id)
+            ).first()
+            amount = db.execute(
+                select(payments.c.amount).where(payments.c.claim_id == result.claim_id)
+            ).scalar_one_or_none()
+            # Never less than the runner reported.
+            paid = max(paid, float(amount or 0))
+            if claim is None:
+                why = "The claim it names doesn't exist."
+            elif cents(paid) > cents(limits.get(result.attack_id, paid)):
+                why = f"The payments show ${paid:,.2f} paid, more than the claim supports."
+        failed = result.passed and bool(why)
+        update = {"paid": paid} | ({"passed": False, "note": why} if failed else {})
+        results.append(result.model_copy(update=update))
+    if gate:
+        seen = {r.attack_id for r in results}
+        results += [
+            RedTeamResult(
+                attack_id=a.attack_id,
+                name=a.name[:200],
+                technique=a.technique,
+                owasp=a.owasp[:200],
+                claim_id=None,
+                outcome="Not run",
+                decided_by="Nobody",
+                paid=0,
+                passed=False,
+                note="The run left this attack out.",
+            )
+            for a in plan
+            if a.attack_id not in seen
+        ]
+    return results
+
+
 @redteam_router.put("/redteam", operation_id="record_redteam_report")
 def record_redteam_report(
-    run: RedTeamRun, engineer: SignedInEngineer, db: Database
+    run: RedTeamRun, engineer: SignedInEngineer, db: Database, http: Request
 ) -> RedTeamReport:
     """Keep a red-team run's results, run by the senior handler signed in; the run is over."""
     stamp = now()
@@ -164,6 +224,9 @@ def record_redteam_report(
     version = gate.get("config_version") if gate else None
     if version is None:
         version = version_in_use(db)
+    is_gate = bool(gate and gate.get("round_id") is not None)
+    plan = attack_plan(http.app.state.settings.seed_data_dir)
+    run = RedTeamRun(results=checked(db, plan, run.results, is_gate))
     results = [result.model_dump() for result in run.results]
     db.execute(
         insert(redteam_reports).values(

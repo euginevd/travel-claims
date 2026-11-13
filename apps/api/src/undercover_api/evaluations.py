@@ -444,6 +444,10 @@ def create_run(  # noqa: PLR0913 - which claims to copy is the one extra choice
 ) -> tuple[int, list[str]]:
     """A new run with its copies, waiting for the dispatcher: of the labelled set, or of the
     claims given (a shadow run's live claims)."""
+    from undercover_api.dispatches import stop_stale  # noqa: PLC0415 - dispatches imports this
+
+    # One the agent never finished mustn't block every run after it.
+    stop_stale(db)
     if db.execute(select(dispatches.c.dispatch_id).where(dispatches.c.status == "running")).first():
         raise HTTPException(
             409, "A dispatch of the queue is running. Start the run when it finishes"

@@ -6,7 +6,7 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 
 1. Claude tokens are the only cost: 2 to 4 cents a claim, about a cent a Copilot question.
 2. The judge grades on Claude Haiku, about $0.002 a claim ($0.05 for 25). A dispatch of the seeded queue is about $0.50 to $1.
-3. Limits: each improvement round's spending limit ($0.50 to $10, in Settings), 25 model calls per Copilot turn, and the Anthropic Console's spend limit on the key.
+3. Limits: each improvement round's spending limit ($0.50 to $10, in Settings), 25 model calls per claim attempt and 12 per Copilot turn, and the Anthropic Console's spend limit on the key.
 4. Similar claims, success criteria, the Live page and feedback are worked out in code and cost nothing.
 
 ## On AWS
@@ -34,4 +34,5 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 6. The platform team pays for its shared controls, so they aren't in this bill: Firewall Manager, Shield Advanced, GuardDuty, Security Hub, Config, CloudTrail, KMS keys, backups, Transaction Search and Control Tower.
 7. Each PR that changes `infra/aws/` gets an Infracost comment. It warns above `MONTHLY_COST_LIMIT` but excludes usage such as tokens and data transfer.
 
-Audit seals (S3 with Object Lock, decision 60): a few kilobytes a day; well under $0.01 a month.
+8. Audit seals (S3 with Object Lock, decision 60): a few kilobytes a day; well under $0.01 a month.
+9. The agent switch left on holds one AgentCore Runtime session open around the clock while it watches the queue, on top of each claim worked. Not yet measured: check Cost Explorer after a day with it on (rule 19), and switch it off after a demo.

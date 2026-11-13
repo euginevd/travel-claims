@@ -5,7 +5,7 @@ spot check of claims the agent paid on its own."""
 import random
 from collections import Counter
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -124,9 +124,18 @@ def referral_causes(rows: list[dict[str, Any]]) -> Insight | None:
     )
 
 
+def disagreed(override: Any) -> bool:
+    """Whether a handler changed the agent's decision: deciding a claim the agent referred to a
+    person is the handler's job, not a disagreement."""
+    if not isinstance(override, dict):
+        return False
+    before = cast(dict[str, Any], override).get("previous_decision")
+    return before != "refer"
+
+
 def handler_changes(rows: list[dict[str, Any]]) -> Insight | None:
     """The claim type where handlers most often changed the agent's decision."""
-    changed = [r for r in rows if isinstance(r["override"], dict)]
+    changed = [r for r in rows if disagreed(r["override"])]
     if not changed:
         return None
     kind, count = Counter(r["claim_type"] for r in changed).most_common(1)[0]
@@ -157,7 +166,7 @@ def handler_changes(rows: list[dict[str, Any]]) -> Insight | None:
 def agreement(rows: list[dict[str, Any]]) -> Insight | None:
     if not rows:
         return None
-    kept = sum(1 for r in rows if not isinstance(r["override"], dict))
+    kept = sum(1 for r in rows if not disagreed(r["override"]))
     return Insight(
         headline=f"Handlers kept {kept} of the agent's last {len(rows)} decisions.",
         detail="A handler changed the rest.",

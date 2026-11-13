@@ -27,4 +27,4 @@ The guardrails in DevSecOps stage order. This project is a prototype throughout 
 | 21 | Operate | Budget alert | AWS Budgets | Both | Done: in the bootstrap, when `BudgetEmail` is set (decision 54) |
 | 22 | Monitor | Access logs, throttling | API Gateway, CloudWatch | Both | Partly: function logs in CloudWatch; no throttling on the function URLs |
 | 23 | Monitor | Audit logging | CloudTrail | Both | Open: the account's default event history only |
-| 24 | Monitor | Threat detection, alarms | GuardDuty, CloudWatch alarms | Production | Open |
+| 24 | Monitor | Threat detection, alarms | GuardDuty, CloudWatch alarms | Production | Partly: error and throttle alarms per function, emailed (monitoring unit); GuardDuty findings are the platform's |

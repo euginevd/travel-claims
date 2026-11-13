@@ -5,6 +5,8 @@ Payments are unchanged: code pays an approval under the limit and the kill switc
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -83,8 +85,45 @@ def waiting_claims(db: Connection) -> list[str]:
     )
 
 
+# A dispatch that hasn't reported back by then, with none of its claims still being worked, has
+# lost its agent (a restart, a failed call): it's stopped, so it can't block every later one.
+STALE_AFTER = timedelta(minutes=30)
+
+
+def stop_stale(db: Connection) -> None:
+    """Stop a running dispatch that started long ago and has no claim in progress."""
+    cutoff = (datetime.now(UTC) - STALE_AFTER).isoformat(timespec="seconds")
+    for row in db.execute(
+        select(dispatches.c.dispatch_id, dispatches.c.claim_ids).where(
+            dispatches.c.status == RUNNING, dispatches.c.started_at < cutoff
+        )
+    ).mappings():
+        ids = [str(i) for i in cast(list[object], row["claim_ids"] or [])]
+        working = (
+            ids
+            and db.execute(
+                select(claims.c.claim_id).where(
+                    claims.c.claim_id.in_(ids), claims.c.status == Status.IN_PROGRESS
+                )
+            ).first()
+        )
+        if not working:
+            db.execute(
+                update(dispatches)
+                .where(
+                    dispatches.c.dispatch_id == row["dispatch_id"], dispatches.c.status == RUNNING
+                )
+                .values(
+                    status="stopped",
+                    finished_at=now(),
+                    stopped_reason="The agent never reported back",
+                )
+            )
+
+
 def something_running(db: Connection) -> str | None:
     """What's already going, if anything: one dispatch or evaluation run at a time."""
+    stop_stale(db)
     if db.execute(select(dispatches.c.dispatch_id).where(dispatches.c.status == RUNNING)).first():
         return "A dispatch is already running"
     if db.execute(select(runs.c.run_id).where(runs.c.status == RUNNING)).first():

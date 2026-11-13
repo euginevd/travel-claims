@@ -9,6 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi import Path as FastPath
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
@@ -80,6 +81,12 @@ STATUS_TEXT = {
     "with_a_handler": "A claims handler is looking at your claim and will be in touch.",
 }
 REFERRED_REASON = "A claims handler will look at your claim personally and contact you."
+# A handler's own decline: the agent's reason was written for another outcome (and a referral's
+# may quote the hidden-instruction check), and the handler's note is for staff.
+HANDLER_DECLINED = (
+    "A claims handler reviewed your claim and decided we can't pay it. "
+    "They'll write to you with the reasons."
+)
 APPROVED_IN_FULL = "Your policy covers this, so we paid what you claimed."
 APPROVED_IN_PART = (
     "Your policy covers this. We paid ${paid:,.2f} of the ${claimed:,.2f} you claimed: the rest "
@@ -181,6 +188,8 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
     reason = None
     if decision is not None:
         reason = customer_reason(decision.decision, decision.reason, decision.payout, summary)
+        if decision.override is not None and decision.decision == DecisionKind.DECLINE:
+            reason = HANDLER_DECLINED
     found = list_receipts(db, row["claim_id"])
     sent_for_requests = request_files(db, row["claim_id"])
     general = [r for r in found if r.receipt_id not in sent_for_requests]
@@ -604,7 +613,8 @@ async def draft_claim(  # noqa: PLR0913, PLR0917 - the form's fields
         "receipts": sent,
     }
     try:
-        answer = service.draft(request)
+        # The agent call blocks for up to a minute: off the event loop, so other requests go on.
+        answer = await run_in_threadpool(service.draft, request)
     except AgentUnavailableError as error:
         log.warning("a draft failed: %s", error)
         raise HTTPException(503, "The assistant isn't available; fill it in yourself") from error

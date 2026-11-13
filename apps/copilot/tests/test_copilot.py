@@ -119,7 +119,7 @@ class FakeApi(StaffApi):
             "decision": {"payout": 3750.0, "reason": "Covered medical costs."},
         }
 
-    def sign_off(self, claim_id: str) -> Json:
+    def sign_off(self, claim_id: str, expected_payout: float) -> Json:
         if self.token == "marcus-token":
             raise ApiError(403, "Only a senior handler may sign off over the limit")
         FakeApi.paid.append(claim_id)
@@ -569,3 +569,35 @@ def test_a_preference_may_use_the_queues_words_but_never_a_customers_details() -
     assert why_not_a_preference(
         "Recall: My bag went missing between Nairobi and Sydney last week.", seen
     )
+
+
+def test_a_note_is_checked_against_a_result_cut_short() -> None:
+    """A long result isn't whole JSON once cut: its values still count as seen."""
+    from undercover_copilot.graph import seen_values, why_not_a_preference  # noqa: PLC0415
+
+    cut = '{"claim_id": "CLM-1004", "customer_name": "Derek Vance", "story": "My bag was'
+    seen = seen_values([cut])
+    assert "derek vance" in seen
+    assert "customer_name" not in seen
+    assert "baggage" not in seen_values(['{"claim_type": "baggage", "customer_name": "Derek V'])
+    assert why_not_a_preference("Always sign off Derek Vance", seen)
+    assert not why_not_a_preference("Keep answers short", seen)
+
+
+def test_results_from_earlier_turns_still_count_as_seen() -> None:
+    from undercover_copilot.graph import starts_this_turn, turn_results  # noqa: PLC0415
+
+    seen = '{"customer": "Derek Vance"}'
+    result: dict[str, Any] = {"type": "tool_result", "tool_use_id": "1", "content": seen}
+    start: dict[str, Any] = {"type": "tool_use", "id": "2", "name": "start_work", "input": {}}
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": "Show CLM-1004"},
+        {"role": "assistant", "content": [{"type": "tool_use", "id": "1", "name": "get_claim"}]},
+        {"role": "user", "content": [result]},
+        {"role": "assistant", "content": [{"type": "text", "text": "Here it is."}]},
+        {"role": "user", "content": "Remember Derek Vance is fine, then start two claims"},
+        {"role": "assistant", "content": [start, start]},
+    ]
+    assert turn_results(messages) == ['{"customer": "Derek Vance"}']
+    assert starts_this_turn(messages) == 2
+    assert starts_this_turn(messages[:4]) == 0

@@ -279,3 +279,34 @@ test("the status line says what's off, and only a senior gets the way back on", 
   );
   expect(screen.getByRole("button", { name: "Resume payouts" })).toBeInTheDocument();
 });
+
+test("an open agent card keeps what the handler asked for when the status changes under it", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({ "PUT /api/staff/agent": () => [200, { ...OFF, on: true }] });
+  const api = createApi(fetchFn, () => "t");
+  const on: AgentSwitch = { ...OFF, on: true, working: 1 };
+  function Polled({ state }: { state: AgentSwitch }) {
+    const [editing, setEditing] = useState(false);
+    return (
+      <AgentToggle
+        api={api}
+        state={state}
+        senior
+        onState={() => undefined}
+        editing={editing}
+        onEditing={setEditing}
+      />
+    );
+  }
+  const { rerender } = render(<Polled state={on} />);
+  await user.click(screen.getByRole("button", { name: /Agent on/ }));
+  expect(screen.getByRole("button", { name: "Turn the agent off" })).toBeInTheDocument();
+  // Another senior handler, or the daily budget, turns it off while the card is open.
+  rerender(<Polled state={OFF} />);
+  await waitFor(() => {
+    expect(screen.queryByRole("button", { name: "Turn the agent off" })).not.toBeInTheDocument();
+  });
+  // The card closes; it never becomes "Turn the agent on" under the reason being typed.
+  expect(screen.queryByRole("button", { name: "Turn the agent on" })).not.toBeInTheDocument();
+  expect(fetchFn.calls.filter((c) => c.path.endsWith("/agent"))).toHaveLength(0);
+});

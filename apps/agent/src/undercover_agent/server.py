@@ -193,9 +193,13 @@ def letter_content(request: LetterRequest) -> str:
         if request.decision == "approve"
         else "declined"
     )
+    # The customer's own words, on one line and with no marker of their own, so they can't
+    # pass for a line of these facts or close the marker early.
+    summary = " ".join(request.summary.replace("<", "(").split())
     return (
         f"Customer's first name: {request.first_name}\n"
-        f"Claim {request.claim_id}: {request.summary}\n"
+        f"Claim {request.claim_id}: <customer_summary>{summary}"
+        "</customer_summary>\n"
         f"Decision: {outcome}\n"
         f"Policy sections relied on: {request.section}\n"
         # nosemgrep: raw-html-format - markers around data for the model, not HTML

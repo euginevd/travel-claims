@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ReasonCard } from "./ReasonCard";
 import type { AgentSwitch, Api } from "../api";
 
-// While the agent is on, the header and Today follow it every few seconds.
+// While the agent is on, the header and Today follow it every few seconds; while it's off, or
+// after a failed read, less often, so another handler's change or the budget's still shows.
 export const AGENT_POLL_MS = 4000;
+const IDLE_POLLS = 4;
 
 /** The agent switch as the api reports it, followed while someone is signed in. */
 export function useAgent(api: Api, enabled: boolean, pollMs = AGENT_POLL_MS) {
@@ -21,10 +23,13 @@ export function useAgent(api: Api, enabled: boolean, pollMs = AGENT_POLL_MS) {
         (value) => {
           if (!live) return;
           setState(value);
-          if (value.on || value.working > 0) timer = window.setTimeout(load, pollMs);
+          const busy = value.on || value.working > 0;
+          timer = window.setTimeout(load, busy ? pollMs : pollMs * IDLE_POLLS);
         },
         () => {
-          // Advisory: the api decides what the agent may do whatever the page shows.
+          // Advisory: the api decides what the agent may do whatever the page shows. One failed
+          // read mustn't freeze the status, so it's asked again.
+          if (live) timer = window.setTimeout(load, pollMs * IDLE_POLLS);
         },
       );
     };
@@ -48,10 +53,24 @@ interface AgentToggleProps {
 
 /** The agent on or off for the live queue: a senior handler's switch, everyone else's status. */
 export function AgentToggle({ api, state, senior, onState, editing, onEditing }: AgentToggleProps) {
+  // What the handler asked for when the card opened. The status keeps polling under the open
+  // card, so the card never reads "on or off" from it: a change by someone else would turn
+  // "Turn the agent off" into "on" under the handler's reason.
+  const [target, setTarget] = useState<boolean | null>(null);
   const close = useCallback(() => {
     onEditing(false);
   }, [onEditing]);
+  // Taken when the card opens, however it was opened (the header, the status line, Today), and
+  // let go when it closes, so the next opening starts from the status as it then is.
+  if (editing && target === null && state) setTarget(!state.on);
+  if (!editing && target !== null) setTarget(null);
+  const done = editing && target !== null && state?.on === target;
+  useEffect(() => {
+    // Someone else, or the daily budget, already made the change: nothing left to confirm.
+    if (done) onEditing(false);
+  }, [done, onEditing]);
   if (!state) return null;
+  const turnOn = target ?? !state.on;
   const working = state.working > 0;
   const content = (
     <>
@@ -87,19 +106,19 @@ export function AgentToggle({ api, state, senior, onState, editing, onEditing }:
       >
         {content}
       </button>
-      {editing && (
+      {editing && !done && (
         <ReasonCard
-          title={state.on ? "Turn the agent off?" : "Turn the agent on?"}
+          title={turnOn ? "Turn the agent on?" : "Turn the agent off?"}
           detail={
-            state.on
-              ? "Claims it's working finish; nothing new starts until it's back on."
-              : "It works every waiting claim, a few at once, and each new one as it comes in. Payouts over the limit still wait for a sign-off."
+            turnOn
+              ? "It works every waiting claim, a few at once, and each new one as it comes in. Payouts over the limit still wait for a sign-off."
+              : "Claims it's working finish; nothing new starts until it's back on."
           }
-          example={state.on ? "e.g. Odd decisions on trip delays" : "e.g. Starting the demo"}
-          confirm={state.on ? "Turn the agent off" : "Turn the agent on"}
+          example={turnOn ? "e.g. Starting the demo" : "e.g. Odd decisions on trip delays"}
+          confirm={turnOn ? "Turn the agent on" : "Turn the agent off"}
           failed="Couldn't change the agent. Try again."
           onConfirm={async (reason) => {
-            onState(await api.setAgent({ on: !state.on, reason }));
+            onState(await api.setAgent({ on: turnOn, reason }));
             close();
           }}
           onClose={close}

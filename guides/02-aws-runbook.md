@@ -2,7 +2,7 @@
 
 The AWS build from nothing to running in `dev`, the only environment (decision 31), and back: about 1.5 hours to deploy, 45 minutes to tear down. What it builds and why: [the AWS architecture](03-aws-architecture.md).
 
-**Cost:** up to about $10 a month idle with the default settings; the recommended ones add about $165 to $220 a month, mostly the private network. About $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
+**Cost:** about $1 to $2 a month idle with the default settings ([costs](../docs/costs.md)); the recommended ones add about $165 to $220 a month, mostly the private network. About $3 to $6 a day in use, mostly AgentCore Runtime ([findings 7](01-findings.md)); $0 after tear down.
 
 ## How it fits together
 

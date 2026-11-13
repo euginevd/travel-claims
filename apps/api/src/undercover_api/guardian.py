@@ -58,6 +58,12 @@ def concern_of(db: Connection, claim_id: str, request: DecisionRequest) -> str |
 def held_by(db: Connection, claim_id: str, request: DecisionRequest) -> str | None:
     """Why an approval under the limit is held for a sign-off: the guardian's concern, which it
     notes on the claim's trace, or paused payouts; None when it can be paid."""
+    return noted_concern(db, claim_id, request) or (PAUSED_REASON if payouts_paused(db) else None)
+
+
+def noted_concern(db: Connection, claim_id: str, request: DecisionRequest) -> str | None:
+    """The guardian's concern about an approval, noted on the claim's trace, or None. Asked for
+    an approval over the limit too, so the senior handler signing it off sees the concern."""
     concern = concern_of(db, claim_id, request)
     if concern is not None:
         db.execute(
@@ -70,7 +76,7 @@ def held_by(db: Connection, claim_id: str, request: DecisionRequest) -> str | No
             )
         )
         return f"The guardian held it: the agent {concern}"
-    return PAUSED_REASON if payouts_paused(db) else None
+    return None
 
 
 def hold(db: Connection, claim_id: str, reason: str) -> None:

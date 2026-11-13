@@ -50,3 +50,24 @@ def test_a_dispatch_the_agent_wont_take_is_stopped_with_why(
     latest = client.get("/api/staff/dispatches/latest", headers=dana).json()["dispatch"]
     assert latest["status"] == "stopped"
     assert "isn't answering" in latest["stopped_reason"]
+
+
+def test_a_dispatch_that_never_reports_back_stops_blocking_the_next(
+    client: TestClient, dana: dict[str, str]
+) -> None:
+    """The agent restarts mid-dispatch and never calls finish: once it's long past and none of
+    its claims is being worked, the next dispatch is let through."""
+    from typing import Any, cast  # noqa: PLC0415
+
+    from sqlalchemy import update  # noqa: PLC0415
+
+    from undercover_api.db import dispatches  # noqa: PLC0415
+
+    first = start(client, dana).json()
+    assert start(client, dana).status_code == 409
+    engine = cast(Any, client.app).state.engine
+    with engine.begin() as db:
+        db.execute(update(dispatches).values(started_at="2026-01-01T00:00:00+00:00"))
+    again = start(client, dana)
+    assert again.status_code == 201, again.text
+    assert again.json()["dispatch_id"] != first["dispatch_id"]
