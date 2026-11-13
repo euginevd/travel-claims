@@ -854,10 +854,12 @@ class SavedDraft(BaseModel):
 
 
 class LetterDraft(BaseModel):
-    """A decision letter the assistant drafted, for the handler to edit and send."""
+    """A decision letter the assistant drafted, for the handler to edit and send, and anything it
+    wants the handler to check first, kept out of the letter."""
 
     subject: str
     body: str
+    note: str = ""
 
 
 class SendLetter(Strict):

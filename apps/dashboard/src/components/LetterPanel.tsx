@@ -18,6 +18,7 @@ export function LetterPanel({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [byAi, setByAi] = useState(false);
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"draft" | "send" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
@@ -29,6 +30,7 @@ export function LetterPanel({
       const found = await api.draftLetter(claim.claim_id);
       setSubject(found.subject);
       setBody(found.body);
+      setNote(found.note);
       setByAi(true);
       setWriting(true);
     } catch (caught) {
@@ -95,6 +97,7 @@ export function LetterPanel({
             disabled={busy !== null}
             onClick={() => {
               setByAi(false);
+              setNote("");
               setWriting(true);
             }}
           >
@@ -114,6 +117,11 @@ export function LetterPanel({
             <p className="muted small">
               <Sparkle size={12} strokeWidth={1.75} aria-hidden="true" /> Drafted with AI: check it
               before you send it.
+            </p>
+          )}
+          {byAi && note && (
+            <p className="letter-note" role="note">
+              <strong>Check before sending:</strong> {note}
             </p>
           )}
           <label htmlFor={`${id}-subject`}>Subject</label>

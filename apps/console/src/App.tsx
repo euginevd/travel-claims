@@ -14,7 +14,7 @@ import { PosturePage } from "./pages/PosturePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { AuditPage } from "./pages/AuditPage";
-import { BudgetsPage } from "./pages/BudgetsPage";
+import { CostPage } from "./pages/CostPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { VersionPage } from "./pages/VersionPage";
 import { RunPage } from "./pages/RunPage";
@@ -198,8 +198,8 @@ const NAV: NavSection[] = [
   {
     label: "Govern",
     links: [
+      { href: BUDGETS_HREF, label: "Cost" },
       { href: IMPROVEMENT_HREF, label: "Versions" },
-      { href: BUDGETS_HREF, label: "Budgets" },
       { href: AUDIT_HREF, label: "Audit log" },
     ],
   },
@@ -242,7 +242,7 @@ function page(route: Route, api: Api, name: string) {
     case "audit":
       return <AuditPage api={api} />;
     case "budgets":
-      return <BudgetsPage api={api} />;
+      return <CostPage api={api} />;
     case "version":
       return <VersionPage key={route.version} api={api} version={route.version} />;
     case "run":

@@ -14,6 +14,7 @@ import { RangeBar, VersionChart } from "../components/Charts";
 import { ExamGrowth } from "../components/ExamGrowth";
 import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
+import { Widget } from "../components/Widget";
 import { when } from "../format";
 import { rangeText, wilson } from "../stats";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
@@ -109,31 +110,6 @@ function targetOf(criteria: SuccessCriteria | null, key: string): number | undef
   return criteria?.criteria.find((c) => c.key === key)?.target ?? undefined;
 }
 
-/** One measure of the exam: the score, its likely range and its target, drawn on one track. */
-function MeasureRow({
-  label,
-  value,
-  claims,
-  target,
-}: {
-  label: string;
-  value: number;
-  claims: number;
-  target?: number;
-}) {
-  const range = wilson(value, claims);
-  return (
-    <div className="measure-row">
-      <dt>{label}</dt>
-      <dd>
-        <strong>{percent(value)}</strong>
-        <span className="muted small"> likely {rangeText(range)}</span>
-        <RangeBar value={value} range={range} target={target} />
-      </dd>
-    </div>
-  );
-}
-
 /** The version in use's latest exam, measure by measure with how sure each score is, beside
  * every version's exam score. */
 function ExamPanel({
@@ -163,76 +139,98 @@ function ExamPanel({
     );
   }
   const s = exam.scores;
+  const measure = (value: number, target?: number) => {
+    const range = wilson(value, s.claims);
+    return {
+      value: percent(value),
+      sub: `likely ${rangeText(range)}${target === undefined ? "" : ` · target ${percent(target)}`}`,
+      chart: <RangeBar value={value} range={range} target={target} />,
+    };
+  };
+  const right = measure(s.accuracy, accuracyTarget);
+  const amount = measure(s.payout_accuracy);
+  const alone = measure(s.straight_through, targetOf(criteria, "straight_through"));
   return (
-    <div className="panel score-hero">
-      <div>
-        <div className="panel-head">
-          <h2>
-            v{exam.config_version}&apos;s exam
-            {exam.config_version === version && <span className="tag">In use</span>}
-          </h2>
-          <p className="panel-note">
-            <a href={runHref(exam.run_id)}>Run {exam.run_id}</a> · {s.claims} held-out claims ·{" "}
-            {when(exam.started_at)}
-          </p>
-        </div>
-        <dl className="measure-list">
-          <MeasureRow
-            label="Right decision"
-            value={s.accuracy}
-            claims={s.claims}
-            target={accuracyTarget}
-          />
-          <MeasureRow label="Right amount" value={s.payout_accuracy} claims={s.claims} />
-          <MeasureRow
-            label="Decided without a person"
-            value={s.straight_through}
-            claims={s.claims}
-            target={targetOf(criteria, "straight_through")}
-          />
-          <div className="measure-row">
-            <dt>Explanation matches the handler&apos;s</dt>
-            <dd>
-              <strong>{gradeOf(s)}</strong>
-              <span className="muted small"> the judge&apos;s grade, 3 is the same reasons</span>
-            </dd>
-          </div>
-          <div className="measure-row">
-            <dt>Cost per claim</dt>
-            <dd>
-              <strong>{cost(s.cost_per_claim)}</strong>
-              <span className="muted small"> {s.seconds_per_claim.toFixed(0)} s a claim</span>
-            </dd>
-          </div>
-        </dl>
-        <p className="small muted">
-          The shaded band is where the true score likely sits: {s.claims} claims can&apos;t pin it
-          down closer. A tick marks the target.
+    <section className="panel exam-panel" aria-labelledby="exam-heading">
+      <div className="panel-head">
+        <h2 id="exam-heading">
+          Version #{exam.config_version}&apos;s exam
+          {exam.config_version === version && <span className="tag">In use</span>}
+        </h2>
+        <p className="panel-note">
+          <a href={runHref(exam.run_id)}>Run {exam.run_id}</a> · {s.claims} held-out claims ·{" "}
+          {when(exam.started_at)}
         </p>
       </div>
-      <div>
-        <h3 className="live-sub">Right decision by version</h3>
-        <VersionChart
-          points={exams.map((run) => ({
-            name: `v${String(run.config_version)}`,
-            value: run.scores.accuracy,
-            range: wilson(run.scores.accuracy, run.scores.claims),
-          }))}
-          target={accuracyTarget}
-          label={`Each version's latest exam, right decision, oldest first: ${exams
-            .map(
-              (run) =>
-                `v${String(run.config_version)} ${percent(run.scores.accuracy)} (likely ${rangeText(wilson(run.scores.accuracy, run.scores.claims))}, ${String(run.scores.claims)} claims)`,
-            )
-            .join(", ")}`}
-        />
-        <p className="small muted">
-          The dashed line is the target
-          {accuracyTarget === undefined ? "" : ` (${percent(accuracyTarget)})`}. Whiskers that
-          overlap mean the versions can&apos;t be told apart on their exams.
-        </p>
+      <ul className="widgets exam-widgets" aria-label="The exam's measures">
+        <li>
+          <Widget label="Right decision" value={right.value} sub={right.sub}>
+            {right.chart}
+          </Widget>
+        </li>
+        <li>
+          <Widget label="Right amount" value={amount.value} sub={amount.sub}>
+            {amount.chart}
+          </Widget>
+        </li>
+        <li>
+          <Widget label="Decided without a person" value={alone.value} sub={alone.sub}>
+            {alone.chart}
+          </Widget>
+        </li>
+        <li>
+          <Widget
+            label="Reasons match the handler's"
+            value={gradeOf(s)}
+            sub="The judge's grade; 3 is the same reasons"
+          />
+        </li>
+        <li>
+          <Widget
+            label="Cost a claim"
+            value={cost(s.cost_per_claim)}
+            sub={`${s.seconds_per_claim.toFixed(0)} s a claim`}
+          />
+        </li>
+      </ul>
+      <p className="small muted">
+        The shaded band is where the true score likely sits: {s.claims} claims can&apos;t pin it
+        down closer. A tick marks the target.
+      </p>
+    </section>
+  );
+}
+
+/** Each version's latest exam on one chart: whether a change made it better. */
+function ByVersion({ runs, criteria }: { runs: Run[]; criteria: SuccessCriteria | null }) {
+  const exams = examsByVersion(runs);
+  if (exams.length === 0) return null;
+  const accuracyTarget = targetOf(criteria, "accuracy");
+  return (
+    <section className="panel" aria-labelledby="by-version-heading">
+      <div className="panel-head">
+        <h2 id="by-version-heading">Right decision by version</h2>
       </div>
-    </div>
+      <VersionChart
+        points={exams.map((run) => ({
+          name: `v${String(run.config_version)}`,
+          value: run.scores.accuracy,
+          range: wilson(run.scores.accuracy, run.scores.claims),
+        }))}
+        target={accuracyTarget}
+        label={`Each version's latest exam, right decision, oldest first: ${exams
+          .map(
+            (run) =>
+              `v${String(run.config_version)} ${percent(run.scores.accuracy)} (likely ${rangeText(wilson(run.scores.accuracy, run.scores.claims))}, ${String(run.scores.claims)} claims)`,
+          )
+          .join(", ")}`}
+      />
+      <p className="small muted">
+        The dashed line is the target
+        {accuracyTarget === undefined ? "" : ` (${percent(accuracyTarget)})`}. Whiskers that
+        overlap mean the versions can&apos;t be told apart on their exams.
+      </p>
+    </section>
   );
 }
 
@@ -886,16 +884,18 @@ export function ScoreboardPage({ api }: { api: Api }) {
         </div>
       </header>
       {runs && <ExamPanel runs={runs} version={version} criteria={criteria} />}
-      <ExamGrowth api={api} />
-      <SuccessCard
-        api={api}
-        found={criteria}
-        error={criteriaError}
-        onRetry={() => {
-          setCriteriaError(null);
-          setCriteriaAttempt((value) => value + 1);
-        }}
-      />
+      <div className="pair wide-first">
+        <SuccessCard
+          api={api}
+          found={criteria}
+          error={criteriaError}
+          onRetry={() => {
+            setCriteriaError(null);
+            setCriteriaAttempt((value) => value + 1);
+          }}
+        />
+        {runs && <ByVersion runs={runs} criteria={criteria} />}
+      </div>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -916,7 +916,10 @@ export function ScoreboardPage({ api }: { api: Api }) {
           <Compare api={api} runs={runs} />
         </div>
       )}
-      <StartRun api={api} onStarted={refresh} />
+      <div className="pair">
+        <ExamGrowth api={api} />
+        <StartRun api={api} onStarted={refresh} />
+      </div>
       {runs?.length === 0 && (
         <div className="panel empty">
           <span className="icon-tile">

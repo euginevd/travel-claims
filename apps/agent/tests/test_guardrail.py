@@ -275,11 +275,11 @@ def claude_writing(parsed: object, letters: StubOutput) -> Any:
 def test_a_letter_the_guardrail_holds_back_is_not_returned() -> None:
     from undercover_agent.models import Letter  # noqa: PLC0415
 
-    letter = Letter(subject="Your claim", body="Dear Maya, card 4111 1111 1111 1111.")
+    letter = Letter(subject="Your claim", paragraphs=["Card 4111 1111 1111 1111."])
     held = StubOutput(blocked=True)
     found, call = claude_writing(letter, held).letter("facts")
     assert found is None
-    assert held.seen == [("Your claim\n\nDear Maya, card 4111 1111 1111 1111.", "", "")]
+    assert held.seen == [("Your claim\n\nCard 4111 1111 1111 1111.", "", "")]
     assert call.cost > 0
     passed, _ = claude_writing(letter, StubOutput(blocked=False)).letter("facts")
     assert passed == letter

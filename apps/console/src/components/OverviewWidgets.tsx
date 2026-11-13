@@ -16,6 +16,7 @@ import {
   versionHref,
 } from "../useHashRoute";
 import { Meter, Sparkline } from "./Charts";
+import { Widget } from "./Widget";
 
 /** Load once (or every `every` ms), quietly: null until it answers, null if it fails. */
 function useQuiet<T>(load: () => Promise<T>, every?: number): T | null {
@@ -42,29 +43,6 @@ function useQuiet<T>(load: () => Promise<T>, every?: number): T | null {
 
 const pct = (share: number | null | undefined) =>
   share === null || share === undefined ? "—" : `${String(Math.round(share * 100))}%`;
-
-function Widget({
-  label,
-  value,
-  sub,
-  href,
-  children,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  href: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <a className="widget" href={href}>
-      <span className="widget-label">{label}</span>
-      <span className="widget-value">{value}</span>
-      <span className="widget-chart">{children}</span>
-      <span className="widget-sub">{sub}</span>
-    </a>
-  );
-}
 
 /** Four figures across: work, quality, spend and guardrails, each with its trend or meter. */
 export function KpiRow({ api }: { api: Api }) {

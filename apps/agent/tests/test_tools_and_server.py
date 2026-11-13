@@ -96,9 +96,18 @@ class StubDrafter:
 
     def letter(self, content: str) -> tuple[Letter | None, Call]:
         self.letters.append(content)
-        return Letter(subject="Your claim", body="Dear Maya, ..."), Call(
-            "claude-haiku-5-5", 8, 4, 0.0
+        # Shaped as a model sometimes writes it: its own greeting, markdown, the sign-off run
+        # into the last paragraph, and a note for the handler.
+        found = Letter(
+            subject="**Your claim**",
+            paragraphs=[
+                "Hi Maya,\n\nWe've approved your claim.",
+                "We'll pay   $420.00 to your PayID. With regards to timing, allow a day. "
+                "Warm regards, The UnderCover claims team",
+            ],
+            note_for_handler="Check the amount.",
         )
+        return found, Call("claude-haiku-5-5", 8, 4, 0.0)
 
 
 DRAFT_REQUEST = {
@@ -167,7 +176,13 @@ def test_a_letter_is_drafted_from_the_decision_with_its_reason_as_data() -> None
     with TestClient(create_app(StubRunner, lambda: KEY, lambda: drafter)) as http:
         assert http.post("/letter", json=body).status_code == 401
         response = http.post("/letter", json=body, headers={"X-API-Key": KEY})
-    assert response.json() == {"subject": "Your claim", "body": "Dear Maya, ..."}
+    assert response.json() == {
+        "subject": "Your claim",
+        "body": "Dear Maya,\n\nWe've approved your claim.\n\n"
+        "We'll pay $420.00 to your PayID. With regards to timing, allow a day.\n\n"
+        "Kind regards,\nThe UnderCover claims team",
+        "note": "Check the amount.",
+    }
     assert "<reason>" in drafter.letters[0]
     assert "$420.00 to their PayID" in drafter.letters[0]
 

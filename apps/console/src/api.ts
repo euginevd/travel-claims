@@ -631,6 +631,31 @@ export const BudgetSchema = z.object({
 });
 export type Budget = z.infer<typeof BudgetSchema>;
 
+export const CostsSchema = z.object({
+  days: z.array(
+    z.object({
+      day: z.string(),
+      live: z.number(),
+      redteam: z.number(),
+      evaluation: z.number(),
+      assistants: z.number(),
+      total: z.number(),
+    }),
+  ),
+  by_source: z.array(
+    z.object({ key: z.string(), label: z.string(), calls: z.number(), cost: z.number() }),
+  ),
+  period_total: z.number(),
+  today: z.number(),
+  month_to_date: z.number(),
+  projected_month: z.number(),
+  cost_per_claim: z.number().nullable(),
+  dearest: z.array(
+    z.object({ claim_id: z.string(), kind: z.string(), calls: z.number(), cost: z.number() }),
+  ),
+});
+export type Costs = z.infer<typeof CostsSchema>;
+
 export const AlertSchema = z.object({
   severity: z.enum(["high", "medium"]),
   text: z.string(),
@@ -771,6 +796,7 @@ export interface Api {
   getAttacks: () => Promise<AttackPlan[]>;
   listTraces: () => Promise<TraceRow[]>;
   getBudget: () => Promise<Budget>;
+  getCosts: (days: number) => Promise<Costs>;
   setBudget: (limit: number, reason: string) => Promise<Budget>;
   getAlerts: () => Promise<Alert[]>;
   getTrends: () => Promise<Trends>;
@@ -916,6 +942,7 @@ export function createApi(
     getAttacks: () => call(z.array(AttackPlanSchema), "GET", "/redteam/attacks"),
     listTraces: () => call(z.array(TraceRowSchema), "GET", "/traces"),
     getBudget: () => call(BudgetSchema, "GET", "/budget"),
+    getCosts: (days) => call(CostsSchema, "GET", `/costs?days=${String(days)}`),
     setBudget: (limit, reason) => call(BudgetSchema, "PUT", "/budget", { body: { limit, reason } }),
     getAlerts: () => call(z.array(AlertSchema), "GET", "/alerts"),
     getTrends: () => call(TrendsSchema, "GET", "/trends"),

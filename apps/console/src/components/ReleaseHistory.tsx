@@ -2,8 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Api, VersionCard } from "../api";
 import { when } from "../format";
 import { wilson } from "../stats";
-import { runHref, versionHref } from "../useHashRoute";
+import { REDTEAM_HREF, SCOREBOARD_HREF, runHref, versionHref } from "../useHashRoute";
 import { RangeBar } from "./Charts";
+import { Widget } from "./Widget";
 
 /** The industry's labels for a version (Langfuse's "production", MLflow's "champion"), in plain
  * words: the one in use, the one being tested against it, and the rest by what became of them. */
@@ -54,6 +55,82 @@ function Evidence({ card }: { card: VersionCard }) {
         {card.red_team ?? "No red-team run"}
       </span>
     </p>
+  );
+}
+
+/** What needs doing about the version in use, as four squares: which it is, its exam, its
+ * red-team run, and the proposals waiting for a person. Amber where something's to do. */
+export function VersionWidgets({ api, waiting }: { api: Api; waiting: number }) {
+  const [cards, setCards] = useState<VersionCard[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.getVersions().then(
+      (found) => {
+        if (live) setCards(found);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api]);
+  const current = cards?.find((card) => card.in_use);
+  if (!current) return null;
+  const exam = current.exam;
+  const attacks = current.red_team ? /\d+ of \d+/.exec(current.red_team)?.[0] : undefined;
+  return (
+    <ul className="widgets version-widgets" aria-label="The version in use">
+      <li>
+        <Widget
+          label="In use"
+          value={`#${String(current.version)}`}
+          sub={current.title}
+          href={versionHref(current.version)}
+          tone="good"
+        />
+      </li>
+      <li>
+        <Widget
+          label="Its exam"
+          value={exam ? pct(exam.accuracy) : "Not yet"}
+          sub={
+            exam
+              ? `Right on ${String(exam.claims)} claims it never saw the answers to`
+              : "Start an improvement round to examine it"
+          }
+          href={SCOREBOARD_HREF}
+          tone={exam ? undefined : "warn"}
+        >
+          {exam && (
+            <RangeBar
+              value={exam.accuracy}
+              range={exam.claims > 0 ? wilson(exam.accuracy, exam.claims) : null}
+            />
+          )}
+        </Widget>
+      </li>
+      <li>
+        <Widget
+          label="Attacks stopped"
+          value={attacks ?? (current.red_team ? "Run" : "Not run")}
+          sub={current.red_team ?? "Run the red team against this version"}
+          href={REDTEAM_HREF}
+          tone={current.red_team ? undefined : "warn"}
+        />
+      </li>
+      <li>
+        <Widget
+          label="Waiting for you"
+          value={String(waiting)}
+          sub={
+            waiting === 0
+              ? "No proposal to review"
+              : `${waiting === 1 ? "A proposal" : "Proposals"} to approve or reject, below`
+          }
+          tone={waiting > 0 ? "warn" : undefined}
+        />
+      </li>
+    </ul>
   );
 }
 
@@ -109,8 +186,8 @@ export function ReleaseHistory({ api, children }: { api: Api; children?: ReactNo
     const label = labelOf(card);
     return (
       <li key={card.version} className={card.in_use ? "release is-live" : "release"}>
-        <span className={label.chip}>{label.text}</span>
         <div className="release-body">
+          <span className={label.chip}>{label.text}</span>
           <p className="release-title">
             <a href={versionHref(card.version)}>
               <span className="release-number">#{card.version}</span> {card.title}

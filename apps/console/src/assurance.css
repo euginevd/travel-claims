@@ -907,33 +907,38 @@ pre.diff {
 
 /* ---------- Versions: the release history ---------- */
 
+/* The releases as cards, newest first: square-ish, side by side, not full-width rows. */
 .release-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .release {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.release-body {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: start;
-  padding: 14px 0;
-  border-top: 1px solid var(--line-2);
+  gap: 4px;
+  justify-items: start;
 }
 
-.release-list > .release:first-child {
-  border-top: 0;
-}
-
-.release > .chip {
-  justify-self: start;
-  margin-top: 2px;
+.release-body > .chip {
+  margin-bottom: 4px;
 }
 
 .release.is-live {
-  margin: 0 -20px;
-  padding: 14px 20px;
+  border-color: #cfe3c6;
   background: #f6faf3;
 }
 
@@ -988,18 +993,6 @@ pre.diff {
   border-top: 1px solid var(--line-2);
 }
 
-@media (max-width: 640px) {
-  .release {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
-  }
-
-  .release.is-live {
-    margin: 0 -16px;
-    padding: 14px 16px;
-  }
-}
-
 /* ---------- Guardrails ---------- */
 
 .guard-answer {
@@ -1038,21 +1031,77 @@ pre.diff {
   align-items: start;
 }
 
-.budget-figure {
-  margin: 4px 0 10px;
-}
-
-.budget-figure b {
-  font: 400 2rem/1.1 var(--font-head);
-}
-
 .budget-table {
-  margin-top: 14px;
+  margin-top: 4px;
+}
+
+/* Cost: square figures across, then the breakdowns two by two. */
+.cost-widgets {
+  margin: 0 var(--ringw);
+}
+
+.widget-warn {
+  border-color: #ecc9bc;
+  background: #fdf7f4;
+}
+
+.widget-sub .chip {
+  margin-left: 2px;
+}
+
+.cost-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.cost-sources,
+.cost-dearest {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cost-sources li {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 5rem 5rem;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.88rem;
+}
+
+.cost-dearest li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 5rem 5rem;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.88rem;
+}
+
+.cost-sources li:first-child,
+.cost-dearest li:first-child {
+  border-top: 0;
 }
 
 @media (max-width: 900px) {
-  .budget-grid {
+  .budget-grid,
+  .cost-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cost-sources li {
+    grid-template-columns: 7rem minmax(0, 1fr) 4.5rem;
+  }
+
+  .cost-sources li > :last-child {
+    display: none;
   }
 }
 
@@ -1119,9 +1168,34 @@ pre.diff {
 }
 
 .release-actions {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-2);
+}
+
+.release-actions .stage-link {
+  margin: 0;
+  padding: 0;
+}
+
+.version-widgets {
+  margin: 0 var(--ringw);
+}
+
+.widget-good {
+  border-color: #cfe3c6;
+  background: #f6faf3;
+}
+
+.widget-good .widget-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Overview widgets ---------- */
@@ -1170,6 +1244,11 @@ pre.diff {
 .widget-chart .spark,
 .widget-chart .meter {
   width: 100%;
+}
+
+.widget-chart .barseries {
+  width: 100%;
+  height: 30px;
 }
 
 .widget-sub {

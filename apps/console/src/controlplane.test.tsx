@@ -11,7 +11,7 @@ import { ReleaseHistory } from "./components/ReleaseHistory";
 import { TrendsPanels } from "./components/TrendsPanels";
 import { AgentsPage, pathOf } from "./pages/AgentsPage";
 import { AuditPage } from "./pages/AuditPage";
-import { BudgetsPage } from "./pages/BudgetsPage";
+import { CostPage } from "./pages/CostPage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { fakeFetch } from "./testing";
 
@@ -77,7 +77,7 @@ test("the bell counts the alerts and opens them; with none it says so", async ()
   const list = screen.getByRole("region", { name: "Alerts" });
   expect(within(list).getByRole("link", { name: /budget of \$5.00/ })).toHaveAttribute(
     "href",
-    "#/budgets",
+    "#/cost",
   );
   expect(within(list).getByRole("link", { name: "2 runs stalled" })).toHaveAttribute(
     "href",
@@ -95,14 +95,51 @@ test("the bell counts the alerts and opens them; with none it says so", async ()
   expect(screen.getByText("Nothing needs you now.")).toBeInTheDocument();
 });
 
+const COSTS = {
+  days: [
+    { day: "2026-11-13", live: 0.2, redteam: 0, evaluation: 0.1, assistants: 0.05, total: 0.35 },
+    { day: "2026-11-14", live: 0.5, redteam: 0.1, evaluation: 0, assistants: 0, total: 0.6 },
+  ],
+  by_source: [
+    { key: "live", label: "Live claims", calls: 40, cost: 0.7 },
+    { key: "wattle", label: "Wattle", calls: 3, cost: 0.05 },
+    { key: "copilot", label: "Copilot", calls: 0, cost: 0 },
+  ],
+  period_total: 0.95,
+  today: 0.6,
+  month_to_date: 2.4,
+  projected_month: 5.14,
+  cost_per_claim: 0.035,
+  dearest: [{ claim_id: "CLM-1024", kind: "live", calls: 14, cost: 0.12 }],
+};
+
+test("cost shows the spend at a glance, where it goes and the dearest claims", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/budget": () => [200, BUDGET],
+    "GET /api/engineering/costs?days=14": () => [200, COSTS],
+    "GET /api/engineering/costs?days=30": () => [200, { ...COSTS, month_to_date: 9 }],
+  });
+  render(<CostPage api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByText("On course for $5.14 by the month's end")).toBeInTheDocument();
+  expect(screen.getByText("Live claims")).toBeInTheDocument();
+  expect(screen.queryByText("Copilot")).toBeNull();
+  expect(screen.getByRole("link", { name: "CLM-1024" })).toHaveAttribute(
+    "href",
+    "#/trace/CLM-1024",
+  );
+  await user.click(screen.getByRole("radio", { name: "30 days" }));
+  expect(await screen.findByText("$9.00")).toBeInTheDocument();
+});
+
 test("budgets show today's spend by model, refuse a silly budget and save one", async () => {
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
     "GET /api/engineering/budget": () => [200, BUDGET],
     "PUT /api/engineering/budget": () => [200, { ...BUDGET, limit: 8, share: 0.65 }],
   });
-  render(<BudgetsPage api={createApi(fetchFn, () => "t")} />);
-  expect(await screen.findByText("Budget reached")).toBeInTheDocument();
+  render(<CostPage api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findAllByText("Budget reached")).not.toHaveLength(0);
   expect(screen.getByRole("rowheader", { name: /haiku/i })).toBeInTheDocument();
   expect(screen.getByText(/Last set by Sam Carter/)).toBeInTheDocument();
   const limit = screen.getByLabelText("Dollars a day");
@@ -114,7 +151,7 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   await user.type(limit, "8");
   await user.type(screen.getByLabelText("Why? (optional)"), "Busy week");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
-  expect(await screen.findByText("Within budget")).toBeInTheDocument();
+  expect(await screen.findAllByText("Within budget")).not.toHaveLength(0);
   expect(fetchFn.calls.find((c) => c.method === "PUT")?.body).toEqual({
     limit: 8,
     reason: "Busy week",
@@ -124,16 +161,16 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
 test("a budget with no spend, nearly spent, and one that fails to load", async () => {
   const quiet = { ...BUDGET, spent_today: 4.1, share: 0.82, by_model: [], changed_by: null };
   const first = render(
-    <BudgetsPage
+    <CostPage
       api={createApi(fakeFetch({ "GET /api/engineering/budget": () => [200, quiet] }), () => "t")}
     />,
   );
-  expect(await screen.findByText("Nearly spent")).toBeInTheDocument();
+  expect(await screen.findAllByText("Nearly spent")).not.toHaveLength(0);
   expect(screen.getByText("No model calls yet today.")).toBeInTheDocument();
   expect(screen.getByText(/no one has changed it/)).toBeInTheDocument();
   first.unmount();
   render(
-    <BudgetsPage
+    <CostPage
       api={createApi(
         fakeFetch({ "GET /api/engineering/budget": () => [500, { detail: "Down" }] }),
         () => "t",

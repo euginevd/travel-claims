@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Api, Configuration, Round, Run, Scores } from "../api";
 import { AiMark } from "../components/AiMark";
 import { Meter } from "../components/Charts";
-import { ReleaseHistory } from "../components/ReleaseHistory";
+import { ReleaseHistory, VersionWidgets } from "../components/ReleaseHistory";
 import { RunDiff } from "../components/RunDiff";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
@@ -642,6 +642,7 @@ export function ImprovementPage({ api }: { api: Api }) {
           </div>
         )}
       </header>
+      {rounds && <VersionWidgets key={generation} api={api} waiting={waiting.length} />}
       {waiting.map((round) => (
         <div key={round.round_id} className="banner">
           <GitPullRequestArrow size={18} strokeWidth={1.75} aria-hidden="true" />
