@@ -10,11 +10,16 @@
   - The audit chain: a rewrite of every seal, or seals deleted and resealed, still verifies. Write each copy once (`If-None-Match`), deny overwrites in the bucket policy, and compare every seal with its copy.
   - The agent switch on AgentCore Runtime: more than one watcher session can start, and a session ends at 8 hours with claims in flight. Use one fixed session for the watcher, or hand each claim to its own.
   - The daily budget stops only the watcher: a dispatch or Work this claim still spends.
+  - Any engineer, the demo's test one included, sets the daily budget: under today's spend it switches the agent off, and at $1,000 it lifts the cap. A senior handler's setting, or kept from the test engineer?
+  - A second decision on a claim (a handler declines a referral, a senior then approves) replaces the first in the audit log and raises a lasting "changed after sealing" alert; an override's note and author aren't sealed. Keep each override as its own row, sealed whole.
 - Audit fixes still to build:
   - Rate limits (drafts, questions, votes) counted in the database, not in each api process; none yet on new claims, work, retry or letters.
   - Receipt uploads through presigned S3 URLs: a function URL takes about 4.5 MB of binary, under the app's 5 MB a file; and `API_GATEWAY=true` needs binary media types, a WAF size override and a 29-second fit.
   - The `aws` workflow applies units in one unordered matrix; apply in `deploy-aws.sh` order, one at a time, and refuse `destroy` of every unit from the UI.
   - Two races on PostgreSQL only: two overrides at once, and one flight delay claimed twice.
+  - Migrations 0018 and 0019 never reach an Aurora DSQL cluster that's already stamped (`dsql.py`), so `dev` works only when rebuilt empty.
+  - The output guard's patterns: a receipt or booking number read as a tax file or phone number, the insurer's own phone and email removed from a request, and agent steps not scrubbed.
+  - The alerts poll rebuilds the audit log and checks the whole chain each time, twice a page: cache it, or check on a timer.
   - Encryption and masking settings missing the model-invocation logs' bucket, AgentCore Memory and the agent runtime's log group.
   - Accessibility: the claim page's evidence tabs (arrow keys), focus returned when a card closes, the agents map's roles, a focus ring at 3:1, and an off switch for single-key shortcuts.
   - Browser tests for the paths that change something: claim by chat and send, decide a referral, sign-off, the agent switch.
