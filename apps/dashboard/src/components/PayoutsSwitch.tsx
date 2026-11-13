@@ -2,24 +2,37 @@ import { useCallback, useEffect, useState } from "react";
 import type { Api, Handler, PayoutSwitch } from "../api";
 import { ReasonCard } from "./ReasonCard";
 
-/** The payouts switch as the api reports it, loaded once a person is signed in. */
-export function usePayouts(api: Api, enabled: boolean) {
+// How often the header asks again: another senior handler may pause payouts at any time.
+export const PAYOUTS_POLL_MS = 15000;
+
+/** The payouts switch as the api reports it, followed while a person is signed in. */
+export function usePayouts(api: Api, enabled: boolean, pollMs = PAYOUTS_POLL_MS) {
   const [state, setState] = useState<PayoutSwitch | null>(null);
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    api.getPayouts().then(
-      (value) => {
-        if (live) setState(value);
-      },
-      () => {
-        // The status is advisory; the api refuses payments whatever the page shows.
-      },
-    );
+    let timer: number | undefined;
+    const load = () => {
+      api
+        .getPayouts()
+        .then(
+          (value) => {
+            if (live) setState(value);
+          },
+          () => {
+            // The status is advisory; the api refuses payments whatever the page shows.
+          },
+        )
+        .finally(() => {
+          if (live) timer = window.setTimeout(load, pollMs);
+        });
+    };
+    load();
     return () => {
       live = false;
+      window.clearTimeout(timer);
     };
-  }, [api, enabled]);
+  }, [api, enabled, pollMs]);
   return { state, setState };
 }
 
