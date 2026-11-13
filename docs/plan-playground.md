@@ -13,7 +13,7 @@ Spec items: TODO 1. Profile: prototype.
 
 The lesson: a single prompt shows style, but a model choice needs a scored set, and ideally more than one pass.
 
-**Ours: two modes on one page, Evaluate · Playground.**
+**Ours: two modes on one page, Evaluate · Playground, with little text: one line under the title, short labels, numbers over sentences.**
 
 1. **Try one claim.** Pick a practice claim and up to three models or efforts. Each decides a copy side by side, showing its decision, payout, reason, model calls, tokens, cost and seconds, with the handler's answer beside them. Copies are never paid. This is the quick look.
 2. **Compare on the practice set.** Pick up to three models or efforts and 5 or 25 claims. Each becomes a practice run on the current instructions. Results come back as square cards, one per model:

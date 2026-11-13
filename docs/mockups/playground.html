@@ -70,7 +70,7 @@
   .col { padding: 14px; border: 1px solid var(--line); border-radius: 14px; font-size: .88rem; }
   .col h3 { margin: 0 0 6px; font-size: .95rem; }
   .col p { margin: 6px 0 0; color: var(--ink-2); }
-  .tag { display: inline-block; margin-top: 6px; color: var(--ink-3); font-size: .8rem; }
+  .tag { display: block; margin-top: 6px; color: var(--ink-3); font-size: .8rem; }
   .label { margin: 26px 0 4px; color: var(--ink-3); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
   @media (max-width: 900px) {
     .top, .sub { padding-left: 16px; padding-right: 16px; }
@@ -89,7 +89,7 @@
   <header>
     <p class="eyebrow">Evaluate · Playground</p>
     <h1>Playground</h1>
-    <p class="lede">Which model should the claim agent run on? Run the same claims on up to three models and efforts and compare them side by side. Nothing here changes the live agent: a pick goes to Versions for a person to approve.</p>
+    <p class="lede">Which model should the claim agent run on?</p>
   </header>
 
   <section class="panel">
@@ -99,7 +99,7 @@
     </div>
     <div class="form">
       <div>
-        <label>Models and efforts, up to three</label>
+        <label>Models, up to three</label>
         <div class="picks">
           <span class="pick on">Haiku 5.5 <small>medium · in use</small></span>
           <span class="pick on">Sonnet 5.5 <small>medium</small></span>
@@ -111,60 +111,59 @@
         <label>Claims</label>
         <div class="seg"><span>5 claims</span><span class="on">All 25</span></div>
       </div>
-      <button class="button">Run the comparison</button>
+      <button class="button">Run</button>
     </div>
-    <p class="estimate">About $1.40 for all three on 25 claims, within today's budget ($4.87 left). Practice copies are never paid. The exam's held-out claims are kept for improvement rounds.</p>
+    <p class="estimate">About $1.40</p>
   </section>
 
-  <p class="label">Results · 25 practice claims · finished 2 min ago</p>
+  <p class="label">25 claims · 2 min ago</p>
   <div class="cards">
     <article class="card best">
-      <div class="card-top"><div><b>Haiku 5.5</b> <small>medium · in use</small></div><span class="chip good">Passes · cheapest</span></div>
-      <div><span class="big">84%</span> <small class="note">right decision · likely 65–94%</small></div>
+      <div class="card-top"><div><b>Haiku 5.5</b> <small>medium · in use</small></div><span class="chip good">Cheapest pass</span></div>
+      <div><small class="note">Right decision</small><br><span class="big">84%</span> <small class="note">65–94%</small></div>
       <div class="range"><i style="left:65%;right:6%"></i><em style="left:80%"></em><u style="left:84%"></u></div>
       <dl class="stats">
         <div><dt>Right amount</dt><dd>84%</dd></div>
         <div><dt>Decided alone</dt><dd>68%</dd></div>
-        <div><dt>Reasons (judge)</dt><dd>1.8 of 3</dd></div>
-        <div><dt>Cost a claim</dt><dd>$0.005</dd></div>
-        <div><dt>Time a claim</dt><dd>26 s</dd></div>
-        <div><dt>Gate floors</dt><dd class="ok">All met</dd></div>
+        <div><dt>Reasons</dt><dd>1.8 of 3</dd></div>
+        <div><dt>Cost</dt><dd>$0.005</dd></div>
+        <div><dt>Time</dt><dd>26 s</dd></div>
+        <div><dt>Gate</dt><dd class="ok">Pass</dd></div>
       </dl>
       <div class="card-foot"><a href="#">Run 21</a><span class="chip">In use</span></div>
     </article>
     <article class="card">
       <div class="card-top"><div><b>Sonnet 5.5</b> <small>medium</small></div><span class="chip good">Passes</span></div>
-      <div><span class="big">92%</span> <small class="note">right decision · likely 75–98%</small></div>
+      <div><small class="note">Right decision</small><br><span class="big">92%</span> <small class="note">75–98%</small></div>
       <div class="range"><i style="left:75%;right:2%"></i><em style="left:80%"></em><u style="left:92%"></u></div>
       <dl class="stats">
         <div><dt>Right amount</dt><dd>88%</dd></div>
         <div><dt>Decided alone</dt><dd>72%</dd></div>
-        <div><dt>Reasons (judge)</dt><dd>2.3 of 3</dd></div>
-        <div><dt>Cost a claim</dt><dd>$0.031</dd></div>
-        <div><dt>Time a claim</dt><dd>41 s</dd></div>
-        <div><dt>Gate floors</dt><dd class="ok">All met</dd></div>
+        <div><dt>Reasons</dt><dd>2.3 of 3</dd></div>
+        <div><dt>Cost</dt><dd>$0.031</dd></div>
+        <div><dt>Time</dt><dd>41 s</dd></div>
+        <div><dt>Gate</dt><dd class="ok">Pass</dd></div>
       </dl>
-      <div class="card-foot"><a href="#">Run 22</a><button class="button secondary">Propose for the claim agent</button></div>
+      <div class="card-foot"><a href="#">Run 22</a><button class="button secondary">Propose</button></div>
     </article>
     <article class="card">
-      <div class="card-top"><div><b>Haiku 5.5</b> <small>low</small></div><span class="chip bad">Fails a floor</span></div>
-      <div><span class="big">72%</span> <small class="note">right decision · likely 52–86%</small></div>
+      <div class="card-top"><div><b>Haiku 5.5</b> <small>low</small></div><span class="chip bad">Fails</span></div>
+      <div><small class="note">Right decision</small><br><span class="big">72%</span> <small class="note">52–86%</small></div>
       <div class="range"><i style="left:52%;right:14%"></i><em style="left:80%"></em><u style="left:72%"></u></div>
       <dl class="stats">
         <div><dt>Right amount</dt><dd>76%</dd></div>
         <div><dt>Decided alone</dt><dd>64%</dd></div>
-        <div><dt>Reasons (judge)</dt><dd>1.5 of 3</dd></div>
-        <div><dt>Cost a claim</dt><dd>$0.003</dd></div>
-        <div><dt>Time a claim</dt><dd>14 s</dd></div>
-        <div><dt>Gate floors</dt><dd class="miss">Right decision under 80%</dd></div>
+        <div><dt>Reasons</dt><dd>1.5 of 3</dd></div>
+        <div><dt>Cost</dt><dd>$0.003</dd></div>
+        <div><dt>Time</dt><dd>14 s</dd></div>
+        <div><dt>Gate</dt><dd class="miss">Accuracy</dd></div>
       </dl>
-      <div class="card-foot"><a href="#">Run 23</a><button class="button secondary">Propose for the claim agent</button></div>
+      <div class="card-foot"><a href="#">Run 23</a><button class="button secondary">Propose</button></div>
     </article>
   </div>
-  <p class="note">The shaded band is where each score likely sits: 25 claims can't tell 84% from 92% apart for certain. Run it again, or let the exam decide once it's proposed.</p>
 
   <section class="panel">
-    <div class="panel-head"><h2>Decided differently</h2><p class="note">5 of 25 claims; the handler's answer first</p></div>
+    <div class="panel-head"><h2>Decided differently</h2><p class="note">5 of 25</p></div>
     <table>
       <thead><tr><th>Claim</th><th>Handler</th><th>Haiku · medium</th><th>Sonnet · medium</th><th>Haiku · low</th></tr></thead>
       <tbody>
@@ -175,14 +174,14 @@
     </table>
   </section>
 
-  <p class="label">The other mode · One claim</p>
+  <p class="label">One claim mode</p>
   <section class="panel">
-    <div class="panel-head"><h2>One claim, side by side</h2><p class="note">CLM-2014 · trip delay, $250 claimed · a copy, never paid</p></div>
+    <div class="panel-head"><h2>CLM-2014 · Trip delay</h2><p class="note">$250 claimed</p></div>
     <div class="cols">
-      <div class="col"><h3>The handler</h3><b>Approve $250</b><p>Delay over 6 hours with the airline's letter; covered under section 6.</p></div>
-      <div class="col"><h3>Haiku · medium</h3><b class="miss">Refer</b><p>Couldn't confirm the delay length from the letter.</p><span class="tag">9 calls · 11.2k tokens · $0.004 · 22 s</span></div>
-      <div class="col"><h3>Sonnet · medium</h3><b class="ok">Approve $250</b><p>Airline letter shows 7 h 10 min; section 6 pays $250 over 6 hours.</p><span class="tag">8 calls · 10.4k tokens · $0.028 · 37 s</span></div>
-      <div class="col"><h3>Haiku · low</h3><b class="miss">Refer</b><p>Delay not stated.</p><span class="tag">6 calls · 7.9k tokens · $0.002 · 12 s</span></div>
+      <div class="col"><h3>The handler</h3><b>Approve $250</b></div>
+      <div class="col"><h3>Haiku · medium</h3><b class="miss">Refer</b><span class="tag">$0.004 · 22 s</span></div>
+      <div class="col"><h3>Sonnet · medium</h3><b class="ok">Approve $250</b><span class="tag">$0.028 · 37 s</span></div>
+      <div class="col"><h3>Haiku · low</h3><b class="miss">Refer</b><span class="tag">$0.002 · 12 s</span></div>
     </div>
   </section>
 </main>
