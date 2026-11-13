@@ -60,9 +60,6 @@ export function Header({
                 </a>
               </li>
             ))}
-            <li>
-              <ProjectLink />
-            </li>
           </ul>
         </nav>
         {onSearch && (
@@ -98,6 +95,7 @@ export function Header({
               <LogOut size={18} strokeWidth={1.75} aria-hidden="true" />
             </button>
           </div>
+          <ProjectLink />
         </div>
       </div>
     </header>

@@ -30,7 +30,8 @@ test("a handler signs in and sees the queue", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  // What needs a handler shows first; All shows the rest.
+  // What needs a handler shows first; everything else is folded, then in tabs.
+  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   const table = await screen.findByRole("table");
   expect(within(table).getByRole("link", { name: "CLM-1001" })).toHaveAttribute(
@@ -63,7 +64,7 @@ test("the test account signs in through the dev route, with no password in the b
   });
   render(<App fetchFn={fetchFn} />);
   await user.click(screen.getByRole("button", { name: "Continue as Dana" }));
-  await screen.findByRole("heading", { name: "Claims queue" });
+  await screen.findByRole("heading", { name: /^Good \w+, Dana$/ });
   const call = fetchFn.calls.find((c) => c.path === "/api/staff/dev/test-sign-in");
   expect(call?.body).toEqual({ account: "senior" });
 });
@@ -77,7 +78,8 @@ test("the other test account signs in as the handler without sign-off rights", a
   render(<App fetchFn={fetchFn} />);
   await user.click(screen.getByRole("radio", { name: /Marcus Oyelaran/ }));
   await user.click(screen.getByRole("button", { name: "Continue as Marcus" }));
-  await screen.findByRole("heading", { name: "Claims queue" });
+  // The fake api answers as Dana whoever signs in; the dev route's body says who it was.
+  await screen.findByRole("heading", { name: /^Good \w+, \w+$/ });
   const call = fetchFn.calls.find((c) => c.path === "/api/staff/dev/test-sign-in");
   expect(call?.body).toEqual({ account: "handler" });
 });
@@ -93,16 +95,29 @@ test("the password can be shown while typing it", async () => {
   expect(password).toHaveAttribute("type", "password");
 });
 
-test("the needs-me view is first and J moves through the claims", async () => {
+test("Today lists what needs you, says why, and J moves through it", async () => {
   const user = userEvent.setup();
   saveToken("token-1");
-  render(<App fetchFn={fakeFetch(signedInRoutes)} />);
-  const needsMe = await screen.findByRole("button", { name: /Needs me/ });
-  expect(needsMe).toHaveAttribute("aria-pressed", "true");
-  const table = screen.getByRole("table");
-  expect(within(table).queryByRole("link", { name: "CLM-1001" })).not.toBeInTheDocument();
+  const referred = {
+    ...SUMMARY,
+    claim_id: "CLM-1003",
+    status: "decided" as const,
+    decision: "refer" as const,
+    flag: "Receipt image: it couldn't be read",
+  };
+  render(
+    <App
+      fetchFn={fakeFetch({
+        ...signedInRoutes,
+        "GET /api/staff/claims": () => [200, [SUMMARY, referred]],
+      })}
+    />,
+  );
+  const row = await screen.findByRole("link", { name: /^CLM-1003, Maya Patel: Receipt image/ });
+  expect(screen.queryByRole("link", { name: /^CLM-1001,/ })).not.toBeInTheDocument();
+  expect(screen.getByText(/the agent stopped at “Receipt image”/)).toBeInTheDocument();
   await user.keyboard("j");
-  expect(within(table).getByRole("link", { name: "CLM-1002" })).toHaveFocus();
+  expect(row).toHaveFocus();
 });
 
 test("the queue filters by claim type and plan, and can clear them", async () => {
@@ -120,11 +135,15 @@ test("the queue filters by claim type and plan, and can clear them", async () =>
     ],
   };
   render(<App fetchFn={fakeFetch(routes)} />);
+  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
   await user.click(await screen.findByRole("button", { name: /^All/ }));
-  const links = () => screen.getAllByRole("link", { name: /^CLM-/ }).map((a) => a.textContent);
+  const links = () =>
+    within(screen.getByRole("table"))
+      .getAllByRole("link", { name: /^CLM-/ })
+      .map((a) => a.textContent);
   expect(links()).toEqual(["CLM-1001", "CLM-1002", "CLM-1003"]);
   expect(screen.getByText("Stalled")).toBeInTheDocument();
-  expect(screen.getAllByText(/days overdue/)).toHaveLength(3);
+  expect(within(screen.getByRole("table")).getAllByText(/days overdue/)).toHaveLength(3);
 
   await user.selectOptions(screen.getByRole("combobox", { name: "Claim type" }), "Lost bag");
   expect(links()).toEqual(["CLM-1002"]);
@@ -142,7 +161,7 @@ test("signs in on the staff route only", async () => {
   await user.type(screen.getByLabelText("Work email"), "dana.whitfield@undercover.example");
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
-  await screen.findByRole("table");
+  await screen.findByRole("heading", { name: /^Good \w+, Dana$/ });
   expect(fetchFn.calls.every((c) => c.path.startsWith("/api/staff/"))).toBe(true);
 });
 
@@ -193,6 +212,7 @@ test("following a claim link opens the claim page with focus on its heading", as
   const user = userEvent.setup();
   saveToken("token-1");
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   await user.click(await screen.findByRole("link", { name: "CLM-1001" }));
   const heading = await screen.findByRole("heading", { level: 1, name: "Claim CLM-1001" });
@@ -201,12 +221,12 @@ test("following a claim link opens the claim page with focus on its heading", as
   });
 });
 
-test("shows an empty queue plainly", async () => {
+test("shows an empty day plainly", async () => {
   saveToken("token-1");
   render(
     <App fetchFn={fakeFetch({ ...signedInRoutes, "GET /api/staff/claims": () => [200, []] })} />,
   );
-  expect(await screen.findByRole("heading", { name: "The queue is empty" })).toBeInTheDocument();
+  expect(await screen.findByText(/Nothing needs you right now/)).toBeInTheDocument();
 });
 
 test("shows why the queue didn't load", async () => {
@@ -227,6 +247,6 @@ test("the header shows the person signed in and wraps instead of clipping", asyn
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
   const banner = await screen.findByRole("banner");
   expect(within(banner).getByText("Dana Whitfield")).toBeInTheDocument();
-  expect(within(banner).getByRole("link", { name: /Queue/ })).toHaveAttribute("href", "#/");
+  expect(within(banner).getByRole("link", { name: /Today/ })).toHaveAttribute("href", "#/");
   expect(within(banner).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
 });

@@ -33,12 +33,14 @@ function fixed(found: Claim, steps: Step[] = STEPS): Routes {
 const held = claim({ status: "waiting_for_sign_off", decision: APPROVAL });
 
 test("shows the claim, its documents and policy", async () => {
+  const user = userEvent.setup();
   show(fixed(claim(), []));
   expect(await screen.findByRole("heading", { name: "Claim CLM-1001" })).toBeInTheDocument();
   expect(screen.getByText("My flight home from Rome was cancelled.")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Ready for the agent." })).toBeInTheDocument();
+  await user.click(screen.getByRole("tab", { name: /Documents/ }));
   expect(screen.getByText("Hotel receipt")).toBeInTheDocument();
   expect(screen.getByText(/POL-2001/)).toBeInTheDocument();
-  expect(screen.getByText(/recommendation appears here/)).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Where this claim is" })).toBeInTheDocument();
 });
 
@@ -64,7 +66,9 @@ test("working a claim shows its steps live until the agent decides", async () =>
   expect(await screen.findByText("The agent is working…")).toBeInTheDocument();
   expect(screen.getByText("Checked for hidden instructions")).toBeInTheDocument();
 
-  expect(await screen.findByText("Approved", {}, { timeout: 2000 })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: /^Approved \$245/ }, { timeout: 2000 }),
+  ).toBeInTheDocument();
   expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === `${BASE}/work`)).toBe(true);
   expect(screen.queryByRole("button", { name: "Work this claim" })).not.toBeInTheDocument();
 });
@@ -80,12 +84,13 @@ test("while the agent works, one line says its latest step, a failure included",
   show(fixed(claim({ status: "in_progress" }), [...STEPS, failure]));
   const status = await screen.findByRole("region", { name: "What the agent is doing" });
   expect(within(status).getByText(/Something went wrong: The model timed out/)).toBeInTheDocument();
-  // No step-by-step trace for a handler: that's the AI assurance console's.
+  // No step-by-step trace for a handler: that's the AI control plane's.
   expect(screen.queryByRole("switch", { name: /Show the details/ })).toBeNull();
   expect(screen.queryByText("Agent activity")).toBeNull();
 });
 
 test("a decided claim shows the calculation line by line and the payment", async () => {
+  const user = userEvent.setup();
   show(
     fixed(
       claim({
@@ -100,7 +105,8 @@ test("a decided claim shows the calculation line by line and the payment", async
       }),
     ),
   );
-  const card = await screen.findByRole("region", { name: "Recommendation" });
+  await user.click(await screen.findByRole("tab", { name: "Decision in full" }));
+  const card = screen.getByRole("region", { name: "Recommendation" });
   const calculation = within(card).getByRole("table");
   expect(within(calculation).getByText("Less the deductible")).toBeInTheDocument();
   expect(within(calculation).getByText("-$100.00")).toBeInTheDocument();
@@ -110,15 +116,20 @@ test("a decided claim shows the calculation line by line and the payment", async
 });
 
 test("a claim the check referred says the claim agent never saw it", async () => {
+  const user = userEvent.setup();
   show(fixed(claim({ status: "left_for_handler", decision: REFERRAL }), STEPS.slice(0, 1)));
-  const card = await screen.findByRole("region", { name: "Recommendation" });
+  expect(
+    await screen.findByText("The hidden-instruction check stopped this claim"),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("tab", { name: "Decision in full" }));
+  const card = screen.getByRole("region", { name: "Recommendation" });
   expect(within(card).getByText("Referred")).toBeInTheDocument();
-  expect(screen.getByText(/tries to instruct whoever assesses it/)).toBeInTheDocument();
   expect(within(card).getByText("Instructions hidden in the claim")).toBeInTheDocument();
   expect(screen.queryByRole("table", { name: /payout/ })).not.toBeInTheDocument();
 });
 
 test("a sent-back claim shows the note and can be worked again", async () => {
+  const user = userEvent.setup();
   show(
     fixed(
       claim({
@@ -134,8 +145,9 @@ test("a sent-back claim shows the note and can be worked again", async () => {
       }),
     ),
   );
-  expect(await screen.findByText("Check the hotel receipt's dates.")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Work this claim" })).toBeEnabled();
+  expect(await screen.findByRole("button", { name: "Work this claim" })).toBeEnabled();
+  await user.click(screen.getByRole("tab", { name: /Asked and history/ }));
+  expect(screen.getByText("Check the hotel receipt's dates.")).toBeInTheDocument();
 });
 
 test("a senior handler signs off a held payout", async () => {
@@ -161,14 +173,15 @@ test("a senior handler signs off a held payout", async () => {
   });
   expect(await screen.findByText(/Waiting for your sign-off: \$1,250.00/)).toBeInTheDocument();
   expect(screen.getByText("Signing off pays $1,250.00 to Maya Patel now.")).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "Recommendation" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Sign off and pay $1,250.00" }));
   // Nothing is paid until the confirm dialog's own button is pressed.
   const confirm = screen.getByRole("dialog", { name: "Sign off and pay $1,250.00?" });
   expect(within(confirm).getByText("Dana Whitfield, Senior Claims Handler")).toBeInTheDocument();
   expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(0);
   await user.click(within(confirm).getByRole("button", { name: "Pay $1,250.00" }));
-  expect(await screen.findByText(/signed off by Dana Whitfield/)).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: /^Approved \$1,250.00, paid/ }),
+  ).toBeInTheDocument();
   expect(screen.getByText("Signed off and paid $1,250.00.")).toHaveFocus();
   expect(signedOff).toBe(true);
   expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(1);
@@ -214,13 +227,13 @@ test("cancelling the sign-off confirm pays nothing and returns to the button", a
   expect(fetchFn.calls.filter((c) => c.method === "POST")).toHaveLength(0);
 });
 
-test("a handler who can't sign off over the limit sees why", async () => {
+test("a handler who can't sign off over the limit sees who does", async () => {
   show(fixed(held), MARCUS);
-  expect(await screen.findByRole("button", { name: /Sign off and pay/ })).toBeDisabled();
-  expect(screen.getByRole("button", { name: "Send back" })).toBeDisabled();
   expect(
-    screen.getByText(/Only a handler who can sign off over the approval limit/),
+    await screen.findByText(/A senior handler signs this off or sends it back/),
   ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /a senior handler's sign-off/ })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Sign off and pay/ })).not.toBeInTheDocument();
 });
 
 test("the api's 403 disables the buttons and gives its reason", async () => {
@@ -276,9 +289,10 @@ test("a sign-off that worked says so even when the steps don't reload", async ()
   });
   await user.click(await screen.findByRole("button", { name: /Sign off and pay/ }));
   await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
-  expect(await screen.findByRole("region", { name: "Recommendation" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: /^Approved/ })).toBeInTheDocument();
   expect(screen.getByText(/Signed off and paid/)).toBeInTheDocument();
   // What the steps already showed stays while the reload's failure is reported.
+  await user.click(screen.getByRole("tab", { name: "Decision in full" }));
   expect(screen.getByText("Screened first: no hidden instructions")).toBeInTheDocument();
   expect(await screen.findByRole("alert")).toHaveTextContent("Steps unavailable");
 });

@@ -13,7 +13,7 @@ from undercover_agent.models import Json
 from undercover_agent.tools import as_text, tool
 
 EXPLAIN_INSTRUCTIONS = (
-    "You are Wattle AI in the AI assurance console of UnderCover Travel Insurance. The reader is "
+    "You are Wattle AI in the AI control plane of UnderCover Travel Insurance. The reader is "
     "an AI engineer. Answer their question about the claims agents' quality and security: a "
     "technical headline under 20 words, then up to three points of under 15 words each with "
     "only the numbers that matter. Use the tools before answering: evaluation runs (accuracy, "

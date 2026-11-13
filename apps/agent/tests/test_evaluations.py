@@ -76,6 +76,35 @@ def test_a_dispatch_of_the_queue_tells_the_api_the_dispatch_is_done() -> None:
     assert (api.dispatched, api.finished) == ([2], [])
 
 
+def test_the_watcher_works_ready_claims_until_the_agent_is_switched_off() -> None:
+    class QueueApi(RunApi):
+        def __init__(self) -> None:
+            super().__init__()
+            self.asked = 0
+
+        def ready_claims(self) -> Json:
+            self.asked += 1
+            if self.asked > 2:  # noqa: PLR2004 - two looks at the queue, then switched off
+                return {"on": False, "concurrency": 0, "claim_ids": []}
+            return {"on": True, "concurrency": 2, "claim_ids": ["CLM-1"]}
+
+        def start(self, claim_id: str, thread_id: str) -> Json:
+            # The api moves a started claim on, so it's never ready twice.
+            found = super().start(claim_id, thread_id)
+            self.statuses[claim_id] = "decided"
+            return found
+
+    api, runner = QueueApi(), RecordingRunner()
+    dispatcher = Dispatcher(runner, api, pause=0.01)
+    watcher = dispatcher.watch()
+    # Asking again while it watches changes nothing: one watcher at a time.
+    assert dispatcher.watch() is watcher
+    watcher.join(timeout=5)
+    assert not watcher.is_alive()
+    assert api.started == ["CLM-1"]
+    assert api.asked == 3  # noqa: PLR2004
+
+
 def test_carrying_on_a_decided_claim_does_nothing() -> None:
     api = FakeApi()
     claude = FakeClaude([decide("decline", 0.0, 1)])

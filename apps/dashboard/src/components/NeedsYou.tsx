@@ -1,4 +1,3 @@
-import { CircleAlert } from "lucide-react";
 import type { Claim } from "../api";
 import { dollars } from "../format";
 
@@ -26,20 +25,4 @@ export function needsYou(claim: Claim): string | null {
       : "Referred to you: the agent couldn't decide this one alone. Its reason is in the recommendation.";
   }
   return null;
-}
-
-export function NeedsYouBanner({ claim }: { claim: Claim }) {
-  const message = needsYou(claim);
-  if (!message) return null;
-  return (
-    <p className="needs-you" role="status">
-      <CircleAlert size={18} strokeWidth={1.75} aria-hidden="true" />
-      <span>
-        {message}
-        {claim.review_note && claim.review_requested_at && (
-          <span className="muted"> They said: &ldquo;{claim.review_note}&rdquo;</span>
-        )}
-      </span>
-    </p>
-  );
 }

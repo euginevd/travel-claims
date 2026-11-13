@@ -124,6 +124,10 @@ class ApiClient:
     def finish_run(self, run_id: int) -> Json:
         return cast(Json, self._call("POST", f"/api/agent/runs/{run_id}/finish"))
 
+    def ready_claims(self) -> Json:
+        """Whether the agent switch is on, how many to work at once, and the claims ready."""
+        return cast(Json, self._call("GET", "/api/agent/queue/ready"))
+
     def finish_dispatch(self, dispatch_id: int) -> Json:
         return cast(Json, self._call("POST", f"/api/agent/dispatches/{dispatch_id}/finish"))
 

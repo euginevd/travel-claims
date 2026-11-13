@@ -1,17 +1,19 @@
-import { ArrowLeft, ChevronDown, FileText, Sparkle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, ChevronDown, FileText, Sparkle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError, type Api, type Claim, type Handler, type Step } from "../api";
 import { AgentStatus, ScreeningNote } from "../components/AgentStatus";
 import { DecisionCard } from "../components/DecisionCard";
 import { HeldPayout } from "../components/HeldPayout";
-import { NeedsYouBanner } from "../components/NeedsYou";
+import { Checklist } from "../components/Checklist";
+import { NextStep, Verdict } from "../components/Verdict";
 import { OverridePanel } from "../components/OverridePanel";
 import { ReceiptsPanel } from "../components/ReceiptsPanel";
 import { StageTracker } from "../components/StageTracker";
 import { StatusChip } from "../components/StatusChip";
 import { date, dollars, when, words } from "../format";
 import { useFocusHeading } from "../useFocusHeading";
-import { QUEUE_HREF } from "../useHashRoute";
+import { claimHref, QUEUE_HREF } from "../useHashRoute";
+import { arrange } from "./QueuePage";
 import { AskedPanel } from "../components/AskedPanel";
 import { RiskPanel } from "../components/RiskPanel";
 import { SimilarPanel } from "../components/SimilarPanel";
@@ -103,6 +105,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
   const heading = useFocusHeading();
+  const [tab, setTab] = useState<Tab>("story");
 
   // Keyboard: S to the sign-off button, B to the send-back note, U for the queue.
   useEffect(() => {
@@ -179,7 +182,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     <article className="claim page-in">
       <a className="crumb" href={QUEUE_HREF}>
         <ArrowLeft size={15} strokeWidth={1.75} aria-hidden="true" />
-        Back to the queue
+        Today
       </a>
       <div className="claim-head">
         <div className="claim-title">
@@ -250,18 +253,145 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
     const paid = claim.payment !== null;
     const { policy } = claim;
     const travellers = policy.travelers.length;
-    const canOverride =
-      handler.can_approve_over_limit &&
-      OVERRIDABLE.has(claim.status) &&
-      !paid &&
-      claim.decision !== null;
+    const decision = claim.decision;
+    const senior = handler.can_approve_over_limit;
+    const canOverride = senior && OVERRIDABLE.has(claim.status) && !paid && decision !== null;
+    const referred =
+      decision?.decision === "refer" &&
+      !decision.override &&
+      (claim.status === "decided" || claim.status === "left_for_handler");
     const received = claim.receipts.length + claim.documents.length;
     const itemsTotal = claim.items.reduce((sum, item) => sum + item.amount, 0);
-    // Before a decision, one line on what the agent is doing; after it, only what the
-    // hidden-instruction check found. The step-by-step trace is the console's.
-    const activity = !claim.decision && (steps.length > 0 || working) && (
-      <AgentStatus steps={steps} working={working} />
-    );
+    const updated = (next: Claim, message: string) => {
+      setClaim(next);
+      setNotice(message);
+      reload();
+    };
+
+    let action: ReactNode = null;
+    let more: ReactNode = null;
+    if (claim.stalled) {
+      action = (
+        <div className="action-row">
+          <button
+            type="button"
+            className="button"
+            disabled={starting}
+            onClick={() => {
+              void retryClaim();
+            }}
+          >
+            <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
+            {starting ? "Retrying…" : "Retry"}
+          </button>
+          <span className="muted small">
+            Carries it on from the last step it saved; nothing is decided or paid twice.
+          </span>
+        </div>
+      );
+    } else if (WORKABLE.has(claim.status)) {
+      action = (
+        <div className="action-row">
+          <button
+            type="button"
+            className="button"
+            disabled={starting}
+            onClick={() => {
+              void workClaim();
+            }}
+          >
+            <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
+            {starting ? "Starting…" : "Work this claim"}
+          </button>
+          <span className="muted small">
+            It checks for hidden instructions, then assesses the claim against the policy.
+          </span>
+        </div>
+      );
+    } else if (working) {
+      action = <AgentStatus steps={steps} working={working} />;
+    } else if (held && !senior) {
+      action = (
+        <p className="muted">
+          A senior handler signs this off or sends it back; nothing is paid until they do.
+        </p>
+      );
+    } else if (held) {
+      action = (
+        <HeldPayout
+          claim={claim}
+          handler={handler}
+          onSignOff={() =>
+            act(
+              () => api.signOff(claimId),
+              (done) => `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
+            )
+          }
+          onSendBack={(note) =>
+            act(
+              () => api.sendBack(claimId, note),
+              () => "Sent back to the agent with your note.",
+            )
+          }
+        />
+      );
+    } else if (referred) {
+      action = <NextStep api={api} claim={claim} onUpdated={updated} />;
+      more = (
+        <>
+          <p className="muted small">
+            Or decide it yourself
+            {senior ? "" : `, within your ${dollars(claim.approval_limit)} limit`}
+          </p>
+          <OverridePanel
+            mode="decide"
+            customerName={claim.customer_name}
+            suggested={decision.calculation?.payout || undefined}
+            limit={senior ? null : claim.approval_limit}
+            onOverride={(request) =>
+              act(
+                () => api.decide(claimId, request),
+                (done) =>
+                  done.payment
+                    ? `Decided and paid ${dollars(done.payment.amount)}.`
+                    : "Decided. Your decision is on the record.",
+              )
+            }
+          />
+        </>
+      );
+    } else if (decision && claim.status === "decided" && decision.decision !== "refer") {
+      action = <LetterPanel api={api} claim={claim} onUpdated={setClaim} />;
+    }
+    if (canOverride && !referred) {
+      more = (
+        <OverridePanel
+          customerName={claim.customer_name}
+          onOverride={(request) =>
+            act(
+              () => api.override(claimId, request),
+              (done) =>
+                done.payment
+                  ? `Overridden and paid ${dollars(done.payment.amount)}.`
+                  : "Overridden. Your decision is on the record.",
+            )
+          }
+        />
+      );
+    }
+
+    const tabs: { key: Tab; label: string }[] = [
+      { key: "story", label: "Story and items" },
+      { key: "documents", label: `Documents ${String(received)}` },
+      ...(decision ? [{ key: "decision" as const, label: "Decision in full" }] : []),
+      { key: "signals", label: "Signals" },
+      {
+        key: "history",
+        label: `Asked and history${claim.requests.length ? ` ${String(claim.requests.length)}` : ""}`,
+      },
+    ];
+    const shown = tabs.some((one) => one.key === tab) ? tab : "story";
+
     return (
       <>
         <dl className="claim-facts">
@@ -294,107 +424,91 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
           </div>
         </dl>
         <StageTracker claim={claim} />
-        <NeedsYouBanner claim={claim} />
-        {claim.stalled && (
-          <div className="action-bar">
-            <p>
-              <strong>The agent stopped working on this claim.</strong>{" "}
-              <span className="muted">
-                Retry carries it on from the last step it saved; nothing is decided or paid twice.
-              </span>
-            </p>
+        <Verdict claim={claim} senior={senior} action={action} more={more} />
+
+        <div className="claim-tabs" role="tablist" aria-label="The claim's evidence">
+          {tabs.map((one) => (
             <button
+              key={one.key}
               type="button"
-              className="button"
-              disabled={starting}
+              role="tab"
+              id={`tab-${one.key}`}
+              aria-selected={shown === one.key}
+              aria-controls={`panel-${one.key}`}
+              className={shown === one.key ? "on" : undefined}
               onClick={() => {
-                void retryClaim();
+                setTab(one.key);
               }}
             >
-              <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
-              {starting ? "Retrying…" : "Retry"}
+              {one.label}
             </button>
-          </div>
-        )}
-        {WORKABLE.has(claim.status) && (
-          <div className="action-bar">
-            <p>
-              <strong>Ready for the agent.</strong>{" "}
-              <span className="muted">
-                It checks for hidden instructions, then assesses the claim against the policy.
-              </span>
-            </p>
-            <button
-              type="button"
-              className="button"
-              disabled={starting}
-              onClick={() => {
-                void workClaim();
-              }}
-            >
-              <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
-              {starting ? "Starting…" : "Work this claim"}
-            </button>
-          </div>
-        )}
-
-        <div className="claim-grid">
-          <div className="claim-main">
-            <section className="panel" aria-labelledby="story-heading">
-              <div className="panel-head">
-                <h2 id="story-heading">In the customer&apos;s words</h2>
-                <span className="muted small">
-                  {date(claim.incident_date)}, {claim.incident_location}
-                </span>
-              </div>
-              {/* TODO: highlight the facts the agent pulled out, once the api returns them. */}
-              <p className="story" dir="auto">
-                {claim.story}
-              </p>
-            </section>
-
-            <section className="panel" aria-labelledby="items-heading">
-              <div className="panel-head">
-                <h2 id="items-heading">Items</h2>
-                <span className="muted small">{claim.items.length} claimed</span>
-              </div>
-              {/* TODO: an allowed amount and a reason per line need the decision to carry them. */}
-              <div className="table-scroll">
-                <table className="items">
-                  <caption className="visually-hidden">Items claimed</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Item</th>
-                      <th scope="col">Category</th>
-                      <th scope="col" className="number">
-                        Claimed
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {claim.items.map((item, index) => (
-                      <tr key={index}>
-                        <th scope="row" dir="auto">
-                          {item.description}
+          ))}
+        </div>
+        <div
+          className="claim-tab-body"
+          role="tabpanel"
+          id={`panel-${shown}`}
+          aria-labelledby={`tab-${shown}`}
+        >
+          {shown === "story" && (
+            <>
+              <section aria-labelledby="story-heading">
+                <div className="panel-head">
+                  <h2 id="story-heading">In the customer&apos;s words</h2>
+                  <span className="muted small">
+                    {date(claim.incident_date)}, {claim.incident_location}
+                  </span>
+                </div>
+                <p className="story" dir="auto">
+                  {claim.story}
+                </p>
+              </section>
+              <section aria-labelledby="items-heading">
+                <div className="panel-head">
+                  <h2 id="items-heading">Items</h2>
+                  <span className="muted small">{claim.items.length} claimed</span>
+                </div>
+                <div className="table-scroll">
+                  <table className="items">
+                    <caption className="visually-hidden">Items claimed</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Item</th>
+                        <th scope="col">Category</th>
+                        <th scope="col" className="number">
+                          Claimed
                         </th>
-                        <td>{words(item.category)}</td>
-                        <td className="number">{dollars(item.amount)}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th scope="row" colSpan={2}>
-                        Total
-                      </th>
-                      <td className="number">{dollars(itemsTotal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </section>
-
-            <section className="panel" aria-labelledby="documents-heading">
+                    </thead>
+                    <tbody>
+                      {claim.items.map((item, index) => (
+                        <tr key={index}>
+                          <th scope="row" dir="auto">
+                            {item.description}
+                          </th>
+                          <td>{words(item.category)}</td>
+                          <td className="number">{dollars(item.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th scope="row" colSpan={2}>
+                          Total
+                        </th>
+                        <td className="number">{dollars(itemsTotal)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </section>
+              {decision && decision.checklist.length > 0 && (
+                <Checklist checks={decision.checklist} steps={steps} />
+              )}
+            </>
+          )}
+          {shown === "documents" && (
+            <section aria-labelledby="documents-heading">
               <div className="panel-head">
                 <h2 id="documents-heading">Documents</h2>
                 <span className="muted small">{received} received</span>
@@ -430,99 +544,104 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
                 </ul>
               )}
             </section>
-
-            <RiskPanel api={api} claimId={claim.claim_id} />
-            <SimilarPanel api={api} claimId={claim.claim_id} />
-            <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
-            {claim.status === "decided" &&
-              claim.decision &&
-              claim.decision.decision !== "refer" && (
-                <LetterPanel api={api} claim={claim} onUpdated={setClaim} />
-              )}
-
-            {claim.sent_back_decisions.length > 0 && (
-              <section className="panel" aria-labelledby="sent-back-heading">
-                <h2 id="sent-back-heading">Sent back</h2>
-                <ol className="sent-back-list">
-                  {claim.sent_back_decisions.map((sent, index) => (
-                    <li key={index}>
-                      <p>
-                        <strong>{sent.sent_back_by}</strong>{" "}
-                        <span className="muted">{when(sent.sent_back_at)}</span>
-                      </p>
-                      <blockquote dir="auto">{sent.note}</blockquote>
-                      <p className="muted small">
-                        The decision sent back: {sent.decision.decision},{" "}
-                        {dollars(sent.decision.payout)}. {sent.decision.reason}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            )}
-          </div>
-
-          <aside className="claim-side" aria-label="Recommendation">
-            {claim.decision && (
+          )}
+          {shown === "decision" && decision && (
+            <>
               <DecisionCard
-                decision={claim.decision}
+                decision={decision}
                 payment={claim.payment}
                 claimed={claim.amount_claimed}
                 steps={steps}
-                actions={
-                  (held || canOverride) && (
-                    <div className="decision-actions">
-                      {held && (
-                        <HeldPayout
-                          claim={claim}
-                          handler={handler}
-                          onSignOff={() =>
-                            act(
-                              () => api.signOff(claimId),
-                              (done) =>
-                                `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
-                            )
-                          }
-                          onSendBack={(note) =>
-                            act(
-                              () => api.sendBack(claimId, note),
-                              () => "Sent back to the agent with your note.",
-                            )
-                          }
-                        />
-                      )}
-                      {canOverride && (
-                        <OverridePanel
-                          customerName={claim.customer_name}
-                          onOverride={(request) =>
-                            act(
-                              () => api.override(claimId, request),
-                              (done) =>
-                                done.payment
-                                  ? `Overridden and paid ${dollars(done.payment.amount)}.`
-                                  : "Overridden. Your decision is on the record.",
-                            )
-                          }
-                        />
-                      )}
-                    </div>
-                  )
-                }
               />
-            )}
-            {claim.decision && <ScreeningNote steps={steps} />}
-            {activity}
-            {steps.length === 0 && !working && !claim.decision && (
-              <div className="panel waiting-card">
-                <p className="ai-line">
-                  <Sparkle size={16} strokeWidth={1.75} aria-hidden="true" />
-                  The agent&apos;s recommendation appears here once it has worked the claim.
-                </p>
-              </div>
-            )}
-          </aside>
+              <ScreeningNote steps={steps} />
+            </>
+          )}
+          {shown === "signals" && (
+            <>
+              <RiskPanel api={api} claimId={claim.claim_id} />
+              <SimilarPanel api={api} claimId={claim.claim_id} />
+            </>
+          )}
+          {shown === "history" && (
+            <>
+              <AskedPanel api={api} claim={claim} onUpdated={setClaim} />
+              {claim.sent_back_decisions.length > 0 && (
+                <section className="panel" aria-labelledby="sent-back-heading">
+                  <h2 id="sent-back-heading">Sent back</h2>
+                  <ol className="sent-back-list">
+                    {claim.sent_back_decisions.map((sent, index) => (
+                      <li key={index}>
+                        <p>
+                          <strong>{sent.sent_back_by}</strong>{" "}
+                          <span className="muted">{when(sent.sent_back_at)}</span>
+                        </p>
+                        <blockquote dir="auto">{sent.note}</blockquote>
+                        <p className="muted small">
+                          The decision sent back: {sent.decision.decision},{" "}
+                          {dollars(sent.decision.payout)}. {sent.decision.reason}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+            </>
+          )}
         </div>
+        {notice && <NextClaim api={api} claimId={claimId} notice={notice} senior={senior} />}
       </>
     );
   }
+}
+
+type Tab = "story" | "documents" | "decision" | "signals" | "history";
+
+/** After an action: what was done, and the next claim that needs the handler, so the list is
+ * worked one claim at a time. */
+function NextClaim({
+  api,
+  claimId,
+  notice,
+  senior,
+}: {
+  api: Api;
+  claimId: string;
+  notice: string;
+  senior: boolean;
+}) {
+  const [next, setNext] = useState<string | null | undefined>(undefined);
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    let live = true;
+    api.listClaims().then(
+      (claims) => {
+        if (!live) return;
+        const mine = arrange(claims, "needs_me", "", "", "queue").filter(
+          (claim) =>
+            claim.claim_id !== claimId && (senior || claim.status !== "waiting_for_sign_off"),
+        );
+        setLeft(mine.length);
+        setNext(mine[0]?.claim_id ?? null);
+      },
+      () => {
+        if (live) setNext(null);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, claimId, notice, senior]);
+  if (next === undefined) return null;
+  return (
+    <div className="next-claim">
+      <span>Done.</span>
+      <span className="next-claim-left">
+        {left === 0 ? "Nothing else needs you." : `${String(left)} more need you.`}
+      </span>
+      <a className="button" href={next ? claimHref(next) : QUEUE_HREF}>
+        {next ? `Next: ${next}` : "Back to Today"}
+        <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" />
+      </a>
+    </div>
+  );
 }

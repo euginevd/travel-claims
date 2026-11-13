@@ -32,7 +32,7 @@ export function ScreeningNote({ steps }: { steps: Step[] }) {
 }
 
 /** Before there's a decision: one line on what the agent is doing, its latest step in plain
- * words. The step-by-step trace is the AI assurance console's, not the handler's. */
+ * words. The step-by-step trace is the AI control plane's, not the handler's. */
 export function AgentStatus({ steps, working }: { steps: Step[]; working: boolean }) {
   const latest = steps
     .map((step) => plainStep(step.kind, step.content))

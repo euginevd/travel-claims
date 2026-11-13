@@ -4,7 +4,7 @@
   "claim_type": "trip_delay",
   "summary": "Flight delayed overnight",
   "amount_claimed": 180.0,
-  "submitted_on": "2026-11-10",
+  "submitted_on": "2026-11-13",
   "status": "received",
   "status_text": "Received. We'll start looking at it shortly.",
   "open_requests": 0,
@@ -25,10 +25,10 @@
   "paid_to": null,
   "receipts": [
     {
-      "receipt_id": "dce47c503eb838c5a9e7938e184aa7c1",
+      "receipt_id": "652362aca1a249f6f618b7555d25ff3e",
       "media_type": "image/png",
-      "size": 24,
-      "uploaded_at": "2026-11-10T01:40:01+00:00"
+      "size": 589,
+      "uploaded_at": "2026-11-13T05:30:00+00:00"
     }
   ],
   "requests": [],

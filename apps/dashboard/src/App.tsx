@@ -1,14 +1,16 @@
-import { ListChecks, SlidersHorizontal } from "lucide-react";
+import { House, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ApiError, createApi, type Api, type Handler } from "./api";
+import { ApiError, createApi, type AgentSwitch, type Api, type Handler } from "./api";
+import { AgentToggle, useAgent } from "./components/AgentSwitch";
 import { CommandPalette } from "./components/CommandPalette";
 import { Copilot } from "./components/Copilot";
 import { createCopilot } from "./copilot";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { StatusLine } from "./components/StatusLine";
 import { Header } from "./components/Header";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./components/PayoutsSwitch";
 import { ClaimPage } from "./pages/ClaimPage";
-import { QueuePage } from "./pages/QueuePage";
+import { TodayPage } from "./pages/TodayPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SignInPage } from "./pages/SignInPage";
 import { loadToken, saveToken } from "./session";
@@ -64,7 +66,9 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
 
   const copilot = useMemo(() => createCopilot(fetchFn, loadToken), [fetchFn]);
   const payouts = usePayouts(api, person !== null);
+  const agent = useAgent(api, person !== null);
   const [payoutsOpen, setPayoutsOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -131,8 +135,8 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
         links={[
           {
             href: QUEUE_HREF,
-            label: "Queue",
-            Icon: ListChecks,
+            label: "Today",
+            Icon: House,
             current: route.page === "queue",
           },
           {
@@ -150,17 +154,41 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
           setCopilotOpen((open) => !open);
         }}
         status={
-          <PayoutsStatus
-            state={payouts.state}
-            senior={person.can_approve_over_limit}
-            onOpen={() => {
-              setPayoutsOpen(true);
-              window.scrollTo({ top: 0 });
-            }}
-          />
+          <span className="status-group">
+            <AgentToggle
+              api={api}
+              state={agent.state}
+              senior={person.can_approve_over_limit}
+              onState={(value) => {
+                agent.setState(value);
+                agent.refresh();
+              }}
+              editing={agentOpen}
+              onEditing={setAgentOpen}
+            />
+            <PayoutsStatus
+              state={payouts.state}
+              senior={person.can_approve_over_limit}
+              onOpen={() => {
+                setPayoutsOpen(true);
+                window.scrollTo({ top: 0 });
+              }}
+            />
+          </span>
         }
       />
       <main id="main" className="workspace" tabIndex={-1}>
+        <StatusLine
+          agent={agent.state}
+          payouts={payouts.state}
+          senior={person.can_approve_over_limit}
+          onTurnOn={() => {
+            setAgentOpen(true);
+          }}
+          onResume={() => {
+            setPayoutsOpen(true);
+          }}
+        />
         <PayoutsSwitch
           api={api}
           handler={person}
@@ -170,7 +198,15 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
           onEditing={setPayoutsOpen}
         />
         <ErrorBoundary key={routeKey(route)}>
-          {handlerPage(route, api, person, pollMs)}
+          {handlerPage(route, api, person, pollMs, agent.state, {
+            onReset: () => {
+              agent.refresh();
+              api.getPayouts().then(payouts.setState, () => undefined);
+            },
+            onTurnOn: () => {
+              setAgentOpen(true);
+            },
+          })}
         </ErrorBoundary>
       </main>
       {copilotOpen && (
@@ -180,8 +216,8 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
           starters={
             route.page === "claim"
               ? [
-                  `Summarise ${route.claimId}`,
-                  `Any risk signals on ${route.claimId}?`,
+                  `Does the policy cover ${route.claimId}?`,
+                  `Has this customer claimed before? (${route.claimId})`,
                   `What's still missing on ${route.claimId}?`,
                 ]
               : undefined
@@ -202,7 +238,14 @@ function routeKey(route: Route): string {
   return route.page;
 }
 
-function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
+function handlerPage(
+  route: Route,
+  api: Api,
+  handler: Handler,
+  pollMs: number,
+  agent: AgentSwitch | null,
+  { onReset, onTurnOn }: { onReset: () => void; onTurnOn: () => void },
+) {
   if (route.page === "claim") {
     return (
       <ClaimPage
@@ -214,6 +257,8 @@ function handlerPage(route: Route, api: Api, handler: Handler, pollMs: number) {
       />
     );
   }
-  if (route.page === "settings") return <SettingsPage api={api} handler={handler} />;
-  return <QueuePage api={api} handler={handler} />;
+  if (route.page === "settings") {
+    return <SettingsPage api={api} handler={handler} onReset={onReset} />;
+  }
+  return <TodayPage api={api} handler={handler} agent={agent} onTurnOn={onTurnOn} />;
 }

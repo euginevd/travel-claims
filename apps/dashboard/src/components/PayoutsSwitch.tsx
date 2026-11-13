@@ -1,30 +1,6 @@
-import { Check, CirclePlay, OctagonX, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
-import { ApiError, type Api, type Handler, type PayoutSwitch } from "../api";
-import { when } from "../format";
-
-// Reasons a senior handler picks from, so the audit log reads consistently. "Other" needs a note.
-export const PAUSE_REASONS = [
-  "Suspected attack or fraud",
-  "Agent behaving unexpectedly",
-  "Payment provider problem",
-  "Investigating an incident",
-  "Planned maintenance",
-  "Other",
-] as const;
-export const RESUME_REASONS = [
-  "Issue resolved",
-  "Checks complete, safe to pay",
-  "Paused by mistake",
-  "Other",
-] as const;
-
-/** The reason recorded in the audit log: the chosen reason, with the note when there is one. */
-export function reasonText(choice: string, note: string): string {
-  const extra = note.trim();
-  if (choice === "Other") return extra;
-  return extra ? `${choice}: ${extra}` : choice;
-}
+import { useCallback, useEffect, useState } from "react";
+import type { Api, Handler, PayoutSwitch } from "../api";
+import { ReasonCard } from "./ReasonCard";
 
 /** The payouts switch as the api reports it, loaded once a person is signed in. */
 export function usePayouts(api: Api, enabled: boolean) {
@@ -58,10 +34,9 @@ export function PayoutsStatus({ state, senior, onOpen }: StatusProps) {
   if (!state) return null;
   const paused = state.paused;
   const label = paused ? "Payouts paused" : "Payouts live";
-  const Icon = paused ? OctagonX : CirclePlay;
   const content = (
     <>
-      <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+      <span className="status-dot" aria-hidden="true" />
       <span className="payouts-status-label">{label}</span>
     </>
   );
@@ -95,165 +70,36 @@ interface Props {
   onEditing: (editing: boolean) => void;
 }
 
-/** The payouts kill switch: a banner on every page while payouts are paused, and for a
- * senior handler the control to pause or resume them, with a reason. */
+/** The payouts kill switch's card: a senior handler pauses or resumes every payment, with a
+ * reason. The line saying payouts are paused is the status line's. */
 export function PayoutsSwitch({ api, handler, state, onState, editing, onEditing }: Props) {
-  const [choice, setChoice] = useState("");
-  const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const inFlight = useRef(false);
-  const ids = useId();
-
-  // Escape closes the popover, wherever focus is inside it.
-  useEffect(() => {
-    if (!editing) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onEditing(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [editing, onEditing]);
-
+  const close = useCallback(() => {
+    onEditing(false);
+  }, [onEditing]);
   if (!state) return null;
   const senior = handler.can_approve_over_limit;
   if (!state.paused && !senior) return null;
 
-  const reason = reasonText(choice, note);
-  const ready = choice !== "" && reason !== "";
-  const reasons = state.paused ? RESUME_REASONS : PAUSE_REASONS;
-
-  function close() {
-    onEditing(false);
-    setChoice("");
-    setNote("");
-    setError(null);
-  }
-
-  async function change(paused: boolean) {
-    if (inFlight.current || !ready) return;
-    inFlight.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      onState(await api.setPayouts(paused, reason));
-      close();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Couldn't change payouts. Try again.");
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
-  }
-
   const form = editing && (
-    <div role="dialog" aria-labelledby={`${ids}-title`}>
-      <form
-        className="payouts-popover"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void change(!state.paused);
-        }}
-      >
-        <div className="payouts-popover-head">
-          <h2 id={`${ids}-title`} className="payouts-panel-title">
-            {state.paused ? "Resume payouts?" : "Pause all payouts?"}
-          </h2>
-          <button type="button" className="popover-close" aria-label="Close" onClick={close}>
-            <X size={18} strokeWidth={1.75} aria-hidden="true" />
-          </button>
-        </div>
-        <p className="muted small">
-          {state.paused
-            ? "Held approvals can then be signed off and paid."
-            : "The agent keeps deciding, but nothing is paid until payouts are back on."}
-        </p>
-        <fieldset className="reason-options" disabled={busy}>
-          <legend>Why?</legend>
-          {reasons.map((option) => (
-            <label key={option} className={`reason-option${choice === option ? " chosen" : ""}`}>
-              <input
-                type="radio"
-                className="visually-hidden"
-                name={`${ids}-reason`}
-                value={option}
-                checked={choice === option}
-                onChange={() => {
-                  setChoice(option);
-                }}
-              />
-              {choice === option && <Check size={14} strokeWidth={1.75} aria-hidden="true" />}
-              {option}
-            </label>
-          ))}
-        </fieldset>
-        <label htmlFor={`${ids}-note`}>
-          {choice === "Other" ? "Tell us why" : "Add a note (optional)"}
-        </label>
-        <input
-          id={`${ids}-note`}
-          value={note}
-          maxLength={300}
-          required={choice === "Other"}
-          disabled={busy}
-          onChange={(event) => {
-            setNote(event.target.value);
-          }}
-        />
-        <div className="actions popover-actions">
-          <button className="button secondary small-button" type="button" onClick={close}>
-            Cancel
-          </button>
-          <button
-            className={`button small-button${state.paused ? "" : " danger"}`}
-            type="submit"
-            disabled={busy || !ready}
-          >
-            {state.paused ? "Resume payouts" : "Pause all payouts"}
-          </button>
-        </div>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-      </form>
-    </div>
+    <ReasonCard
+      title={state.paused ? "Resume payouts?" : "Pause all payouts?"}
+      detail={
+        state.paused
+          ? "Held approvals can then be signed off and paid."
+          : "The agent keeps deciding, but nothing is paid until payouts are back on."
+      }
+      example={
+        state.paused ? "e.g. Checks done, safe to pay" : "e.g. Checking a run of odd approvals"
+      }
+      confirm={state.paused ? "Resume payouts" : "Pause all payouts"}
+      failed="Couldn't change payouts. Try again."
+      onConfirm={async (reason) => {
+        onState(await api.setPayouts(!state.paused, reason));
+        close();
+      }}
+      onClose={close}
+    />
   );
 
-  if (!state.paused) return form || null;
-
-  return (
-    <div className="payouts-paused" role="status">
-      <OctagonX size={20} strokeWidth={1.75} aria-hidden="true" />
-      <div>
-        <strong>Payouts are paused.</strong> The agent keeps deciding; every approval waits for a
-        sign-off once payouts are back on.
-        {state.reason && (
-          <span className="muted">
-            {" "}
-            {state.changed_by ?? "A senior handler"}
-            {state.changed_at ? `, ${when(state.changed_at)}` : ""}: &ldquo;{state.reason}
-            &rdquo;
-          </span>
-        )}
-        {senior && !editing && (
-          <div>
-            <button
-              className="button"
-              type="button"
-              onClick={() => {
-                onEditing(true);
-              }}
-            >
-              <CirclePlay size={16} strokeWidth={1.75} aria-hidden="true" /> Resume payouts
-            </button>
-          </div>
-        )}
-        {form}
-      </div>
-    </div>
-  );
+  return form || null;
 }

@@ -1,0 +1,1048 @@
+/* Today: the handlers' home (docs/plan-dashboard.md), and the agent switch in the top bar. */
+
+.agent-switch-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.agent-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+button.agent-switch {
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+
+button.agent-switch:hover {
+  box-shadow: var(--lift);
+}
+
+.agent-switch.is-on {
+  border-color: var(--wattle-edge);
+  background: #f3f8ee;
+  color: var(--wattle-ink);
+}
+
+.agent-switch-error {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--warm-edge);
+  border-radius: 10px;
+  background: var(--warm-tint);
+  color: var(--warm);
+  font-size: 0.8rem;
+}
+
+.today h1 {
+  margin-bottom: 0;
+}
+
+.brief {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  margin: 18px 0 20px;
+  padding: 18px 22px;
+  border: 1px solid var(--wattle-edge);
+  border-radius: var(--radius-card);
+  background: linear-gradient(180deg, #f6faf1, var(--bg));
+}
+
+.brief p {
+  margin: 0;
+  font: 400 1.2rem/1.4 var(--font-head);
+}
+
+.brief small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-3);
+  font: 0.75rem var(--font-body);
+}
+
+.brief .button {
+  white-space: nowrap;
+}
+
+.today-figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0 0 22px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  list-style: none;
+}
+
+.today-figures li {
+  padding: 14px 18px;
+  border-left: 1px solid var(--line);
+}
+
+.today-figures li:first-child {
+  border-left: 0;
+}
+
+.today-figures b {
+  display: block;
+  font: 400 1.75rem/1.15 var(--font-head);
+}
+
+.today-figures .hot b {
+  color: var(--acc-d);
+}
+
+.list-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 26px 0 10px;
+}
+
+.list-head h2,
+.card-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.list-head .count {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--acc);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.today-rows {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  list-style: none;
+}
+
+.today-row + .today-row {
+  border-top: 1px solid var(--line-2);
+}
+
+.today-row a {
+  display: grid;
+  grid-template-columns: 92px 150px minmax(0, 1fr) minmax(0, 300px) 100px 120px;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 20px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.today-row a:hover,
+.today-row a:focus-visible {
+  background: #fdfcfb;
+}
+
+.today-row.first a {
+  box-shadow: inset 3px 0 0 var(--acc);
+}
+
+.today-row .claim-id {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.today-row small,
+.sign-list small,
+.spot-list small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+}
+
+.today-row .what span,
+.today-row .why span,
+.today-row .why b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-row .why b {
+  font-weight: 600;
+}
+
+.today-row .why span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.today-row .number {
+  text-align: right;
+}
+
+.today-row .due {
+  font-size: 0.82rem;
+}
+
+.folded {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin: 14px 0;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folded .chevron {
+  margin-left: auto;
+  color: var(--ink-3);
+  transition: transform 0.2s;
+}
+
+.folded[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.senior-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.senior-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.senior-grid > *,
+.senior-stack > * {
+  min-width: 0;
+}
+
+.card-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.card-head .muted {
+  margin-left: auto;
+  text-align: right;
+}
+
+.sign-list,
+.spot-list,
+.noticed ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sign-list li,
+.spot-list li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.sign-list li:first-child,
+.spot-list li:first-child {
+  border-top: 0;
+}
+
+.sign-list b {
+  font: 400 1.35rem/1 var(--font-head);
+}
+
+.spot-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.spot-actions .button,
+.sign-list .button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+}
+
+.noticed li {
+  padding: 12px 0;
+  border-top: 1px solid var(--line-2);
+}
+
+.noticed li:first-child {
+  border-top: 0;
+}
+
+.noticed li p {
+  margin: 0;
+}
+
+.noticed .claim-id {
+  margin-right: 10px;
+}
+
+@media (max-width: 900px) {
+  .brief,
+  .senior-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .today-figures {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .today-row a {
+    grid-template-columns: 1fr auto;
+  }
+
+  .today-row .cust,
+  .today-row .what,
+  .today-row .due {
+    display: none;
+  }
+}
+
+/* The claim page: the verdict first, then the evidence in tabs. */
+.verdict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 18px 0 22px;
+  overflow: hidden;
+  border: 1px solid var(--acc-edge);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  box-shadow: var(--lift);
+}
+
+.verdict.has-checks {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+}
+
+.verdict-main {
+  padding: 22px 24px;
+}
+
+.verdict-by {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+}
+
+.verdict h2 {
+  margin: 8px 0 6px;
+  font: 400 1.6rem/1.2 var(--font-head);
+}
+
+.verdict-reason {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.verdict-action {
+  margin-top: 18px;
+}
+
+.verdict-more {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line-3);
+}
+
+.verdict-more > p {
+  margin: 0 0 8px;
+}
+
+.verdict-checks {
+  padding: 22px 24px;
+  border-left: 1px solid var(--line);
+  background: #fdfcfb;
+}
+
+.verdict-checks h3 {
+  margin: 0 0 8px;
+  font: 400 1.3rem/1.2 var(--font-head);
+}
+
+.verdict-checks ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.verdict-checks li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line-2);
+  font-size: 0.84rem;
+}
+
+.verdict-checks li:first-child {
+  border-top: 0;
+}
+
+.verdict-checks li svg {
+  margin-top: 2px;
+}
+
+.verdict-checks .check-pass svg {
+  color: var(--good);
+}
+
+.verdict-checks .check-warn svg {
+  color: var(--amber);
+}
+
+.verdict-checks .check-fail svg {
+  color: var(--warm);
+}
+
+.verdict-checks .source-chip {
+  margin-left: 6px;
+}
+
+.action-row,
+.decide-buttons,
+.next-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.next-step {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-work);
+}
+
+.next-step label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.next-step p {
+  margin: 0;
+}
+
+.next-step textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-field);
+  background: var(--bg);
+  font: inherit;
+  resize: vertical;
+}
+
+.claim-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.claim-tabs button {
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.claim-tabs button.on {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.claim-tab-body {
+  display: grid;
+  gap: 22px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  background: var(--bg);
+}
+
+.claim-tab-body > .panel {
+  margin: 0;
+}
+
+.next-claim {
+  position: sticky;
+  bottom: 18px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  max-width: 780px;
+  margin: 22px auto 0;
+  padding: 12px 14px 12px 20px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.next-claim-left {
+  color: #c9c6bf;
+}
+
+.next-claim .button {
+  margin-left: auto;
+  background: #fff;
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .verdict.has-checks {
+    grid-template-columns: 1fr;
+  }
+
+  .verdict-checks {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
+/* The demo's controls in Settings: simple ticks. */
+.demo-controls .tick {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 10px;
+  align-items: start;
+  margin: 10px 0;
+  cursor: pointer;
+}
+
+.demo-controls .tick input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--ink);
+}
+
+.demo-controls .tick > span {
+  font-weight: 600;
+}
+
+.demo-controls .tick small {
+  font-weight: 400;
+  display: block;
+}
+
+.demo-controls .reset {
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.demo-controls legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+/* The top bar has room for the agent switch on a laptop screen. */
+.topbar .search-field {
+  flex: 0 1 160px;
+  min-width: 0;
+}
+
+.topbar .topbar-in {
+  column-gap: 14px;
+}
+
+.spot-list small,
+.sign-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a laptop the search is its icon and shortcut; the button keeps its name (aria-label). */
+@media (max-width: 1600px) {
+  .topbar .search-placeholder {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .topbar .search-field {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .sign-list li,
+  .spot-list li {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .spot-actions {
+    justify-content: flex-start;
+  }
+
+  .sign-list .button {
+    justify-self: start;
+  }
+
+  .today-row a {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+
+  .today-row .why {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .today-row .claim-id,
+  .claim-id {
+    white-space: nowrap;
+  }
+
+  .card-head {
+    flex-wrap: wrap;
+  }
+
+  .card-head .muted {
+    margin-left: 0;
+    text-align: left;
+  }
+}
+
+.sign-list li > span,
+.spot-list li > span {
+  min-width: 0;
+}
+
+/* Status in the top bar: the agent and payouts as one quiet group. Green when on or live, red
+   when off or paused: a tinted segment and a dot, never a loud fill. The width never changes,
+   so nothing in the top bar moves when the agent starts working. */
+.status-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.status-group .agent-switch-wrap {
+  display: inline-flex;
+}
+
+.status-group .agent-switch,
+.status-group .payouts-status {
+  min-height: 28px;
+  padding: 0 11px 0 9px;
+  gap: 7px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.status-group .agent-switch,
+.status-group .payouts-status.is-paused {
+  background: #fbf0ec;
+  color: #a6472f;
+}
+
+.status-group .agent-switch.is-on,
+.status-group .payouts-status.is-live {
+  background: #eef5ec;
+  color: var(--good);
+}
+
+.status-group button:hover {
+  filter: brightness(0.98);
+}
+
+.status-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.agent-switch.is-working .status-dot {
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes agent-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(61 107 71 / 35%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgb(61 107 71 / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-switch.is-working .status-dot {
+    animation: none;
+  }
+}
+
+/* The count of claims being worked: always there, empty when none, so the pill never grows. */
+.agent-switch-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.agent-switch.is-working .agent-switch-count {
+  background: rgb(61 107 71 / 12%);
+}
+
+.agent-switch:not(.is-working) .agent-switch-count {
+  margin-left: -7px;
+  min-width: 0;
+  padding: 0;
+}
+
+/* What's off: one quiet line under the top bar, not a red panel. */
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 18px;
+  padding: 8px 14px;
+  border: 1px solid #f1ddd5;
+  border-radius: 12px;
+  background: #fdf7f4;
+  color: #a6472f;
+  font-size: 0.85rem;
+}
+
+.status-line p {
+  flex: 1 1 320px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.status-line strong {
+  font-weight: 600;
+}
+
+.status-line-action {
+  padding: 4px 10px;
+  border: 1px solid #ecc9bc;
+  border-radius: 999px;
+  background: var(--bg);
+  color: #a6472f;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.status-line-action:hover {
+  background: #fbf0ec;
+}
+
+/* The top bar is one row on any laptop: the search shrinks to its icon, then the name and role
+   go, leaving the initials. */
+@media (min-width: 900px) {
+  .topbar .topbar-in,
+  .topbar .topbar-right {
+    flex-wrap: nowrap;
+  }
+
+  .topbar .topnav {
+    flex: none;
+  }
+}
+
+@media (max-width: 1360px) {
+  .topbar .who-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Pause or resume payouts: the card matches the rest, a Newsreader question, the reasons as one
+   tidy list of radio rows, a quiet Cancel and the one dark button. */
+.payouts-popover {
+  width: min(400px, calc(100vw - 32px));
+  gap: 12px;
+  padding: 20px 22px;
+  border-radius: var(--radius-card);
+}
+
+.payouts-popover .payouts-panel-title {
+  margin: 0;
+  font: 400 1.4rem/1.2 var(--font-head);
+}
+
+.payouts-popover .reason-options {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.payouts-popover .reason-options legend {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-work);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.payouts-popover .reason-option {
+  gap: 10px;
+  justify-content: flex-start;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-top: 1px solid var(--line-2);
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.88rem;
+}
+
+.payouts-popover .reason-option:first-of-type {
+  border-top: 0;
+}
+
+.payouts-popover .reason-option::before {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line-3);
+  border-radius: 50%;
+  content: "";
+}
+
+.payouts-popover .reason-option:hover {
+  background: #fdfcfb;
+}
+
+.payouts-popover .reason-option.chosen {
+  background: var(--bg-work);
+  box-shadow: none;
+}
+
+.payouts-popover .reason-option.chosen::before {
+  border: 4px solid var(--ink);
+}
+
+.payouts-popover label[for] {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.payouts-popover textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-field);
+  background: var(--bg);
+  font: inherit;
+  resize: vertical;
+}
+
+.popover-actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.popover-cancel {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.popover-cancel:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+/* Disabled until a reason is picked, but still plainly the main button. */
+.popover-actions .button:disabled {
+  background: radial-gradient(120% 140% at 50% -40%, var(--black-1) 0%, var(--black-3) 100%);
+  color: var(--bg);
+  opacity: 0.35;
+}
+
+/* Settings: two quiet groups, the unit inside the box, one short line of help with its range. */
+.settings-group {
+  min-width: 0;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.settings-group legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.field-affix {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  max-width: 200px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-field);
+  background: var(--bg);
+}
+
+.field-affix:focus-within {
+  border-color: var(--ink);
+}
+
+.field-affix > span {
+  padding: 0 0 0 12px;
+  color: var(--ink-3);
+}
+
+.field-affix.after > span {
+  padding: 0 12px 0 0;
+}
+
+.settings-field .field-affix input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.settings-field .field-affix.before input {
+  padding-left: 6px;
+}
+
+.settings-field input::-webkit-outer-spin-button,
+.settings-field input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.settings-range {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.settings-range::before {
+  content: "· ";
+}
+
+/* A fresh start is quiet: zeros in grey, one line when nothing needs you, one column for one card. */
+.today-figures .zero b {
+  color: var(--ink-3);
+}
+
+.today-empty {
+  margin: 0;
+  padding: 14px 20px;
+  border: 1px dashed var(--line-3);
+  border-radius: var(--radius-card);
+  font-size: 0.9rem;
+}
+
+.senior-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
