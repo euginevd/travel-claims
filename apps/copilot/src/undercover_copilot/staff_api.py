@@ -104,8 +104,10 @@ class StaffApi:
     def work(self, claim_id: str) -> Json:
         return cast(Json, self._call("POST", f"/api/staff/claims/{claim_id}/work"))
 
-    def sign_off(self, claim_id: str) -> Json:
-        return cast(Json, self._call("POST", f"/api/staff/claims/{claim_id}/sign-off"))
+    def sign_off(self, claim_id: str, expected_payout: float) -> Json:
+        """Pay a held payout, if it's still the amount on the card the handler confirmed."""
+        body = {"expected_payout": expected_payout}
+        return cast(Json, self._call("POST", f"/api/staff/claims/{claim_id}/sign-off", json=body))
 
 
 def detail_of(response: httpx2.Response) -> str:

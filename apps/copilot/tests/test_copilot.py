@@ -119,7 +119,7 @@ class FakeApi(StaffApi):
             "decision": {"payout": 3750.0, "reason": "Covered medical costs."},
         }
 
-    def sign_off(self, claim_id: str) -> Json:
+    def sign_off(self, claim_id: str, expected_payout: float) -> Json:
         if self.token == "marcus-token":
             raise ApiError(403, "Only a senior handler may sign off over the limit")
         FakeApi.paid.append(claim_id)

@@ -683,7 +683,7 @@ def carry_out(api: StaffApi, pending: Json) -> tuple[str, Json]:
             claim = api.send_back(claim_id, str(pending["note"]))
             text = f"Sent {claim_id} back to the agent; it is now {claim.get('status')}."
             return text, card("action", f"Sent {claim_id} back", str(pending["note"]))
-        paid = api.sign_off(claim_id)
+        paid = api.sign_off(claim_id, float(pending["amount"]))
         payment = cast(Json, paid.get("payment") or {})
         text = f"Signed off and paid {payment.get('amount', pending['amount'])}."
         return text, card("action", f"Signed off and paid {claim_id}", text)

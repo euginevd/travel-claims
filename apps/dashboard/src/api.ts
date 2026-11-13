@@ -457,7 +457,8 @@ export interface Api {
   listSteps: (claimId: string, signal?: AbortSignal) => Promise<Step[]>;
   workClaim: (claimId: string) => Promise<Claim>;
   retryClaim: (claimId: string) => Promise<Claim>;
-  signOff: (claimId: string) => Promise<Claim>;
+  /** Pays the held payout, if it is still the amount the handler saw. */
+  signOff: (claimId: string, expectedPayout: number) => Promise<Claim>;
   sendBack: (claimId: string, note: string) => Promise<Claim>;
   askCustomer: (claimId: string, text: string) => Promise<Claim>;
   getRisk: (claimId: string) => Promise<Risk>;
@@ -589,7 +590,10 @@ export function createApi(
       call(z.array(StepSchema), "GET", `${claimPath(claimId)}/steps`, { signal }),
     workClaim: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/work`),
     retryClaim: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/retry`),
-    signOff: (claimId) => call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`),
+    signOff: (claimId, expectedPayout) =>
+      call(ClaimSchema, "POST", `${claimPath(claimId)}/sign-off`, {
+        body: { expected_payout: expectedPayout },
+      }),
     sendBack: (claimId, note) =>
       call(ClaimSchema, "POST", `${claimPath(claimId)}/send-back`, { body: { note } }),
     getRisk: (claimId) => call(RiskSchema, "GET", `${claimPath(claimId)}/risk`),

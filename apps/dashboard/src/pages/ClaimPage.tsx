@@ -323,7 +323,7 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
           handler={handler}
           onSignOff={() =>
             act(
-              () => api.signOff(claimId),
+              () => api.signOff(claimId, claim.decision?.payout ?? 0),
               (done) => `Signed off and paid ${dollars(done.payment?.amount ?? 0)}.`,
             )
           }

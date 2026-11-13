@@ -32,7 +32,7 @@ test("turns the api's detail into the error message", async () => {
     "POST /api/staff/claims/CLM-1001/sign-off": () => [403, { detail: "Only Dana can sign off." }],
   });
   const error = await createApi(fetchFn, () => "t")
-    .signOff("CLM-1001")
+    .signOff("CLM-1001", 2500)
     .catch((caught: unknown) => caught);
   expect(error).toBeInstanceOf(ApiError);
   expect(error).toMatchObject({ status: 403, message: "Only Dana can sign off." });
