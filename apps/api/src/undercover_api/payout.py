@@ -46,9 +46,19 @@ def dollars(amount: float) -> str:
     return f"${amount:,.2f}"
 
 
+def cents(amount: float) -> int:
+    """An amount in whole cents. Money is compared this way, never as floats, so 0.1 + 0.2 and
+    0.3 are the same payout."""
+    return round(amount * 100)
+
+
+def same_amount(first: float, second: float) -> bool:
+    return cents(first) == cents(second)
+
+
 def needs_sign_off(payout: float, approval_limit: float) -> bool:
     """Whether a payout is over the limit, and so needs a handler's sign-off."""
-    return payout > approval_limit
+    return cents(payout) > cents(approval_limit)
 
 
 def step(description: str, amount: float) -> CalculationStep:
@@ -80,6 +90,16 @@ def eligible(line: Line, limits: Limits) -> CalculationStep:
 
 class UnknownPlanError(Exception):
     """A policy on a plan the payout rules don't hold."""
+
+
+def override_ceiling(policy: PolicyTerms, plans: Plans, amount_claimed: float) -> float:
+    """The most a senior handler's override can pay: what the customer claimed, and never more
+    than the largest benefit the policy's plan pays."""
+    plan = next((p for p in plans.plans if p.plan == policy.plan), None)
+    if plan is None:
+        raise UnknownPlanError(policy.plan)
+    largest: float = max(getattr(plan, field) for field in BENEFIT_MAXIMUM.values())
+    return round(min(amount_claimed, largest), 2)
 
 
 def work_out_payout(

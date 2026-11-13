@@ -22,9 +22,10 @@
     done
   }
 
-  # Leftover project buckets. The model logs' bucket denies deletes to all but the deploy role, so its
-  # policy goes first (an account admin may remove a bucket policy).
-  for b in $(notowned "$(aws s3api list-buckets --query "Buckets[?contains(Name,'$P')].Name" --output text)"); do
+  # Leftover project buckets: named <project>-...-<account> by every unit, so another project whose name
+  # merely contains this one's is never emptied. The model logs' bucket denies deletes to all but the
+  # deploy role, so its policy goes first (an account admin may remove a bucket policy).
+  for b in $(notowned "$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'$P-') && ends_with(Name,'-$A')].Name" --output text)"); do
     aws s3api delete-bucket-policy --bucket "$b" 2>/dev/null
     empty "$b"
     aws s3api delete-bucket --bucket "$b" && echo "Deleted bucket $b"

@@ -412,3 +412,20 @@ def test_uvicorns_errors_go_through_the_redacting_formatter() -> None:
 
 def test_the_api_loads_customers_names_to_redact(client: TestClient) -> None:
     assert redact("Maya Patel called") == "[name] called"
+
+
+def test_logs_redact_mobile_numbers_a_payid_can_be() -> None:
+    for number in ("0412 345 678", "0412345678", "+61 412 345 678", "+61412345678"):
+        assert redact(f"paid to PayID {number} today") == "paid to PayID [phone] today"
+    assert redact("claim CLM-1001 for $1,412.50") == "claim CLM-1001 for $1,412.50"
+
+
+def test_the_demo_counts_what_needs_a_handler(client: TestClient) -> None:
+    before = client.get("/api/demo/stats").json()
+    start(client, "CLM-1001")
+    decide(client, "CLM-1001", "refer")
+    after = client.get("/api/demo/stats").json()
+    assert after["decided"] == before["decided"] + 1
+    assert after["need_a_handler"] == before["need_a_handler"] + 1
+    assert after["traced"] <= after["decided"]
+    assert set(after) >= {"claims", "auto_paid", "redteam_attacks", "held_out_claims"}

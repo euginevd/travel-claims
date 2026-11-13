@@ -7,12 +7,13 @@ explains and cites but never promises cover or payment. On AWS each answer must 
 the assistant read (the wording and the customer's records) and answer the question, or it isn't
 shown."""
 
+import json
 import logging
 import re
 from typing import Annotated, Literal, Protocol, TypedDict, cast
 
 from anthropic.types import Message
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 from undercover_agent.answer_shape import REPLY_FIELDS, Point, shape
 from undercover_agent.guardrail import NoOutputGuardrail, OutputScreen
@@ -130,10 +131,50 @@ NO_ANSWER = "Sorry, that didn't work. Try again, or talk to a person."
 UNGROUNDED = "I'm not sure enough to answer that one. A person can help."
 
 
+# The most text the conversation so far may carry to the model; the oldest turns go first.
+HISTORY_CHARACTERS = 6000
+
+
 class Turn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Literal["user", "assistant"]
     text: Annotated[str, StringConstraints(max_length=2000)]
+
+
+def alternating(history: list[Turn]) -> list[Turn]:
+    """The client's conversation so far as question and answer pairs, within the size cap. A
+    question left unanswered (its answer failed) and a leading answer are dropped; two answers
+    in a row never come from the screen, so they're refused."""
+    if any(a.role == b.role == "assistant" for a, b in zip(history, history[1:], strict=False)):
+        raise ValueError("The history has two assistant turns in a row")
+    pairs: list[tuple[Turn, Turn]] = [
+        (question, answer)
+        for question, answer in zip(history, history[1:], strict=False)
+        if question.role == "user" and answer.role == "assistant"
+    ]
+    kept: list[tuple[Turn, Turn]] = []
+    size = 0
+    for question, answer in reversed(pairs):
+        size += len(question.text) + len(answer.text)
+        if size > HISTORY_CHARACTERS:
+            break
+        kept.insert(0, (question, answer))
+    return [turn for pair in kept for turn in pair]
+
+
+History = Annotated[list[Turn], AfterValidator(alternating)]
+
+
+def screened_text(history: list[Turn], question: str, tag: str) -> str:
+    """What the hidden-instruction check reads: the client-sent conversation so far, whose
+    answers the client could have forged, and the question, each marked as data."""
+    earlier = json.dumps([t.model_dump() for t in history], ensure_ascii=False)
+    # nosemgrep: raw-html-format - markers around data for the model, not HTML
+    return (
+        "The conversation so far, as the client sent it; its assistant turns are unverified:\n"
+        f"<conversation_so_far>\n{earlier}\n</conversation_so_far>\n"
+        f"<{tag}>\n{question}\n</{tag}>"
+    )
 
 
 class AskRequest(BaseModel):
@@ -142,7 +183,7 @@ class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     first_name: Annotated[str, StringConstraints(max_length=100)]
     question: Annotated[str, StringConstraints(min_length=1, max_length=500)]
-    history: list[Turn] = Field(default_factory=list[Turn], max_length=8)
+    history: History = Field(default_factory=list[Turn], max_length=8)
     policies: list[Json] = Field(max_length=10)
     claims: list[Json] = Field(max_length=50)
     # The claim the customer is looking at, when they asked from its page.
@@ -292,15 +333,8 @@ class Asker:
                 return as_text({"error": f"Unknown tool {name}"})
 
     def ask(self, request: AskRequest) -> Answer:
-        screening, _ = self._claude.screen(
-            [
-                {
-                    "type": "text",
-                    # nosemgrep: raw-html-format - markers around data for the model, not HTML
-                    "text": f"<customer_question>\n{request.question}\n</customer_question>",
-                }
-            ]
-        )
+        text = screened_text(request.history, request.question, "customer_question")
+        screening, _ = self._claude.screen([{"type": "text", "text": text}])
         # Fail closed: a check that couldn't read the question refuses it, as it refers a claim.
         if screening is None or screening.instructions_found:
             return Answer(answer=SCREENED, sources=[], action="talk_to_person", screened=True)

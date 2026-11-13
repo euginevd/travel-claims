@@ -15,7 +15,7 @@ from undercover_api.db import customers, decisions, insert_if_new, now, payments
 from undercover_api.kill_switch import refuse_while_paused
 from undercover_api.models import DecisionKind, Status
 from undercover_api.notices import announce
-from undercover_api.payout import dollars, needs_sign_off
+from undercover_api.payout import dollars, needs_sign_off, same_amount
 
 LIMIT_LOWERED_REASON = "The approval limit was lowered after this claim was approved"
 
@@ -72,7 +72,7 @@ def pay(db: Connection, claim_id: str, amount: float) -> bool:
     """Pay an approved claim its payout, the agent's way: never over the limit. Says whether it
     paid now (False when the same payment was already made, or it's held for a sign-off)."""
     refuse_while_paused(db)
-    limit = approval_limit(db)
+    limit = approval_limit(db, lock=True)
     if needs_sign_off(amount, limit):
         if hold_after_limit_lowered(db, claim_id, amount):
             return False
@@ -85,7 +85,7 @@ def pay(db: Connection, claim_id: str, amount: float) -> bool:
         raise HTTPException(409, f"Claim {claim_id} has no approval to pay")
     paid = find_payment(db, claim_id)
     if paid is not None:
-        if paid.amount == amount:
+        if same_amount(paid.amount, amount):
             return False
         raise HTTPException(409, f"Claim {claim_id} has already been paid")
     if claim["status"] == Status.WAITING_FOR_SIGN_OFF or needs_sign_off(
@@ -94,7 +94,7 @@ def pay(db: Connection, claim_id: str, amount: float) -> bool:
         raise over_the_limit(decision.approval_limit)
     if claim["status"] != Status.IN_PROGRESS:
         raise HTTPException(409, f"Claim {claim_id} isn't in progress")
-    if amount != decision.payout:
+    if not same_amount(amount, decision.payout):
         raise HTTPException(
             422, f"The amount must be the approved payout of {dollars(decision.payout)}"
         )
@@ -109,7 +109,7 @@ def hold_after_limit_lowered(db: Connection, claim_id: str, amount: float) -> bo
     if (
         decision is None
         or decision.decision != DecisionKind.APPROVE
-        or decision.payout != amount
+        or not same_amount(decision.payout, amount)
         or needs_sign_off(amount, decision.approval_limit)
     ):
         return False

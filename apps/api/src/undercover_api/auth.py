@@ -18,6 +18,7 @@ from sqlalchemy import Connection, Engine, func, select
 from undercover_api.db import customers, engineers, handlers
 from undercover_api.local_sign_in import LocalIssuer
 from undercover_api.models import Customer, Engineer, Handler
+from undercover_api.storage import SAVED_RECEIPTS, remove_unsaved
 
 log = logging.getLogger(__name__)
 
@@ -155,10 +156,13 @@ def get_db(request: Request) -> Iterator[Connection]:
     with engine.connect() as connection:
         try:
             yield connection
+            connection.commit()
         except BaseException:
             connection.rollback()
+            # Receipts are written to their store before the rows that point to them commit.
+            remove_unsaved(connection)
             raise
-        connection.commit()
+        connection.info.pop(SAVED_RECEIPTS, None)
 
 
 Database = Annotated[Connection, Depends(get_db, scope="function")]
@@ -253,7 +257,7 @@ def signed_in_customer(
     row = (
         db.execute(
             select(customers.c.customer_id, customers.c.name, customers.c.email).where(
-                customers.c.email == email.lower()
+                func.lower(customers.c.email) == email.lower()
             )
         )
         .mappings()

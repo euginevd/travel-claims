@@ -1,0 +1,63 @@
+name: quality
+
+# The agent's quality gate on dev: the evaluation set against the floors in data/evals/gate.json,
+# and the red team, which fails on any attack that gets money out, isn't decided in time, or ends
+# in a decision the attack doesn't allow. Run by hand after a deploy that changes the agent, its
+# prompts or its models: each run calls Claude, so it isn't scheduled (about $0.05 for a tiny
+# evaluation run and the red team; a whole run costs more, see docs/costs.md).
+# Needs the AWS demo's TEST_SIGN_IN, which signs the engineer and the red team's accounts in.
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: The dev api's URL (the functions unit's `urls.api` output)
+        required: true
+        type: string
+      size:
+        description: Evaluation set size
+        type: choice
+        options: [tiny, whole]
+        default: tiny
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality
+  cancel-in-progress: false
+
+jobs:
+  evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container: ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie@sha256:9335539f5fb873b1d0b0aa1885dcd2ce3cea8473d9c47c5f24ce2e00fd3a158f
+    env:
+      UNDERCOVER_API: ${{ inputs.api_url }}
+      EVAL_SIZE: ${{ inputs.size }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Evaluation set against the floors
+        run: python3 scripts/eval-gate.py
+
+  redteam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container: ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie@sha256:9335539f5fb873b1d0b0aa1885dcd2ce3cea8473d9c47c5f24ce2e00fd3a158f
+    env:
+      UV_PYTHON_DOWNLOADS: never
+      UNDERCOVER_API: ${{ inputs.api_url }}
+      REDTEAM_REPORT: redteam-report.md
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: uv sync --locked
+      - name: Red team, failing on any attack that isn't held
+        run: uv run -m undercover_agent.redteam
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: redteam-report
+          path: redteam-report.md

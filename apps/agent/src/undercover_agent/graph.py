@@ -176,8 +176,12 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             return {"messages": [assistant, nudge], "model_calls": 1}
         return {"messages": [assistant], "model_calls": 1}
 
-    def consult(claim_id: str, thread_id: str, kind: str) -> Result:
-        """Ask a specialist for its findings on the claim, its receipts and the trip."""
+    def consult(claim_id: str, thread_id: str, kind: str, used: list[int]) -> Result:
+        """Ask a specialist for its findings on the claim, its receipts and the trip. Each
+        consult is a model call, counted against the attempt's limit in `used`."""
+        if used[0] >= max_model_calls:
+            return Result("The model-call limit is reached: decide without it.", is_error=True)
+        used[0] += 1
         specialist = cast(SpecialistKind, kind)
         claim = claim_as_read(api.claim(claim_id))
         trip = api.policy(claim_id).get("trip", {})
@@ -195,6 +199,7 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
         results: list[Json] = []
         outcome: Outcome = ""
         payout = 0.0
+        used = [state["model_calls"]]
         for block in calls:
             name, args = str(block["name"]), cast(Json, block.get("input") or {})
             api.record_step(claim_id, thread_id, "tool_call", f"{name} {as_text(args)}")
@@ -205,7 +210,12 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
                 result = Result(ran.text, is_error=ran.is_error)
             else:
                 result = run_tool(
-                    api, context, claim_id, name, args, lambda k: consult(claim_id, thread_id, k)
+                    api,
+                    context,
+                    claim_id,
+                    name,
+                    args,
+                    lambda k: consult(claim_id, thread_id, k, used),
                 )
             kind = "error" if result.is_error else ("lookup" if result.sources else "tool_result")
             api.record_step(claim_id, thread_id, kind, result.text, result.sources)
@@ -222,6 +232,7 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
                 remember(result.claim_after_decision)
         return {
             "messages": [{"role": "user", "content": results}],
+            "model_calls": used[0] - state["model_calls"],
             "outcome": outcome,
             "payout": payout,
         }

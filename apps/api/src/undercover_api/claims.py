@@ -303,11 +303,11 @@ def policy_terms(policy: Policy) -> PolicyTerms:
     return PolicyTerms(policy.plan, policy.add_ons, len(policy.travelers), policy.trip.trip_cost)
 
 
-def approval_limit(db: Connection) -> float:
-    """The approval limit in force. With none set, nothing is paid without a sign-off."""
-    value = db.execute(
-        select(settings.c.value).where(settings.c.key == APPROVAL_LIMIT)
-    ).scalar_one_or_none()
+def approval_limit(db: Connection, lock: bool = False) -> float:
+    """The approval limit in force. With none set, nothing is paid without a sign-off. A payment
+    reads it locked, so a limit lowered at the same moment can't be missed."""
+    query = select(settings.c.value).where(settings.c.key == APPROVAL_LIMIT)
+    value = db.execute(query.with_for_update() if lock else query).scalar_one_or_none()
     return float(value) if value is not None else 0.0
 
 

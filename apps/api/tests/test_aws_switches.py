@@ -207,6 +207,22 @@ def test_a_test_account_signs_in_with_a_fresh_password_in_its_own_pool(database_
     assert client.post("/api/customer/dev/sign-in", json=login).status_code == 404  # noqa: PLR2004
 
 
+def test_the_public_demo_never_signs_anyone_in_as_the_senior_handler(database_url: str) -> None:
+    from fastapi.testclient import TestClient  # noqa: PLC0415
+
+    from undercover_api.demo_sign_in import CognitoTestSignIn  # noqa: PLC0415
+    from undercover_api.main import create_app  # noqa: PLC0415
+
+    cognito = FakeCognito()
+    app = create_app(demo_settings(database_url))
+    app.state.test_sign_in = CognitoTestSignIn(cognito)
+    client = TestClient(app)
+    path = "/api/staff/dev/test-sign-in"
+    assert client.post(path, json={"account": "handler"}).status_code == 200  # noqa: PLR2004
+    assert client.post(path, json={"account": "senior"}).status_code == 404  # noqa: PLR2004
+    assert "dana.whitfield@undercover.example" not in cognito.passwords
+
+
 def test_a_failed_sign_in_tries_again_and_never_echoes_the_password() -> None:
     from fastapi import HTTPException  # noqa: PLC0415
 

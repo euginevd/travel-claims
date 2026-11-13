@@ -7,6 +7,8 @@ import httpx2
 Json = dict[str, Any]
 FIRST_ERROR_STATUS = 400
 NOT_FOUND = 404
+# What a request that never got an answer counts as: the api is unavailable.
+UNREACHABLE = 503
 
 
 class ApiError(Exception):
@@ -27,7 +29,15 @@ class StaffApi:
 
     def _call(self, method: str, path: str, **kwargs: Any) -> Any:
         headers = {"Authorization": f"Bearer {self._token}"}
-        response = self._http.request(method, path, headers=headers, **kwargs)
+        try:
+            response = self._http.request(method, path, headers=headers, **kwargs)
+        except httpx2.TransportError as error:
+            # No answer, so whether a change went through is unknown: say so, never guess.
+            detail = (
+                f"The api didn't answer ({type(error).__name__}); check the claim's status "
+                "before trying again"
+            )
+            raise ApiError(UNREACHABLE, detail) from error
         if response.status_code >= FIRST_ERROR_STATUS:
             raise ApiError(response.status_code, detail_of(response))
         return response.json()

@@ -7,7 +7,7 @@ import pytest
 from anthropic.lib.bedrock import AnthropicBedrock
 from pydantic import ValidationError
 
-from undercover_agent.models import claude_client
+from undercover_agent.models import AnthropicClaude, claude_client
 from undercover_agent.settings import Settings, load_vaulted_key
 
 BASE = {"undercover_api_key": "k" * 40, "checkpoint_database_url": "postgresql://x"}
@@ -18,6 +18,30 @@ def test_the_anthropic_api_is_the_default_and_needs_its_key() -> None:
     assert isinstance(claude_client(settings), anthropic.Anthropic)
     with pytest.raises(ValidationError, match="ANTHROPIC_API_KEY"):
         Settings(**BASE)  # pyright: ignore[reportArgumentType]
+
+
+def test_the_improver_has_its_own_longer_timeout() -> None:
+    settings = Settings(anthropic_api_key="sk-test", anthropic_workspace_id="w", **BASE)  # pyright: ignore[reportArgumentType]
+    assert settings.improver_timeout_seconds > settings.model_timeout_seconds
+    claude = AnthropicClaude(settings)
+    timeouts: list[float] = []
+
+    class Client:
+        def with_options(self, timeout: float) -> Client:
+            timeouts.append(timeout)
+            return self
+
+        @property
+        def messages(self) -> Client:
+            return self
+
+        def parse(self, **_: object) -> None:
+            raise TimeoutError
+
+    claude._client = Client()  # pyright: ignore[reportAttributeAccessIssue, reportPrivateUsage]
+    with pytest.raises(TimeoutError):
+        claude.propose("brief")
+    assert timeouts == [settings.improver_timeout_seconds]
 
 
 def test_bedrock_needs_no_anthropic_key() -> None:

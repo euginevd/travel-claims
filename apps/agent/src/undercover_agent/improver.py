@@ -58,16 +58,25 @@ class RoundImprover:
         return thread
 
     def propose(self, round_id: int) -> None:
+        """Post a proposal for the round, or mark the round failed: this runs on a thread of its
+        own, so nothing it raises may leave the round stuck at improving."""
         try:
             brief = self._api.brief(round_id)
             found, call = self._improver.propose(brief_as_text(brief))
             if found is None:
-                self._api.improver_failed(round_id, "The improver couldn't produce a proposal")
+                self.fail(round_id, "The improver couldn't produce a proposal")
                 return
             self._api.propose(round_id, found.model_dump() | {"cost": round(call.cost, 6)})
         except ApiError as error:
             log.warning("round %s: the improver's proposal wasn't taken: %s", round_id, error)
-            try:
-                self._api.improver_failed(round_id, f"The proposal wasn't taken: {error.detail}")
-            except ApiError:
-                log.exception("round %s couldn't be stopped", round_id)
+            self.fail(round_id, f"The proposal wasn't taken: {error.detail}")
+        except Exception as error:  # noqa: BLE001 - a daemon thread: any failure ends the round
+            log.exception("round %s: the improver failed", round_id)
+            self.fail(round_id, f"The improver failed: {type(error).__name__}")
+
+    def fail(self, round_id: int, reason: str) -> None:
+        """Mark the round failed, logging when even that can't reach the api."""
+        try:
+            self._api.improver_failed(round_id, reason)
+        except Exception:  # noqa: BLE001 - nothing else is left to tell
+            log.exception("round %s couldn't be stopped", round_id)
