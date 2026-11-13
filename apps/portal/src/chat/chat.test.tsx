@@ -757,3 +757,28 @@ test("claims show three in each group, then five more a tap", async () => {
   await user.click(within(panel).getByRole("button", { name: "Show 1 more" }));
   expect(within(panel).getAllByRole("button", { name: /Claim number/ })).toHaveLength(9);
 });
+
+test("done claims stay folded until asked for", async () => {
+  const user = userEvent.setup();
+  const paid = {
+    ...MY_SUMMARY,
+    claim_id: "CLM-1200",
+    summary: "An old paid claim",
+    status: "paid",
+  };
+  render(
+    <App
+      fetchFn={fakeFetch({
+        ...routes,
+        "GET /api/customer/claims": () => [200, [MY_SUMMARY, paid]],
+      })}
+    />,
+  );
+  await user.click(
+    await within(await screen.findByRole("banner")).findByRole("button", { name: /Claims/ }),
+  );
+  const panel = await screen.findByRole("dialog", { name: "Your claims" });
+  expect(within(panel).queryByText("An old paid claim")).not.toBeInTheDocument();
+  await user.click(within(panel).getByRole("button", { name: /Done/ }));
+  expect(within(panel).getByText("An old paid claim")).toBeInTheDocument();
+});

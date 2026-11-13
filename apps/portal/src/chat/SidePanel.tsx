@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronRight, Mail, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Mail, MessageSquare, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ApiError, type Api, type Cover, type CustomerClaim, type Settings } from "../api";
 import { ClaimTracker } from "../components/ClaimTracker";
@@ -223,6 +223,10 @@ function ClaimsView({
   const done = records.claims.filter((c) => DONE.has(c.status));
   const [openShown, setOpenShown] = useState(MESSAGES_SHOWN);
   const [doneShown, setDoneShown] = useState(MESSAGES_SHOWN);
+  // Done claims fold away, unless they're all there is or one of them is open on the right.
+  const [doneOpen, setDoneOpen] = useState(
+    open.length === 0 || done.some((c) => c.claim_id === selected),
+  );
   const more = (left: number, add: () => void) =>
     left > 0 && (
       <button type="button" className="text-link message-more" onClick={add}>
@@ -260,8 +264,10 @@ function ClaimsView({
         <p className="sheet-empty">No claims yet. Tell Wattle what happened.</p>
       )}
       {open.length > 0 && (
-        <section className="sheet-group">
-          <h3>In progress</h3>
+        <section className="sheet-group claims-group">
+          <h3>
+            In progress <span className="group-count">{open.length}</span>
+          </h3>
           <ul>{open.slice(0, openShown).map(row)}</ul>
           {more(open.length - openShown, () => {
             setOpenShown((n) => n + MESSAGES_MORE);
@@ -269,12 +275,28 @@ function ClaimsView({
         </section>
       )}
       {done.length > 0 && (
-        <section className="sheet-group">
-          <h3>Done</h3>
-          <ul>{done.slice(0, doneShown).map(row)}</ul>
-          {more(done.length - doneShown, () => {
-            setDoneShown((n) => n + MESSAGES_MORE);
-          })}
+        <section className="sheet-group claims-group claims-done">
+          <h3>
+            <button
+              type="button"
+              className="group-toggle"
+              aria-expanded={doneOpen}
+              onClick={() => {
+                setDoneOpen(!doneOpen);
+              }}
+            >
+              Done <span className="group-count">{done.length}</span>
+              <ChevronDown size={14} strokeWidth={2} aria-hidden="true" />
+            </button>
+          </h3>
+          {doneOpen && (
+            <>
+              <ul>{done.slice(0, doneShown).map(row)}</ul>
+              {more(done.length - doneShown, () => {
+                setDoneShown((n) => n + MESSAGES_MORE);
+              })}
+            </>
+          )}
         </section>
       )}
       <button type="button" className="button secondary sheet-action" onClick={onStartClaim}>

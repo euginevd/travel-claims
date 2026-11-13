@@ -1329,3 +1329,62 @@
   background: var(--soft);
   color: var(--ink);
 }
+
+/* A group that folds: Done claims, counted, closed until asked for. */
+.group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.group-toggle .group-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink-2);
+  letter-spacing: 0;
+}
+
+.group-toggle svg {
+  transition: transform 0.2s;
+}
+
+.group-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* The two claim groups read as sections: bold dark headings with a count, Done set apart. */
+.claims-group > h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.claims-group .group-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.claims-done {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 2px solid var(--line);
+}
