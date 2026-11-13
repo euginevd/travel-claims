@@ -49,3 +49,24 @@ test("says when Wattle AI can't answer and starts over", async () => {
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.getByText("Ask Wattle AI anything")).toBeInTheDocument();
 });
+
+test("an answer without the old suggest field still shows, with two versions side by side", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "POST /api/engineering/ask": () => [
+      200,
+      { answer: "v3 is more accurate.", sources: ["Run 3"], screened: false, compare: [2, 3] },
+    ],
+    "GET /api/engineering/runs": () => [200, []],
+  });
+  render(
+    <AskWattle
+      api={createApi(fetchFn, () => "t")}
+      route={{ page: "scoreboard" }}
+      onClose={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "How accurate is the agent right now?" }));
+  expect(await screen.findByText("v3 is more accurate.")).toBeInTheDocument();
+  expect(await screen.findByText("No finished runs for those versions yet.")).toBeInTheDocument();
+});

@@ -425,3 +425,13 @@ def test_an_answer_comes_laid_out_and_the_conversation_keeps_it_as_plain_text() 
     # The next turn sees the answer as text, with no reply call left open.
     last_answer = claude.seen[-1][-2]
     assert last_answer["content"] == [{"type": "text", "text": answer["text"]}]
+
+
+def test_a_card_is_named_only_for_a_real_claim_number() -> None:
+    from undercover_copilot.graph import laid_out  # noqa: PLC0415 - one helper
+
+    shown = laid_out({"headline": "x", "card": "payout", "claim_id": "clm-1004"})
+    assert (shown["card"], shown["claim_id"]) == ("payout", "CLM-1004")
+    made_up = laid_out({"headline": "x", "card": "refund", "claim_id": "CLM-1004"})
+    assert (made_up["card"], made_up["claim_id"]) == ("", "")
+    assert laid_out({"headline": "x", "card": "checks", "claim_id": "1004; DROP"})["card"] == ""

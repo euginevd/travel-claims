@@ -8,11 +8,15 @@ import type {
   Entry,
   Pending,
 } from "../copilot";
+import type { Api } from "../api";
 import { dollars } from "../format";
+import { ClaimFactsCard } from "./ClaimFactsCard";
 import { WATTLE_FOOTER, WattleMark } from "./Wattle";
 
 interface CopilotProps {
   copilot: CopilotApi;
+  /** The dashboard's api, as the handler signed in: cards load a claim through it. */
+  api?: Api;
   onClose: () => void;
   starters?: string[];
 }
@@ -27,7 +31,7 @@ const MESSAGE_LIMIT = 2000;
 // Wattle AI for claims experts: a chat in a sidebar that acts as the signed-in handler. Each step it
 // takes shows as a card, and anything that pays, spends or sends a decision back waits on a card
 // until the handler confirms it.
-export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotProps) {
+export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: CopilotProps) {
   const [past, setPast] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<Conversation | null>(null);
   const [text, setText] = useState("");
@@ -151,6 +155,7 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           <Bubble
             key={index}
             entry={entry}
+            api={api}
             onNext={
               index === current.transcript.length - 1 && !busy && !current.pending
                 ? (question) => void ask(question)
@@ -241,7 +246,15 @@ export function emphasised(text: string): ReactNode[] {
     );
 }
 
-function Bubble({ entry, onNext }: { entry: Entry; onNext?: (question: string) => void }) {
+function Bubble({
+  entry,
+  api,
+  onNext,
+}: {
+  entry: Entry;
+  api?: Api;
+  onNext?: (question: string) => void;
+}) {
   if (entry.role === "assistant" && entry.headline) {
     const sources = entry.sources ?? [];
     return (
@@ -271,6 +284,9 @@ function Bubble({ entry, onNext }: { entry: Entry; onNext?: (question: string) =
               <li key={source}>{source}</li>
             ))}
           </ol>
+        )}
+        {api && entry.card && entry.claim_id && (
+          <ClaimFactsCard api={api} kind={entry.card} claimId={entry.claim_id} />
         )}
         {entry.next && onNext && (
           <p className="wattle-next-q">

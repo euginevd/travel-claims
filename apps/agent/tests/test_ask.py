@@ -198,3 +198,12 @@ def test_only_actions_the_screen_knows_get_through() -> None:
     )
     assert next_step({"suggest": "ask_person"})["action"] == "talk_to_person"
     assert next_step({"replies": ["a", "b", "c", "d", " "]})["replies"] == ["a", "b", "c"]
+
+
+def test_engineers_get_two_versions_to_compare_or_none() -> None:
+    from undercover_agent.explain import versions  # noqa: PLC0415 - one helper
+
+    assert versions([3, 2]) == [2, 3]
+    assert versions([3, 3]) == []
+    assert versions([1, 2, 3]) == []
+    assert versions("v2 and v3") == []

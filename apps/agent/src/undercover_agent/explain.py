@@ -43,7 +43,16 @@ EXPLAIN_TOOLS = [
     tool(
         "reply",
         "Give the engineer your answer. This ends your turn.",
-        REPLY_FIELDS,
+        REPLY_FIELDS
+        | {
+            "compare": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "When the answer compares two agent versions, the two config "
+                "versions, e.g. [2, 3], and the console shows their latest runs side by side; "
+                "[] otherwise",
+            }
+        },
     ),
 ]
 MAX_TURNS = 6
@@ -67,10 +76,25 @@ class ExplainRequest(BaseModel):
     live: Json = Field(default_factory=dict)
 
 
+PAIR = 2
+
+
+def versions(raw: object) -> list[int]:
+    """Two different, positive config versions, oldest first, or none."""
+    found = (
+        sorted({v for v in cast(list[object], raw) if isinstance(v, int) and v > 0})
+        if isinstance(raw, list)
+        else []
+    )
+    return found if len(found) == PAIR else []
+
+
 class Explanation(BaseModel):
     answer: str
     sources: list[str]
     suggest: str = ""
+    # Two agent versions the console shows side by side, from its own run records.
+    compare: list[int] = Field(default_factory=list[int], max_length=2)
     screened: bool
     # The answer laid out: the headline, short points citing the sources, the likely next question.
     headline: str = ""
@@ -130,6 +154,7 @@ class Explainer:
                 if block.name == "reply":
                     shaped = shape(cast(Json, block.input), NO_ANSWER)
                     return Explanation(
+                        compare=versions(cast(Json, block.input).get("compare")),
                         answer=shaped.answer,
                         sources=shaped.sources,
                         screened=False,

@@ -2378,3 +2378,31 @@ main.gate {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
+
+/* Two agent versions side by side under Wattle's answer, from the run records. */
+.versions-card {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.versions-card th,
+.versions-card td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--line-2);
+  text-align: right;
+}
+
+.versions-card th[scope="row"],
+.versions-card thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.versions-card thead th {
+  border-top: 0;
+  font-weight: 600;
+}

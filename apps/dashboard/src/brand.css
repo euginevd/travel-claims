@@ -1869,3 +1869,64 @@ main.landing p {
 .wattle-next-q button:hover {
   background: var(--soft);
 }
+
+/* A card under a Copilot answer, built from the claim's record. */
+.facts-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 0.85rem;
+}
+
+.facts-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.facts-checks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.facts-checks li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.facts-checks .pass svg {
+  color: var(--good);
+}
+
+.facts-checks .warn svg,
+.facts-checks .fail svg {
+  color: var(--acc-d);
+}
+
+.facts-payout {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.facts-payout th,
+.facts-payout td {
+  padding: 4px 0;
+  border-top: 1px solid var(--line-2);
+  font-weight: 400;
+  text-align: left;
+}
+
+.facts-payout td {
+  text-align: right;
+}
+
+.facts-payout .total th,
+.facts-payout .total td {
+  font-weight: 600;
+}

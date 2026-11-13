@@ -903,6 +903,8 @@ class QuestionAnswer(BaseModel):
     replies: list[Annotated[str, StringConstraints(max_length=60)]] = Field(
         default_factory=list[str], max_length=3
     )
+    # The engineers' Wattle: two agent versions the console shows side by side.
+    compare: list[Annotated[int, Field(gt=0)]] = Field(default_factory=list[int], max_length=2)
     screened: bool
     # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
     verified: bool = False

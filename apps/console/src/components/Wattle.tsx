@@ -81,6 +81,7 @@ export interface WattleAnswer {
   sources: string[];
   suggest: string;
   screened: boolean;
+  compare?: number[];
   headline?: string;
   points?: { text: string; source: number }[];
   next?: string;

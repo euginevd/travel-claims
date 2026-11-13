@@ -232,6 +232,13 @@ TOOLS = [
                 "type": "string",
                 "description": "Their likely next question, under ten words; '' for none",
             },
+            "card": {
+                "type": "string",
+                "enum": ["", "checks", "payout"],
+                "description": "A card the dashboard shows from the claim's own record: checks "
+                "for what the agent checked, payout for how the amount was worked out; '' for none",
+            },
+            "claim_id": {"type": "string", "description": "With a card: the claim, e.g. CLM-1004"},
         },
     ),
 ]
@@ -256,7 +263,12 @@ def laid_out(args: Json) -> Json:
             points.append({"text": text, "source": cited})
     headline = str(args.get("headline") or "").strip()[:400]
     plain = " ".join([headline, *(p["text"] for p in points)]).replace("**", "").strip()
+    card_kind = str(args.get("card") or "")
+    claim_id = str(args.get("claim_id") or "").upper()
+    shows = card_kind in {"checks", "payout"} and re.fullmatch(r"CLM-\d{4,6}", claim_id)
     return {
+        "card": card_kind if shows else "",
+        "claim_id": claim_id if shows else "",
         "role": "assistant",
         "text": plain or "Done.",
         "headline": headline,
