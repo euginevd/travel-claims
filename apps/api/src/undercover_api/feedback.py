@@ -11,7 +11,6 @@ from sqlalchemy import Connection, RowMapping, select, update
 
 from undercover_api.auth import Database, SignedInCustomer
 from undercover_api.db import feedback, insert_if_new, now
-from undercover_api.evaluations import new_id
 from undercover_api.models import ClaimId, Status, Strict
 from undercover_api.portal import DraftLimiter, own_claim
 
@@ -73,7 +72,7 @@ def first_vote(
     kept = insert_if_new(
         db, feedback, customer_id=customer_id, subject=body.subject, created_at=now(), **values
     )
-    return None if kept is None else new_id(kept)
+    return None if kept is None else int(kept[0])
 
 
 def save_vote(

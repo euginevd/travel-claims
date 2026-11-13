@@ -28,7 +28,7 @@ from undercover_api.db import (
     sent_back,
     steps,
 )
-from undercover_api.evaluations import COPIED, EVALUATION, costs_of, current_version
+from undercover_api.evaluations import COPIED, EVALUATION, costs_of, current_version, private
 from undercover_api.models import ClaimId, Decision, DecisionKind, Status
 from undercover_api.redteam import REDTEAM_CUSTOMER
 
@@ -714,7 +714,7 @@ def get_exam_growth(_: SignedInEngineer, db: Database) -> ExamGrowth:
             ExamCandidate(
                 claim_id=row["claim_id"],
                 claim_type=row["claim_type"],
-                summary=row["summary"],
+                summary=private(row["summary"]),
                 decision=str(decision.decision),
                 payout=decision.payout,
                 decided_by=decision.signed_off_by

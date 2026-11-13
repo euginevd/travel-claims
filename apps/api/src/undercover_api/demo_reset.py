@@ -22,6 +22,7 @@ from undercover_api.agent_switch import agent_on, set_agent
 from undercover_api.auth import Database, SeniorHandler
 from undercover_api.claims import is_stalled
 from undercover_api.db import (
+    audit_seals,
     calculations,
     claim_drafts,
     claims,
@@ -159,15 +160,27 @@ def reset_view(db: Connection) -> ResetView:
     )
 
 
+# Claims cleared per transaction: each brings its steps and model calls, and Aurora DSQL caps a
+# transaction at 3,000 changed rows.
+BATCH = 20
+
+
+def _batches(ids: list[str]) -> list[list[str]]:
+    return [ids[i : i + BATCH] for i in range(0, len(ids), BATCH)]
+
+
 def _clear(db: Connection, ids: list[str]) -> None:
-    for table in CLAIM_TABLES:
-        db.execute(delete(table).where(table.c.claim_id.in_(ids)))
+    for batch in _batches(ids):
+        for table in CLAIM_TABLES:
+            db.execute(delete(table).where(table.c.claim_id.in_(batch)))
+        db.commit()
 
 
 def _remove(db: Connection, ids: list[str]) -> None:
-    if ids:
-        _clear(db, ids)
-        db.execute(delete(claims).where(claims.c.claim_id.in_(ids)))
+    for batch in _batches(ids):
+        _clear(db, batch)
+        db.execute(delete(claims).where(claims.c.claim_id.in_(batch)))
+        db.commit()
 
 
 def reset_claims(db: Connection) -> None:
@@ -263,6 +276,9 @@ def reset_demo(request: ResetRequest, handler: SeniorHandler, db: Database) -> R
             changed_at=now(),
         )
     )
+    # The reset removed records the audit log was sealed over: the chain starts again from here,
+    # this reset's own row its first seal.
+    db.execute(delete(audit_seals))
     log.warning(
         "demo reset by handler %s: %s",
         handler.handler_id,

@@ -15,7 +15,7 @@ from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import ColumnElement, Connection, insert, or_, select, update
+from sqlalchemy import ColumnElement, Connection, func, insert, or_, select, update
 
 from undercover_api.agent_service import AgentUnavailableError
 from undercover_api.auth import Database, SeniorHandler, SignedIn, require_agent
@@ -98,7 +98,9 @@ def agent_switch(db: Connection) -> AgentSwitch:
     row = db.execute(select(settings).where(settings.c.key == AGENT_SWITCH)).mappings().first()
 
     def count(status: Status) -> int:
-        return len(db.execute(select(claims.c.claim_id).where(live(status))).all())
+        return int(
+            db.execute(select(func.count()).select_from(claims).where(live(status))).scalar_one()
+        )
 
     return AgentSwitch(
         on=value.get("on") is True,

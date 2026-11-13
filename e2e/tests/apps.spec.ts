@@ -12,13 +12,13 @@ const APPS = [
   {
     name: "dashboard",
     url: DASHBOARD,
-    heading: "Claims queue",
+    heading: /^Good \w+, Dana$/,
     signIn: /Continue as Dana/,
   },
   {
     name: "console",
     url: CONSOLE,
-    heading: "Scoreboard",
+    heading: /^Good \w+, Sam$/,
     signIn: /Continue as Sam/,
   },
 ];

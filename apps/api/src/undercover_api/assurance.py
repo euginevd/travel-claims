@@ -39,6 +39,7 @@ from undercover_api.evaluations import EVALUATION, current_version
 from undercover_api.kill_switch import payout_switch
 from undercover_api.live import live
 from undercover_api.models import PayoutSwitch, Strict
+from undercover_api.pii import scrub
 from undercover_api.posture import (
     Readiness,
     counts_since,
@@ -580,13 +581,13 @@ def audit(db: Connection, limit: int = 100) -> list[AuditEntry]:
         now = row["decision"] + (f" ${row['payout']:,.2f}" if row["decision"] == "approve" else "")
         found.append(
             AuditEntry(
-                ref=f"override:{row['claim_id']}:{o.get('at', '')}",
+                ref=f"override:{row['claim_id']}",
                 at=str(o.get("at", "")),
                 kind="decision",
                 label=row["claim_id"],
                 change=now,
                 before=str(was) if was else None,
-                reason=f"{o.get('reason_code', '')}: {o.get('note', '')}".strip(": "),
+                reason=scrub(f"{o.get('reason_code', '')}: {o.get('note', '')}".strip(": "))[0],
                 by=str(o.get("by", "")),
             )
         )

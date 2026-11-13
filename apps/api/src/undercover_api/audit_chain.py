@@ -23,9 +23,10 @@ from undercover_api.db import audit_seals, insert_if_new, now
 if TYPE_CHECKING:
     from undercover_api.assurance import AuditEntry
 
-# Fields a version's entry may change later (its status, its reviewer), so its seal covers only
-# what can't: which version, when it was made, and its label.
-MUTABLE_KINDS = {"version"}
+# Entries whose record may rightly change later, so their seal covers only what can't: a version
+# (its status and reviewer move on) and an override (a claim can be overridden again, replacing
+# the note). Their tamper evidence is weaker: that the entry exists, not what it says.
+MUTABLE_KINDS = {"version", "decision"}
 
 
 log = logging.getLogger(__name__)
@@ -108,7 +109,11 @@ def seal(db: Connection, entries: list[AuditEntry], anchor: Anchor | None = None
             "chain": chain,
             "sealed_at": now(),
         }
-        if insert_if_new(db, audit_seals, **record) is not None and anchor is not None:
+        if insert_if_new(db, audit_seals, **record) is None:
+            # Another read sealed at this place first: stop, and the next read carries on from
+            # the chain as stored, never from one this loop made up.
+            return
+        if anchor is not None:
             try:
                 anchor.put(seq, record)
             except Exception:  # noqa: BLE001 - the seal stands; the next check says it's not copied

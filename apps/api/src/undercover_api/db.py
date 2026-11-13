@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.engine import Connection, CursorResult, make_url
+from sqlalchemy.engine import Connection, Row, make_url
 from sqlalchemy.sql import Select
 
 # Money is held to the cent and read back as a float.
@@ -501,14 +501,19 @@ def make_engine(url: str, role: str | None = None) -> Engine:
     return engine
 
 
-def insert_if_new(db: Connection, table: Table, **values: Any) -> CursorResult[Any] | None:
-    """Insert a row unless one already holds its key or a unique value, and say so: the
-    result, or None when a row was there first (a race lost, a retry, a second press).
+def insert_if_new(db: Connection, table: Table, **values: Any) -> Row[Any] | None:
+    """Insert a row unless one already holds its key or a unique value, and say so: the new
+    row's key, or None when a row was there first (a race lost, a retry, a second press).
     ON CONFLICT DO NOTHING rather than catching the error in a SAVEPOINT, which Aurora DSQL
     doesn't support; the transaction carries on either way."""
     insert_into = sqlite_insert if db.dialect.name == "sqlite" else postgresql_insert
-    result = db.execute(insert_into(table).values(**values).on_conflict_do_nothing())
-    return result if result.rowcount else None
+    # RETURNING says whether a row went in: psycopg reports a rowcount of -1 here, not 0, so a
+    # rowcount check lets a second press through on PostgreSQL.
+    key = list(table.primary_key.columns) or list(table.columns)[:1]
+    result = db.execute(
+        insert_into(table).values(**values).on_conflict_do_nothing().returning(*key)
+    )
+    return result.first()
 
 
 def read_locked[T: Select[Any]](db: Connection, query: T) -> T:

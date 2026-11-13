@@ -371,7 +371,7 @@ def list_traces(_: SignedInEngineer, db: Database) -> list[TraceRow]:
     return [
         TraceRow(
             claim_id=str(claim_id),
-            summary=str(summary or ""),
+            summary=private(str(summary or "")),
             status=str(status),
             red_team=customer == REDTEAM_CUSTOMER,
             model_calls=int(calls),

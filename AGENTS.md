@@ -119,6 +119,7 @@ Aurora DSQL
 47. DSQL refuses `SAVEPOINT`, and SQLAlchemy's psycopg dialect looks up `hstore` inside one on first connect: DSQL engines set `use_native_hstore=False`.
 48. `sys.wait_for_job` is a procedure: `CALL` it and read its success from the row it returns.
 49. `begin_nested()` opens a `SAVEPOINT`: keep the first row with `insert_if_new` (`INSERT ... ON CONFLICT DO NOTHING`); a test fails if one comes back.
+60. psycopg reports a rowcount of -1 for `INSERT ... ON CONFLICT DO NOTHING`, so a rowcount check passes a duplicate on PostgreSQL: `insert_if_new` reads `RETURNING` instead.
 
 Web apps
 
