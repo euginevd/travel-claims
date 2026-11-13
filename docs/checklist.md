@@ -24,7 +24,7 @@ The guardrails in DevSecOps stage order. This project is a prototype throughout 
 | 18 | Deploy | Runtime secrets | Secrets Manager, SSM | Both | Done on AWS: one SecureString of settings per environment |
 | 19 | Deploy | API protection | Authoriser, WAF, CORS | Production | Partly: the api checks every token, CloudFront forwards one prefix per app; WAF on the sites from the platform's Firewall Manager with `CLOUDFRONT_WAF=on`, off in this prototype (decision 51) |
 | 20 | Operate | Weekly re-scans | `security`, `codeql`, Dependabot | Both | Done |
-| 21 | Operate | Budget alert | AWS Budgets | Both | Open: not in the repo |
+| 21 | Operate | Budget alert | AWS Budgets | Both | Done: in the bootstrap, when `BudgetEmail` is set (decision 54) |
 | 22 | Monitor | Access logs, throttling | API Gateway, CloudWatch | Both | Partly: function logs in CloudWatch; no throttling on the function URLs |
 | 23 | Monitor | Audit logging | CloudTrail | Both | Open: the account's default event history only |
 | 24 | Monitor | Threat detection, alarms | GuardDuty, CloudWatch alarms | Production | Open |

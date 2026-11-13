@@ -112,6 +112,8 @@ test("another account can be used instead of answering the code", async () => {
   await user.click(await screen.findByRole("button", { name: "Use a different account" }));
   expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByLabelText("Password")).toHaveValue("");
+  // Focus lands in the form again, not on the page.
+  expect(screen.getByRole("textbox", { name: /email/i })).toHaveFocus();
 });
 
 test("a sign-in step the page doesn't offer says so", async () => {

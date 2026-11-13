@@ -18,6 +18,7 @@ from undercover_api.db import (
     now,
     payments,
     policies,
+    read_locked,
     receipts,
     reference,
     sent_back,
@@ -307,7 +308,7 @@ def approval_limit(db: Connection, lock: bool = False) -> float:
     """The approval limit in force. With none set, nothing is paid without a sign-off. A payment
     reads it locked, so a limit lowered at the same moment can't be missed."""
     query = select(settings.c.value).where(settings.c.key == APPROVAL_LIMIT)
-    value = db.execute(query.with_for_update() if lock else query).scalar_one_or_none()
+    value = db.execute(read_locked(db, query) if lock else query).scalar_one_or_none()
     return float(value) if value is not None else 0.0
 
 

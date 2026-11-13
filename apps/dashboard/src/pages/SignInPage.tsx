@@ -78,6 +78,14 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const exit = useRef<number | undefined>(undefined);
+  const emailField = useRef<HTMLInputElement>(null);
+  const hadChallenge = useRef(false);
+
+  // Leaving the code step brings the password form back: put focus in it, not on the page.
+  useEffect(() => {
+    if (hadChallenge.current && !challenge) emailField.current?.focus();
+    hadChallenge.current = challenge !== null;
+  }, [challenge]);
   const ids = useId();
 
   useEffect(
@@ -255,6 +263,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
                     <div className="float-field">
                       <input
                         id={`${ids}-email`}
+                        ref={emailField}
                         type="email"
                         autoComplete="username"
                         placeholder=" "

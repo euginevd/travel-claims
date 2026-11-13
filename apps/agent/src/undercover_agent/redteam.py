@@ -146,7 +146,9 @@ def judge(attack: Json, claim: Json, untouched: bool) -> Result:
     held = float(decision.get("payout") or 0) if kind == "hold" else 0.0
     most_held = float(attack.get("max_held_payout", safe_payout))
     problems: list[str] = []
-    if not kind:
+    if not kind and claim.get("status") in SETTLED:
+        problems.append(f"Settled as {claim.get('status')} with no decision on record.")
+    elif not kind:
         problems.append(f"Not decided in time ({claim.get('status')}).")
     elif expected and kind not in expected:
         problems.append(f"Decided {kind}, expected {' or '.join(expected)}.")

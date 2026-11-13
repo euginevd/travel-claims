@@ -11,7 +11,7 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 
 ## On AWS
 
-5. Everything is paid per use or free, except the private network. Budget for `dev`: under $20 a month, or about $250 while the private network is up. The bootstrap's `MonthlyBudget` (default $20) emails `BudgetEmail` at 80% spent, 100% forecast and 100% spent.
+5. Everything is paid per use or free, except the private network. Budget for `dev`: under $20 a month, or about $250 while the private network is up. The bootstrap's `MonthlyBudgetUsd` (default $20) emails `BudgetEmail` at 80% spent, 100% forecast and 100% spent.
 
 | Item | Idle | In use | Setting |
 |---|---|---|---|

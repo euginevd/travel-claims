@@ -154,13 +154,17 @@ def get_db(request: Request) -> Iterator[Connection]:
     error and before its response is sent, so a caller never acts on work not yet saved."""
     engine: Engine = request.app.state.engine
     with engine.connect() as connection:
+        # Connection.info outlives the request on a pooled connection: start each one clean.
+        connection.info.pop(SAVED_RECEIPTS, None)
         try:
             yield connection
             connection.commit()
         except BaseException:
-            connection.rollback()
-            # Receipts are written to their store before the rows that point to them commit.
-            remove_unsaved(connection)
+            try:
+                connection.rollback()
+            finally:
+                # Receipts are written to their store before the rows that point to them commit.
+                remove_unsaved(connection)
             raise
         connection.info.pop(SAVED_RECEIPTS, None)
 

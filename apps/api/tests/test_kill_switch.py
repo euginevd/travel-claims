@@ -170,3 +170,25 @@ def test_a_pause_landing_mid_payment_is_never_missed(database_url: str) -> None:
         assert outcome == [423]
     finally:
         engine.dispose()
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="SQLite runs one writer at a time; CI runs this")
+def test_two_payments_reading_the_switch_never_wait_for_each_other(database_url: str) -> None:
+    """Payments share the lock: only a change to the switch waits for them."""
+    engine = make_engine(database_url)
+    done: list[bool] = []
+
+    def second_payment() -> None:
+        with engine.begin() as db:
+            refuse_while_paused(db)
+            done.append(True)
+
+    try:
+        with engine.begin() as first:
+            refuse_while_paused(first)
+            other = threading.Thread(target=second_payment)
+            other.start()
+            other.join(timeout=5)
+            assert done == [True], "the second payment waited for the first"
+    finally:
+        engine.dispose()

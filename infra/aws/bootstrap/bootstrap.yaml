@@ -21,10 +21,11 @@ Parameters:
     Description: ownerId/repoId for GitHub's immutable OIDC subject (public, from GitHub's API); empty for the name-only subject
   BudgetEmail:
     Type: String
-    AllowedPattern: '[^@\s]+@[^@\s]+\.[^@\s]+'
-    ConstraintDescription: An email address
-    Description: Who gets the account's budget alerts (AGENTS.md rule 28); never committed
-  MonthlyBudget:
+    Default: ''
+    AllowedPattern: '([^@\s]+@[^@\s]+\.[^@\s]+)?'
+    ConstraintDescription: An email address, or empty
+    Description: Address emailed at 80% spent, 100% forecast and 100% spent of the monthly budget (AGENTS.md rule 28); empty for no budget
+  MonthlyBudgetUsd:
     Type: Number
     Default: 20
     MinValue: 1
@@ -37,6 +38,7 @@ Parameters:
 
 Conditions:
   CreateOidc: !Equals [!Ref CreateOidcProvider, 'true']
+  CreateBudget: !Not [!Equals [!Ref BudgetEmail, '']]
   ImmutableSubject: !Not [!Equals [!Ref GitHubIds, '']]
 
 Resources:
@@ -45,13 +47,14 @@ Resources:
   # at 100% spent, so a flood or a forgotten resource shows up in days rather than on the invoice.
   MonthlyBudgetAlert:
     Type: AWS::Budgets::Budget
+    Condition: CreateBudget
     Properties:
       Budget:
         BudgetName: !Sub '${ProjectName}-monthly'
         BudgetType: COST
         TimeUnit: MONTHLY
         BudgetLimit:
-          Amount: !Ref MonthlyBudget
+          Amount: !Ref MonthlyBudgetUsd
           Unit: USD
       NotificationsWithSubscribers:
         - Notification: { NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE }

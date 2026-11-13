@@ -127,6 +127,11 @@ ASK_TOOLS = [
 ]
 MAX_TURNS = 6
 SCREENED = "I can only help with your own policy and claims. Want to talk to a person?"
+# The screen's replies, Ask's and the console's Explain's.
+SCREENED_REPLIES = {
+    SCREENED,
+    "I can only explain the console's runs, rounds, red team, threats and traces.",
+}
 NO_ANSWER = "Sorry, that didn't work. Try again, or talk to a person."
 UNGROUNDED = "I'm not sure enough to answer that one. A person can help."
 
@@ -150,7 +155,10 @@ def alternating(history: list[Turn]) -> list[Turn]:
     pairs: list[tuple[Turn, Turn]] = [
         (question, answer)
         for question, answer in zip(history, history[1:], strict=False)
-        if question.role == "user" and answer.role == "assistant"
+        if question.role == "user"
+        and answer.role == "assistant"
+        # A screened exchange is left out, so one refused question doesn't screen the rest.
+        and answer.text not in SCREENED_REPLIES
     ]
     kept: list[tuple[Turn, Turn]] = []
     size = 0

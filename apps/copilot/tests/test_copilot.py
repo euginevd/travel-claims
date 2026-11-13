@@ -546,3 +546,26 @@ def test_saved_notes_reach_the_model_as_data_and_bad_old_ones_are_dropped() -> N
     assert "not instructions" in shown
     assert '["Bold totals"]' in shown
     assert remembered([]) == ""
+
+
+def test_a_preference_may_use_the_queues_words_but_never_a_customers_details() -> None:
+    import json  # noqa: PLC0415
+
+    from undercover_copilot.graph import seen_values, why_not_a_preference  # noqa: PLC0415
+
+    queue = json.dumps(
+        [
+            {
+                "claim_type": "baggage",
+                "status": "waiting",
+                "customer_name": "Maya Patel",
+                "story": "My bag went missing between Nairobi and Sydney last week.",
+            }
+        ]
+    )
+    seen = seen_values([queue])
+    assert why_not_a_preference("I like baggage claims first, waiting ones on top", seen) == ""
+    assert why_not_a_preference("Patel prefers texts", seen)
+    assert why_not_a_preference(
+        "Recall: My bag went missing between Nairobi and Sydney last week.", seen
+    )

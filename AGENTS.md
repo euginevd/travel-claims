@@ -22,7 +22,7 @@ The same for every project; the business and the project are in the docs below. 
 7. Setup, once per clone, run by the user: `bash scripts/setup.sh`. Check only: `bash scripts/setup.sh --check`, at kickoff and whenever a tool or the push hook is missing; report what it found.
 8. On every push: `bash .lefthook/pre-push-scan.sh`.
 9. Terraform, in `infra/aws/<unit>/`: `terraform fmt -recursive && terraform init -backend=false && terraform validate`.
-10. App checks: the steps in [.github/workflows/apps.yml](.github/workflows/apps.yml).
+10. App checks: the steps in [.github/workflows/apps.yml](.github/workflows/apps.yml). A PR runs only the jobs for the apps it changes, so a new app needs its own job, its folder in the `changes` job, and its ecosystem (npm, docker) in `.github/dependabot.yml`.
 
 ## Profiles and gates
 
@@ -123,3 +123,7 @@ Web apps
 
 50. CSS `@keyframes` names are global: a new stylesheet's `rise` replaced `brand.css`'s and hid the portal's sign-in form. Prefix a new stylesheet's keyframes (`chat-rise`).
 51. `display: none` on a button's only text removes its name: hide a label visually (clipped, 1px) instead.
+
+Docs
+
+52. A rule cited by number elsewhere goes stale when `AGENTS.md` renumbers (`pyproject.toml` cited rule 18 for rule 24): after renumbering, grep the repo for `rule <n>` and fix each.

@@ -5,7 +5,7 @@ can't be read, payouts count as paused."""
 from fastapi import HTTPException
 from sqlalchemy import Connection, insert, select, update
 
-from undercover_api.db import now, setting_changes, settings
+from undercover_api.db import now, read_locked, setting_changes, settings
 from undercover_api.models import Handler, PayoutSwitch
 
 PAYOUTS_PAUSED = "payouts_paused"
@@ -17,7 +17,7 @@ def payout_switch(db: Connection, lock: bool = False) -> PayoutSwitch:
     reads as paused, so a fault never lets money out. A payment reads it locked, so a pause
     landing at the same moment either waits for the payment or refuses it, never misses it."""
     query = select(settings).where(settings.c.key == PAYOUTS_PAUSED)
-    row = db.execute(query.with_for_update() if lock else query).mappings().first()
+    row = db.execute(read_locked(db, query) if lock else query).mappings().first()
     if row is None or not isinstance(row["value"], dict):
         return PayoutSwitch(paused=True, changed_by=None, changed_at=None, reason=None)
     value = row["value"]

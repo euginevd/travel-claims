@@ -421,20 +421,36 @@ def lookup(  # noqa: PLR0911
     return as_text(answer), card("step", title, " · ".join(p for p in parts if p))
 
 
-def leaves(value: object) -> list[str]:
-    """Every string and number inside a tool result's JSON, and each word of a name or email."""
+# Fields that hold a person's details or their own words. Short values elsewhere (statuses, claim
+# types, plan names) are the queue's vocabulary, which a real preference uses ("baggage first").
+PERSONAL_KEYS = ("name", "email", "phone", "payid", "address", "story", "location", "summary")
+# Free text this long, under any key, is someone's words rather than a label.
+FREE_TEXT = 20
+
+
+def leaves(value: object, key: str = "") -> list[str]:
+    """The personal values inside a tool result's JSON: any field that names a person or holds
+    their details or words, each word of a name or email, and any long free text."""
     if isinstance(value, dict):
-        found: list[str] = []
-        for key, inner in cast(Json, value).items():
-            found += leaves(inner)
-            if isinstance(inner, str) and ("name" in key or "email" in key):
-                found += inner.split()
-        return found
+        return [
+            leaf
+            for inner_key, inner in cast(Json, value).items()
+            for leaf in leaves(inner, inner_key)
+        ]
     if isinstance(value, list):
-        return [leaf for inner in cast(list[object], value) for leaf in leaves(inner)]
-    if isinstance(value, bool) or value is None:
+        return [leaf for inner in cast(list[object], value) for leaf in leaves(inner, key)]
+    if not isinstance(value, str):
+        # Amounts and ids are refused by NOT_A_PREFERENCE whatever their source.
         return []
-    return [str(value)]
+    lowered = key.lower()
+    found: list[str] = []
+    if any(part in lowered for part in PERSONAL_KEYS):
+        found.append(value)
+        if "name" in lowered or "email" in lowered:
+            found += value.split()
+    elif len(value) > FREE_TEXT:
+        found.append(value)
+    return found
 
 
 def seen_values(results: list[str]) -> set[str]:

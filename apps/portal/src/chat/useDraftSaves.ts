@@ -32,7 +32,8 @@ export function useDraftSaves(api: Pick<Api, "saveDraft" | "discardDraft">): Dra
       sending: (on) => {
         sendingNow.current = on;
       },
-      discard: () => after(() => api.discardDraft()),
+      // A failed discard is tried once more, or the draft would come back on the next visit.
+      discard: () => after(() => api.discardDraft().catch(() => api.discardDraft())),
     };
   }, [api]);
 }
