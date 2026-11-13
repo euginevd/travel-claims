@@ -1,6 +1,6 @@
 # Agent instructions
 
-The same for every project; the business and the project are in the docs below. Numbered so reviews can cite them.
+The same for every project; the business and the project are in the docs below. Numbered so reviews can cite them. A line marked *(to fill in)* in `docs/` means kickoff (rule 13) isn't finished.
 
 > **Most important: one branch per session, and the profile decides who says go.**
 > - One branch holds all of a work session's code, about 4 to 6 hours of work, and becomes one PR.
@@ -102,7 +102,7 @@ Repo and Windows
 CI
 
 38. A boolean `workflow_dispatch` input is empty on a push, which GitHub counts as `false`: test the event, as in `github.event_name != 'workflow_dispatch' || inputs.deploy`.
-39. The AWS CLI on GitHub's runners reads `--cli-input-json file:///dev/stdin` as empty: pass a request through a private temporary file, as `fill-secret.py` does.
+39. The AWS CLI on GitHub's runners reads `--cli-input-json file:///dev/stdin` as empty: pass a request through a private temporary file, and delete it after, as `fill-secret.py` does.
 
 AWS
 
