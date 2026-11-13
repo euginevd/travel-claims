@@ -19,7 +19,11 @@ export interface Records {
   notices: Notice[];
   /** Their PayID as the api shows it (masked), or null when there's none. */
   payid: string | null;
+  /** The parts that couldn't be loaded, so an empty list is never shown as "you have none". */
+  failed: Part[];
 }
+
+export type Part = "policies" | "claims" | "cover" | "delays" | "draft" | "notices" | "payid";
 
 const EMPTY: Records = {
   policies: [],
@@ -29,6 +33,7 @@ const EMPTY: Records = {
   draft: null,
   notices: [],
   payid: null,
+  failed: [],
 };
 
 /** Each part loads on its own: one that fails leaves the rest of the portal working. */
@@ -43,18 +48,23 @@ export function useRecords(api: Api): {
 
   useEffect(() => {
     let live = true;
-    const quietly = <T>(call: Promise<T>, fallback: T) => call.catch(() => fallback);
+    const failed: Part[] = [];
+    const quietly = <T>(part: Part, call: Promise<T>, fallback: T) =>
+      call.catch(() => {
+        failed.push(part);
+        return fallback;
+      });
     void Promise.all([
-      quietly(api.myPolicies(), [] as Policy[]),
-      quietly(api.myClaims(), [] as CustomerClaimSummary[]),
-      quietly(api.myCover(), [] as Cover[]),
-      quietly(api.myDelays(), [] as DelayOffer[]),
-      quietly(api.myDraft(), null),
-      quietly(api.myNotices(), [] as Notice[]),
-      quietly(api.myPayId(), null),
+      quietly("policies", api.myPolicies(), [] as Policy[]),
+      quietly("claims", api.myClaims(), [] as CustomerClaimSummary[]),
+      quietly("cover", api.myCover(), [] as Cover[]),
+      quietly("delays", api.myDelays(), [] as DelayOffer[]),
+      quietly("draft", api.myDraft(), null),
+      quietly("notices", api.myNotices(), [] as Notice[]),
+      quietly("payid", api.myPayId(), null),
     ]).then(([policies, claims, cover, delays, draft, notices, payid]) => {
       if (!live) return;
-      setRecords({ policies, claims, cover, delays, draft, notices, payid });
+      setRecords({ policies, claims, cover, delays, draft, notices, payid, failed });
       setLoaded(true);
     });
     return () => {

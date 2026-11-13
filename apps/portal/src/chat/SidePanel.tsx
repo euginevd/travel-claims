@@ -269,9 +269,14 @@ function ClaimsView({
   return (
     <>
       <Head onClose={onClose}>Your claims</Head>
-      {records.claims.length === 0 && (
-        <p className="sheet-empty">No claims yet. Tell Wattle what happened.</p>
-      )}
+      {records.claims.length === 0 &&
+        (records.failed.includes("claims") ? (
+          <p className="sheet-empty" role="alert">
+            We couldn&apos;t load your claims. Close this and open it again to retry.
+          </p>
+        ) : (
+          <p className="sheet-empty">No claims yet. Tell Wattle what happened.</p>
+        ))}
       {open.length > 0 && (
         <section className="sheet-group claims-group">
           <h3>

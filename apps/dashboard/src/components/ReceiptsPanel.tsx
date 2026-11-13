@@ -15,15 +15,23 @@ export function ReceiptsPanel({ api, claimId, receipts }: ReceiptsPanelProps) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
+  // The image receipts' ids, joined: the list is a new array on every poll of the claim, and
+  // keying the effect on it downloaded every image again each second and a half.
+  const images = receipts
+    .filter((r) => r.media_type.startsWith("image/"))
+    .map((r) => r.receipt_id)
+    .join(",");
   useEffect(() => {
     let live = true;
     const made: string[] = [];
-    for (const receipt of receipts.filter((r) => r.media_type.startsWith("image/"))) {
-      api.receipt(claimId, receipt.receipt_id).then(
+    for (const receiptId of images ? images.split(",") : []) {
+      api.receipt(claimId, receiptId).then(
         (blob) => {
+          // One that lands after the panel has gone is never shown, so it's let go at once.
+          if (!live) return;
           const url = URL.createObjectURL(blob);
           made.push(url);
-          if (live) setUrls((current) => ({ ...current, [receipt.receipt_id]: url }));
+          setUrls((current) => ({ ...current, [receiptId]: url }));
         },
         () => {
           if (live) setError("Some receipts couldn't be loaded.");
@@ -34,7 +42,7 @@ export function ReceiptsPanel({ api, claimId, receipts }: ReceiptsPanelProps) {
       live = false;
       for (const url of made) URL.revokeObjectURL(url);
     };
-  }, [api, claimId, receipts]);
+  }, [api, claimId, images]);
 
   async function download(receipt: Receipt, index: number) {
     try {

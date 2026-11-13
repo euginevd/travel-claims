@@ -12,6 +12,7 @@ const RECORDS: Records = {
   draft: null,
   notices: [],
   payid: null,
+  failed: [],
 };
 
 test("the glance shows claims, cover and getting paid, each opening where it lives", async () => {

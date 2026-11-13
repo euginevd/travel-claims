@@ -296,7 +296,13 @@ function TurnCard({
       const claims = records.claims.slice(0, 4);
       return (
         <CardShell>
-          {claims.length === 0 && <p className="card-meta">No claims yet.</p>}
+          {claims.length === 0 && (
+            <p className="card-meta">
+              {records.failed.includes("claims")
+                ? "We couldn't load your claims just now. Try again in a moment."
+                : "No claims yet."}
+            </p>
+          )}
           <ul className="card-list">
             {claims.map((claim) => (
               <li key={claim.claim_id}>
