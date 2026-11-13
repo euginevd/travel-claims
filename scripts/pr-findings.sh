@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Lists a PR's failed and running checks, security summary, open review threads and code scanning alerts,
-# or answers one thread and resolves it (AGENTS.md rule 13).
+# or answers one thread and resolves it (AGENTS.md rule 16).
 # Usage: bash scripts/pr-findings.sh <pr>    |    bash scripts/pr-findings.sh resolve <thread-id> "<reply>"
 set -euo pipefail
 
