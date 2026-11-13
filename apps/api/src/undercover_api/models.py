@@ -905,6 +905,10 @@ class QuestionAnswer(BaseModel):
     )
     # The engineers' Wattle: two agent versions the console shows side by side.
     compare: list[Annotated[int, Field(gt=0)]] = Field(default_factory=list[int], max_length=2)
+    # What Wattle read, in order, in plain words, shown line by line before the answer.
+    steps: list[Annotated[str, StringConstraints(max_length=80)]] = Field(
+        default_factory=list[str], max_length=8
+    )
     screened: bool
     # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
     verified: bool = False

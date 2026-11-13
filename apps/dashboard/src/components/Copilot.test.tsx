@@ -150,3 +150,14 @@ test("an answer is laid out with its sources, and the next question asks again",
   await user.click(screen.getByRole("button", { name: "Sign off CLM-1004?" }));
   expect(asked.at(-1)).toEqual({ text: "Sign off CLM-1004?" });
 });
+
+test("each step in a turn is numbered so the steps appear in turn", async () => {
+  const { stepOrder } = await import("./Copilot");
+  const transcript = [
+    { role: "user" as const, text: "Hi" },
+    { kind: "step" as const, title: "One" },
+    { kind: "step" as const, title: "Two" },
+    { role: "assistant" as const, text: "Done" },
+  ];
+  expect([1, 2].map((i) => stepOrder(transcript, i))).toEqual([0, 1]);
+});

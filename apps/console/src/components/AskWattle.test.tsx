@@ -55,7 +55,13 @@ test("an answer without the old suggest field still shows, with two versions sid
   const fetchFn = fakeFetch({
     "POST /api/engineering/ask": () => [
       200,
-      { answer: "v3 is more accurate.", sources: ["Run 3"], screened: false, compare: [2, 3] },
+      {
+        answer: "v3 is more accurate.",
+        sources: ["Run 3"],
+        screened: false,
+        compare: [2, 3],
+        steps: ["Read the evaluation runs"],
+      },
     ],
     "GET /api/engineering/runs": () => [200, []],
   });
@@ -68,5 +74,8 @@ test("an answer without the old suggest field still shows, with two versions sid
   );
   await user.click(screen.getByRole("button", { name: "How accurate is the agent right now?" }));
   expect(await screen.findByText("v3 is more accurate.")).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "What Wattle read" })).toHaveTextContent(
+    "Read the evaluation runs",
+  );
   expect(await screen.findByText("No finished runs for those versions yet.")).toBeInTheDocument();
 });

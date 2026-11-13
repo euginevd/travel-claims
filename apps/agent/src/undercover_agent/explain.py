@@ -56,6 +56,14 @@ EXPLAIN_TOOLS = [
     ),
 ]
 MAX_TURNS = 6
+MAX_STEPS = 8
+STEP_WORDS = {
+    "evaluation_runs": "Read the evaluation runs",
+    "improvement_rounds": "Read the improvement rounds",
+    "red_team": "Read the red team report",
+    "threat_coverage": "Read the threat coverage",
+    "live_monitoring": "Read the live numbers",
+}
 LIMIT = 12000
 SCREENED = "I can only explain the console's runs, rounds, red team, threats and traces."
 NO_ANSWER = "Sorry, I couldn't answer that just now."
@@ -95,11 +103,20 @@ class Explanation(BaseModel):
     suggest: str = ""
     # Two agent versions the console shows side by side, from its own run records.
     compare: list[int] = Field(default_factory=list[int], max_length=2)
+    # What Wattle read, in order, in plain words: the console shows each line in turn.
+    steps: list[str] = Field(default_factory=list[str], max_length=MAX_STEPS)
     screened: bool
     # The answer laid out: the headline, short points citing the sources, the likely next question.
     headline: str = ""
     points: list[Point] = Field(default_factory=list[Point])
     next: str = ""
+
+
+def step_line(name: str, args: Json) -> str:
+    """One step Wattle took, as the engineer would say it."""
+    if name == "claim_trace":
+        return f"Read the trace for {str(args.get('claim_id', '')).upper()[:12]}"
+    return STEP_WORDS.get(name, "")
 
 
 def clip(value: object) -> str:
@@ -145,6 +162,7 @@ class Explainer:
         messages: list[Json] = [{"role": t.role, "content": t.text} for t in request.history]
         # nosemgrep: raw-html-format - markers around data for the model, not HTML
         messages.append({"role": "user", "content": f"<question>\n{request.question}\n</question>"})
+        steps: list[str] = []
         for _ in range(MAX_TURNS):
             reply, _ = self._claude.turn(
                 EXPLAIN_INSTRUCTIONS, EXPLAIN_TOOLS, messages, self._model, "low"
@@ -154,6 +172,7 @@ class Explainer:
                 if block.name == "reply":
                     shaped = shape(cast(Json, block.input), NO_ANSWER)
                     return Explanation(
+                        steps=steps[:MAX_STEPS],
                         compare=versions(cast(Json, block.input).get("compare")),
                         answer=shaped.answer,
                         sources=shaped.sources,
@@ -172,6 +191,11 @@ class Explainer:
                         b.model_dump(mode="json", exclude_none=True) for b in reply.content
                     ],
                 }
+            )
+            steps.extend(
+                line
+                for line in (step_line(b.name, cast(Json, b.input)) for b in calls)
+                if line and line not in steps
             )
             messages.append(
                 {

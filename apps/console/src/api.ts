@@ -372,6 +372,8 @@ export const AnswerSchema = z.object({
   screened: z.boolean(),
   // Two agent versions to show side by side, from the console's own run records.
   compare: z.array(z.number().int()).max(2).catch([]).default([]),
+  // What Wattle read, in order, shown line by line before the answer.
+  steps: z.array(z.string()).max(8).catch([]).default([]),
   // The answer laid out: a headline, short points citing the sources, one likely next question.
   headline: z.string().default(""),
   points: z.array(z.object({ text: z.string(), source: z.number().int().default(0) })).default([]),

@@ -82,6 +82,7 @@ export interface WattleAnswer {
   suggest: string;
   screened: boolean;
   compare?: number[];
+  steps?: string[];
   headline?: string;
   points?: { text: string; source: number }[];
   next?: string;
@@ -248,6 +249,15 @@ export function WattlePanel({
         )}
         {messages.map((message, index) => (
           <div key={String(index)} className={`wattle-msg ${message.role}`}>
+            {message.answer?.steps && message.answer.steps.length > 0 && (
+              <ol className="wattle-steps" aria-label="What Wattle read">
+                {message.answer.steps.map((step, i) => (
+                  <li key={step} className={`wattle-step s${String(Math.min(i, 7))}`}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            )}
             {message.answer?.headline ? (
               <LaidOut answer={message.answer} />
             ) : (

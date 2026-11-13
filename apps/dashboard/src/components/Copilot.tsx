@@ -155,6 +155,7 @@ export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: Copil
           <Bubble
             key={index}
             entry={entry}
+            order={stepOrder(current.transcript, index)}
             api={api}
             onNext={
               index === current.transcript.length - 1 && !busy && !current.pending
@@ -246,14 +247,23 @@ export function emphasised(text: string): ReactNode[] {
     );
 }
 
+/** Where a step card sits in its turn, so the steps appear one after another. */
+export function stepOrder(transcript: Entry[], index: number): number {
+  let order = 0;
+  for (let i = index - 1; i >= 0 && !transcript[i]?.role; i -= 1) order += 1;
+  return Math.min(order, 7);
+}
+
 function Bubble({
   entry,
   api,
   onNext,
+  order = 0,
 }: {
   entry: Entry;
   api?: Api;
   onNext?: (question: string) => void;
+  order?: number;
 }) {
   if (entry.role === "assistant" && entry.headline) {
     const sources = entry.sources ?? [];
@@ -315,7 +325,7 @@ function Bubble({
   const Icon =
     entry.kind === "error" ? AlertCircle : entry.kind === "action" ? CheckCircle2 : Search;
   return (
-    <div className={`copilot-card ${entry.kind ?? "step"}`}>
+    <div className={`copilot-card ${entry.kind ?? "step"} s${String(order)}`}>
       <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
       <span>
         <strong>{entry.title}</strong>

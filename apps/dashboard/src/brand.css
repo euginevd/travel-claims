@@ -1930,3 +1930,43 @@ main.landing p {
 .facts-payout .total td {
   font-weight: 600;
 }
+
+/* The Copilot's steps appear one after another, then the answer. */
+.copilot-card {
+  animation: copilot-step-in 0.35s var(--ease, ease-out) both;
+}
+
+.copilot-card.s1 {
+  animation-delay: 0.2s;
+}
+.copilot-card.s2 {
+  animation-delay: 0.4s;
+}
+.copilot-card.s3 {
+  animation-delay: 0.6s;
+}
+.copilot-card.s4 {
+  animation-delay: 0.8s;
+}
+.copilot-card.s5 {
+  animation-delay: 1s;
+}
+.copilot-card.s6 {
+  animation-delay: 1.2s;
+}
+.copilot-card.s7 {
+  animation-delay: 1.4s;
+}
+
+@keyframes copilot-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copilot-card {
+    animation: none;
+  }
+}
