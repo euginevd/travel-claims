@@ -472,3 +472,21 @@ test("the release history names each version by its change, with its evidence", 
   expect(screen.getByText("Rejected proposals (1)")).toBeInTheDocument();
   expect(screen.getByText(/The version the team started with/)).toBeInTheDocument();
 });
+
+test("the audit export never hands a spreadsheet a formula", async () => {
+  const { auditCsv } = await import("./pages/AuditPage");
+  const csv = auditCsv([
+    {
+      ref: "switch:1",
+      at: "2026-11-13T01:00:00+00:00",
+      kind: "switch",
+      label: "Agent switch",
+      change: "off",
+      before: null,
+      reason: '=HYPERLINK("http://x","click")',
+      by: "Dana Whitfield",
+    },
+  ]);
+  expect(csv).toContain(`"'=HYPERLINK(""http://x"",""click"")"`);
+  expect(csv).toContain('"Dana Whitfield"');
+});
