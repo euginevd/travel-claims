@@ -1,1 +1,5 @@
+- UI review of the handlers' dashboard, like the customer portal's: one at a time, minimal, consistent.
+- The same UI review of the assurance console next.
+- Fix the Dependabot updates (PRs #109 to #112).
+- Distroless images for the containers, with multi-stage builds.
 - Re-record the project page's three-minute walkthrough: it still shows the old portal pages, the handlers' agent activity panel and the old Wattle answers.
