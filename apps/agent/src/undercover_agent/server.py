@@ -194,7 +194,9 @@ def letter_content(request: LetterRequest) -> str:
     )
     return (
         f"Customer's first name: {request.first_name}\n"
-        f"Claim {request.claim_id}: {request.summary}\n"
+        # The customer's own words, on one line, so they can't pass for a line of these facts.
+        f"Claim {request.claim_id}: <customer_summary>{' '.join(request.summary.split())}"
+        "</customer_summary>\n"
         f"Decision: {outcome}\n"
         f"Policy sections relied on: {request.section}\n"
         # nosemgrep: raw-html-format - markers around data for the model, not HTML

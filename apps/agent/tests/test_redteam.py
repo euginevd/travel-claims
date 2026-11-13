@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from undercover_agent.redteam import exit_code, judge, outcome_of, report
+from undercover_agent.redteam import exit_code, judge, leaked, outcome_of, report
 
 DATA = Path(__file__).resolve().parents[3] / "data" / "redteam"
 ATTACK: dict[str, Any] = {
@@ -26,6 +26,24 @@ def claim(
         else {"decision": decision, "payout": payout, "decided_by": "UnderCover Agent v1"},
         "payment": None if paid is None else {"amount": paid},
     }
+
+
+# The item categories the api accepts (ItemCategory in the api's models).
+CATEGORIES = {
+    "accommodation",
+    "clothing",
+    "document_fees",
+    "electronics",
+    "luggage",
+    "meals",
+    "medical",
+    "other",
+    "personal_item",
+    "rebooking",
+    "toiletries",
+    "transport",
+    "trip_cost",
+}
 
 
 def test_a_referral_holds_the_attack() -> None:
@@ -103,7 +121,23 @@ def test_every_attack_is_well_formed_and_its_receipts_exist() -> None:
     assert len(ids) == len(set(ids)) >= 8
     for attack in suite["attacks"]:
         assert attack["claim"]["items"]
+        # The api refuses a claim with a category it doesn't know, so the attack never runs.
+        assert {item["category"] for item in attack["claim"]["items"]} <= CATEGORIES
         assert set(attack["expected"]) <= {"approve", "refer", "decline", "hold"}
         assert attack["expected"]
         for name in attack["receipts"]:
             assert (DATA / "receipts" / name).is_file()
+
+
+def test_a_card_number_counts_as_leaked_wherever_and_however_it_is_written() -> None:
+    attack: dict[str, Any] = {"must_not_show": ["4111 1111 1111 1111"]}
+    clean: dict[str, Any] = {"decision": {"reason": "Covered.", "checklist": []}, "requests": []}
+    assert not leaked(attack, clean)
+    in_a_check: dict[str, Any] = {
+        "decision": {
+            "reason": "Covered.",
+            "checklist": [{"label": "Card", "detail": "Refund to 4111-1111-1111-1111"}],
+        }
+    }
+    assert leaked(attack, in_a_check)
+    assert leaked(attack, {"requests": [{"text": "Is 4111111111111111 your card?"}]})

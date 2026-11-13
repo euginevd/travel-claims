@@ -47,7 +47,7 @@ def test_threat_coverage_maps_risks_to_tests_for_engineers_only(
                 "name": "Instruction on a receipt",
                 "technique": "Hidden text",
                 "owasp": "LLM01, ASI01",
-                "claim_id": None,
+                "claim_id": "CLM-1001",
                 "outcome": "Referred",
                 "decided_by": "Hidden-instruction check",
                 "paid": 0,
