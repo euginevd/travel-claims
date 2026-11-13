@@ -139,6 +139,7 @@ CI and tooling
 56. axe flags low contrast on text caught mid fade-in: run accessibility checks with `reducedMotion: "reduce"` so they see the settled page.
 57. The agent and Copilot both create LangGraph's checkpoint tables at start, racing on Postgres's catalog (`UniqueViolation` on `pg_type`): keep the setup inside `set_up_tables`, which retries.
 58. Semgrep blocks `urllib` and `http.client` calls to a URL from a variable, even when the scheme is checked: use `httpx2`, the client the apps already pin.
+62. ESLint and `tsc` passing isn't the web lint: CI's `npm run lint` also runs `prettier --check`. Run `npm run lint` in each changed app before pushing.
 
 Docker
 

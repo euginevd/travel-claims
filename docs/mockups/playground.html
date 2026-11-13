@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Playground mockup</title>
+<style>
+  :root {
+    --bg: #fff; --page: #faf9f7; --ink: #1f1d1a; --ink-2: #57534c; --ink-3: #8a857c;
+    --line: #e9e5de; --line-2: #f1eee9; --soft: #f3f1ed; --good: #3d6b3a; --good-tint: #eef5ea;
+    --warn: #a6472f; --warn-tint: #fdf2ee; --amber: #9a6a12; --amber-tint: #fdf6e7;
+    --head: Georgia, "Times New Roman", serif; --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 var(--body); }
+  .top { display: flex; gap: 16px; align-items: center; padding: 12px 88px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .brand b { display: block; font-size: 1.1rem; } .brand small { color: var(--ink-3); }
+  .tabs { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--soft); }
+  .tabs span { padding: 5px 14px; border-radius: 8px; color: var(--ink-2); }
+  .tabs .on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px #0001; }
+  .sub { display: flex; gap: 6px; padding: 8px 88px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .sub span { padding: 5px 12px; border-radius: 8px; color: var(--ink-2); font-size: .92rem; }
+  .sub .on { background: var(--soft); color: var(--ink); }
+  main { max-width: 1264px; margin: 0 auto; padding: 28px 16px 60px; display: grid; gap: 16px; }
+  .eyebrow { margin: 0; color: var(--ink-2); font-size: .85rem; }
+  h1 { margin: 2px 0 6px; font: 400 2.2rem/1.1 var(--head); }
+  .lede { margin: 0; max-width: 46rem; color: var(--ink-2); }
+  .panel { padding: 20px 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--bg); }
+  .panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; margin-bottom: 14px; }
+  .panel-head h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+  .note { margin: 0; color: var(--ink-3); font-size: .82rem; }
+  .mode { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--soft); }
+  .mode span { padding: 5px 14px; border-radius: 8px; font-size: .9rem; color: var(--ink-2); }
+  .mode .on { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px #0001; }
+  .form { display: grid; grid-template-columns: 1.6fr 1fr auto; gap: 18px; align-items: end; }
+  label { display: block; margin-bottom: 6px; color: var(--ink-2); font-size: .85rem; }
+  .picks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pick { display: inline-flex; gap: 8px; align-items: center; padding: 7px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font-size: .9rem; }
+  .pick.on { border-color: var(--ink); }
+  .pick small { color: var(--ink-3); }
+  .add { color: var(--ink-3); border-style: dashed; }
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--soft); }
+  .seg span { padding: 6px 12px; border-radius: 8px; font-size: .88rem; color: var(--ink-2); }
+  .seg .on { background: var(--bg); color: var(--ink); }
+  .button { padding: 10px 18px; border: 0; border-radius: 12px; background: var(--ink); color: #fff; font: 600 .92rem var(--body); }
+  .button.secondary { background: var(--soft); color: var(--ink); font-weight: 500; }
+  .estimate { margin: 10px 0 0; color: var(--ink-3); font-size: .82rem; }
+  .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); }
+  .card.best { border-color: #cfe3c6; background: #f6faf3; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card-top b { font-size: 1rem; } .card-top small { color: var(--ink-3); }
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--soft); color: var(--ink-2); font-size: .78rem; }
+  .chip.good { background: var(--good-tint); color: var(--good); }
+  .chip.bad { background: var(--warn-tint); color: var(--warn); }
+  .big { font: 400 2rem/1 var(--head); }
+  .range { position: relative; height: 8px; border-radius: 99px; background: var(--line-2); }
+  .range i { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: #bcd9b1; }
+  .range em { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--ink); }
+  .range u { position: absolute; top: -1px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--good); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 0; font-size: .88rem; }
+  .stats dt { color: var(--ink-3); font-size: .78rem; } .stats dd { margin: 0; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--line-2); font-size: .85rem; }
+  a { color: var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { padding: 10px 8px; border-top: 1px solid var(--line-2); text-align: left; vertical-align: top; }
+  thead th { border-top: 0; color: var(--ink-3); font-weight: 400; font-size: .8rem; }
+  .ok { color: var(--good); } .miss { color: var(--warn); }
+  .cols { display: grid; grid-template-columns: 1fr repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .col { padding: 14px; border: 1px solid var(--line); border-radius: 14px; font-size: .88rem; }
+  .col h3 { margin: 0 0 6px; font-size: .95rem; }
+  .col p { margin: 6px 0 0; color: var(--ink-2); }
+  .tag { display: inline-block; margin-top: 6px; color: var(--ink-3); font-size: .8rem; }
+  .label { margin: 26px 0 4px; color: var(--ink-3); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+  @media (max-width: 900px) {
+    .top, .sub { padding-left: 16px; padding-right: 16px; }
+    .form, .cards, .cols { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><b>undercover</b><small>Control plane</small></div>
+  <div class="tabs"><span>Overview</span><span>Observe</span><span class="on">Evaluate</span><span>Secure</span><span>Govern</span></div>
+</div>
+<div class="sub"><span>Scoreboard</span><span class="on">Playground</span><span>Red team</span></div>
+
+<main>
+  <header>
+    <p class="eyebrow">Evaluate · Playground</p>
+    <h1>Playground</h1>
+    <p class="lede">Which model should the claim agent run on? Run the same claims on up to three models and efforts and compare them side by side. Nothing here changes the live agent: a pick goes to Versions for a person to approve.</p>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Compare</h2>
+      <div class="mode"><span class="on">On the practice set</span><span>One claim</span></div>
+    </div>
+    <div class="form">
+      <div>
+        <label>Models and efforts, up to three</label>
+        <div class="picks">
+          <span class="pick on">Haiku 5.5 <small>medium · in use</small></span>
+          <span class="pick on">Sonnet 5.5 <small>medium</small></span>
+          <span class="pick on">Haiku 5.5 <small>low</small></span>
+          <span class="pick add">+ Add</span>
+        </div>
+      </div>
+      <div>
+        <label>Claims</label>
+        <div class="seg"><span>5 claims</span><span class="on">All 25</span></div>
+      </div>
+      <button class="button">Run the comparison</button>
+    </div>
+    <p class="estimate">About $1.40 for all three on 25 claims, within today's budget ($4.87 left). Practice copies are never paid. The exam's held-out claims are kept for improvement rounds.</p>
+  </section>
+
+  <p class="label">Results · 25 practice claims · finished 2 min ago</p>
+  <div class="cards">
+    <article class="card best">
+      <div class="card-top"><div><b>Haiku 5.5</b> <small>medium · in use</small></div><span class="chip good">Passes · cheapest</span></div>
+      <div><span class="big">84%</span> <small class="note">right decision · likely 65–94%</small></div>
+      <div class="range"><i style="left:65%;right:6%"></i><em style="left:80%"></em><u style="left:84%"></u></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>84%</dd></div>
+        <div><dt>Decided alone</dt><dd>68%</dd></div>
+        <div><dt>Reasons (judge)</dt><dd>1.8 of 3</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.005</dd></div>
+        <div><dt>Time a claim</dt><dd>26 s</dd></div>
+        <div><dt>Gate floors</dt><dd class="ok">All met</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Run 21</a><span class="chip">In use</span></div>
+    </article>
+    <article class="card">
+      <div class="card-top"><div><b>Sonnet 5.5</b> <small>medium</small></div><span class="chip good">Passes</span></div>
+      <div><span class="big">92%</span> <small class="note">right decision · likely 75–98%</small></div>
+      <div class="range"><i style="left:75%;right:2%"></i><em style="left:80%"></em><u style="left:92%"></u></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>88%</dd></div>
+        <div><dt>Decided alone</dt><dd>72%</dd></div>
+        <div><dt>Reasons (judge)</dt><dd>2.3 of 3</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.031</dd></div>
+        <div><dt>Time a claim</dt><dd>41 s</dd></div>
+        <div><dt>Gate floors</dt><dd class="ok">All met</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Run 22</a><button class="button secondary">Propose for the claim agent</button></div>
+    </article>
+    <article class="card">
+      <div class="card-top"><div><b>Haiku 5.5</b> <small>low</small></div><span class="chip bad">Fails a floor</span></div>
+      <div><span class="big">72%</span> <small class="note">right decision · likely 52–86%</small></div>
+      <div class="range"><i style="left:52%;right:14%"></i><em style="left:80%"></em><u style="left:72%"></u></div>
+      <dl class="stats">
+        <div><dt>Right amount</dt><dd>76%</dd></div>
+        <div><dt>Decided alone</dt><dd>64%</dd></div>
+        <div><dt>Reasons (judge)</dt><dd>1.5 of 3</dd></div>
+        <div><dt>Cost a claim</dt><dd>$0.003</dd></div>
+        <div><dt>Time a claim</dt><dd>14 s</dd></div>
+        <div><dt>Gate floors</dt><dd class="miss">Right decision under 80%</dd></div>
+      </dl>
+      <div class="card-foot"><a href="#">Run 23</a><button class="button secondary">Propose for the claim agent</button></div>
+    </article>
+  </div>
+  <p class="note">The shaded band is where each score likely sits: 25 claims can't tell 84% from 92% apart for certain. Run it again, or let the exam decide once it's proposed.</p>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Decided differently</h2><p class="note">5 of 25 claims; the handler's answer first</p></div>
+    <table>
+      <thead><tr><th>Claim</th><th>Handler</th><th>Haiku · medium</th><th>Sonnet · medium</th><th>Haiku · low</th></tr></thead>
+      <tbody>
+        <tr><td><a href="#">CLM-2014</a> Trip delay</td><td>Approve $250</td><td class="miss">Refer</td><td class="ok">Approve $250</td><td class="miss">Refer</td></tr>
+        <tr><td><a href="#">CLM-2019</a> Baggage</td><td>Decline</td><td class="ok">Decline</td><td class="ok">Decline</td><td class="miss">Approve $120</td></tr>
+        <tr><td><a href="#">CLM-2022</a> Medical</td><td>Approve $890</td><td class="ok">Approve $890</td><td class="ok">Approve $890</td><td class="miss">Approve $940</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="label">The other mode · One claim</p>
+  <section class="panel">
+    <div class="panel-head"><h2>One claim, side by side</h2><p class="note">CLM-2014 · trip delay, $250 claimed · a copy, never paid</p></div>
+    <div class="cols">
+      <div class="col"><h3>The handler</h3><b>Approve $250</b><p>Delay over 6 hours with the airline's letter; covered under section 6.</p></div>
+      <div class="col"><h3>Haiku · medium</h3><b class="miss">Refer</b><p>Couldn't confirm the delay length from the letter.</p><span class="tag">9 calls · 11.2k tokens · $0.004 · 22 s</span></div>
+      <div class="col"><h3>Sonnet · medium</h3><b class="ok">Approve $250</b><p>Airline letter shows 7 h 10 min; section 6 pays $250 over 6 hours.</p><span class="tag">8 calls · 10.4k tokens · $0.028 · 37 s</span></div>
+      <div class="col"><h3>Haiku · low</h3><b class="miss">Refer</b><p>Delay not stated.</p><span class="tag">6 calls · 7.9k tokens · $0.002 · 12 s</span></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
