@@ -1388,3 +1388,53 @@
   padding-top: 16px;
   border-top: 2px solid var(--line);
 }
+
+/* 1. A row that opens shows it can: a chevron that turns when open. */
+.claim-more summary {
+  align-items: center;
+  list-style: none;
+}
+
+.claim-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.claim-more summary::after {
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.2s;
+  content: "";
+}
+
+.claim-more[open] summary::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
+.claim-more summary .sheet-meta {
+  margin-left: auto;
+}
+
+/* 2. The customer's words under a claim's short title: one line. */
+.claim-row-words {
+  display: block;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-row .grow {
+  min-width: 0;
+}
+
+/* 4. The claim number, to match emails and calls. */
+.claim-number {
+  margin: 4px 0 0;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+}

@@ -2,8 +2,10 @@ import {
   ArrowUp,
   Camera,
   Check,
+  Clock,
   FileText,
   Paperclip,
+  PenLine,
   Plus,
   Shield,
   Luggage,
@@ -1108,6 +1110,12 @@ function NewsLine({
         <span className="news-icon" aria-hidden="true">
           {news.tone === "need" ? (
             <Paperclip size={16} strokeWidth={1.75} />
+          ) : news.go.to === "draft" ? (
+            <PenLine size={16} strokeWidth={1.75} />
+          ) : news.go.to === "delay" ? (
+            <Clock size={16} strokeWidth={1.75} />
+          ) : news.tone === "plain" ? (
+            <FileText size={16} strokeWidth={1.75} />
           ) : (
             <Check size={16} strokeWidth={2} />
           )}

@@ -21,7 +21,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 2 | **Claims** (side panel): the customer's own claims, in progress then done, three then five more a tap, and on a big screen the list beside the claim; each opens to where it stands, a tracker, what we need and, once decided, the reason (an approval in plain words) | Done | #37, #113 |
+| 2 | **Claims** (side panel): the customer's own claims, in progress then done, three then five more a tap, and on a big screen the list beside the claim; each titled by its kind and trip with the customer's words under it; each opens to where it stands, its claim number, a tracker, what we need and, once decided, the reason (an approval in plain words) | Done | #37, #113 |
 | 3 | **Make a claim by chat**, one question at a time, asking only what the records can't say, with up to five photos or files (unreadable ones refused or referred to a person). The trip is shown with *change*; the check card is edited in place; nothing is sent until the customer taps Send claim; saved to finish later | Done | #5, #113 |
 | 4 | **Just tell Wattle**: typing trouble starts a claim, and the drafting assistant fills it in from the customer's words and files | Done | #71, #113 |
 | 5 | Receipts in another currency converted to US dollars, the original kept and marked to check (spec 28) | Done | #72 |

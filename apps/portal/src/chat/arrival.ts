@@ -27,6 +27,17 @@ export const CLAIM_NOUN: Record<string, string> = {
   emergency_medical: "medical",
 };
 
+/** A claim's kind as a short title, for lists. */
+export const CLAIM_TITLE: Record<string, string> = {
+  baggage: "Lost bag",
+  baggage_delay: "Late bag",
+  trip_delay: "Delayed flight",
+  trip_cancellation: "Cancelled trip",
+  trip_interruption: "Trip cut short",
+  passport: "Lost passport",
+  emergency_medical: "Medical",
+};
+
 export function noun(claim: Pick<CustomerClaimSummary, "claim_type">): string {
   return CLAIM_NOUN[claim.claim_type] ?? "";
 }

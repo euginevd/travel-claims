@@ -7,7 +7,7 @@ import { NeedsPanel } from "../components/NeedsPanel";
 import { CustomerStatusChip } from "../components/StatusChip";
 import { WattleMark } from "../components/Wattle";
 import { date, dollars, when } from "../format";
-import { place } from "./arrival";
+import { CLAIM_TITLE, place } from "./arrival";
 import { coverRows, planName } from "./cover";
 import { groupNotices } from "./messages";
 import { MAX_RECEIPTS, receiptProblem, RECEIPT_TYPES } from "./receipts";
@@ -233,6 +233,11 @@ function ClaimsView({
         Show {Math.min(left, MESSAGES_MORE)} more
       </button>
     );
+  const titleOf = (claim: (typeof records.claims)[number]) => {
+    const kind = CLAIM_TITLE[claim.claim_type] ?? "Claim";
+    const trip = records.policies.find((p) => p.policy_id === claim.policy_id)?.trip;
+    return trip ? `${kind} · ${place(trip.destination)}` : kind;
+  };
   const row = (claim: (typeof records.claims)[number]) => (
     <li key={claim.claim_id}>
       <button
@@ -244,7 +249,10 @@ function ClaimsView({
         }}
       >
         <span className="grow">
-          <b dir="auto">{claim.summary}</b>
+          <b>{titleOf(claim)}</b>
+          <span className="claim-row-words" dir="auto">
+            {claim.summary}
+          </span>
           <span className="sheet-meta">
             {dollars(claim.amount_claimed)} · {date(claim.submitted_on)}
           </span>
@@ -434,6 +442,7 @@ export function ClaimView({
             <CustomerStatusChip status={claim.status} />
           )}
           <p className="claim-view-headline">{claimHeadline(claim)}</p>
+          <p className="claim-number">Claim {claim.claim_id}</p>
           <p className="sheet-meta" dir="auto">
             {claim.summary} · {place(claim.incident_location)} · {dollars(claim.amount_claimed)}
           </p>
@@ -452,7 +461,7 @@ export function ClaimView({
               <Feedback api={api} subject="decision" claimId={claimId} />
             </div>
           )}
-          <details className="claim-more">
+          <details className="claim-more" open={embedded}>
             <summary>In your words</summary>
             <p dir="auto">{claim.story}</p>
           </details>
