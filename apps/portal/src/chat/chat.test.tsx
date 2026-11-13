@@ -738,3 +738,22 @@ test("Home shows the start screen and key facts over a chat, and the chat is kep
   await user.click(screen.getByRole("button", { name: "Back to your chat" }));
   expect(await screen.findByRole("button", { name: "See details" })).toBeInTheDocument();
 });
+
+test("claims show three in each group, then five more a tap", async () => {
+  const user = userEvent.setup();
+  const many = Array.from({ length: 9 }, (_, i) => ({
+    ...MY_SUMMARY,
+    claim_id: `CLM-${String(1100 + i)}`,
+    summary: `Claim number ${String(i + 1)}`,
+  }));
+  render(<App fetchFn={fakeFetch({ ...routes, "GET /api/customer/claims": () => [200, many] })} />);
+  await user.click(
+    await within(await screen.findByRole("banner")).findByRole("button", { name: /Claims/ }),
+  );
+  const panel = await screen.findByRole("dialog", { name: "Your claims" });
+  expect(within(panel).getAllByRole("button", { name: /Claim number/ })).toHaveLength(3);
+  await user.click(within(panel).getByRole("button", { name: "Show 5 more" }));
+  expect(within(panel).getAllByRole("button", { name: /Claim number/ })).toHaveLength(8);
+  await user.click(within(panel).getByRole("button", { name: "Show 1 more" }));
+  expect(within(panel).getAllByRole("button", { name: /Claim number/ })).toHaveLength(9);
+});

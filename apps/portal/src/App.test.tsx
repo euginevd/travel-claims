@@ -91,7 +91,7 @@ test("the header is quiet: a new chat, messages, claims and the customer's setti
   saveToken("token-c");
   render(<App fetchFn={fakeFetch(routes)} />);
   const banner = await screen.findByRole("banner");
-  for (const name of [/New chat/, /Messages/, /Claims/, /Settings for Maya Patel/]) {
+  for (const name of [/Home/, /Messages/, /Claims/, /Settings for Maya Patel/]) {
     expect(within(banner).getByRole("button", { name })).toBeInTheDocument();
   }
 });

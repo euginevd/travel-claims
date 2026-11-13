@@ -1,4 +1,14 @@
-import { ArrowUp, Camera, Check, FileText, Paperclip, Shield, Luggage, X } from "lucide-react";
+import {
+  ArrowUp,
+  Camera,
+  Check,
+  FileText,
+  Paperclip,
+  Plus,
+  Shield,
+  Luggage,
+  X,
+} from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
@@ -49,6 +59,7 @@ import {
 } from "./claimFlow";
 import { coverLine, coverRows, planName } from "./cover";
 import { Glance } from "./Glance";
+import { useMedia } from "./useMedia";
 import type { Records } from "./records";
 import type { PanelTarget } from "./SidePanel";
 import { claimHeadline } from "./SidePanel";
@@ -118,6 +129,8 @@ interface HomeProps {
   start: { kind: "claim" } | { kind: "policy"; cover: Cover } | null;
   /** Goes up by one each time the customer presses Home. */
   homeTick?: number;
+  /** Clears this conversation for a fresh one. */
+  onNewChat?: () => void;
 }
 
 const GREETING_TYPES: CaseChip[] = [
@@ -140,6 +153,7 @@ export function Home({
   onChanged,
   start,
   homeTick = 0,
+  onNewChat,
 }: HomeProps) {
   const ids = useId();
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -180,7 +194,8 @@ export function Home({
     setShowHome(true);
   }
   const atHome = empty || showHome;
-  const narrow = useNarrow();
+  // A phone puts the key facts in the scrolling page, not under the composer.
+  const narrow = useMedia("(max-width: 640px)");
   const glance = atHome && loaded && <Glance records={records} onOpen={onOpen} />;
   const returning = useRef(false);
   const shownTurns = useRef(0);
@@ -923,6 +938,11 @@ export function Home({
         >
           <Camera size={20} strokeWidth={1.75} aria-hidden="true" />
         </button>
+        {!empty && onNewChat && (
+          <button type="button" className="composer-new" onClick={onNewChat}>
+            <Plus size={16} strokeWidth={2} aria-hidden="true" /> New chat
+          </button>
+        )}
         <span className="grow" />
         <button
           type="submit"
@@ -1214,26 +1234,6 @@ function WattleTurn(props: WattleTurnProps) {
       </div>
     </div>
   );
-}
-
-// A phone puts the key facts in the scrolling page, not under the composer.
-const NARROW = "(max-width: 640px)";
-function useNarrow(): boolean {
-  const [narrow, setNarrow] = useState(
-    () => typeof window.matchMedia === "function" && window.matchMedia(NARROW).matches,
-  );
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia(NARROW);
-    const change = () => {
-      setNarrow(query.matches);
-    };
-    query.addEventListener("change", change);
-    return () => {
-      query.removeEventListener("change", change);
-    };
-  }, []);
-  return narrow;
 }
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);

@@ -21,13 +21,13 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 2 | **Claims** (side panel): the customer's own claims, in progress then done; each opens to where it stands, a tracker, what we need and, once decided, the reason (an approval in plain words) | Done | #37, #113 |
+| 2 | **Claims** (side panel): the customer's own claims, in progress then done, three then five more a tap, and on a big screen the list beside the claim; each opens to where it stands, a tracker, what we need and, once decided, the reason (an approval in plain words) | Done | #37, #113 |
 | 3 | **Make a claim by chat**, one question at a time, asking only what the records can't say, with up to five photos or files (unreadable ones refused or referred to a person). The trip is shown with *change*; the check card is edited in place; nothing is sent until the customer taps Send claim; saved to finish later | Done | #5, #113 |
 | 4 | **Just tell Wattle**: typing trouble starts a claim, and the drafting assistant fills it in from the customer's words and files | Done | #71, #113 |
 | 5 | Receipts in another currency converted to US dollars, the original kept and marked to check (spec 28) | Done | #72 |
 | 6 | One-tap delayed-flight claims when the flight-status feed shows the flight qualifies | Done | #37 |
 | 7 | A tracker per claim with a plain reason and AI disclosure; upload asked-for documents, ask for a person's review, get paid to a PayID | Done | #37 |
-| 8 | **Messages** (side panel): every email and text, an email and its text as one, the newest three then the rest on a tap, a dot for anything new | Done | #37, #113 |
+| 8 | **Messages** (side panel): every email and text, an email and its text as one, the newest three, then five more on each tap, a dot for anything new | Done | #37, #113 |
 | 9 | **Wattle AI**: answers about the customer's cover or claim, citing the policy: a headline, up to three sourced points and one next question. The engineers' Wattle can put two agent versions side by side and lists what it read before answering | Done | #39, #113 |
 | 10 | Thumbs up or down, with a comment, on Wattle's answers and each decision's explanation (spec 21) | Done | #72 |
 
@@ -35,7 +35,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 10a | **Chat-first portal**: Wattle is the home screen: a greeting, one dismissable news line, three suggestions and **At a glance** (claims, cover, getting paid), all from the customer's records. Wattle's answer names what to show and never changes anything (decision 53). **Home** returns to the start screen with the chat kept; **Settings** holds PayID, mobile and texts. Cover answers say *General information only; your policy wording decides* | Done | #113 |
+| 10a | **Chat-first portal**: Wattle is the home screen: a greeting, one dismissable news line, three suggestions and **At a glance** (claims, cover, getting paid), all from the customer's records. Wattle's answer names what to show and never changes anything (decision 53). **Home** returns to the start screen with the chat kept, and **New chat** in the composer clears it; **Settings** holds PayID, mobile and texts. Cover answers say *General information only; your policy wording decides* | Done | #113 |
 | 11 | **Queue** opening on what needs the handler, screened claims flagged, red-team tests kept out; each claim due in ten business days | Done | #2 |
 | 12 | **Case brief**: stage, the agent's recommendation, a sourced checklist, the payout line by line and the hidden-instruction check; the agent's latest step while it works | Done | #5 |
 | 13 | **Sign off**, **send back** or **override** with a reason code; over the approval limit waits for a senior handler (spec 27) | Done | #2 |

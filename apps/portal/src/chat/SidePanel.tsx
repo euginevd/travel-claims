@@ -11,6 +11,7 @@ import { place } from "./arrival";
 import { coverRows, planName } from "./cover";
 import { groupNotices } from "./messages";
 import { MAX_RECEIPTS, receiptProblem, RECEIPT_TYPES } from "./receipts";
+import { useMedia } from "./useMedia";
 import type { Records } from "./records";
 
 export type PanelTarget =
@@ -37,6 +38,8 @@ const DONE = new Set(["paid", "declined"]);
 export function SidePanel(props: SidePanelProps) {
   const { target, onClose } = props;
   const sheet = useRef<HTMLElement>(null);
+  const roomy = useMedia("(min-width: 1100px)");
+  const split = roomy && target.view === "claims" && props.records.claims.length > 0;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -71,14 +74,16 @@ export function SidePanel(props: SidePanelProps) {
         onClick={onClose}
       />
       <aside
-        className="sheet"
+        className={`sheet${split ? " sheet-wide" : ""}`}
         ref={sheet}
         role="dialog"
         aria-modal="true"
         aria-label={title(target)}
       >
         {target.view === "messages" && <MessagesView {...props} />}
-        {target.view === "claims" &&
+        {split && <ClaimsSplit {...props} claimId={target.claimId} />}
+        {!split &&
+          target.view === "claims" &&
           (target.claimId ? (
             <ClaimView {...props} claimId={target.claimId} />
           ) : (
@@ -127,16 +132,17 @@ function Head({
 
 // --- Messages ---
 
-// The newest few first; the rest on a tap, so the sheet stays short.
+// The newest few first, then a few more on each tap, so the sheet stays short.
 const MESSAGES_SHOWN = 3;
+const MESSAGES_MORE = 5;
 
 // Keeps a claim number on one line: CLM-1925 never breaks at its hyphen.
 const unbroken = (text: string) => text.replace(/CLM-(\d)/g, "CLM‑$1");
 
 function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
   const all = groupNotices(records.notices);
-  const [showAll, setShowAll] = useState(false);
-  const messages = showAll ? all : all.slice(0, MESSAGES_SHOWN);
+  const [shown, setShown] = useState(MESSAGES_SHOWN);
+  const messages = all.slice(0, shown);
   const hidden = all.length - messages.length;
   return (
     <>
@@ -194,10 +200,10 @@ function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
           type="button"
           className="text-link message-more"
           onClick={() => {
-            setShowAll(true);
+            setShown((n) => n + MESSAGES_MORE);
           }}
         >
-          Show {hidden} older
+          Show {Math.min(hidden, MESSAGES_MORE)} more
         </button>
       )}
     </>
@@ -206,14 +212,29 @@ function MessagesView({ records, onClose, onTarget }: SidePanelProps) {
 
 // --- Claims ---
 
-function ClaimsView({ records, onClose, onTarget, onStartClaim }: SidePanelProps) {
+function ClaimsView({
+  records,
+  onClose,
+  onTarget,
+  onStartClaim,
+  selected,
+}: SidePanelProps & { selected?: string }) {
   const open = records.claims.filter((c) => !DONE.has(c.status));
   const done = records.claims.filter((c) => DONE.has(c.status));
+  const [openShown, setOpenShown] = useState(MESSAGES_SHOWN);
+  const [doneShown, setDoneShown] = useState(MESSAGES_SHOWN);
+  const more = (left: number, add: () => void) =>
+    left > 0 && (
+      <button type="button" className="text-link message-more" onClick={add}>
+        Show {Math.min(left, MESSAGES_MORE)} more
+      </button>
+    );
   const row = (claim: (typeof records.claims)[number]) => (
     <li key={claim.claim_id}>
       <button
         type="button"
         className="sheet-row"
+        aria-current={claim.claim_id === selected ? "true" : undefined}
         onClick={() => {
           onTarget({ view: "claims", claimId: claim.claim_id });
         }}
@@ -241,18 +262,45 @@ function ClaimsView({ records, onClose, onTarget, onStartClaim }: SidePanelProps
       {open.length > 0 && (
         <section className="sheet-group">
           <h3>In progress</h3>
-          <ul>{open.map(row)}</ul>
+          <ul>{open.slice(0, openShown).map(row)}</ul>
+          {more(open.length - openShown, () => {
+            setOpenShown((n) => n + MESSAGES_MORE);
+          })}
         </section>
       )}
       {done.length > 0 && (
         <section className="sheet-group">
           <h3>Done</h3>
-          <ul>{done.map(row)}</ul>
+          <ul>{done.slice(0, doneShown).map(row)}</ul>
+          {more(done.length - doneShown, () => {
+            setDoneShown((n) => n + MESSAGES_MORE);
+          })}
         </section>
       )}
       <button type="button" className="button secondary sheet-action" onClick={onStartClaim}>
         Make a claim
       </button>
+    </>
+  );
+}
+
+/** On a big screen: the claims on the left, the one picked (or the newest in progress) on
+ * the right, so moving between claims needs no going back. */
+function ClaimsSplit(props: SidePanelProps & { claimId?: string }) {
+  const { records } = props;
+  const shown =
+    props.claimId ??
+    records.claims.find((c) => !DONE.has(c.status))?.claim_id ??
+    records.claims[0]?.claim_id ??
+    "";
+  return (
+    <>
+      <div className="split-list">
+        <ClaimsView {...props} selected={shown} />
+      </div>
+      <div className="split-detail">
+        <ClaimView key={shown} {...props} claimId={shown} embedded />
+      </div>
     </>
   );
 }
@@ -291,7 +339,8 @@ export function ClaimView({
   onClose,
   onTarget,
   onChanged,
-}: SidePanelProps & { claimId: string }) {
+  embedded = false,
+}: SidePanelProps & { claimId: string; embedded?: boolean }) {
   const id = useId();
   const [claim, setClaim] = useState<CustomerClaim | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -335,14 +384,16 @@ export function ClaimView({
   const decided = claim?.outcome && claim.outcome !== "refer";
   return (
     <>
-      <Head
-        onClose={onClose}
-        onBack={() => {
-          onTarget({ view: "claims" });
-        }}
-      >
-        Your claim
-      </Head>
+      {!embedded && (
+        <Head
+          onClose={onClose}
+          onBack={() => {
+            onTarget({ view: "claims" });
+          }}
+        >
+          Your claim
+        </Head>
+      )}
       {!claim && !error && (
         <p role="status" className="sheet-empty">
           Loading your claim…

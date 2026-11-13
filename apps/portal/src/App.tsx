@@ -187,11 +187,6 @@ function Portal({
         <Header
           name={customer.name}
           unread={unread}
-          onNewChat={() => {
-            setPanel(null);
-            setStart(null);
-            setRestart((value) => value + 1);
-          }}
           onHome={() => {
             setPanel(null);
             setHomeTick((value) => value + 1);
@@ -211,6 +206,11 @@ function Portal({
         <ErrorBoundary>
           <Home
             key={restart}
+            onNewChat={() => {
+              setPanel(null);
+              setStart(null);
+              setRestart((value) => value + 1);
+            }}
             homeTick={homeTick}
             api={api}
             firstName={firstName}

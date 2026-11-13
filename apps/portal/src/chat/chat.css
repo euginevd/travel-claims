@@ -1278,3 +1278,54 @@
 .back-to-chat {
   margin-top: 14px;
 }
+
+/* Claims on a big screen: list and claim side by side, each scrolling on its own. */
+.sheet.sheet-wide {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  gap: 0;
+  width: min(1040px, 100%);
+  padding: 0;
+  overflow: hidden;
+}
+
+.split-list,
+.split-detail {
+  min-height: 0;
+  padding: 20px 24px 28px;
+  overflow-y: auto;
+}
+
+.split-list {
+  border-right: 1px solid var(--line);
+}
+
+.split-detail {
+  padding-top: 28px;
+}
+
+.sheet-row[aria-current="true"] {
+  background: var(--soft);
+}
+
+/* New chat lives in the conversation: clears it for a fresh one. */
+.composer-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin-left: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.composer-new:hover {
+  background: var(--soft);
+  color: var(--ink);
+}

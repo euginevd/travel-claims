@@ -1,11 +1,10 @@
-import { FileText, House, Mail, SquarePen } from "lucide-react";
+import { FileText, House, Mail } from "lucide-react";
 import { Logo } from "./Logo";
 import { ProjectLink } from "./Wattle";
 
 interface HeaderProps {
   name: string;
   unread: boolean;
-  onNewChat: () => void;
   onHome: () => void;
   onMessages: () => void;
   onClaims: () => void;
@@ -22,15 +21,7 @@ export function initials(name: string): string {
 
 // A quiet top bar: the conversation is the page. Messages, Claims and Settings open the side
 // panel; labels hide on a phone and the icons keep their names.
-export function Header({
-  name,
-  unread,
-  onNewChat,
-  onHome,
-  onMessages,
-  onClaims,
-  onSettings,
-}: HeaderProps) {
+export function Header({ name, unread, onHome, onMessages, onClaims, onSettings }: HeaderProps) {
   return (
     <header className="topbar">
       <div className="topbar-in">
@@ -51,10 +42,6 @@ export function Header({
           <button type="button" className="top-button" onClick={onHome}>
             <House size={17} strokeWidth={1.75} aria-hidden="true" />
             <span className="top-label">Home</span>
-          </button>
-          <button type="button" className="top-button" onClick={onNewChat}>
-            <SquarePen size={17} strokeWidth={1.75} aria-hidden="true" />
-            <span className="top-label">New chat</span>
           </button>
           <button type="button" className="top-button" onClick={onMessages}>
             <Mail size={17} strokeWidth={1.75} aria-hidden="true" />
