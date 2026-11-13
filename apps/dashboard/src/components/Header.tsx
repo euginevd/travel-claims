@@ -1,7 +1,10 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { LogOut, Search, type LucideIcon } from "lucide-react";
-import { Logo } from "./Logo";
+import { Logo } from "@undercover/web-core/Logo";
 import { ProjectLink, WattleButton } from "./Wattle";
+
+/** The line under the logo's word mark in this app. */
+export const LOGO_SUBTITLE = "Claims workspace";
 
 export interface NavLink {
   href: string;
@@ -19,6 +22,8 @@ interface HeaderProps {
   onSignOut: () => void;
   onSearch?: () => void;
   onCopilot?: () => void;
+  copilotOpen?: boolean;
+  copilotToggle?: Ref<HTMLButtonElement>;
   status?: ReactNode;
 }
 
@@ -42,13 +47,15 @@ export function Header({
   onSignOut,
   onSearch,
   onCopilot,
+  copilotOpen = false,
+  copilotToggle,
   status,
 }: HeaderProps) {
   return (
     <header className="topbar">
       <div className="topbar-in">
         <a className="brand" href={home} aria-label="UnderCover Claims workspace, home">
-          <Logo />
+          <Logo subtitle={LOGO_SUBTITLE} />
         </a>
         <nav aria-label="Main" className="topnav">
           <ul>
@@ -79,7 +86,7 @@ export function Header({
         )}
         <div className="topbar-right">
           {status}
-          {onCopilot && <WattleButton onClick={onCopilot} />}
+          {onCopilot && <WattleButton onClick={onCopilot} open={copilotOpen} ref={copilotToggle} />}
           <div className="who">
             <span className="avatar" aria-hidden="true">
               {initials(name)}

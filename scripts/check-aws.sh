@@ -11,7 +11,7 @@
   echo "== Account"
   # PAID ACTIVE is needed for Claude on Bedrock (a Marketplace model).
   plan=$(aws freetier get-account-plan-state --region us-east-1 --query '[accountPlanType,accountPlanStatus]' --output text 2>"$out.err")
-  [ "$(echo $plan)" = "PAID ACTIVE" ]; result $? "account plan $(echo ${plan:-unknown})"
+  ok=1; [ "$(echo $plan)" = "PAID ACTIVE" ] && ok=0; result $ok "account plan $(echo ${plan:-unknown})"
 
   echo "== CloudFront WAF"
   # CLOUDFRONT_WAF=on needs the platform's Firewall Manager policy, published as a parameter (decision 51).

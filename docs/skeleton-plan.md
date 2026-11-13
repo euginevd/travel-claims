@@ -26,4 +26,4 @@ Each risk with its control and its threat-model ID, or "None: touches no users, 
 
 ## Ask first
 
-New AWS services, costs or rule changes that need a yes before building (AGENTS.md rule 22). New packages, each checked as rule 24 says.
+New AWS services, costs or rule changes: production needs a yes before building (AGENTS.md rule 22); a prototype lists what it decided. New packages, each checked as rule 24 says.

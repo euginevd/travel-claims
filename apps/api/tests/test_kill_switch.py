@@ -1,14 +1,20 @@
 """The payouts kill switch: nothing is paid while it's on, approvals hold, and every change is
 kept with who made it."""
 
+import threading
 from typing import Any, cast
 
+import pytest
 from api_helpers import AGENT, FakeAgent
+from conftest import POSTGRES_URL
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select, update
 from test_flow import approve, claim, pay
 
-from undercover_api.db import setting_changes, settings
+from undercover_api.db import make_engine, setting_changes, settings
+from undercover_api.kill_switch import refuse_while_paused, set_payouts
+from undercover_api.models import Handler
 
 PAYOUTS = "/api/staff/payouts"
 
@@ -133,3 +139,56 @@ def test_a_red_team_run_the_agent_cant_take_is_not_left_running(
     agent.unreachable()
     assert client.post("/api/engineering/redteam/runs", headers=sam).status_code == 503
     assert client.get("/api/engineering/redteam", headers=sam).json()["running"] is False
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="SQLite runs one writer at a time; CI runs this")
+def test_a_pause_landing_mid_payment_is_never_missed(database_url: str) -> None:
+    """A pause not yet committed when a payment reads the switch makes the payment wait for it,
+    then refuse; an unlocked read would see the old value and pay."""
+    engine = make_engine(database_url)
+    dana = Handler(
+        handler_id="H-1", name="Dana", role="senior", email="d@x.y", can_approve_over_limit=True
+    )
+    outcome: list[int] = []
+
+    def try_to_pay() -> None:
+        with engine.begin() as db:
+            try:
+                refuse_while_paused(db)
+                outcome.append(200)
+            except HTTPException as error:
+                outcome.append(error.status_code)
+
+    try:
+        with engine.begin() as pausing:
+            set_payouts(pausing, True, "Under attack", dana)
+            payer = threading.Thread(target=try_to_pay)
+            payer.start()
+            payer.join(timeout=1)
+            assert payer.is_alive(), "the payment read the switch without waiting for the pause"
+        payer.join(timeout=10)
+        assert outcome == [423]
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.skipif(not POSTGRES_URL, reason="SQLite runs one writer at a time; CI runs this")
+def test_two_payments_reading_the_switch_never_wait_for_each_other(database_url: str) -> None:
+    """Payments share the lock: only a change to the switch waits for them."""
+    engine = make_engine(database_url)
+    done: list[bool] = []
+
+    def second_payment() -> None:
+        with engine.begin() as db:
+            refuse_while_paused(db)
+            done.append(True)
+
+    try:
+        with engine.begin() as first:
+            refuse_while_paused(first)
+            other = threading.Thread(target=second_payment)
+            other.start()
+            other.join(timeout=5)
+            assert done == [True], "the second payment waited for the first"
+    finally:
+        engine.dispose()

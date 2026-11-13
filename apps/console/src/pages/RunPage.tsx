@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Api, RunClaim, RunInFull } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { dollars } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { SCOREBOARD_HREF } from "../useHashRoute";
 import { measures } from "./ScoreboardPage";
 

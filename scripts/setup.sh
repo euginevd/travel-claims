@@ -17,7 +17,9 @@ cd "$root" || exit 1
 # winget adds tools to the Windows user PATH, which an open shell doesn't see until it's reloaded.
 reload_path() {
   command -v powershell.exe >/dev/null && command -v cygpath >/dev/null || return 0
-  export PATH="$PATH:$(cygpath -p "$(powershell.exe -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','User')" | tr -d '\r')")"
+  local user
+  user=$(cygpath -p "$(powershell.exe -NoProfile -Command "[Environment]::GetEnvironmentVariable('Path','User')" | tr -d '\r')") || return 0
+  export PATH="$PATH:$user"
 }
 reload_path
 

@@ -1,6 +1,8 @@
 # Build from the repo root: docker build -f apps/dashboard/Dockerfile .
 FROM node:26.12.1-bookworm-slim@sha256:88e480776c6149ff1d098cd304f44bf18057fb5d284a3329b78162d29821e28c AS build
-WORKDIR /web
+# The same depth as the repo, so the lock file's ../../packages/web-core link resolves.
+WORKDIR /web/apps/dashboard
+COPY packages/web-core /web/packages/web-core
 COPY apps/dashboard/package.json apps/dashboard/package-lock.json apps/dashboard/.npmrc ./
 RUN npm ci
 COPY apps/dashboard ./
@@ -21,7 +23,7 @@ RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
 COPY apps/dashboard/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /web/dist /usr/share/nginx/html
+COPY --from=build /web/apps/dashboard/dist /usr/share/nginx/html
 USER 101
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s CMD ["wget", "-qO-", "http://127.0.0.1:8080/"]

@@ -7,8 +7,9 @@ from typing import Any
 import pytest
 from api_helpers import AGENT, MAYA, OLIVER, png, sign_in
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
-from undercover_api.db import make_engine
+from undercover_api.db import customers, make_engine
 from undercover_api.dev_cleanup import remove_customer_claims
 
 PNG = png()
@@ -279,3 +280,30 @@ def test_dev_cleanup_removes_only_a_customers_own_claims(
     assert after == before - {claim_id}
     assert after, "seeded claims stay"
     assert not any(receipts_dir.iterdir())
+
+
+def test_a_customer_whose_email_was_stored_in_capitals_still_signs_in(
+    client: TestClient, database_url: str
+) -> None:
+    engine = make_engine(database_url)
+    with engine.begin() as db:
+        db.execute(update(customers).where(customers.c.email == MAYA).values(email=MAYA.title()))
+    engine.dispose()
+    headers = sign_in(client, MAYA, role="customer")
+    assert client.get("/api/customer/profile", headers=headers).status_code == 200
+
+
+def test_a_failed_upload_leaves_no_receipt_file_behind(
+    client: TestClient, maya: dict[str, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claim_id = make(client, maya).json()["claim_id"]
+    folder = tmp_path / "receipts"
+    before: set[Path] = set(folder.iterdir()) if folder.exists() else set()
+
+    def broken(content: bytes, media_type: str) -> str:
+        raise RuntimeError("the fingerprint failed after the file was saved")
+
+    monkeypatch.setattr("undercover_api.portal.perceptual", broken)
+    with pytest.raises(RuntimeError):
+        upload(client, maya, claim_id, PNG)
+    assert set(folder.iterdir()) == before

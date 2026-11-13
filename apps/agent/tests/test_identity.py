@@ -245,3 +245,34 @@ def test_a_vault_that_fails_is_an_api_error_so_startup_carries_on() -> None:
         client.register_configuration({"instructions": "x"})
     assert failed.value.status == 503  # noqa: PLR2004
     assert not sent
+
+
+def test_a_payment_that_lost_a_race_on_dsql_is_tried_once_more() -> None:
+    answers = [
+        httpx2.Response(
+            409, json={"detail": "Someone else changed this at the same time. Try again."}
+        ),
+        httpx2.Response(200, json={"claim_id": "CLM-1001", "status": "paid"}),
+    ]
+    sent: list[str] = []
+
+    def answer(request: httpx2.Request) -> httpx2.Response:
+        sent.append(request.url.path)
+        return answers.pop(0)
+
+    http = httpx2.Client(base_url="http://api", transport=httpx2.MockTransport(answer))
+    assert ApiClient("http://api", KEY, http).pay("CLM-1001", 120.0)["status"] == "paid"
+    assert len(sent) == 2
+
+
+def test_any_other_refused_payment_is_never_retried() -> None:
+    sent: list[str] = []
+
+    def answer(request: httpx2.Request) -> httpx2.Response:
+        sent.append(request.url.path)
+        return httpx2.Response(409, json={"detail": "Claim CLM-1001 has already been paid"})
+
+    http = httpx2.Client(base_url="http://api", transport=httpx2.MockTransport(answer))
+    with pytest.raises(ApiError):
+        ApiClient("http://api", KEY, http).pay("CLM-1001", 120.0)
+    assert len(sent) == 1

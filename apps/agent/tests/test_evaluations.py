@@ -151,6 +151,27 @@ def test_the_improver_stops_the_round_when_it_has_nothing_to_propose() -> None:
     assert api.proposals == []
 
 
+class BrokenImprover:
+    def propose(self, content: str) -> tuple[Proposal | None, Call]:
+        raise TimeoutError("the model took too long")
+
+
+class StuckApi(RoundApi):
+    def improver_failed(self, round_id: int, reason: str) -> Json:
+        raise ConnectionError("the api is down")
+
+
+def test_any_improver_failure_stops_the_round_instead_of_leaving_it_improving() -> None:
+    api = RoundApi(BRIEF)
+    RoundImprover(BrokenImprover(), api).propose(3)
+    assert api.failures == ["The improver failed: TimeoutError"]
+    assert api.proposals == []
+
+
+def test_a_round_that_cant_be_stopped_is_logged_not_raised() -> None:
+    RoundImprover(BrokenImprover(), StuckApi(BRIEF)).propose(3)
+
+
 def test_with_no_misses_the_improver_aims_at_cost() -> None:
     assert "lower cost per claim" in brief_as_text(BRIEF | {"misses": []})
     assert "lower cost per claim" not in brief_as_text(BRIEF)

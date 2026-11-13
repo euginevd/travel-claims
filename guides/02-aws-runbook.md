@@ -30,7 +30,7 @@ Paste [scripts/check-aws.sh](../scripts/check-aws.sh) into AWS CloudShell in Syd
 
 ## 3. Deploy the bootstrap (3 minutes)
 
-1. In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default.
+1. In the CloudFormation console in Sydney, create a stack named `travel-claims-bootstrap` from `infra/aws/bootstrap/bootstrap.yaml`, keeping every default except `BudgetEmail`, the address for the account's budget alerts (rule 28: always set it; confirm the email AWS sends).
 2. A stack made before decision 36 needs **Update stack** with the new template.
 3. Paste `check-aws.sh` again.
 

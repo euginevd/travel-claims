@@ -451,7 +451,8 @@ class AnthropicClaude:
         """Ask the improver for a new configuration from the evaluation set's misses."""
         model = self._settings.improver_model
         started = time.monotonic()
-        reply = self._client.messages.parse(
+        client = self._client.with_options(timeout=self._settings.improver_timeout_seconds)
+        reply = client.messages.parse(
             model=model,
             max_tokens=self._settings.improver_max_tokens,
             system=IMPROVE_INSTRUCTIONS,

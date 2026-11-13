@@ -11,7 +11,7 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 
 ## On AWS
 
-5. Everything is paid per use or free, except the private network. Budget for `dev`: under $20 a month, or about $250 while the private network is up (`MONTHLY_BUDGET`).
+5. Everything is paid per use or free, except the private network. Budget for `dev`: under $20 a month, or about $250 while the private network is up. The bootstrap's `MonthlyBudgetUsd` (default $20) emails `BudgetEmail` at 80% spent, 100% forecast and 100% spent.
 
 | Item | Idle | In use | Setting |
 |---|---|---|---|
@@ -20,6 +20,8 @@ Approximate figures in US dollars. Measured spend beats these: check Cost Explor
 | Claude tokens | $0 | 2 to 4 cents a claim | always on |
 | ECR images, secrets, logs | about $0.10 to $0.20 for images, $0.40 a secret, cents for logs | the same | always on |
 | Agent identity, tool policy, audit logs | $0 | cents a month | always on |
+| Budget alert | $0 | $0: an account's first two budgets are free | always on (bootstrap) |
+| `quality` workflow | $0 | about $0.05 a tiny run with the red team; a whole run is 2 to 4 cents a claim | by hand only |
 | Receipts (Textract) | $0 | about $0.01 a page | default |
 | Output guardrail, Automated Reasoning | $0 | cents a day | always on |
 | Private network: DSQL endpoint | about $15 to $20 a month | the same | `NETWORK_MODE=private` (off) |

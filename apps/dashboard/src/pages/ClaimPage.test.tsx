@@ -233,6 +233,10 @@ test("the api's 403 disables the buttons and gives its reason", async () => {
   await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByText("Your sign-off limit is $1,000.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Sign off and pay/ })).toBeDisabled();
+  // The button can't take focus now, so the section's heading does.
+  await waitFor(() => {
+    expect(screen.getByRole("heading", { name: "Your sign-off" })).toHaveFocus();
+  });
 });
 
 test("other failures show as an alert and leave the buttons usable", async () => {
@@ -242,6 +246,10 @@ test("other failures show as an alert and leave the buttons usable", async () =>
   await user.click(screen.getByRole("button", { name: "Pay $1,250.00" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Payments are down");
   expect(screen.getByRole("button", { name: /Sign off and pay/ })).toBeEnabled();
+  // The confirm closed: focus is back on the button that opened it.
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: /Sign off and pay/ })).toHaveFocus();
+  });
 });
 
 test("says when the claim can't be loaded", async () => {

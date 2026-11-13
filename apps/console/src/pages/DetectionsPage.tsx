@@ -9,7 +9,7 @@ import {
 } from "../api";
 import { TableScroll } from "../components/TableScroll";
 import { when } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { traceHref } from "../useHashRoute";
 
 const KINDS: [kind: DetectionKind, label: string, sub: string][] = [

@@ -5,7 +5,7 @@ import { DASHBOARD } from "../playwright.config";
 // agent then works it for real: about 3 cents of Claude.
 const CLAIM = "CLM-1002";
 
-test("a handler retries a claim the agent stopped working", async ({ page, request }) => {
+test("a handler retries a claim the agent stopped working @model", async ({ page, request }) => {
   const signIn = await request.post(`${DASHBOARD}/api/staff/dev/test-sign-in`, {
     data: { account: "senior" },
   });

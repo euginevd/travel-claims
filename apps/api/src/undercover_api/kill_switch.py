@@ -5,17 +5,19 @@ can't be read, payouts count as paused."""
 from fastapi import HTTPException
 from sqlalchemy import Connection, insert, select, update
 
-from undercover_api.db import now, setting_changes, settings
+from undercover_api.db import now, read_locked, setting_changes, settings
 from undercover_api.models import Handler, PayoutSwitch
 
 PAYOUTS_PAUSED = "payouts_paused"
 PAUSED_REASON = "Payouts are paused by a senior handler"
 
 
-def payout_switch(db: Connection) -> PayoutSwitch:
+def payout_switch(db: Connection, lock: bool = False) -> PayoutSwitch:
     """Whether payouts are paused, who last changed it, when and why. Missing or malformed
-    reads as paused, so a fault never lets money out."""
-    row = db.execute(select(settings).where(settings.c.key == PAYOUTS_PAUSED)).mappings().first()
+    reads as paused, so a fault never lets money out. A payment reads it locked, so a pause
+    landing at the same moment either waits for the payment or refuses it, never misses it."""
+    query = select(settings).where(settings.c.key == PAYOUTS_PAUSED)
+    row = db.execute(read_locked(db, query) if lock else query).mappings().first()
     if row is None or not isinstance(row["value"], dict):
         return PayoutSwitch(paused=True, changed_by=None, changed_at=None, reason=None)
     value = row["value"]
@@ -34,7 +36,7 @@ def payouts_paused(db: Connection) -> bool:
 
 def refuse_while_paused(db: Connection) -> None:
     """Refuse any payment while payouts are paused. Called before anything else is read."""
-    if payouts_paused(db):
+    if payout_switch(db, lock=True).paused:
         raise HTTPException(423, f"{PAUSED_REASON}; nothing can be paid until they're back on")
 
 

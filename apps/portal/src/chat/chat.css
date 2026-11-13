@@ -614,9 +614,11 @@
 }
 
 .composer:focus-within {
-  border-color: var(--acc-edge);
+  border-color: var(--acc-d);
+  /* With the border, a 2px ring in --acc-d (3:1 on every page colour), then the glow. */
   box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--acc) 10%, transparent),
+    0 0 0 1px var(--acc-d),
+    0 0 0 5px color-mix(in srgb, var(--acc) 10%, transparent),
     var(--shadow);
 }
 

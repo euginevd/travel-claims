@@ -10,7 +10,7 @@ import { ReceiptsPanel } from "../components/ReceiptsPanel";
 import { StageTracker } from "../components/StageTracker";
 import { StatusChip } from "../components/StatusChip";
 import { date, dollars, when, words } from "../format";
-import { useFocusHeading } from "../useFocusHeading";
+import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { QUEUE_HREF } from "../useHashRoute";
 import { AskedPanel } from "../components/AskedPanel";
 import { RiskPanel } from "../components/RiskPanel";

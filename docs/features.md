@@ -62,5 +62,6 @@ In menu order: Evals, then Security.
 | 27 | **Posture**: a plain verdict, four figures, defence in depth and the gaps to close, worked out in code | Done | #99 |
 | 28 | **Detections**: each control that fired on a live claim, by period, each tile a filter | Done | #99 |
 | 29 | **Red team**: eight attacks with what stopped each, the OWASP risks with their controls, and what each agent could do if tricked | Done | #8 |
+| 30 | **Quality gate**: the `quality` workflow, by hand on `dev`, runs the evaluation set against the floors in `data/evals/gate.json` and the red team, and fails on any miss or any attack not held | Done | (this branch) |
 
 Status: Planned, Next, Building, Done or Dropped (with the reason).

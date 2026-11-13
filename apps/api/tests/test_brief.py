@@ -99,6 +99,28 @@ def test_a_senior_handler_overrides_and_an_approval_pays(
     assert again.status_code == 409
 
 
+def test_an_override_never_pays_more_than_was_claimed(
+    client: TestClient, dana: dict[str, str]
+) -> None:
+    start(client, "CLM-1001")
+    decide(client, "CLM-1001", "decline")
+    claimed = claim(client, "CLM-1001", dana)["amount_claimed"]
+    body = {"decision": "approve", "payout": 900_000.0, "reason_code": "evidence", "note": "Ok"}
+    refused = client.post("/api/staff/claims/CLM-1001/override", json=body, headers=dana)
+    assert refused.status_code == 422
+    assert "at most" in refused.json()["detail"]
+    assert claim(client, "CLM-1001", dana)["payment"] is None
+    over = {**body, "payout": claimed + 0.01}
+    assert (
+        client.post("/api/staff/claims/CLM-1001/override", json=over, headers=dana).status_code
+        == 422
+    )
+    exact = {**body, "payout": claimed}
+    done = client.post("/api/staff/claims/CLM-1001/override", json=exact, headers=dana)
+    assert done.status_code == 200, done.text
+    assert done.json()["payment"]["amount"] == claimed
+
+
 def test_an_override_must_pay_only_an_approval(client: TestClient, dana: dict[str, str]) -> None:
     start(client, "CLM-1001")
     decide(client, "CLM-1001", "refer")

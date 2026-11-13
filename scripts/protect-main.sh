@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 # Hardens the repo: Actions settings, squash-only merges, GitHub's free security features, and a main ruleset.
 # Safe to rerun: each run applies this file's settings again. The ruleset needs a public repo or a paid plan.
-# Usage: bash scripts/protect-main.sh
+# Usage: bash scripts/protect-main.sh [production]
+# production: a PR needs a second reviewer, so GitHub, not a rule, stops the agent merging alone: one approval
+# that isn't the author's, given after the last push, with every review thread resolved. Without it, the
+# prototype settings: no review needed (AGENTS.md rule 12).
 set -uo pipefail
+
+case "${1:-prototype}" in
+  production) reviews=1; reviewed=true ;;
+  prototype) reviews=0; reviewed=false ;;
+  *) echo "Usage: bash scripts/protect-main.sh [production]"; exit 1 ;;
+esac
 
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner) || exit 1
 public=$(gh repo view --json visibility --jq '.visibility == "PUBLIC"')
@@ -44,7 +53,7 @@ else
   target=(-X POST "repos/$repo/rulesets")
 fi
 
-gh api "${target[@]}" --input - >/dev/null <<'JSON' || { echo "Could not set the ruleset; a private repo needs a paid GitHub plan."; failed=$((failed + 1)); }
+gh api "${target[@]}" --input - >/dev/null <<JSON || { echo "Could not set the ruleset; a private repo needs a paid GitHub plan."; failed=$((failed + 1)); }
 {
   "name": "main",
   "target": "branch",
@@ -59,7 +68,8 @@ gh api "${target[@]}" --input - >/dev/null <<'JSON' || { echo "Could not set the
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           { "context": "python" }, { "context": "api-on-postgres" }, { "context": "portal" },
-          { "context": "dashboard" }, { "context": "console" }, { "context": "secrets" }, { "context": "packages-and-iac" },
+          { "context": "dashboard" }, { "context": "console" }, { "context": "e2e" }, { "context": "workflows" },
+          { "context": "kickoff" }, { "context": "secrets" }, { "context": "packages-and-iac" },
           { "context": "terraform" }, { "context": "code" }
         ]
       }
@@ -67,11 +77,11 @@ gh api "${target[@]}" --input - >/dev/null <<'JSON' || { echo "Could not set the
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
+        "required_approving_review_count": $reviews,
+        "dismiss_stale_reviews_on_push": $reviewed,
         "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false,
+        "require_last_push_approval": $reviewed,
+        "required_review_thread_resolution": $reviewed,
         "allowed_merge_methods": ["squash"]
       }
     }
@@ -83,4 +93,4 @@ if [ "$failed" -gt 0 ]; then
   echo "$failed settings failed on $repo; see the errors above."
   exit 1
 fi
-echo "Settings and ruleset 'main' applied to $repo."
+echo "Settings and ruleset 'main' applied to $repo: $reviews approval(s) needed to merge."

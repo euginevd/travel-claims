@@ -1,8 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { HOME_HREF } from "../useHashRoute";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
+  /** What follows "Try reloading, or": a link back to the app's start. */
+  wayBack: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -26,9 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div className="panel" role="alert">
         <h1>Something went wrong showing this page</h1>
-        <p>
-          Try reloading, or <a href={HOME_HREF}>start again</a>.
-        </p>
+        <p>Try reloading, or {this.props.wayBack}.</p>
       </div>
     );
   }

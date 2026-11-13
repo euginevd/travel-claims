@@ -161,3 +161,54 @@ test("each step in a turn is numbered so the steps appear in turn", async () => 
   ];
   expect([1, 2].map((i) => stepOrder(transcript, i))).toEqual([0, 1]);
 });
+
+test("the panel takes focus on open, and Escape closes it only from inside", async () => {
+  const user = userEvent.setup();
+  const onClose = vi.fn();
+  const fetchFn = () => Promise.resolve(respond([]));
+  render(
+    <>
+      <button type="button">Elsewhere</button>
+      <Copilot copilot={createCopilot(fetchFn, () => "t")} onClose={onClose} />
+    </>,
+  );
+  expect(screen.getByLabelText("Your question")).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(onClose).toHaveBeenCalledOnce();
+
+  screen.getByRole("button", { name: "Elsewhere" }).focus();
+  await user.keyboard("{Escape}");
+  expect(onClose).toHaveBeenCalledOnce();
+});
+
+test("a new conversation while an answer is coming drops that answer", async () => {
+  const user = userEvent.setup();
+  let answer: (response: Response) => void = () => undefined;
+  const fetchFn = (input: string, init?: RequestInit) => {
+    if (input === "/api/copilot/conversations" && init?.method === "GET") {
+      return Promise.resolve(respond([]));
+    }
+    if (input === "/api/copilot/conversations") return Promise.resolve(respond(base, 201));
+    return new Promise<Response>((resolve) => {
+      answer = resolve;
+    });
+  };
+  render(<Copilot copilot={createCopilot(fetchFn, () => "t")} onClose={vi.fn()} />);
+  await user.type(screen.getByLabelText("Your question"), "What needs me today?{Enter}");
+  expect(screen.getByLabelText("Your question")).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "New conversation" }));
+  expect(screen.getByLabelText("Your question")).toBeEnabled();
+  answer(
+    respond({
+      ...base,
+      transcript: [
+        { role: "user", text: "What needs me today?" },
+        { role: "assistant", text: "Three claims wait on you." },
+      ],
+    }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByText("Three claims wait on you.")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Ask Wattle AI anything" })).toBeInTheDocument();
+});

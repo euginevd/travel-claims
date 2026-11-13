@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Cover, CustomerClaimSummary, Draft } from "../api";
 import { App } from "../App";
@@ -150,6 +150,57 @@ test("a lost bag is claimed by chat, one question at a time, and sent only on th
     incident_location: "Rome, Italy",
     items: [{ description: "Suitcase", category: "luggage", amount: 310 }],
   });
+});
+
+test("a draft save still on its way when the claim is sent can't bring the draft back", async () => {
+  const user = userEvent.setup();
+  const order: string[] = [];
+  let landSave: () => void = () => undefined;
+  const answer = fakeFetch({
+    ...routes,
+    "POST /api/customer/drafts": () => [200, { ...DRAFT, missing_questions: [] }],
+    "POST /api/customer/claims": () => [201, myClaim({ claim_id: "CLM-1912" })],
+    "GET /api/customer/claims/CLM-1912": () => [200, myClaim({ claim_id: "CLM-1912" })],
+  });
+  // Draft saves hang until released; everything else answers at once.
+  const fetchFn = (input: string, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    if (input === "/api/customer/draft" && method !== "GET") order.push(`${method} sent`);
+    if (input === "/api/customer/draft" && method === "PUT") {
+      return new Promise<Response>((resolve) => {
+        landSave = () => {
+          order.push("PUT landed");
+          void answer(input, init).then(resolve);
+        };
+      });
+    }
+    if (input === "/api/customer/claims" && method === "POST") order.push("claim made");
+    return answer(input, init);
+  };
+  render(<App fetchFn={fetchFn} />);
+  await user.click(await screen.findByRole("button", { name: /Something went wrong in Rome/ }));
+  await user.click(await screen.findByRole("button", { name: "Lost bag" }));
+  await user.click(await screen.findByRole("button", { name: "Flying out" }));
+  await user.click(await screen.findByRole("button", { name: "I don't have them yet" }));
+  await user.click(await screen.findByRole("button", { name: "Send claim" }));
+  expect(await screen.findByText("Sent. We'll be in touch within two days.")).toBeInTheDocument();
+  // The saves sent before the tap are still out, so the draft isn't discarded yet.
+  expect(order.filter((step) => step === "DELETE sent")).toEqual([]);
+  const waiting = () =>
+    order.filter((step) => step === "PUT sent").length -
+    order.filter((step) => step === "PUT landed").length;
+  // One save at a time reaches the api; let each land in turn.
+  for (let turn = 0; turn < 5 && waiting() > 0; turn++) {
+    landSave();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  await waitFor(() => {
+    expect(order.at(-1)).toBe("DELETE sent");
+  });
+  expect(order.indexOf("claim made")).toBeLessThan(order.indexOf("DELETE sent"));
+  // Every save landed before the discard was sent, so the draft stays gone.
+  expect(order.lastIndexOf("PUT landed")).toBeLessThan(order.indexOf("DELETE sent"));
+  expect(order.filter((step) => step === "DELETE sent")).toHaveLength(1);
 });
 
 test("Wattle names a card and the portal shows it from the records; a made-up action shows nothing", async () => {

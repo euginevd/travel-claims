@@ -16,8 +16,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
-from undercover_copilot.graph import CopilotState, Handler
-from undercover_copilot.staff_api import ApiError, StaffApi
+from undercover_copilot.graph import CopilotState, Handler, user_turn
+from undercover_copilot.staff_api import UNREACHABLE, ApiError, StaffApi
 from undercover_copilot.store import Conversation, Store
 
 if TYPE_CHECKING:
@@ -74,7 +74,7 @@ def caller(request: Request, authorization: Annotated[str | None, Header()] = No
     try:
         handler = api.me()
     except ApiError as error:
-        status = error.status if error.status == UNAUTHORISED else 403
+        status = error.status if error.status in {UNAUTHORISED, UNREACHABLE} else 403
         raise HTTPException(status, error.detail) from error
     return Caller(str(handler["handler_id"]), api, token)
 
@@ -175,8 +175,10 @@ def create_app(  # noqa: C901, PLR0915 - the routes are closures over the graph 
                 raise HTTPException(409, "Confirm or cancel the card first")
             if not current.transcript:
                 cast(Store, ready["store"]).retitle(conversation_id, request.text)
+            graph = cast(Graph, ready["graph"])
+            saved = cast(Json, graph.get_state(config_for(conversation_id)).values or {})
             return {
-                "messages": [{"role": "user", "content": request.text}],
+                "messages": [user_turn(saved.get("messages") or [], request.text)],
                 "transcript": [{"role": "user", "text": request.text}],
                 "pending": {},
                 "held_results": [],

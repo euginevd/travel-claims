@@ -1,18 +1,18 @@
 import { useId } from "react";
 
 // UnderCover's mark, "Canopy": a scalloped umbrella canopy over a dot for the traveller, white
-// on a coral tile with a soft glow from the top-left (local/design-system.md). Colours live in the SVG's own gradients and
-// CSS classes, so the strict CSP needs no inline styles.
+// on a coral tile (local/logo.svg). The tile's gradient stops live in the SVG; everything else
+// comes from CSS classes, so the strict CSP needs no inline styles.
 interface LogoProps {
   /** Show the word mark beside the tile. */
   wordmark?: boolean;
-  /** The line under the word mark. */
-  subtitle?: string;
+  /** The line under the word mark: the app it names. */
+  subtitle: string;
   /** The sign-in page's entrance: the canopy springs open and the dot drops in. */
   animate?: boolean;
 }
 
-export function LogoMark({ size = 38, animate = false }: { size?: number; animate?: boolean }) {
+function LogoMark({ size = 38, animate = false }: { size?: number; animate?: boolean }) {
   const id = useId();
   return (
     <span className={`logo-tile${animate ? " animate" : ""}`} aria-hidden="true">
@@ -22,8 +22,8 @@ export function LogoMark({ size = 38, animate = false }: { size?: number; animat
             <stop offset="0" stopColor="#ea8d73" />
             <stop offset="1" stopColor="#d96a50" />
           </linearGradient>
-          <radialGradient id={`${id}-glow`} cx="0.3" cy="0" r="0.75">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.34" />
+          <radialGradient id={`${id}-glow`} cx=".3" cy="0" r=".75">
+            <stop offset="0" stopColor="#fff" stopOpacity=".34" />
             <stop offset="1" stopColor="#fff" stopOpacity="0" />
           </radialGradient>
         </defs>
@@ -40,11 +40,7 @@ export function LogoMark({ size = 38, animate = false }: { size?: number; animat
   );
 }
 
-export function Logo({
-  wordmark = true,
-  subtitle = "Travel insurance",
-  animate = false,
-}: LogoProps) {
+export function Logo({ wordmark = true, subtitle, animate = false }: LogoProps) {
   return (
     <span className="logo">
       <LogoMark animate={animate} />

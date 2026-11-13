@@ -5,7 +5,7 @@
  * /api/customer; src/fixtures/ holds real responses from them that the tests parse.
  */
 import { z } from "zod";
-import { type CognitoConfig, cognitoConfig, cognitoSignIn } from "./cognito";
+import { type CognitoConfig, cognitoConfig, cognitoSignIn } from "@undercover/web-core/cognito";
 
 const DecisionKindSchema = z.enum(["approve", "decline", "refer"]);
 
@@ -344,7 +344,7 @@ async function errorFrom(response: Response): Promise<ApiError> {
 export function createApi(
   fetchFn: Fetch,
   getToken: () => string | null,
-  cognito: CognitoConfig | null = cognitoConfig(),
+  cognito: CognitoConfig | null = cognitoConfig(import.meta.env),
 ): Api {
   async function call<T>(
     schema: z.ZodType<T>,
@@ -374,6 +374,10 @@ export function createApi(
       if (cognito) {
         const result = await cognitoSignIn(fetchFn, cognito, email, password);
         if ("token" in result) return result.token;
+        // Customers' pool asks for no second step: one it does ask for can't be answered here.
+        if ("challenge" in result) {
+          throw new ApiError(403, "This account needs a sign-in step the portal doesn't offer.");
+        }
         throw new ApiError(result.status, result.message);
       }
       const answer = await call(SignInSchema, "POST", "/dev/sign-in", {

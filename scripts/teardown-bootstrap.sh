@@ -12,7 +12,7 @@
     local kind
     for kind in Versions DeleteMarkers; do
       while aws s3api list-object-versions --bucket "$1" --max-items 1000 \
-        --query "{Objects: $kind[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > /tmp/del.json 2>/dev/null \
+        --query "{Objects: ${kind}[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > /tmp/del.json 2>/dev/null \
         && grep -q '"Key"' /tmp/del.json; do
         aws s3api delete-objects --bucket "$1" --delete file:///tmp/del.json >/dev/null
       done

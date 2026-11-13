@@ -1,7 +1,8 @@
 import { ArrowRight, Check } from "lucide-react";
 import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
 import { ApiError, type Api } from "../api";
-import { Logo } from "../components/Logo";
+import { Logo } from "@undercover/web-core/Logo";
+import { LOGO_SUBTITLE } from "../components/Header";
 import { prefersStill, SignInMap } from "../components/SignInMap";
 import { PROJECT_URL, ProjectLink } from "../components/Wattle";
 
@@ -147,7 +148,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
       <div className="signin-page">
         <header className="signin-top rise d1">
           <span className="brand">
-            <Logo animate />
+            <Logo subtitle={LOGO_SUBTITLE} animate />
           </span>
           <p className="signin-quote">
             <ProjectLink />

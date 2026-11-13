@@ -139,3 +139,38 @@ test("the make-a-claim link starts a claim in the chat", async () => {
   expect(await screen.findByText("What happened?")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Lost bag" })).toBeInTheDocument();
 });
+
+test("the panel's buttons say which is open, and closing returns focus to the one used", async () => {
+  const user = userEvent.setup();
+  saveToken("token-c");
+  render(<App fetchFn={fakeFetch({ ...routes, "GET /api/customer/notices": () => [200, []] })} />);
+  const claims = await screen.findByRole("button", { name: "Claims" });
+  expect(claims).toHaveAttribute("aria-expanded", "false");
+  expect(claims).toHaveAttribute("aria-controls", "side-panel");
+
+  await user.click(claims);
+  const panel = await screen.findByRole("dialog", { name: "Your claims" });
+  expect(panel).toHaveAttribute("id", "side-panel");
+  expect(claims).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "Messages", hidden: true })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  expect(within(panel).getByRole("heading", { level: 2 })).toHaveFocus();
+
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(claims).toHaveAttribute("aria-expanded", "false");
+  expect(claims).toHaveFocus();
+});
+
+test("Escape outside the side panel leaves it open", async () => {
+  const user = userEvent.setup();
+  saveToken("token-c");
+  window.location.hash = "#/claims";
+  render(<App fetchFn={fakeFetch({ ...routes, "GET /api/customer/notices": () => [200, []] })} />);
+  await screen.findByRole("dialog", { name: "Your claims" });
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("dialog", { name: "Your claims" })).toBeInTheDocument();
+});

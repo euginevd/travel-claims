@@ -3,3 +3,4 @@
 - Dependabot PRs #109 to #112: check each update, fix anything it breaks, and merge.
 - Distroless images: a multi-stage build for every container, a distroless runtime stage, health checks that need no shell, and the image scan still passing.
 - Project page walkthrough (three minutes): re-record once the above are done, showing the chat portal, the reviewed dashboard and console, and the new Wattle answers.
+- Audit follow-ups, each needing your call: MFA on the staff and engineering Cognito pools (the apps handle it now, but there's no screen to add an authenticator, and `ON` would stop the demo's test accounts); MFA or an IP condition for the `travel-claims-cli` user; keeping Ask's history on the server rather than trusting the browser's; the api checking the agent's thread on decisions and payments; and whether an unreadable receipt should still go to the model as an image (decision 48).

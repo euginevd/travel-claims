@@ -8,7 +8,7 @@ from typing import Annotated, cast
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from undercover_agent.answer_shape import REPLY_FIELDS, Point, shape
-from undercover_agent.ask import AskClaude, Turn
+from undercover_agent.ask import AskClaude, History, Turn, screened_text
 from undercover_agent.models import Json
 from undercover_agent.tools import as_text, tool
 
@@ -75,7 +75,7 @@ class ExplainRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     first_name: Annotated[str, StringConstraints(max_length=100)]
     question: Annotated[str, StringConstraints(min_length=1, max_length=500)]
-    history: list[Turn] = Field(default_factory=list[Turn], max_length=8)
+    history: History = Field(default_factory=list[Turn], max_length=8)
     runs: list[Json] = Field(max_length=20)
     rounds: list[Json] = Field(max_length=20)
     redteam: Json
@@ -147,15 +147,8 @@ class Explainer:
         return as_text({"error": f"Unknown tool {name}"})
 
     def explain(self, request: ExplainRequest) -> Explanation:
-        screening, _ = self._claude.screen(
-            [
-                {
-                    "type": "text",
-                    # nosemgrep: raw-html-format - markers around data for the model, not HTML
-                    "text": f"<engineer_question>\n{request.question}\n</engineer_question>",
-                }
-            ]
-        )
+        text = screened_text(request.history, request.question, "engineer_question")
+        screening, _ = self._claude.screen([{"type": "text", "text": text}])
         # Fail closed: a check that couldn't read the question refuses it, as it refers a claim.
         if screening is None or screening.instructions_found:
             return Explanation(answer=SCREENED, sources=[], screened=True)
