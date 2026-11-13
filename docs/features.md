@@ -45,7 +45,7 @@ Each app has its own sign-in, token issuer and audience, a **Use test account** 
 | 17 | **Pause payouts**: a senior handler stops every payment from the header | Done | #8 |
 | 18 | **Dispatch**: a senior handler works the waiting queue with 1 to 25 claim agents at once | Done | #70 |
 | 19 | **Settings** (senior handlers), in plain words: approval limit ($100 to $5,000), the AI improvement budget, the accuracy and decided-alone targets, claims worked at once; every change recorded | Done | #72 |
-| 20 | **Wattle AI Copilot**, acting as the handler who asked: what needs me, a claim and its steps, the latest dispatch, payouts, settings, success criteria and policy lookups; sign-off, dispatch and send-back only after a confirm card; remembers the handler's preferences (never claim or customer data); shows each turn's steps, time and cost (spec 22, 23, 27) | Done | #7 |
+| 20 | **Wattle AI Copilot**, acting as the handler who asked: what needs me, a claim and its steps, the latest dispatch, payouts, settings, success criteria and policy lookups; sign-off, dispatch and send-back only after a confirm card; remembers the handler's preferences (never claim or customer data); shows each turn's steps, time and cost (spec 22, 23, 27). Each answer laid out like every Wattle's: a one-sentence headline, up to three short points citing numbered sources, the sources, and one likely next question to tap | Done | #7, #108 |
 
 ## AI assurance console (`console`)
 

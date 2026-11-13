@@ -1783,3 +1783,89 @@ main.landing p {
   align-items: center;
   gap: 8px;
 }
+
+/* The Copilot's answers laid out like every Wattle's: the answer in one sentence, short points
+   citing the sources by number, the sources, then the one question most likely to come next. */
+.bubble.laid-out {
+  white-space: normal;
+}
+
+.wattle-headline {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1.08rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.wattle-points {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.wattle-points li::marker {
+  color: var(--acc);
+}
+
+.wattle-points strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.wattle-cite {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--info-tint);
+  color: var(--info);
+  font-size: 10.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+  cursor: help;
+}
+
+.bubble.laid-out .wattle-sources {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: source;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+}
+
+.bubble.laid-out .wattle-sources li::before {
+  counter-increment: source;
+  content: counter(source) " · ";
+}
+
+.wattle-next-q {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+}
+
+.wattle-next-q button {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.wattle-next-q button:hover {
+  background: var(--soft);
+}

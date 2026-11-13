@@ -148,7 +148,15 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           </div>
         )}
         {current?.transcript.map((entry, index) => (
-          <Bubble key={index} entry={entry} />
+          <Bubble
+            key={index}
+            entry={entry}
+            onNext={
+              index === current.transcript.length - 1 && !busy && !current.pending
+                ? (question) => void ask(question)
+                : undefined
+            }
+          />
         ))}
         {current?.pending && (
           <ConfirmCard
@@ -233,7 +241,53 @@ export function emphasised(text: string): ReactNode[] {
     );
 }
 
-function Bubble({ entry }: { entry: Entry }) {
+function Bubble({ entry, onNext }: { entry: Entry; onNext?: (question: string) => void }) {
+  if (entry.role === "assistant" && entry.headline) {
+    const sources = entry.sources ?? [];
+    return (
+      <div className="bubble assistant laid-out">
+        <p className="wattle-headline">{entry.headline}</p>
+        {entry.points && entry.points.length > 0 && (
+          <ul className="wattle-points">
+            {entry.points.map((point, i) => {
+              const source = sources[point.source - 1];
+              return (
+                <li key={String(i)}>
+                  {emphasised(point.text)}
+                  {source && (
+                    <span className="wattle-cite" title={source}>
+                      {point.source}
+                      <span className="visually-hidden">: {source}</span>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {sources.length > 0 && (
+          <ol className="wattle-sources" aria-label="Sources">
+            {sources.map((source) => (
+              <li key={source}>{source}</li>
+            ))}
+          </ol>
+        )}
+        {entry.next && onNext && (
+          <p className="wattle-next-q">
+            <span>Next</span>
+            <button
+              type="button"
+              onClick={() => {
+                onNext(entry.next ?? "");
+              }}
+            >
+              {entry.next}
+            </button>
+          </p>
+        )}
+      </div>
+    );
+  }
   if (entry.role) {
     return (
       <p className={`bubble ${entry.role}`}>

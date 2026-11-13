@@ -400,3 +400,28 @@ def test_a_red_team_test_claim_never_needs_a_handler() -> None:
     referred = {"status": "decided", "decision": "refer"}
     assert why_needed(referred) == ["referred"]
     assert why_needed(referred | {"red_team": True}) == []
+
+
+def test_an_answer_comes_laid_out_and_the_conversation_keeps_it_as_plain_text() -> None:
+    laid = {
+        "headline": "Two claims wait for you.",
+        "points": [
+            {"text": "CLM-1004 needs **sign-off**", "source": 1},
+            {"text": "A made-up citation", "source": 9},
+        ],
+        "sources": ["What needs me"],
+        "next": "Sign off CLM-1004?",
+    }
+    claude = FakeClaude([call("what_needs_me", {}, 1), call("reply", laid, 2), say("Done.", 3)])
+    with make_client(claude) as client:
+        conversation = start(client, DANA)
+        view = ask(client, conversation, "What needs me?", DANA)
+        answer = view["transcript"][-1]
+        assert answer["headline"] == "Two claims wait for you."
+        assert [p["source"] for p in answer["points"]] == [1, 0]
+        assert answer["next"] == "Sign off CLM-1004?"
+        assert answer["text"].startswith("Two claims wait for you. CLM-1004 needs sign-off")
+        ask(client, conversation, "Thanks", DANA)
+    # The next turn sees the answer as text, with no reply call left open.
+    last_answer = claude.seen[-1][-2]
+    assert last_answer["content"] == [{"type": "text", "text": answer["text"]}]
