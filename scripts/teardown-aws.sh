@@ -6,25 +6,35 @@
   R=ap-southeast-2; P=travel-claims; P_=travel_claims
   A=$(aws sts get-caller-identity --query Account --output text)
   # What the bootstrap stack owns (state bucket, roles, CLI user, policies), kept until the last step.
-  owned=" $P-bootstrap $(aws cloudformation list-stack-resources --region $R --stack-name $P-bootstrap --query 'StackResourceSummaries[].PhysicalResourceId' --output text 2>/dev/null | tr '\t\n' '  ') "
+  # If the stack can't be read (an expired session, a throttle) nothing is known to be the bootstrap's, so
+  # stop here rather than delete it; the state bucket is kept by name whatever the stack says.
+  known=yes
+  stack=$(aws cloudformation list-stack-resources --region $R --stack-name $P-bootstrap --query 'StackResourceSummaries[].PhysicalResourceId' --output text) || known=no
+  [ -n "$stack" ] || known=no
+  owned=" $P-bootstrap $P-tfstate-$A $(echo "$stack" | tr '\t\n' '  ') "
   # Drops the bootstrap's own names from a list; a managed policy's ID is its ARN, so its name matches on /name.
   notowned() { local w; for w in $1; do case "$owned" in *" $w "*|*"/$w "*) ;; *) printf '%s ' "$w" ;; esac; done; }
 
   # Empties a bucket, every version and delete marker, a thousand at a time; versioned buckets can't be deleted otherwise.
   empty() {
-    local kind
+    local kind list
+    list=$(mktemp)
     for kind in Versions DeleteMarkers; do
       while aws s3api list-object-versions --bucket "$1" --max-items 1000 \
-        --query "{Objects: ${kind}[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > /tmp/del.json 2>/dev/null \
-        && grep -q '"Key"' /tmp/del.json; do
-        aws s3api delete-objects --bucket "$1" --delete file:///tmp/del.json --bypass-governance-retention >/dev/null
+        --query "{Objects: ${kind}[].{Key: Key, VersionId: VersionId}, Quiet: \`true\`}" --output json > "$list" 2>/dev/null \
+        && grep -q '"Key"' "$list"; do
+        # A refused delete would list the same objects for ever: stop and say so instead.
+        aws s3api delete-objects --bucket "$1" --delete "file://$list" --bypass-governance-retention >/dev/null \
+          || { echo "Couldn't empty $1; it's left as it is."; break 2; }
       done
     done
+    rm -f "$list"
   }
 
   # Leftover project buckets: named <project>-...-<account> by every unit, so another project whose name
   # merely contains this one's is never emptied. The model logs' bucket denies deletes to all but the
   # deploy role, so its policy goes first (an account admin may remove a bucket policy).
+  if [ "$known" = yes ]; then
   for b in $(notowned "$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'$P-') && ends_with(Name,'-$A')].Name" --output text)"); do
     aws s3api delete-bucket-policy --bucket "$b" 2>/dev/null
     empty "$b"
@@ -34,6 +44,9 @@
   for g in $(aws logs describe-log-groups --region $R --log-group-name-prefix /aws/bedrock-agentcore/ --query 'logGroups[].logGroupName' --output text | tr '\t' '\n' | grep -i travel); do
     aws logs delete-log-group --region $R --log-group-name "$g"
   done
+  else
+    echo "Couldn't read the $P-bootstrap stack, so nothing was deleted and the list below includes its own resources. Sign in again and paste this once more."
+  fi
 
   # Anything left with the project's name, by service; CloudFront takes up to 15 minutes, so paste again if it's listed.
   left=0
@@ -46,6 +59,9 @@
   check parameters "$(aws ssm describe-parameters --region $R --query "Parameters[?contains(Name,'$P')].Name" --output text)"
   check dsql "$(aws dsql list-clusters --region $R --query "clusters[].identifier" --output text)"
   check dynamodb "$(aws dynamodb list-tables --region $R --query "TableNames[?contains(@,'$P')]" --output text)"
+  check regional-waf "$(aws wafv2 list-web-acls --scope REGIONAL --region $R --query "WebACLs[?contains(Name,'$P')].Name" --output text)"
+  check rest-apis "$(aws apigateway get-rest-apis --region $R --query "items[?contains(name,'$P')].name" --output text)"
+  check vpc-endpoints "$(aws ec2 describe-vpc-endpoints --region $R --filters "Name=tag:Project,Values=$P" --query "VpcEndpoints[].VpcEndpointId" --output text)"
   check waf "$(aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 --query "WebACLs[?contains(Name,'$P')].Name" --output text)"
   check cloudfront "$(aws cloudfront list-distributions --query "DistributionList.Items[?contains(Comment,'$P')].[Id,Status]" --output text)"
   check cognito "$(aws cognito-idp list-user-pools --region $R --max-results 60 --query "UserPools[?contains(Name,'$P')].Name" --output text)"
@@ -64,5 +80,5 @@
   check users "$(aws iam list-users --query "Users[?starts_with(UserName,'$P')].UserName" --output text)"
   check policies "$(aws iam list-policies --scope Local --query "Policies[?starts_with(PolicyName,'$P')].PolicyName" --output text)"
   check log-groups "$(aws logs describe-log-groups --region $R --query "logGroups[?contains(logGroupName,'$P') || contains(logGroupName,'$P_')].logGroupName" --output text)"
-  [ "$left" = 0 ] && echo "Clean but the bootstrap: have the agent confirm, then paste scripts/teardown-bootstrap.sh"
+  [ "$left" = 0 ] && [ "$known" = yes ] && echo "Clean but the bootstrap: have the agent confirm, then paste scripts/teardown-bootstrap.sh"
 }

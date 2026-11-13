@@ -15,7 +15,8 @@
 
   echo "== CloudFront WAF"
   # CLOUDFRONT_WAF=on needs the platform's Firewall Manager policy, published as a parameter (decision 51).
-  if aws ssm get-parameter --region "$R" --name /platform/waf/cloudfront-policy-id >/dev/null 2>&1; then
+  # MSYS_NO_PATHCONV: Git Bash would turn the parameter name into a Windows path.
+  if MSYS_NO_PATHCONV=1 aws ssm get-parameter --region "$R" --name /platform/waf/cloudfront-policy-id >/dev/null 2>&1; then
     echo "OK    the platform's Firewall Manager policy is published: CLOUDFRONT_WAF=on can be used"
   else
     echo "INFO  no platform Firewall Manager policy: keep CLOUDFRONT_WAF=off (no WAF on the sites)"
