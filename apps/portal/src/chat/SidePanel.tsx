@@ -47,6 +47,15 @@ export function SidePanel(props: SidePanelProps) {
 
   useEscape(backdrop, onClose);
 
+  // Something didn't load last time: opening a panel asks again, so "try again" is true.
+  const { onChanged } = props;
+  const retry = props.records.failed.length > 0;
+  useEffect(() => {
+    if (retry) onChanged();
+    // Once, when the panel opens: a reload that fails again mustn't loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     sheet.current?.querySelector<HTMLElement>("h2")?.focus();
   }, [target]);

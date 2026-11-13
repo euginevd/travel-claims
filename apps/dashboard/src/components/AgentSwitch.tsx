@@ -58,9 +58,12 @@ export function AgentToggle({ api, state, senior, onState, editing, onEditing }:
   // "Turn the agent off" into "on" under the handler's reason.
   const [target, setTarget] = useState<boolean | null>(null);
   const close = useCallback(() => {
-    setTarget(null);
     onEditing(false);
   }, [onEditing]);
+  // Taken when the card opens, however it was opened (the header, the status line, Today), and
+  // let go when it closes, so the next opening starts from the status as it then is.
+  if (editing && target === null && state) setTarget(!state.on);
+  if (!editing && target !== null) setTarget(null);
   const done = editing && target !== null && state?.on === target;
   useEffect(() => {
     // Someone else, or the daily budget, already made the change: nothing left to confirm.
@@ -98,7 +101,6 @@ export function AgentToggle({ api, state, senior, onState, editing, onEditing }:
         aria-pressed={state.on}
         aria-label={state.on ? "Agent on. Turn the agent off" : "Agent off. Turn the agent on"}
         onClick={() => {
-          setTarget(!state.on);
           onEditing(true);
         }}
       >

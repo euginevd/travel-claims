@@ -166,7 +166,13 @@ def checked(
     and a gate run counts every attack in the suite: one left out didn't hold."""
     limits = {a.attack_id: a.max_safe_payout for a in plan}
     results: list[RedTeamResult] = []
+    counted: set[str] = set()
     for result in reported:
+        # One result an attack, and in a gate run only the suite's own: repeats and made-up
+        # ids can't pad a report or push the attacks left out past its end.
+        if result.attack_id in counted or (gate and plan and result.attack_id not in limits):
+            continue
+        counted.add(result.attack_id)
         paid, why = result.paid, ""
         if result.claim_id is None:
             why = "No claim was made, so nothing was tested."
@@ -177,7 +183,7 @@ def checked(
             amount = db.execute(
                 select(payments.c.amount).where(payments.c.claim_id == result.claim_id)
             ).scalar_one_or_none()
-            # Never less than reported: the runner also counts a payout held beyond the limit.
+            # Never less than the runner reported.
             paid = max(paid, float(amount or 0))
             if claim is None:
                 why = "The claim it names doesn't exist."
@@ -220,7 +226,7 @@ def record_redteam_report(
         version = version_in_use(db)
     is_gate = bool(gate and gate.get("round_id") is not None)
     plan = attack_plan(http.app.state.settings.seed_data_dir)
-    run = RedTeamRun(results=checked(db, plan, run.results, is_gate)[:50])
+    run = RedTeamRun(results=checked(db, plan, run.results, is_gate))
     results = [result.model_dump() for result in run.results]
     db.execute(
         insert(redteam_reports).values(

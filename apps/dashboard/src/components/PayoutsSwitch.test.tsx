@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import userEvent from "@testing-library/user-event";
-import { createApi, type Api, type Handler } from "../api";
+import { createApi, type Api, type Handler, type PayoutSwitch } from "../api";
 import { needsYou } from "./NeedsYou";
 import { PayoutsStatus, PayoutsSwitch, usePayouts } from "./PayoutsSwitch";
 import { StatusLine } from "./StatusLine";
@@ -83,4 +83,34 @@ test("an approval held because payouts are paused says so", () => {
     decision: { ...APPROVAL, hold_reason: "Payouts are paused by a senior handler" },
   });
   expect(needsYou(held)).toMatch(/payouts are paused/i);
+});
+
+test("an open payouts card keeps what the handler asked for when the status changes under it", async () => {
+  const fetchFn = fakeFetch({});
+  const api = createApi(fetchFn, () => "t");
+  const live: PayoutSwitch = { paused: false, changed_by: null, changed_at: null, reason: null };
+  const paused: PayoutSwitch = { ...live, paused: true, changed_by: "Priya Raman" };
+  function Polled({ state }: { state: PayoutSwitch }) {
+    const [editing, setEditing] = useState(true);
+    return (
+      <PayoutsSwitch
+        api={api}
+        handler={DANA}
+        state={state}
+        onState={() => undefined}
+        editing={editing}
+        onEditing={setEditing}
+      />
+    );
+  }
+  const { rerender } = render(<Polled state={live} />);
+  expect(screen.getByRole("button", { name: "Pause all payouts" })).toBeInTheDocument();
+  // Another senior handler pauses first, while this card is open.
+  rerender(<Polled state={paused} />);
+  await waitFor(() => {
+    expect(screen.queryByRole("button", { name: "Pause all payouts" })).not.toBeInTheDocument();
+  });
+  // It closes; it never becomes "Resume payouts" under a reason written for pausing.
+  expect(screen.queryByRole("button", { name: "Resume payouts" })).not.toBeInTheDocument();
+  expect(fetchFn.calls.filter((c) => c.method === "PUT")).toHaveLength(0);
 });

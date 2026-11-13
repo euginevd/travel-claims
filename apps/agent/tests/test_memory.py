@@ -70,6 +70,8 @@ def test_only_the_decision_section_numbers_and_check_counts_are_remembered() -> 
     assert remembered == (
         "CLM-2001 (baggage): approve $120.00. Sections: Policy wording 7. Checks: 1 pass."
     )
+    cited = {"decision": {"decision": "decline", "section": "Policy wording, sections 5 and 10"}}
+    assert "Sections: Policy wording, sections 5 and 10." in memory_of(cited)
     assert "waive" not in remembered
     assert "loyal" not in remembered
     assert "Qantas" not in remembered

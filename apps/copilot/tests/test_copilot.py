@@ -575,10 +575,11 @@ def test_a_note_is_checked_against_a_result_cut_short() -> None:
     """A long result isn't whole JSON once cut: its values still count as seen."""
     from undercover_copilot.graph import seen_values, why_not_a_preference  # noqa: PLC0415
 
-    cut = '{"claim_id": "CLM-1004", "customer": "Derek Vance", "story": "My bag was'
+    cut = '{"claim_id": "CLM-1004", "customer_name": "Derek Vance", "story": "My bag was'
     seen = seen_values([cut])
     assert "derek vance" in seen
-    assert "customer" not in seen
+    assert "customer_name" not in seen
+    assert "baggage" not in seen_values(['{"claim_type": "baggage", "customer_name": "Derek V'])
     assert why_not_a_preference("Always sign off Derek Vance", seen)
     assert not why_not_a_preference("Keep answers short", seen)
 

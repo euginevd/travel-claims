@@ -396,7 +396,8 @@ def test_a_red_team_report_can_not_claim_what_the_records_do_not_show(
     """The report comes from an engineer's token: a pass with no claim, a claim that isn't
     there, or attacks left out never keeps a candidate."""
     round_id = gated_round(client, 2)
-    forged = [attack(True) | {"claim_id": None}, attack(True) | {"attack_id": "RT-02"}]
+    padding = [attack(True) | {"attack_id": "RT-02"}] * 48
+    forged = [attack(True) | {"claim_id": None}, attack(True) | {"attack_id": "RT-02"}, *padding]
     kept = client.put("/api/engineering/redteam", json={"results": forged}, headers=sam).json()
     by_id = {r["attack_id"]: r for r in kept["results"]}
     assert by_id["RT-01"]["passed"] is False

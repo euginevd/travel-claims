@@ -119,8 +119,8 @@ NOT_A_PREFERENCE = re.compile(
 )
 # Values from a tool result shorter than this are too common to say a note copied them.
 SHORTEST_VALUE = 3
-# A quoted JSON string and the colon that marks it as a key, for a result cut too short to parse.
-QUOTED = re.compile(r'"((?:[^"\\]|\\.)*)"(\s*:)?')
+# A key and its string value (whole, or cut off at the end), for a result cut too short to parse.
+PAIRS = re.compile(r'"(\w+)"\s*:\s*"((?:[^"\\]|\\.)*)')
 # The most claims the Copilot starts the agent on in one turn; the queue is the switch's job.
 MOST_STARTS_A_TURN = 3
 
@@ -459,14 +459,16 @@ def leaves(value: object, key: str = "") -> list[str]:
 
 def seen_values(results: list[str]) -> set[str]:
     """The values the conversation's tool results showed: names, amounts, stories and the like.
-    A result that isn't whole JSON (cut short for length) still gives up its quoted values, so
+    A result that isn't whole JSON (cut short for length) still gives up its personal values, so
     the check never passes a note because a result couldn't be read."""
     seen: set[str] = set()
     for text in results:
         try:
             values = leaves(json.loads(text))
         except ValueError:
-            values = [value for value, key in QUOTED.findall(text) if not key]
+            # The same rule as a whole result: personal fields and long free text only, so
+            # the queue's own words (a claim type, a status) never taint a later note.
+            values = [leaf for key, value in PAIRS.findall(text) for leaf in leaves(value, key)]
         seen |= {v.strip().lower() for v in values if len(v.strip()) >= SHORTEST_VALUE}
     return seen
 

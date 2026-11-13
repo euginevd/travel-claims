@@ -24,4 +24,5 @@
   - Accessibility: the claim page's evidence tabs (arrow keys), focus returned when a card closes, the agents map's roles, a focus ring at 3:1, and an off switch for single-key shortcuts.
   - Browser tests for the paths that change something: claim by chat and send, decide a referral, sign-off, the agent switch.
   - Red-team attacks for Wattle, the Copilot, deciding a referral and the guardian.
+  - A red-team report still passes if it names any unpaid claim: tie each result to a claim the red team's customer made after the run started, or have the agent report on its own key.
   - Shared web code still copied in each app (formatters, the fetch and error core, tokens), raw colours in the two new stylesheets, and the dashboard's dead Dispatch code.

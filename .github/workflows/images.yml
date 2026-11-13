@@ -153,7 +153,7 @@ jobs:
           # Only a bucket that isn't there (404) skips the upload; anything else fails it.
           if ! found="$(aws s3api head-bucket --bucket "$bucket" 2>&1)"; then
             case "$found" in
-              *404*|*"Not Found"*) echo "::notice::No bucket $bucket yet: apply the web unit first."; exit 0 ;;
+              *"(404)"*|*"Not Found"*) echo "::notice::No bucket $bucket yet: apply the web unit first."; exit 0 ;;
               *) echo "::error::Couldn't read the bucket $bucket: $found"; exit 1 ;;
             esac
           fi

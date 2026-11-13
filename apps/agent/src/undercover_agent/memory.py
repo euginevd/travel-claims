@@ -99,8 +99,13 @@ def namespace_of(customer_id: str) -> str:
     return f"{NAMESPACE}/{customer_id}/"
 
 
-# A section as the documents number them: "Policy wording 10", "Claims manual section 14.2".
-SECTION = re.compile(r"(?:policy wording|claims manual)(?: section)? \d+(?:\.\d+)*", re.IGNORECASE)
+# Sections as people cite them: "Policy wording 10", "Claims manual section 14.2",
+# "Policy wording, sections 5 and 10". Numbers and the two documents' names only.
+SECTION = re.compile(
+    r"(?:policy wording|claims manual),?(?: sections?)? "
+    r"\d+(?:\.\d+)*(?:(?:, | and )\d+(?:\.\d+)*)*",
+    re.IGNORECASE,
+)
 
 
 def uses_memory(claim: Json) -> bool:
