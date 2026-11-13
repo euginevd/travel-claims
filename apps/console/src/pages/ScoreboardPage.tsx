@@ -227,8 +227,8 @@ function ByVersion({ runs, criteria }: { runs: Run[]; criteria: SuccessCriteria 
       />
       <p className="small muted">
         The dashed line is the target
-        {accuracyTarget === undefined ? "" : ` (${percent(accuracyTarget)})`}. Whiskers that
-        overlap mean the versions can&apos;t be told apart on their exams.
+        {accuracyTarget === undefined ? "" : ` (${percent(accuracyTarget)})`}. Whiskers that overlap
+        mean the versions can&apos;t be told apart on their exams.
       </p>
     </section>
   );

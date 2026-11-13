@@ -148,9 +148,9 @@ export function AuditPage({ api }: { api: Api }) {
             Who changed what, and why
           </h1>
           <p className="lede">
-            Every switch, setting, override, reset, version and evaluation-set addition. Read-only, and
-            sealed: each entry&apos;s SHA-256 digest is chained to the one before, so a record changed
-            afterwards shows.
+            Every switch, setting, override, reset, version and evaluation-set addition. Read-only,
+            and sealed: each entry&apos;s SHA-256 digest is chained to the one before, so a record
+            changed afterwards shows.
           </p>
         </div>
       </header>
