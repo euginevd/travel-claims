@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import Connection, Engine, delete, insert, select, update
+from sqlalchemy import Connection, Engine, RowMapping, delete, insert, select, update
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
@@ -82,7 +82,7 @@ from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_rout
 from undercover_api.dsql import is_conflict
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.feedback import feedback_router
-from undercover_api.guardian import held_by, hold
+from undercover_api.guardian import held_by, hold, noted_concern
 from undercover_api.improvement import ROUTERS as EVALUATION_ROUTERS
 from undercover_api.insights import insights_router
 from undercover_api.kill_switch import (
@@ -251,6 +251,25 @@ def calculate_payout(claim_id: ClaimId, request: PayoutRequest, db: Database) ->
     return payout
 
 
+def place_decided(
+    db: Connection, claim: RowMapping, request: DecisionRequest, limit: float
+) -> None:
+    """Where a claim goes once its decision is recorded: decided, or waiting for a sign-off."""
+    claim_id = claim["claim_id"]
+    if request.decision != DecisionKind.APPROVE or claim["source"] == EVALUATION:
+        # An evaluation's copy is never paid or signed off: its approval is finished here.
+        set_status(db, claim_id, Status.DECIDED)
+    elif needs_sign_off(request.payout, limit):
+        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
+        # The largest payouts get the guardian's rules too: its concern goes to the sign-off.
+        if (concern := noted_concern(db, claim_id, request)) is not None:
+            hold(db, claim_id, concern)
+    elif (reason := held_by(db, claim_id, request)) is not None:
+        # The guardian stopped it, or payouts are paused: it waits for a senior's sign-off.
+        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
+        hold(db, claim_id, reason)
+
+
 @agent_router.post("/decision", operation_id="record_decision")
 def record_decision(
     claim_id: ClaimId, request: DecisionRequest, db: Database, http: Request
@@ -288,15 +307,7 @@ def record_decision(
     if insert_if_new(db, decisions, claim_id=claim_id, **record) is None:
         raise HTTPException(409, f"Claim {claim_id} has already been decided")
     note_removed(db, claim_id, removed)
-    if request.decision != DecisionKind.APPROVE or claim["source"] == EVALUATION:
-        # An evaluation's copy is never paid or signed off: its approval is finished here.
-        set_status(db, claim_id, Status.DECIDED)
-    elif needs_sign_off(request.payout, limit):
-        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
-    elif (reason := held_by(db, claim_id, request)) is not None:
-        # The guardian stopped it, or payouts are paused: it waits for a senior's sign-off.
-        set_status(db, claim_id, Status.WAITING_FOR_SIGN_OFF)
-        hold(db, claim_id, reason)
+    place_decided(db, claim, request, limit)
     if (
         request.decision == DecisionKind.REFER
         and request.maker == "claim_agent"
@@ -614,6 +625,12 @@ def decide_referral(
         raise HTTPException(409, f"Claim {claim_id} isn't referred to a person")
     if request.decision == DecisionKind.REFER:
         raise HTTPException(422, "Approve or decline it; it's already referred")
+    if current is not None and current.by_screening and not handler.can_approve_over_limit:
+        # The hidden-instruction check stopped this one: the guardian would hold the agent's own
+        # approval of it for a senior handler, and a handler's approval is held to the same.
+        raise HTTPException(
+            403, "The hidden-instruction check flagged this claim: a senior handler decides it"
+        )
     limit = approval_limit(db)
     if request.payout > limit and not handler.can_approve_over_limit:
         raise HTTPException(

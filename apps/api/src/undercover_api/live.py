@@ -495,7 +495,8 @@ def live(db: Connection, days: int) -> Live:
         day = on(override["at"]) if override else on(r["signed_off_at"])
         if day is not None:
             day.reviewed += 1
-            day.disagreements += override is not None
+            # Deciding a claim the agent referred to a person isn't disagreeing with it.
+            day.disagreements += bool(override) and override.get("previous_decision") != "refer"
     for r in returned:
         day = on(r["sent_back_at"])
         if day is not None:

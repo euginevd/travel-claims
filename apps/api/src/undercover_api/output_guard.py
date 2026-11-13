@@ -9,7 +9,7 @@ from sqlalchemy import Connection, insert
 
 from undercover_api.db import now, steps
 from undercover_api.live import FLAGGED
-from undercover_api.models import DecisionRequest
+from undercover_api.models import Check, DecisionRequest
 from undercover_api.pii import scrub
 from undercover_api.posture import OUTPUT_CHECK
 
@@ -20,9 +20,22 @@ def guarded(request: DecisionRequest) -> tuple[DecisionRequest, list[str]]:
     asks: list[str] = []
     for ask in request.customer_requests:
         clean, found = scrub(ask)
-        asks.append(clean)
+        # A replacement can be longer than what it replaced: held to the column's length.
+        asks.append(clean[:REQUEST_LENGTH])
         removed.extend(kind for kind in found if kind not in removed)
-    return request.model_copy(update={"reason": reason, "customer_requests": asks}), removed
+    checks: list[Check] = []
+    for check in request.checklist:
+        # A check's detail is shown to handlers on the queue, so it's scrubbed too.
+        clean, found = scrub(check.detail)
+        checks.append(check.model_copy(update={"detail": clean[:DETAIL_LENGTH]}))
+        removed.extend(kind for kind in found if kind not in removed)
+    update = {"reason": reason[:REASON_LENGTH], "customer_requests": asks, "checklist": checks}
+    return request.model_copy(update=update), removed
+
+
+REQUEST_LENGTH = 300
+DETAIL_LENGTH = 500
+REASON_LENGTH = 4000
 
 
 def note_removed(db: Connection, claim_id: str, removed: list[str]) -> None:

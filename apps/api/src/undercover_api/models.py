@@ -50,8 +50,18 @@ class DecisionKind(StrEnum):
     REFER = "refer"
 
 
+# "guardian" and "output_check" are the api's own notes on a trace (guardian.py, output_guard.py).
 StepKind = Literal[
-    "screening", "tool_call", "tool_result", "message", "lookup", "refusal", "error", "sent_back"
+    "screening",
+    "tool_call",
+    "tool_result",
+    "message",
+    "lookup",
+    "refusal",
+    "error",
+    "sent_back",
+    "guardian",
+    "output_check",
 ]
 Benefit = Literal[
     "trip_cancellation",

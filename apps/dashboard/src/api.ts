@@ -34,6 +34,9 @@ const StepKindSchema = z.enum([
   "refusal",
   "error",
   "sent_back",
+  // The api's own notes on a trace: a held approval, and personal data it removed.
+  "guardian",
+  "output_check",
 ]);
 
 const SourceSchema = z.object({
