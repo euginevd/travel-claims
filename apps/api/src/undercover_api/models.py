@@ -779,6 +779,23 @@ class PayId(BaseModel):
     payid: str | None
 
 
+class Settings(BaseModel):
+    """What the customer can change about how we reach them. Email is the sign-in, so it's
+    shown but changed only through support; emails about a claim always go."""
+
+    email: str
+    mobile: str
+    text_updates: bool
+
+
+class SettingsRequest(Strict):
+    mobile: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, max_length=20, pattern=r"^(\+?\d+( \d+)*)?$"),
+    ]
+    text_updates: bool
+
+
 class Notice(BaseModel):
     """A message we sent the customer, by email or text."""
 
@@ -867,7 +884,31 @@ class AnswerPoint(BaseModel):
 class QuestionAnswer(BaseModel):
     answer: str
     sources: list[str]
-    suggest: Literal["", "start_claim", "ask_person"]
+    # What the portal offers next: the model names it, the customer's tap does it.
+    action: Literal[
+        "", "start_claim", "show_claim", "show_claims", "show_policy", "settings", "talk_to_person"
+    ] = ""
+    claim_type: Literal[
+        "",
+        "lost_bag",
+        "delayed_bag",
+        "flight_delay",
+        "trip_cancelled",
+        "medical",
+        "stolen",
+        "passport",
+        "other",
+    ] = ""
+    claim_id: Annotated[str, StringConstraints(pattern=r"^(CLM-\d{4,6})?$")] = ""
+    replies: list[Annotated[str, StringConstraints(max_length=60)]] = Field(
+        default_factory=list[str], max_length=3
+    )
+    # The engineers' Wattle: two agent versions the console shows side by side.
+    compare: list[Annotated[int, Field(gt=0)]] = Field(default_factory=list[int], max_length=2)
+    # What Wattle read, in order, in plain words, shown line by line before the answer.
+    steps: list[Annotated[str, StringConstraints(max_length=80)]] = Field(
+        default_factory=list[str], max_length=8
+    )
     screened: bool
     # Automated Reasoning found it consistent with the policy wording's rules (on AWS).
     verified: bool = False

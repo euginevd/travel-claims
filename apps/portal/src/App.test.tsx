@@ -25,10 +25,11 @@ test("a customer signs in and sees their own claims", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
+  expect(await screen.findByRole("heading", { level: 1, name: /^Hi Maya/ })).toBeInTheDocument();
+  // Her open claim is one of the three suggestions, from her own records.
   expect(
-    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
+    await screen.findByRole("button", { name: /How's my delay claim going\?/ }),
   ).toBeInTheDocument();
-  expect(screen.getByText("Flight home canceled by the airline")).toBeInTheDocument();
   const signIn = fetchFn.calls.find((c) => c.path === "/api/customer/dev/sign-in");
   expect(signIn?.body).toEqual({ email: "maya.patel@example.com", password: "secret" });
   expect(fetchFn.calls.every((c) => c.path.startsWith("/api/customer/"))).toBe(true);
@@ -50,9 +51,7 @@ test("the test account signs in through the dev route, with no password in the b
   });
   render(<App fetchFn={fetchFn} />);
   await user.click(screen.getByRole("button", { name: /Use test account/ }));
-  expect(
-    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
-  ).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: /^Hi Maya/ })).toBeInTheDocument();
   const call = fetchFn.calls.find((c) => c.path === "/api/customer/dev/test-sign-in");
   expect(call?.body).toEqual({ account: "customer" });
 });
@@ -88,22 +87,20 @@ test("a rejected token signs the customer out", async () => {
   expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
 });
 
-test("the header shows the customer and their links", async () => {
+test("the header is quiet: a new chat, messages, claims and the customer's settings", async () => {
   saveToken("token-c");
   render(<App fetchFn={fakeFetch(routes)} />);
   const banner = await screen.findByRole("banner");
-  expect(within(banner).getByText("Maya Patel")).toBeInTheDocument();
-  expect(within(banner).getByRole("link", { name: /My claims/ })).toHaveAttribute("href", "#/");
-  expect(within(banner).getByRole("link", { name: /Make a claim/ })).toHaveAttribute(
-    "href",
-    "#/new",
-  );
+  for (const name of [/Home/, /Messages/, /Claims/, /Settings for Maya Patel/]) {
+    expect(within(banner).getByRole("button", { name })).toBeInTheDocument();
+  }
 });
 
-test("signing out returns to the sign-in page", async () => {
+test("signing out from settings returns to the sign-in page", async () => {
   const user = userEvent.setup();
   saveToken("token-c");
   render(<App fetchFn={fakeFetch(routes)} />);
+  await user.click(await screen.findByRole("button", { name: /Settings for Maya Patel/ }));
   await user.click(await screen.findByRole("button", { name: "Sign out" }));
   expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
 });
@@ -122,23 +119,23 @@ test("a sign-in check that fails for another reason offers to try again", async 
   render(<App fetchFn={fetchFn} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("The database is busy");
   await user.click(screen.getByRole("button", { name: "Try again" }));
-  expect(
-    await screen.findByRole("heading", { level: 1, name: /^Hi |^Your claims$/ }),
-  ).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: /^Hi Maya/ })).toBeInTheDocument();
 });
 
-test("a claim's link opens that claim", async () => {
+test("a claim's link, as in our emails, opens that claim in the side panel", async () => {
   saveToken("token-c");
   window.location.hash = "#/claims/CLM-1001";
   render(<App fetchFn={fakeFetch(routes)} />);
-  expect(await screen.findByText("My flight home from Rome was cancelled.")).toBeInTheDocument();
+  const panel = await screen.findByRole("dialog", { name: "Your claim" });
+  expect(
+    await within(panel).findByText("My flight home from Rome was cancelled."),
+  ).toBeInTheDocument();
 });
 
-test("the make-a-claim link opens the form", async () => {
+test("the make-a-claim link starts a claim in the chat", async () => {
   saveToken("token-c");
   window.location.hash = "#/new";
   render(<App fetchFn={fakeFetch(routes)} />);
-  expect(
-    await screen.findByRole("heading", { level: 1, name: "What happened?" }),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("What happened?")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Lost bag" })).toBeInTheDocument();
 });

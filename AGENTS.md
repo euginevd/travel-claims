@@ -118,3 +118,8 @@ Aurora DSQL
 47. DSQL refuses `SAVEPOINT`, and SQLAlchemy's psycopg dialect looks up `hstore` inside one on first connect: DSQL engines set `use_native_hstore=False`.
 48. `sys.wait_for_job` is a procedure: `CALL` it and read its success from the row it returns.
 49. `begin_nested()` opens a `SAVEPOINT`: keep the first row with `insert_if_new` (`INSERT ... ON CONFLICT DO NOTHING`); a test fails if one comes back.
+
+Web apps
+
+50. CSS `@keyframes` names are global: a new stylesheet's `rise` replaced `brand.css`'s and hid the portal's sign-in form. Prefix a new stylesheet's keyframes (`chat-rise`).
+51. `display: none` on a button's only text removes its name: hide a label visually (clipped, 1px) instead.

@@ -27,6 +27,8 @@ from undercover_api.models import (
     Plan,
     Policy,
     SavedDraft,
+    Settings,
+    SettingsRequest,
     Status,
 )
 from undercover_api.notices import announce
@@ -72,6 +74,45 @@ def set_payid(body: PayIdRequest, customer: SignedInCustomer, db: Database) -> P
     )
     log.info("customer %s: PayID changed", customer.customer_id)
     return PayId(payid=mask_payid(payid))
+
+
+# --- How we reach the customer ---
+
+
+def settings_of(db: Connection, customer: Customer) -> Settings:
+    record: dict[str, object] = db.execute(
+        select(customers.c.record).where(customers.c.customer_id == customer.customer_id)
+    ).scalar_one()
+    return Settings(
+        email=customer.email,
+        mobile=str(record.get("phone") or ""),
+        text_updates=bool(record.get("text_updates", True)),
+    )
+
+
+@account_router.get("/settings", operation_id="get_my_settings")
+def get_settings(customer: SignedInCustomer, db: Database) -> Settings:
+    """The customer's email, mobile and whether we text them updates."""
+    return settings_of(db, customer)
+
+
+@account_router.put("/settings", operation_id="set_my_settings")
+def set_settings(body: SettingsRequest, customer: SignedInCustomer, db: Database) -> Settings:
+    """Change the customer's mobile and whether we text them updates."""
+    record = dict(
+        db.execute(
+            select(customers.c.record).where(customers.c.customer_id == customer.customer_id)
+        ).scalar_one()
+    )
+    record["phone"] = body.mobile
+    record["text_updates"] = body.text_updates
+    db.execute(
+        update(customers)
+        .where(customers.c.customer_id == customer.customer_id)
+        .values(record=record)
+    )
+    log.info("customer %s: settings changed", customer.customer_id)
+    return settings_of(db, customer)
 
 
 # --- The messages we've sent ---

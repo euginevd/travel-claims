@@ -66,8 +66,8 @@ UnderCover's brand, "Canopy" (decision 21): white pages, faint glows, dark text 
 
 ## Components
 
-19. **Top bar:** logo, quiet navigation, **Ask Wattle** with a small "AI" tag, the person's initials and a link to the project page.
-20. **Wattle AI:** the same sprig mark, button and right-hand panel in every app, sources as chips, and "AI powered · cites its sources · a claims expert makes the final call". In the dashboard, actions wait on a confirm card.
+19. **Top bar:** logo, quiet navigation, **Ask Wattle** with a small "AI" tag, the person's initials and a link to the project page. The portal's: **Home**, **Messages** (a coral dot for anything new), **Claims** and the initials for Settings; icons only on a phone. **New chat** is in the composer, once there's a chat.
+20. **Wattle AI:** the same sprig mark in every app, a button and right-hand panel in the dashboard and console and the home screen in the portal (36), sources as chips, and "AI powered · cites its sources · a claims expert makes the final call". In the dashboard, actions wait on a confirm card.
 21. **Tracker:** received, checked, assessed, decided, paid; the current step in coral.
 22. **Status chip:** a tinted pill with a toned icon and ink text.
 23. **Stat tile:** a double-ring card with a label, a Newsreader number and one line of context.
@@ -92,7 +92,7 @@ UnderCover's brand, "Canopy" (decision 21): white pages, faint glows, dark text 
 
 ## This project
 
-36. **Portal:** the roomiest: a greeting, single-column flows that work at 390px, an animated route map at sign-in.
+36. **Portal:** the roomiest, and a conversation (decision 53): "Hi Oliver.", one news line, a large centred composer, three suggestions and an at-a-glance row; a reply is a headline, short lines and tappable choices, cards in one ring; the side panel holds Messages, Claims and Settings; from 1100px Claims opens wide, the list beside the claim; lists show three, then five more a tap. Works at 390px; an animated route map at sign-in.
 37. **Dashboard:** `--bg-work`, denser tables, 44px buttons; wide tables scroll inside their card.
 38. **Console:** the dashboard's density. A top-bar switch, **Evals | Security**, with the section's pages as tabs below. A tile can be its own filter; a small-sample score shows its range as a shaded band and its target as a tick. Untested defence layers are hatched in `--acc-tint`.
 39. **Project page:** one screen without scrolling: headline, brief, walkthrough video and app links.

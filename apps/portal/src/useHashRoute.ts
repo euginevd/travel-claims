@@ -1,23 +1,26 @@
 import { useEffect, useState } from "react";
 
+// The portal is one screen; a link only opens the side panel at the right place, so the links
+// in our emails and texts (#/claims/CLM-1001) still land somewhere useful.
 export type Route =
-  | { page: "my-claims" }
-  | { page: "my-claim"; claimId: string }
+  | { page: "home" }
   | { page: "new-claim" }
-  | { page: "updates" };
+  | { page: "claims"; claimId?: string }
+  | { page: "messages" }
+  | { page: "settings" };
 
 const CLAIM_PATH = /^#\/claims\/([^/]+)$/;
 
-export const MY_CLAIMS_HREF = "#/";
-export const NEW_CLAIM_HREF = "#/new";
-export const UPDATES_HREF = "#/updates";
+export const HOME_HREF = "#/";
 
 export function parseHash(hash: string): Route {
   const match = CLAIM_PATH.exec(hash);
-  if (match?.[1]) return { page: "my-claim", claimId: decodeURIComponent(match[1]) };
-  if (hash === NEW_CLAIM_HREF) return { page: "new-claim" };
-  if (hash === UPDATES_HREF) return { page: "updates" };
-  return { page: "my-claims" };
+  if (match?.[1]) return { page: "claims", claimId: decodeURIComponent(match[1]) };
+  if (hash === "#/claims") return { page: "claims" };
+  if (hash === "#/new") return { page: "new-claim" };
+  if (hash === "#/messages" || hash === "#/updates") return { page: "messages" };
+  if (hash === "#/settings") return { page: "settings" };
+  return { page: "home" };
 }
 
 export function myClaimHref(claimId: string): string {
@@ -36,9 +39,4 @@ export function useHashRoute(): Route {
     };
   }, []);
   return route;
-}
-
-/** Go to a page of the portal. */
-export function goTo(href: string): void {
-  window.location.hash = href;
 }

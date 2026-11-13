@@ -11,6 +11,14 @@ const EntrySchema = z.object({
   kind: z.enum(["step", "action", "error", "confirm"]).optional(),
   title: z.string().optional(),
   detail: z.string().optional(),
+  // An answer laid out: a headline, short points citing the sources, one likely next question.
+  headline: z.string().optional(),
+  points: z.array(z.object({ text: z.string(), source: z.number().int() })).optional(),
+  sources: z.array(z.string()).optional(),
+  next: z.string().optional(),
+  // A card the dashboard builds from the claim's own record: what was checked, or the payout.
+  card: z.enum(["", "checks", "payout"]).catch("").optional(),
+  claim_id: z.string().optional(),
 });
 
 // What waits on the handler: a sign-off (the default, as older conversations saved it), a

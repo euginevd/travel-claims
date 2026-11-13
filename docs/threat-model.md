@@ -74,7 +74,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 - **TB1c** AI engineers to the console: a third issuer; forwards only `/api/engineering/`. An engineer's one write to the evaluation set is insert-only and recorded (R29).
 - **TB2** Agent and `api`: model output is untrusted. The `api` checks every decision against manual section 14 and the payout calculation before any payment.
 - **TB3** App to Claude: claim text leaves the machine. Only made-up data is sent (spec 26); on Bedrock it stays in Australia.
-- **TB4** The drafting assistant: its draft is untrusted, validated by the `api` and confirmed field by field by the customer. The claim agent reads the customer's own words; on AWS a guardrail filters personal data from letters.
+- **TB4** The drafting assistant: its draft is untrusted, validated by the `api` and shown to the customer, who edits it and taps Send claim; it is never sent for them. The claim agent reads the customer's own words; on AWS a guardrail filters personal data from letters.
 - **TB5** The judge: gets one pair of reasons at a time and returns a grade the `api` validates. The claim agent and improver never see the pairs (spec 24).
 - **TB6** The Copilot: uses the handler's own token, never saved, and every tool is a staff route the `api` authorises again. Sign-off, send-back and dispatch wait on a confirm card (R11, R28).
 
@@ -114,6 +114,7 @@ STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of serv
 | R28 | The Copilot is talked into a dispatch, a send-back or storing claim text | T, E | LLM01, LLM06, ASI02 | Medium | Each action waits on its own confirm card; the `api` enforces the role. Memory is per handler, 20 short notes, each save shown |
 | R29 | A customer's story or feedback reaches the improver or engineers unsafely | T, I | LLM01, LLM04, ASI06 | Medium | Engineers add claims insert-only; flagged, evaluation and red-team claims are refused. Feedback is plain text, never sent to a model |
 | R30 | Ask UnderCover contradicts the policy wording on cover | T | LLM09 | Medium | On AWS a grounding guardrail and Automated Reasoning hold back an unsupported answer and offer a person. Only a claim's decision says what's paid |
+| R31 | A hidden instruction in a customer's message or receipt gets Wattle to change their PayID, send a claim or show another customer's claim | T, E, I | LLM01, LLM06 | High | Wattle has no tool that changes anything: it names one action from a fixed list, cards are filled from the customer's own records, a claim number that isn't theirs becomes their list, and only the customer's tap changes anything |
 
 ## Compliance
 

@@ -126,22 +126,6 @@ h2 {
   font-size: 1.08rem;
 }
 
-.eyebrow,
-.greeting {
-  margin: 0 0 4px;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--acc-d);
-}
-
-.lead {
-  margin: 0.4rem 0 0;
-  color: var(--ink-2);
-  font-size: 1rem;
-}
-
 .muted {
   color: var(--ink-2);
 }
@@ -154,10 +138,7 @@ h2 {
 
 /* The double-ring card: a white gap and a faint outer ring, drawn with shadows so any card
    gets it without extra markup. */
-.panel,
-.claim-card,
-.cover-card,
-.table-wrap {
+.panel {
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: var(--bg-2);
@@ -173,25 +154,6 @@ h2 {
 }
 
 /* Washes: faint corner glows that tell cards apart. */
-.wash-blush {
-  background:
-    radial-gradient(120% 90% at 100% 100%, var(--wash-blush) 0%, transparent 62%), var(--bg-2);
-}
-
-.wash-sage {
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sage) 0%, transparent 60%), var(--bg-2);
-}
-
-.wash-sky {
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sky) 0%, transparent 60%), var(--bg-2);
-}
-
-.wash-peach {
-  background:
-    radial-gradient(120% 120% at 0% 0%, var(--wash-blush) 0%, transparent 65%), var(--bg-2);
-}
 
 /* Page glows: a few blurred blobs drifting slowly behind the content. */
 .page-glow {
@@ -430,16 +392,6 @@ h2 {
 }
 
 /* Tertiary: a text link with a light underline. */
-.link-button {
-  color: var(--ink-2);
-  text-decoration: underline;
-  text-decoration-color: var(--map-dot);
-  text-underline-offset: 3px;
-}
-
-.link-button:hover {
-  color: var(--ink);
-}
 
 /* ---------- Inputs ---------- */
 
@@ -658,14 +610,6 @@ textarea:focus {
   color: var(--acc);
 }
 
-.topbar-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px;
-  margin-left: auto;
-}
-
 .topbar .who {
   display: flex;
   align-items: center;
@@ -688,40 +632,6 @@ textarea:focus {
   color: var(--ink);
 }
 
-.topbar .who-name {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.88rem;
-  font-weight: 500;
-  line-height: 1.2;
-  color: var(--ink);
-}
-
-.topbar .who-detail {
-  font-size: 0.74rem;
-  font-weight: 400;
-  color: var(--ink-3);
-}
-
-.sign-out {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--ink-2);
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-}
-
-.sign-out:hover {
-  background: var(--soft);
-  color: var(--ink);
-}
-
 .topbar .project-link {
   border: 0;
   padding: 4px 6px;
@@ -734,20 +644,6 @@ textarea:focus {
   color: var(--ink);
 }
 
-.wattle-pill {
-  border: 1px solid #d9e6c9;
-  background: linear-gradient(180deg, #fbfdf7, #f1f7e8);
-  color: #2f5e3a;
-  font-weight: 500;
-  font-size: 0.88rem;
-  box-shadow: none;
-}
-
-.wattle-pill:hover {
-  box-shadow: 0 8px 20px -12px rgb(47 94 58 / 60%);
-}
-
-.wattle-pill:focus-visible,
 .project-link:focus-visible {
   outline: 2px solid var(--acc);
 }
@@ -763,24 +659,12 @@ textarea:focus {
     width: 100%;
   }
 
-  .topbar .who-name,
   .topbar .project-link {
     display: none;
   }
 }
 
 /* Every signed-in page rises in. */
-main.page-in {
-  max-width: 1180px;
-  padding: 28px 28px 72px;
-  animation: rise 0.7s var(--ease) both;
-}
-
-@media (max-width: 640px) {
-  main.page-in {
-    padding: 20px 16px 56px;
-  }
-}
 
 .rise {
   opacity: 0;
@@ -918,570 +802,29 @@ main.page-in {
 
 /* ---------- Page heads ---------- */
 
-.page-head {
-  align-items: flex-end;
-  margin: 6px 0 26px;
-}
-
-.page-head h1 {
-  margin: 0;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 10px;
-  color: var(--ink-2);
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-
-.back-link:hover {
-  color: var(--ink);
-}
-
 /* ---------- My claims ---------- */
 
-.narrow.home {
-  max-width: none;
-}
-
-@media (width >= 980px) {
-  .home-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 34px;
-    align-items: start;
-  }
-
-  .home-side {
-    position: sticky;
-    top: 96px;
-    max-height: calc(100vh - 112px);
-    overflow-y: auto;
-    padding: 9px;
-    scrollbar-width: thin;
-  }
-}
-
-.claims-group {
-  margin-top: 8px;
-}
-
-.claims-group + .claims-group {
-  margin-top: 34px;
-}
-
-.group-heading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 18px;
-  font-family: var(--font-body);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-  text-transform: none;
-  letter-spacing: -0.01em;
-}
-
-.group-count {
-  min-width: 0;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--ink-2);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.claim-cards {
-  display: grid;
-  gap: 30px;
-  margin: 0;
-  padding: 9px;
-}
-
-.claim-card {
-  padding: 24px 26px;
-  border-left: 1px solid var(--line);
-  background:
-    radial-gradient(120% 110% at 100% 100%, var(--wash-blush) 0%, transparent 60%), var(--bg-2);
-  transition:
-    box-shadow 0.25s var(--ease),
-    transform 0.25s var(--ease);
-}
-
-.claim-card:hover,
-.claim-card:has(a:hover) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 0 0 8px var(--bg-2),
-    0 0 0 9px var(--ring),
-    var(--lift-hover);
-}
-
-.claim-card.tone-paid,
-.claim-card.tone-approved {
-  background:
-    radial-gradient(120% 110% at 100% 100%, var(--wash-sage) 0%, transparent 60%), var(--bg-2);
-}
-
-.claim-icon,
-.tile-icon,
-.offer-icon {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid #e9e7e2;
-  background: linear-gradient(160deg, #ffffff 0%, #f3f1ed 100%);
-  color: var(--ink);
-  box-shadow:
-    inset 0 1px 0 #ffffff,
-    0 1px 2px rgb(31 30 28 / 5%);
-}
-
-.claim-icon svg,
-.tile-icon svg,
-.offer-icon svg {
-  stroke-width: 1.75;
-}
-
-.claim-card .claim-card-link {
-  font-family: var(--font-body);
-  font-size: 1.08rem;
-  font-weight: 600;
-  color: var(--ink);
-  text-decoration: underline;
-  text-decoration-color: #d8d5cf;
-  text-underline-offset: 4px;
-}
-
-.claim-meta {
-  color: var(--ink-3);
-  font-size: 0.82rem;
-}
-
-.claim-amount {
-  color: var(--ink);
-}
-
-.claim-amount .number {
-  font-family: var(--font-head);
-  font-size: 2rem;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.claim-amount-label {
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--ink-3);
-  font-size: 0.78rem;
-}
-
-.claim-card-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 16px 0 0;
-  color: var(--ink-2);
-  font-size: 0.92rem;
-}
-
-.claim-card-line.needs-line {
-  position: relative;
-  z-index: 1;
-  padding: 10px 12px 10px 14px;
-  border: 1px solid #f3d8cc;
-  border-radius: 12px;
-  background: rgb(255 255 255 / 75%);
-  color: #9a4a2e;
-  font-weight: 500;
-}
-
-.needs-line .button {
-  margin-left: auto;
-}
-
-.status-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink-3);
-  box-shadow: none;
-}
-
-.needs-line .status-dot {
-  background: var(--acc);
-}
-
-.claim-eta {
-  margin: 12px 0 0;
-  color: var(--ink-3);
-  font-size: 0.82rem;
-}
-
 /* Completed: one card of rows. */
-.claims-group.done-group {
-  margin: 34px 9px 0;
-  padding: 18px 26px 8px;
-}
-
-.done-group details > summary {
-  padding: 4px 0 10px;
-  cursor: pointer;
-}
-
-.claims-group details > summary {
-  list-style: none;
-}
-
-.claims-group details > summary .group-heading {
-  margin: 0;
-}
-
-.claims-group details[open] > summary {
-  margin-bottom: 6px;
-}
-
-.done-rows {
-  margin: 0;
-  padding: 0;
-}
-
-.done-row {
-  border-top: 1px solid var(--line-2);
-  padding: 14px 0;
-  background: none;
-  border-radius: 0;
-}
-
-.done-row:hover {
-  background: none;
-}
-
-.done-row .claim-card-link {
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.done-amount {
-  color: var(--ink);
-}
 
 /* Cards above the claims: a flight delay to claim, a claim to finish. */
-.offer-list {
-  display: grid;
-  gap: 30px;
-  margin: 9px 9px 34px;
-}
-
-.offer-card,
-.payout-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 0;
-}
-
-.offer-list .offer-card {
-  border-left: 1px solid var(--line);
-  background:
-    radial-gradient(120% 120% at 100% 100%, var(--wash-sky) 0%, transparent 60%), var(--bg-2);
-}
-
-.resume-card {
-  margin: 9px 9px 34px;
-  border-left: 1px solid var(--line);
-  background:
-    radial-gradient(120% 120% at 0% 0%, var(--wash-blush) 0%, transparent 65%), var(--bg-2);
-}
-
-.offer-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.offer-main p {
-  margin: 4px 0 0;
-}
-
-.offer-title {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.offer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 
 /* Sidebar: what's covered, one collapsible card per trip, and the PayID. */
-.side-ring {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 8px;
-  border: 1px solid var(--ring);
-  border-radius: 30px;
-  background: rgb(255 255 255 / 70%);
-}
-
-.side-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  padding: 10px 12px 2px;
-}
-
-.side-head h2 {
-  margin: 0;
-  font-size: 0.98rem;
-}
 
 .cover {
   margin: 0;
 }
 
-.cover-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.home-side .cover-card,
-.cover-card {
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 22px;
-  box-shadow: none;
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sage) 0%, transparent 60%), var(--bg-2);
-  font-size: 0.9rem;
-}
-
-.cover-card:nth-child(2n) {
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sky) 0%, transparent 60%), var(--bg-2);
-}
-
-.cover-card > summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  list-style: none;
-  cursor: pointer;
-}
-
-.cover-card > summary::-webkit-details-marker {
-  display: none;
-}
-
-.cover-card > summary:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 4px;
-  border-radius: 8px;
-}
-
-.cover-plan {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: 0.78rem;
-}
-
-.cover-card h3 {
-  margin: 2px 0 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.cover-chev {
-  flex: none;
-  color: var(--ink-3);
-  transition: transform 0.2s var(--ease);
-}
-
-.cover-card[open] .cover-chev {
-  transform: rotate(180deg);
-}
-
-.cover-card[open] > summary {
-  margin-bottom: 6px;
-}
-
-.limit-rows {
-  margin: 0;
-}
-
-.limit-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--line-2);
-}
-
-.limit-row:last-child {
-  border-bottom: 0;
-}
-
-.limit-row dt {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--ink-2);
-}
-
-.limit-row dt svg {
-  color: var(--ink-3);
-}
-
-.limit-row dd {
-  margin: 0;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.cover-note {
-  margin: 8px 0 0;
-  color: var(--ink-3);
-  font-size: 0.8rem;
-}
-
-.payout-card {
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 22px;
-  box-shadow: none;
-  background:
-    radial-gradient(120% 120% at 0% 0%, var(--wash-blush) 0%, transparent 70%), var(--bg-2);
-  align-items: flex-start;
-}
-
-.payout-card .offer-title {
-  font-size: 0.92rem;
-}
-
-.payout-card .offer-icon {
-  width: 36px;
-  height: 36px;
-}
-
-.payout-card .button.secondary {
-  min-height: 32px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.85rem;
-}
-
-.payid-form {
-  display: grid;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.payid-row {
-  display: flex;
-  gap: 8px;
-}
-
-.payid-row input {
-  flex: 1;
-  min-width: 0;
-  min-height: 2.5rem;
-  padding: 0.4rem 0.75rem;
-  font: inherit;
-}
-
 @media (max-width: 640px) {
-  .offer-card,
-  .payout-card {
-    flex-wrap: wrap;
-  }
-
-  .offer-card > .button,
-  .offer-actions {
-    width: 100%;
-  }
-
-  .offer-card > .button {
-    justify-content: center;
-  }
-
   .need-row {
     flex-wrap: wrap;
   }
 
-  .claim-card,
   .panel {
     padding: 20px;
   }
 }
 
 /* ---------- Make a claim ---------- */
-
-.form-page {
-  max-width: none;
-}
-
-.step-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding: 0;
-  list-style: none;
-}
-
-.step-pills li {
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--ink-3);
-  font-size: 0.8rem;
-}
-
-.step-pills li.done {
-  color: var(--ink-2);
-}
-
-.step-pills li.on {
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.claim-layout {
-  display: grid;
-  gap: 30px;
-  align-items: start;
-  margin-top: 22px;
-}
-
-@media (width >= 980px) {
-  .claim-layout {
-    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  }
-
-  .claim-aside {
-    position: sticky;
-    top: 96px;
-  }
-}
-
-@media (width >= 980px) {
-  .claim-layout.single {
-    grid-template-columns: minmax(0, 52rem);
-  }
-}
 
 /* A card inside a card drops its ring. */
 .panel .panel {
@@ -1490,26 +833,6 @@ main.page-in {
   background: var(--bg-work);
 }
 
-.claim-layout > .panel,
-.claim-aside .panel {
-  margin: 9px;
-}
-
-.claim-aside {
-  display: grid;
-  gap: 18px;
-}
-
-.flow-step legend,
-.trip-cards legend,
-.tiles legend {
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--ink);
-}
-
-.trip-card,
 .tile,
 .day {
   border: 1px solid var(--line);
@@ -1522,47 +845,16 @@ main.page-in {
     box-shadow 0.15s;
 }
 
-.trip-card:hover,
 .tile:hover {
   border-color: #bdb9b1;
   transform: translateY(-1px);
   box-shadow: none;
 }
 
-.trip-card.chosen,
 .tile.chosen {
   border-color: var(--ink);
   box-shadow: 0 0 0 1px var(--ink);
   background: linear-gradient(160deg, #ffffff 40%, var(--wash-blush));
-}
-
-.tile.chosen .tile-icon {
-  border-color: transparent;
-  background: linear-gradient(160deg, #ec9a82, var(--acc));
-  color: #ffffff;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 35%),
-    0 6px 14px -6px rgb(226 121 95 / 70%);
-}
-
-.tile-label {
-  font-weight: 500;
-}
-
-.trip-name {
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 1rem;
-}
-
-.tiles {
-  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-  gap: 10px;
-}
-
-.tile-hint,
-.trip-dates {
-  color: var(--ink-3);
 }
 
 .day.chosen {
@@ -1571,150 +863,12 @@ main.page-in {
   color: #ffffff;
 }
 
-.tile:has(input:focus-visible),
-.trip-card:has(input:focus-visible) {
+.tile:has(input:focus-visible) {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
 
-.flow-actions {
-  align-items: center;
-}
-
-.saved-line,
-.save-hint {
-  color: var(--ink-3);
-  font-size: 0.82rem;
-}
-
-.resume-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.tell-us .tell-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 6px 6px 6px 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--bg-2);
-}
-
-.tell-us .tell-row:focus-within {
-  border-color: var(--acc-edge);
-  box-shadow: 0 0 0 4px rgb(226 121 95 / 10%);
-}
-
-.tell-us .tell-row input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  font: inherit;
-  box-shadow: none;
-}
-
-.tell-us .tell-row input:focus {
-  box-shadow: none;
-}
-
-.aside-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.aside-head h2 {
-  margin: 0;
-}
-
-.checklist {
-  display: grid;
-  gap: 4px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: need;
-}
-
-.checklist li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 6px 0;
-  font-size: 0.92rem;
-  counter-increment: need;
-}
-
-.checklist li::before {
-  content: counter(need);
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-  border-radius: 50%;
-  background: var(--good-tint);
-  color: var(--good);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.aside-note {
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 0.82rem;
-}
-
 /* ---------- My claim ---------- */
-
-.claim-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px 20px;
-}
-
-.claim-head h1 {
-  margin: 0;
-}
-
-.claim-head .chip {
-  padding: 5px 12px;
-  font-size: 0.84rem;
-}
-
-.claim-detail .tracker {
-  max-width: 640px;
-}
-
-.claim-detail > .panel {
-  margin: 30px 9px 0;
-}
-
-.claim-pair {
-  display: grid;
-  gap: 30px;
-  align-items: start;
-  margin-top: 30px;
-}
-
-.claim-pair > .panel {
-  margin: 9px;
-}
-
-@media (width >= 900px) {
-  .claim-pair {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 .needs-panel.has-open {
   border-left: 1px solid var(--line);
@@ -1779,244 +933,15 @@ main.page-in {
   outline-offset: 2px;
 }
 
-.letter-card {
-  border-left: 1px solid var(--line);
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sky) 0%, transparent 60%), var(--bg-2);
-}
-
-.letter-card h2 {
-  margin: 4px 0 8px;
-}
-
-.letter-body {
-  margin: 0;
-  white-space: pre-line;
-}
-
-.outcome-card .payout {
-  font-family: var(--font-head);
-  font-size: 2rem;
-  letter-spacing: -0.03em;
-}
-
-.ask-person {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line-2);
-}
-
-.facts dt {
-  color: var(--ink-2);
-}
-
-.claim-pair .wash-sage {
-  background:
-    radial-gradient(110% 80% at 100% 100%, var(--wash-sage) 0%, transparent 60%), var(--bg-2);
-}
-
 /* ---------- Updates ---------- */
 
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 22px;
-  padding: 0;
-  list-style: none;
-}
-
-.filter-chip {
-  padding: 6px 13px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--bg-2);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.84rem;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.filter-chip:hover {
-  border-color: #bdb9b1;
-}
-
-.filter-chip[aria-pressed="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.filter-count {
-  margin-left: 4px;
-  opacity: 0.6;
-}
-
-.notice-card {
-  margin: 9px;
-  padding: 10px 26px;
-}
-
-.notice-list {
-  display: block;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.notice-item {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  margin: 0;
-  padding: 16px 0;
-  border: 0;
-  border-bottom: 1px solid var(--line-2);
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.notice-item:last-child {
-  border-bottom: 0;
-}
-
-.notice-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  border: 1px solid #e9e7e2;
-  background: linear-gradient(160deg, #ffffff 0%, #f3f1ed 100%);
-  color: var(--ink);
-}
-
-.notice-icon.tone-good {
-  border-color: transparent;
-  background: var(--good-tint);
-  color: var(--good);
-}
-
-.notice-icon.tone-warm {
-  border-color: transparent;
-  background: var(--warm-tint);
-  color: var(--warm);
-}
-
-.notice-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.notice-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 12px;
-}
-
-.notice-channel {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-3);
-  font-size: 0.78rem;
-  font-weight: 400;
-  white-space: nowrap;
-}
-
-.notice-subject {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.notice-body {
-  margin: 2px 0 6px;
-  color: var(--ink-2);
-  font-size: 0.92rem;
-  white-space: pre-line;
-}
-
-.notice-link {
-  font-size: 0.84rem;
-  text-underline-offset: 3px;
-}
-
 /* ---------- Wattle AI sheet ---------- */
-
-.wattle-panel {
-  top: 12px;
-  right: 12px;
-  bottom: 12px;
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: var(--bg-2);
-  box-shadow: 0 30px 70px -30px rgb(31 30 28 / 35%);
-  animation: sheet-in 0.3s var(--ease) both;
-}
 
 @keyframes sheet-in {
   from {
     transform: translateX(30px);
     opacity: 0;
   }
-}
-
-.wattle-head h2,
-.wattle-hero h3 {
-  font-family: var(--font-body);
-  color: var(--ink);
-}
-
-.wattle-hero > p {
-  color: var(--ink-2);
-}
-
-.wattle-chips button {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg-2);
-  color: var(--ink);
-  text-align: left;
-}
-
-.wattle-chips button:hover {
-  background: var(--bg-work);
-  border-color: #bdb9b1;
-}
-
-.wattle-msg.user {
-  background: var(--ink);
-  color: #ffffff;
-}
-
-.wattle-msg.assistant {
-  background: var(--soft);
-  color: var(--ink);
-}
-
-.wattle-form {
-  border-top: 0;
-}
-
-.wattle-form input {
-  border-radius: 16px;
-}
-
-.wattle-send {
-  background: var(--ink);
-  color: #ffffff;
-  border-radius: 12px;
-}
-
-.wattle-foot {
-  color: var(--ink-3);
 }
 
 /* ---------- Sign in ---------- */
@@ -2786,8 +1711,7 @@ main.signin-main {
 
   .rise,
   .word,
-  .signin-stat,
-  main.page-in {
+  .signin-stat {
     opacity: 1;
     transform: none;
     filter: none;
@@ -2812,42 +1736,6 @@ main.signin-main {
   gap: 12px;
 }
 
-.button .arr {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: rgb(255 255 255 / 10%);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
-  transition:
-    width 0.2s var(--ease),
-    background 0.2s;
-}
-
-.button .arr svg {
-  transition: transform 0.2s var(--ease);
-}
-
-.button:not(:disabled):hover .arr {
-  width: 38px;
-  background: linear-gradient(160deg, #f0937a, #d96a50);
-}
-
-.button:not(:disabled):hover .arr svg {
-  transform: translateX(2px);
-}
-
-.button:disabled .arr {
-  background: transparent;
-  box-shadow: none;
-}
-
-.button.wide:has(.arr) {
-  justify-content: space-between;
-  padding-left: 20px;
-}
-
 /* A secondary action that still has to be seen: white, hairline border. */
 .button.secondary.strong {
   min-height: 40px;
@@ -2861,102 +1749,7 @@ main.signin-main {
   background: var(--soft);
 }
 
-.payout-card .link-button {
-  margin-top: 6px;
-  padding: 0;
-}
-
-.payid-value {
-  overflow-wrap: anywhere;
-}
-
-.tell-us .tell-row .button {
-  flex: none;
-  min-height: 36px;
-}
-
 /* Receipts: a row-shaped drop zone, receipt cards and the reading state. */
-.drop-zone {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-items: start;
-  gap: 12px;
-  padding: 18px;
-  border: 1.5px dashed var(--map-dot);
-  border-radius: 14px;
-  background: var(--bg-2);
-  text-align: left;
-  color: var(--ink);
-}
-
-.drop-zone > svg {
-  box-sizing: content-box;
-  width: 20px;
-  height: 20px;
-  padding: 9px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: linear-gradient(180deg, var(--bg-2), var(--soft));
-  color: var(--ink-2);
-}
-
-.drop-zone.dragging {
-  border-color: var(--acc);
-  background: var(--acc-tint);
-}
-
-.drop-zone:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
-  outline-offset: 2px;
-}
-
-.preview {
-  padding: 10px 12px;
-  border-radius: 14px;
-}
-
-.preview img {
-  border-radius: 10px;
-}
-
-.preview > svg {
-  color: var(--ink-2);
-}
-
-.chosen-line {
-  border-radius: 14px;
-  background: linear-gradient(160deg, var(--bg-2) 40%, var(--wash-blush));
-}
-
-.ai-mark {
-  gap: 8px;
-  padding: 4px 12px 4px 5px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--bg-2);
-  color: var(--ink-2);
-  font-size: 0.85rem;
-}
-
-.source-tag {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--good-tint);
-  color: var(--good);
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  white-space: nowrap;
-}
-
-.question-card {
-  border-left: 1px solid var(--line);
-  background:
-    radial-gradient(120% 120% at 0% 0%, var(--wash-sage) 0%, transparent 65%), var(--bg-2);
-}
 
 .question {
   display: flex;
@@ -2971,54 +1764,6 @@ main.signin-main {
   margin-top: 2px;
 }
 
-input.unsure,
-select.unsure {
-  border-color: var(--acc-edge);
-  background: var(--acc-tint);
-}
-
-.reading-card {
-  padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--good) 22%, var(--line));
-  border-radius: 16px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--wash-sage) 35%, var(--bg-2)),
-    var(--bg-2) 70%
-  );
-}
-
-.reading-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.reading-head p {
-  margin: 0;
-}
-
-.reading-title {
-  font-weight: 500;
-}
-
-.scan {
-  height: 3px;
-  margin: 16px 0 14px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: var(--good-tint);
-}
-
-.scan span {
-  display: block;
-  width: 35%;
-  height: 100%;
-  border-radius: 2px;
-  background: var(--good);
-  animation: scan 1.8s ease-in-out infinite;
-}
-
 @keyframes scan {
   from {
     transform: translateX(-100%);
@@ -3027,31 +1772,6 @@ select.unsure {
   to {
     transform: translateX(290%);
   }
-}
-
-.reading-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.skeleton {
-  border-radius: 10px;
-}
-
-.skeleton-field {
-  height: 44px;
-  border: 1px solid var(--line-2);
-}
-
-@media (max-width: 640px) {
-  .reading-fields {
-    grid-template-columns: 1fr;
-  }
-}
-
-.flow-step > :first-child {
-  margin-top: 0;
 }
 
 .error,
@@ -3063,47 +1783,7 @@ select.unsure {
   color: var(--ink);
 }
 
-.needs-line .button {
-  flex: none;
-  white-space: nowrap;
-}
-
-@media (width < 980px) {
-  .home-side {
-    margin-top: 34px;
-  }
-}
-
-.payout-card .link-button {
-  font-size: 0.85rem;
-}
-
 /* ---------- Tidy-up pass ---------- */
-
-.home .page-head {
-  align-items: center;
-}
-
-.claims-group .claim-cards {
-  margin-top: -6px;
-}
-
-.claim-head {
-  justify-content: flex-start;
-  align-items: center;
-}
-
-.claim-head .chip {
-  margin-top: 1.4rem;
-}
-
-.narrow.updates {
-  max-width: none;
-}
-
-.notice-body {
-  max-width: 72ch;
-}
 
 /* The way back to the project page sits quietly after the navigation. */
 .topnav {
@@ -3169,33 +1849,6 @@ select.unsure {
   .wattle-mark.working .b {
     animation: none;
   }
-}
-
-.wattle-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  background: #ffffff;
-  color: var(--ink);
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgb(31 30 28 / 4%);
-}
-
-.wattle-pill:hover {
-  border-color: var(--map-dot, #d3d0c9);
-  background: #ffffff;
-  box-shadow: 0 8px 20px -14px rgb(31 30 28 / 45%);
-}
-
-.wattle-ai-tag {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--soft);
-  color: var(--ink-2);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
 }
 
 /* Feedback: quiet thumbs under an answer or a decision's reason */
@@ -3286,19 +1939,8 @@ select.unsure {
 }
 
 /* A resumed draft is good news, not a warning: a quiet note. */
-.notice.resume-note {
-  border-color: var(--line);
-  background: var(--soft);
-}
 
 /* Updates: each message's first lines; a claim's page holds the whole letter. */
-.notice-list .notice-body {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-}
 
 /* The way back to the project page, on the sign-in page too, as in the header. */
 .signin-top .project-link {
@@ -3324,104 +1966,9 @@ select.unsure {
 /* ---------- Wattle's answers, laid out ---------- */
 
 /* What the page is about, under the panel's header. */
-.wattle-context {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 10px 16px 0;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg-work);
-  color: var(--ink-2);
-  font-size: 0.8rem;
-}
-
-.wattle-context b {
-  color: var(--ink);
-  font-weight: 600;
-}
 
 /* The answer in one sentence, then short points citing the sources by number. */
-.wattle-headline {
-  margin: 0;
-  font-family: var(--font-head);
-  font-size: 1.12rem;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-
-.wattle-points {
-  display: grid;
-  gap: 5px;
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-
-.wattle-points li::marker {
-  color: var(--acc);
-}
-
-.wattle-points strong {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.wattle-cite {
-  display: inline-grid;
-  place-items: center;
-  min-width: 17px;
-  height: 17px;
-  margin-left: 4px;
-  padding: 0 4px;
-  border-radius: 5px;
-  background: var(--info-tint);
-  color: var(--info);
-  font-size: 10.5px;
-  font-weight: 600;
-  vertical-align: 1px;
-  cursor: help;
-}
 
 /* The sources, numbered so each citation points at one. */
-.wattle-sources {
-  counter-reset: source;
-}
-
-.wattle-sources li::before {
-  counter-increment: source;
-  content: counter(source) " · ";
-  opacity: 0.7;
-}
 
 /* The one question most likely to come next, under the latest answer only. */
-.wattle-next-q {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 0;
-  color: var(--ink-3);
-  font-size: 0.78rem;
-}
-
-.wattle-next-q button {
-  padding: 5px 12px;
-  border: 1px solid #d9e6c9;
-  border-radius: 999px;
-  background: #f1f7e8;
-  color: #2f5e3a;
-  font: inherit;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.wattle-next-q button:hover {
-  background: #e6f0da;
-}
-
-.wattle-next-q button:focus-visible {
-  outline: 2px solid var(--acc);
-  outline-offset: 2px;
-}

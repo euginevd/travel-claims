@@ -2378,3 +2378,92 @@ main.gate {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
+
+/* Two agent versions side by side under Wattle's answer, from the run records. */
+.versions-card {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.versions-card th,
+.versions-card td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--line-2);
+  text-align: right;
+}
+
+.versions-card th[scope="row"],
+.versions-card thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.versions-card thead th {
+  border-top: 0;
+  font-weight: 600;
+}
+
+/* What Wattle read, one quiet line at a time, then the answer. */
+.wattle-steps {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+}
+
+.wattle-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: wattle-step-in 0.35s var(--ease, ease-out) both;
+}
+
+.wattle-step::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--good-dot, var(--acc));
+  content: "";
+}
+
+.wattle-step.s1 {
+  animation-delay: 0.25s;
+}
+.wattle-step.s2 {
+  animation-delay: 0.5s;
+}
+.wattle-step.s3 {
+  animation-delay: 0.75s;
+}
+.wattle-step.s4 {
+  animation-delay: 1s;
+}
+.wattle-step.s5 {
+  animation-delay: 1.25s;
+}
+.wattle-step.s6 {
+  animation-delay: 1.5s;
+}
+.wattle-step.s7 {
+  animation-delay: 1.75s;
+}
+
+@keyframes wattle-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wattle-step {
+    animation: none;
+  }
+}

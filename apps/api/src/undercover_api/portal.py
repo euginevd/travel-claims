@@ -73,6 +73,11 @@ STATUS_TEXT = {
     "with_a_handler": "A claims handler is looking at your claim and will be in touch.",
 }
 REFERRED_REASON = "A claims handler will look at your claim personally and contact you."
+APPROVED_IN_FULL = "Your policy covers this, so we paid what you claimed."
+APPROVED_IN_PART = (
+    "Your policy covers this. We paid ${paid:,.2f} of the ${claimed:,.2f} you claimed: the rest "
+    "is over your plan's limits or what you pay first."
+)
 SOURCE_CUSTOMER = "customer"
 CLAIM_ID_ATTEMPTS = 3
 EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
@@ -145,6 +150,21 @@ def summary_of(db: Connection, row: RowMapping) -> CustomerClaimSummary:
     )
 
 
+def customer_reason(
+    kind: DecisionKind, reason: str, payout: float, summary: CustomerClaimSummary
+) -> str:
+    """Why, in the customer's terms. An approval is said in plain words from the figures, as the
+    agent's own reason is its working (the checks it ran); a decline keeps its reason, which the
+    customer is owed; a referral's is never shown, as it may quote the hidden-instruction check."""
+    if kind == DecisionKind.REFER:
+        return REFERRED_REASON
+    if kind == DecisionKind.APPROVE:
+        if payout >= summary.amount_claimed:
+            return APPROVED_IN_FULL
+        return APPROVED_IN_PART.format(paid=payout, claimed=summary.amount_claimed)
+    return reason
+
+
 def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
     """A claim as its customer sees it: the outcome and its reason, but nothing internal.
     A referral's reason is never shown, since it may quote the hidden-instruction check."""
@@ -153,7 +173,7 @@ def claim_for_customer(db: Connection, row: RowMapping) -> CustomerClaim:
     payment = find_payment(db, row["claim_id"])
     reason = None
     if decision is not None:
-        reason = REFERRED_REASON if decision.decision == DecisionKind.REFER else decision.reason
+        reason = customer_reason(decision.decision, decision.reason, decision.payout, summary)
     found = list_receipts(db, row["claim_id"])
     sent_for_requests = request_files(db, row["claim_id"])
     general = [r for r in found if r.receipt_id not in sent_for_requests]

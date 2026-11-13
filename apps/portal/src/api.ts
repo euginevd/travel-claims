@@ -125,6 +125,13 @@ export const NoticeSchema = z.object({
 
 export const PayIdSchema = z.object({ payid: z.string().nullable() });
 
+export const SettingsSchema = z.object({
+  email: z.string(),
+  mobile: z.string(),
+  text_updates: z.boolean(),
+});
+export type Settings = z.infer<typeof SettingsSchema>;
+
 export const DelayOfferSchema = z.object({
   flight_id: z.string(),
   policy_id: z.string(),
@@ -173,10 +180,24 @@ export const CoverSchema = z.object({
 
 export type Cover = z.infer<typeof CoverSchema>;
 
+export const answerActions = [
+  "",
+  "start_claim",
+  "show_claim",
+  "show_claims",
+  "show_policy",
+  "settings",
+  "talk_to_person",
+] as const;
+
 export const AnswerSchema = z.object({
   answer: z.string(),
   sources: z.array(z.string()),
-  suggest: z.enum(["", "start_claim", "ask_person"]),
+  // What the portal offers next: Wattle names it, the customer's tap does it.
+  action: z.enum(answerActions).catch("").default(""),
+  claim_type: z.string().default(""),
+  claim_id: z.string().default(""),
+  replies: z.array(z.string()).max(3).catch([]).default([]),
   screened: z.boolean(),
   // Automated Reasoning found it consistent with the policy wording's rules (on AWS).
   verified: z.boolean().default(false),
@@ -277,6 +298,8 @@ export interface Api {
   myNotices: () => Promise<Notice[]>;
   myPayId: () => Promise<string | null>;
   setPayId: (payid: string) => Promise<string | null>;
+  mySettings: () => Promise<Settings>;
+  setSettings: (settings: { mobile: string; text_updates: boolean }) => Promise<Settings>;
   myDelays: () => Promise<DelayOffer[]>;
   myCover: () => Promise<Cover[]>;
   ask: (question: string, history: AskTurn[], about?: string) => Promise<Answer>;
@@ -400,6 +423,8 @@ export function createApi(
     myPayId: async () => (await call(PayIdSchema, "GET", "/payid")).payid,
     setPayId: async (payid) =>
       (await call(PayIdSchema, "PUT", "/payid", { body: { payid } })).payid,
+    mySettings: () => call(SettingsSchema, "GET", "/settings"),
+    setSettings: (settings) => call(SettingsSchema, "PUT", "/settings", { body: settings }),
     myDelays: () => call(z.array(DelayOfferSchema), "GET", "/delays"),
     myCover: () => call(z.array(CoverSchema), "GET", "/cover"),
     ask: (question, history, about = "") =>

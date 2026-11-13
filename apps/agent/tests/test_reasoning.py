@@ -65,7 +65,7 @@ def ask(outcome: Outcome) -> Any:
 def test_an_answer_the_rules_contradict_goes_to_a_person() -> None:
     answer = ask("invalid")
     assert answer.answer == UNGROUNDED
-    assert (answer.suggest, answer.verified) == ("ask_person", False)
+    assert (answer.action, answer.verified) == ("talk_to_person", False)
 
 
 def test_an_answer_the_rules_prove_is_marked_and_others_are_shown_as_before() -> None:

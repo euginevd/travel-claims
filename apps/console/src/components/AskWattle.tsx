@@ -1,5 +1,6 @@
 import type { Api } from "../api";
 import type { Route } from "../useHashRoute";
+import { VersionsCard } from "./VersionsCard";
 import { WattlePanel } from "./Wattle";
 
 /** Questions that fit the console page the engineer is on. */
@@ -56,6 +57,9 @@ export function AskWattle({
       starters={startersFor(route)}
       placeholder="Ask about quality, security or a trace"
       onClose={onClose}
+      extra={(answer) =>
+        answer.compare?.length === 2 ? <VersionsCard api={api} versions={answer.compare} /> : null
+      }
     />
   );
 }

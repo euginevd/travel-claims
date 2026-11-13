@@ -116,3 +116,48 @@ test("a dispatch waits on its own card and starts only on its button", async () 
 test("the turn line counts one step in the singular", () => {
   expect(turnLine({ steps: 1, seconds: 0.84, cost_usd: 0.0004 })).toBe("1 step · 0.8 s · $0.000");
 });
+
+test("an answer is laid out with its sources, and the next question asks again", async () => {
+  const user = userEvent.setup();
+  const asked: unknown[] = [];
+  const answer = {
+    role: "assistant",
+    text: "Two claims wait for you.",
+    headline: "Two claims wait for you.",
+    points: [{ text: "CLM-1004 needs **sign-off**", source: 1 }],
+    sources: ["What needs me"],
+    next: "Sign off CLM-1004?",
+  };
+  const fetchFn = (input: string, init?: RequestInit) => {
+    if (input === "/api/copilot/conversations" && init?.method === "GET") return respond([]);
+    if (input === "/api/copilot/conversations") return respond(base, 201);
+    asked.push(typeof init?.body === "string" ? JSON.parse(init.body) : undefined);
+    return respond({ ...base, transcript: [{ role: "user", text: "What needs me?" }, answer] });
+  };
+  render(
+    <Copilot
+      copilot={createCopilot(
+        (i, n) => Promise.resolve(fetchFn(i, n)),
+        () => "t",
+      )}
+      onClose={() => undefined}
+    />,
+  );
+  await user.type(screen.getByRole("textbox"), "What needs me?{Enter}");
+  expect(await screen.findByText("Two claims wait for you.")).toBeInTheDocument();
+  expect(screen.getByText("sign-off").tagName).toBe("STRONG");
+  expect(screen.getByRole("list", { name: "Sources" })).toHaveTextContent("What needs me");
+  await user.click(screen.getByRole("button", { name: "Sign off CLM-1004?" }));
+  expect(asked.at(-1)).toEqual({ text: "Sign off CLM-1004?" });
+});
+
+test("each step in a turn is numbered so the steps appear in turn", async () => {
+  const { stepOrder } = await import("./Copilot");
+  const transcript = [
+    { role: "user" as const, text: "Hi" },
+    { kind: "step" as const, title: "One" },
+    { kind: "step" as const, title: "Two" },
+    { role: "assistant" as const, text: "Done" },
+  ];
+  expect([1, 2].map((i) => stepOrder(transcript, i))).toEqual([0, 1]);
+});

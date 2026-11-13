@@ -8,7 +8,9 @@ import pytest
 from api_helpers import AGENT, MAYA, OLIVER, line, payout, png, sign_in, start
 from fastapi.testclient import TestClient
 
+from undercover_api.models import CustomerClaimSummary, DecisionKind
 from undercover_api.payments import mask_payid
+from undercover_api.portal import APPROVED_IN_FULL, REFERRED_REASON, customer_reason
 
 PNG = png()
 NEW_CLAIM: dict[str, Any] = {
@@ -290,6 +292,73 @@ def test_ask_undercover_answers_about_the_claim_on_screen_only_if_its_the_custom
     assert client.post("/api/customer/ask", json=odd, headers=maya).status_code == 422
 
 
+def test_wattle_shows_a_claim_it_names_only_if_its_the_customers(
+    client: TestClient, maya: dict[str, str], oliver: dict[str, str], agent: Any
+) -> None:
+    def naming(request: dict[str, object]) -> dict[str, object]:
+        agent.questions.append(request)
+        return {
+            "answer": "Here it is.",
+            "sources": [],
+            "action": "show_claim",
+            "claim_id": "CLM-1005",
+            "replies": ["Thanks"],
+            "screened": False,
+        }
+
+    agent.ask = naming
+    mine = client.post("/api/customer/ask", json={"question": "my passport claim"}, headers=oliver)
+    assert (mine.json()["action"], mine.json()["claim_id"]) == ("show_claim", "CLM-1005")
+    # Oliver's claim, named to Maya: she gets her own list instead, never his claim.
+    theirs = client.post("/api/customer/ask", json={"question": "CLM-1005"}, headers=maya)
+    assert (theirs.json()["action"], theirs.json()["claim_id"]) == ("show_claims", "")
+
+
+def test_a_customer_changes_their_mobile_and_stops_texts(
+    client: TestClient, oliver: dict[str, str]
+) -> None:
+    shown = client.get("/api/customer/settings", headers=oliver).json()
+    assert shown == {
+        "email": "oliver.grant@example.com",
+        "mobile": "+1 303 555 0109",
+        "text_updates": True,
+    }
+    changed = client.put(
+        "/api/customer/settings",
+        json={"mobile": "0412 345 678", "text_updates": False},
+        headers=oliver,
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["mobile"] == "0412 345 678"
+    assert client.get("/api/customer/settings", headers=oliver).json()["text_updates"] is False
+    for bad in ("call me", "1    1", "+", "0412-345-678"):
+        sent = {"mobile": bad, "text_updates": True}
+        assert client.put("/api/customer/settings", json=sent, headers=oliver).status_code == 422
+    cleared = {"mobile": "", "text_updates": False}
+    assert client.put("/api/customer/settings", json=cleared, headers=oliver).json()["mobile"] == ""
+    assert client.get("/api/customer/settings").status_code == 401
+
+
+def test_with_texts_off_only_the_email_goes(
+    client: TestClient, oliver: dict[str, str], database_url: str
+) -> None:
+    from undercover_api.db import make_engine  # noqa: PLC0415 - only this test writes directly
+    from undercover_api.notices import EMAIL, SMS, send  # noqa: PLC0415 - the module under test
+
+    client.put(
+        "/api/customer/settings",
+        json={"mobile": "0412 345 678", "text_updates": False},
+        headers=oliver,
+    )
+    engine = make_engine(database_url)
+    with engine.begin() as db:
+        send(db, "CUS-3005", "CLM-1005", EMAIL, "Paid", "We've paid.")
+        send(db, "CUS-3005", "CLM-1005", SMS, "Paid", "We've paid.")
+    engine.dispose()
+    sent = client.get("/api/customer/notices", headers=oliver).json()
+    assert [n["channel"] for n in sent if n["subject"] == "Paid"] == ["email"]
+
+
 def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
     client: TestClient, sam: dict[str, str], maya: dict[str, str], agent: Any
 ) -> None:
@@ -305,3 +374,26 @@ def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
         client.post("/api/engineering/ask", json={"question": "hi"}, headers=maya).status_code
         == 401
     )
+
+
+def test_an_approval_is_explained_in_plain_words_and_a_decline_keeps_its_reason() -> None:
+    summary = CustomerClaimSummary(
+        claim_id="CLM-1001",
+        policy_id="POL-2001",
+        claim_type="baggage",
+        summary="Bag lost",
+        amount_claimed=300.0,
+        submitted_on="2026-06-24",
+        status="paid",
+        status_text="Paid.",
+        open_requests=0,
+    )
+    working = "Receipts match; no prior claims."
+    assert customer_reason(DecisionKind.APPROVE, working, 300.0, summary) == APPROVED_IN_FULL
+    part = customer_reason(DecisionKind.APPROVE, working, 250.0, summary)
+    assert "$250.00 of the $300.00" in part
+    assert "prior" not in part
+    assert customer_reason(DecisionKind.DECLINE, "Filed after 90 days.", 0, summary) == (
+        "Filed after 90 days."
+    )
+    assert customer_reason(DecisionKind.REFER, working, 0, summary) == REFERRED_REASON

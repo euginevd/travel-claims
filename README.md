@@ -73,7 +73,7 @@ A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
 | App | For | Locally | Test account |
 |---|---|---|---|
 | `home` | Anyone: the project page | http://127.0.0.1:5172 | none |
-| `portal` | Customers make, track and ask about claims | http://127.0.0.1:5173 | Oliver Grant: **Use test account** |
+| `portal` | Customers chat with Wattle to make, track and ask about claims | http://127.0.0.1:5173 | Oliver Grant: **Use test account** |
 | `dashboard` | Handlers work the queue and sign off payouts | http://127.0.0.1:5174 | Dana Whitfield, senior: **Continue as Dana** |
 | `console` | AI engineers: evals, live monitoring, red team | http://127.0.0.1:5175 | Sam Carter: **Continue as Sam** |
 

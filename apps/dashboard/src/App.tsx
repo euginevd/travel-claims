@@ -176,6 +176,7 @@ export function App({ fetchFn = defaultFetch, pollMs = 1500 }: AppProps) {
       {copilotOpen && (
         <Copilot
           copilot={copilot}
+          api={api}
           starters={
             route.page === "claim"
               ? [

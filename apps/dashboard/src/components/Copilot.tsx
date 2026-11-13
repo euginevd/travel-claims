@@ -8,11 +8,15 @@ import type {
   Entry,
   Pending,
 } from "../copilot";
+import type { Api } from "../api";
 import { dollars } from "../format";
+import { ClaimFactsCard } from "./ClaimFactsCard";
 import { WATTLE_FOOTER, WattleMark } from "./Wattle";
 
 interface CopilotProps {
   copilot: CopilotApi;
+  /** The dashboard's api, as the handler signed in: cards load a claim through it. */
+  api?: Api;
   onClose: () => void;
   starters?: string[];
 }
@@ -27,7 +31,7 @@ const MESSAGE_LIMIT = 2000;
 // Wattle AI for claims experts: a chat in a sidebar that acts as the signed-in handler. Each step it
 // takes shows as a card, and anything that pays, spends or sends a decision back waits on a card
 // until the handler confirms it.
-export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotProps) {
+export function Copilot({ copilot, api, onClose, starters = SUGGESTIONS }: CopilotProps) {
   const [past, setPast] = useState<ConversationSummary[]>([]);
   const [current, setCurrent] = useState<Conversation | null>(null);
   const [text, setText] = useState("");
@@ -148,7 +152,17 @@ export function Copilot({ copilot, onClose, starters = SUGGESTIONS }: CopilotPro
           </div>
         )}
         {current?.transcript.map((entry, index) => (
-          <Bubble key={index} entry={entry} />
+          <Bubble
+            key={index}
+            entry={entry}
+            order={stepOrder(current.transcript, index)}
+            api={api}
+            onNext={
+              index === current.transcript.length - 1 && !busy && !current.pending
+                ? (question) => void ask(question)
+                : undefined
+            }
+          />
         ))}
         {current?.pending && (
           <ConfirmCard
@@ -233,7 +247,73 @@ export function emphasised(text: string): ReactNode[] {
     );
 }
 
-function Bubble({ entry }: { entry: Entry }) {
+/** Where a step card sits in its turn, so the steps appear one after another. */
+export function stepOrder(transcript: Entry[], index: number): number {
+  let order = 0;
+  for (let i = index - 1; i >= 0 && !transcript[i]?.role; i -= 1) order += 1;
+  return Math.min(order, 7);
+}
+
+function Bubble({
+  entry,
+  api,
+  onNext,
+  order = 0,
+}: {
+  entry: Entry;
+  api?: Api;
+  onNext?: (question: string) => void;
+  order?: number;
+}) {
+  if (entry.role === "assistant" && entry.headline) {
+    const sources = entry.sources ?? [];
+    return (
+      <div className="bubble assistant laid-out">
+        <p className="wattle-headline">{entry.headline}</p>
+        {entry.points && entry.points.length > 0 && (
+          <ul className="wattle-points">
+            {entry.points.map((point, i) => {
+              const source = sources[point.source - 1];
+              return (
+                <li key={String(i)}>
+                  {emphasised(point.text)}
+                  {source && (
+                    <span className="wattle-cite" title={source}>
+                      {point.source}
+                      <span className="visually-hidden">: {source}</span>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {sources.length > 0 && (
+          <ol className="wattle-sources" aria-label="Sources">
+            {sources.map((source) => (
+              <li key={source}>{source}</li>
+            ))}
+          </ol>
+        )}
+        {api && entry.card && entry.claim_id && (
+          <ClaimFactsCard api={api} kind={entry.card} claimId={entry.claim_id} />
+        )}
+        {entry.next && onNext && (
+          <p className="wattle-next-q">
+            <span>Next</span>
+            <button
+              type="button"
+              onClick={() => {
+                onNext(entry.next ?? "");
+              }}
+            >
+              {entry.next}
+            </button>
+          </p>
+        )}
+      </div>
+    );
+  }
   if (entry.role) {
     return (
       <p className={`bubble ${entry.role}`}>
@@ -245,7 +325,7 @@ function Bubble({ entry }: { entry: Entry }) {
   const Icon =
     entry.kind === "error" ? AlertCircle : entry.kind === "action" ? CheckCircle2 : Search;
   return (
-    <div className={`copilot-card ${entry.kind ?? "step"}`}>
+    <div className={`copilot-card ${entry.kind ?? "step"} s${String(order)}`}>
       <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
       <span>
         <strong>{entry.title}</strong>

@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, StringConstraints
 from undercover_agent.models import Json
 
 MAX_POINTS = 3
+# The reply tool asks for under 15 words; a little room, then a point is cut.
+POINT_WORDS = 18
 MAX_SOURCES = 6
 # The only formatting a point may carry: **bold** around a figure or a few words.
 BOLD = re.compile(r"\*\*(.+?)\*\*")
@@ -69,6 +71,18 @@ def plain(text: str) -> str:
     return BOLD.sub(r"\1", text)
 
 
+def short(text: str, words: int = POINT_WORDS) -> str:
+    """A point held to its length: cut at a word, with an ellipsis, and a bold mark left open by
+    the cut dropped, so nothing reads as half-formatted."""
+    parts = text.split()
+    if len(parts) <= words:
+        return text
+    cut = " ".join(parts[:words]).rstrip(",;:")
+    if cut.count("**") % 2:
+        cut = cut[::-1].replace("**", "", 1)[::-1]
+    return cut + "…"
+
+
 def shape(args: Json, fallback: str) -> Shaped:
     """The reply tool's arguments, bounded: an older reply with only `answer` becomes the
     headline, a citation past the sources is dropped, and nothing is longer than it may be."""
@@ -79,7 +93,7 @@ def shape(args: Json, fallback: str) -> Shaped:
         if not isinstance(raw, dict):
             continue
         item = cast(Json, raw)
-        text = str(item.get("text", "")).strip()[:300]
+        text = short(str(item.get("text", "")).strip()[:300])
         if not text:
             continue
         cited = item.get("source", 0)
