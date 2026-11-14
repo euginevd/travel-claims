@@ -3,23 +3,28 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 ## Medium: a plan, then one to two days each
 
 1. **Compare models, phase 3**: a model for each of the other agents (screening, specialists, drafting, the judge, the improver, the Copilot), changed on Agents with a reason and recorded in the audit log, each compared on its own task. Plan: [docs/plan-compare.md](docs/plan-compare.md).
-2. **Red team, step 2.** Step 1 is built: the page moved to Secure, each attack is aimed at a layer, and five new attacks reached the claim agent. Next:
-   - attacks on Wattle and the Copilot (another customer's data, a tool without its confirm card, prompt extraction, a walk over several messages);
-   - an attack the guardian should hold;
-   - a version of RT-11 with a police report, so it reaches the approval limit.
+2. **Red team, step 2.** Step 1 is built (#120): the page sits under Secure, each attack names its layer, and three of 14 attacks now reach the claim agent. Next:
+   - attacks on Wattle and the Copilot: another customer's data, a tool without its confirm card, prompt extraction, a walk over several messages;
+   - attacks on deciding a referral and on the guardian, each one it should hold;
+   - RT-11 with a police report attached, so it reaches the approval limit;
+   - a run on `dev`, where the Bedrock guardrail runs first.
 
    [docs/proposal-redteam.md](docs/proposal-redteam.md).
+3. **Fit-the-window leftovers** (design-system rule 40), small:
+   - Agents leaves about 300px empty under the map at 1710×1270: let the map grow with the height.
+   - Dashboard Today is short when nothing needs the handler: open "Everything else" then, scrolling inside its card.
+
 ## Large: research and a plan first, several days each
 
-3. **The Secure tab, rethought.** Map what we check against the OWASP Top 10 for LLM applications, the OWASP agentic AI threats, the newer AI threat-modelling frameworks (MAESTRO and others) and MCP security. Then plan how the tab covers them, checked against how others do it.
-4. **Privacy and personal data.**
+4. **The Secure tab, rethought.** Map what we check against the OWASP Top 10 for LLM applications, the OWASP agentic AI threats, the newer AI threat-modelling frameworks (MAESTRO and others) and MCP security. Then plan how the tab covers them, checked against how others do it.
+5. **Privacy and personal data.**
    - Who sees which data: what handlers may and may not see, and whether AI engineers may see claim data, and which kinds.
    - Masking, encryption, retention.
    - Which regulations apply: the Australian Privacy Act and its Privacy Principles, the notifiable data breach scheme, and APRA CPS 234 for insurers.
    - Breach notification.
 
    Deliver recommendations and a plan to build them in.
-5. **Agents as the centrepiece of the control plane's Overview.**
+6. **Agents as the centrepiece of the control plane's Overview.**
    - Agents with personas.
    - Tool calls, and one agent calling another, shown as they happen.
    - A swarm: what changes at 250,000 claims a day instead of 25 (queueing, concurrency, cost, limits), and the features that scale needs.
@@ -28,9 +33,9 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 
 ## Last: once every feature and screen has settled
 
-6. **Sign-in pages.** The three sign-in pages (portal, dashboard, control plane) haven't changed while the apps did. Audit the message and the animation on the left of each, then propose whether to change them. Build only once the proposal is agreed.
+7. **Sign-in pages.** The three sign-in pages (portal, dashboard, control plane) haven't changed while the apps did. Audit the message and the animation on the left of each, then propose whether to change them. Build only once the proposal is agreed.
 
-7. **Walkthrough video, re-recorded.** It covers:
+8. **Walkthrough video, re-recorded.** It covers:
    - the landing page;
    - GitHub, quickly: repo structure, architecture diagram, threat model;
    - the customer portal, making a claim and its AI features;
@@ -63,6 +68,5 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
   - Encryption and masking settings missing the model-invocation logs' bucket, AgentCore Memory and the agent runtime's log group.
   - Accessibility: the claim page's evidence tabs (arrow keys), focus returned when a card closes, the agents map's roles, a focus ring at 3:1, and an off switch for single-key shortcuts.
   - Browser tests for the paths that change something: claim by chat and send, decide a referral, sign-off, the agent switch.
-  - Red-team attacks for Wattle, the Copilot, deciding a referral and the guardian.
   - A red-team report still passes if it names any unpaid claim: tie each result to a claim the red team's customer made after the run started, or have the agent report on its own key.
   - Shared web code still copied in each app (formatters, the fetch and error core, tokens), raw colours in the two new stylesheets, and the dashboard's dead Dispatch code.
