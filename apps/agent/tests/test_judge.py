@@ -195,11 +195,15 @@ def test_head_to_head_reads_both_orders_blind_and_scores_the_first_side() -> Non
             None,  # one reading: that one counts
         ],
     )
+    judge = RunJudge(stub, GradesApi())
+    # One duel at a time, so the stub's answers reach them in order.
+    scores = [judge.prefer_both(duel(f"CLM-{n}|a|b"))["a_score"] for n in range(1, 5)]
+    assert scores == [1.0, 0.5, None, 0.5]
+    # The whole comparison's verdicts are posted together, by key.
     api = GradesApi()
-    request = HeadToHeadRequest(compare_id=3, duels=[duel(f"CLM-{n}|a|b") for n in range(1, 5)])
-    RunJudge(stub, api).compare_all(request)
-    compare_id, verdicts = api.verdicts[0]
-    assert compare_id == 3
-    assert [v["a_score"] for v in sorted(verdicts, key=lambda v: v["key"])] == [1.0, 0.5, None, 0.5]
+    RunJudge(StubJudge([], [prefer("tie"), prefer("tie")]), api).compare_all(
+        HeadToHeadRequest(compare_id=3, duels=[duel("CLM-9|a|b")])
+    )
+    assert api.verdicts == [(3, [{"key": "CLM-9|a|b", "a_score": 0.5}])]
     # Blind: the judge reads explanations by order only, never a model's name.
     assert all("claude" not in text and "Explanation first" in text for text in stub.read)
