@@ -30,9 +30,11 @@ from undercover_api.evaluations import (
     create_run,
     current_version,
     dispatch,
+    labelled,
     need_current,
     new_id,
     run_claims,
+    run_cost,
     run_of,
     run_row,
 )
@@ -45,8 +47,12 @@ compare_router = APIRouter(prefix="/api/engineering/compare")
 
 COMPARE = "compare"
 CONCURRENCY = 5
+# The dearest models run on the 5-claim set only: 25 claims on Fable is about $10 a run.
+SMALL_ONLY = {"claude-opus-5-5", "claude-fable-5-2"}
 # A practice claim's tokens when no run has been worked yet, for the estimate.
-TOKENS_IN, TOKENS_OUT = 40_000, 2_500
+TOKENS_IN, TOKENS_OUT = 12_000, 1_500
+# Each run keeps an improvement round's spending limit; a whole comparison, three of them.
+RUNS_OF_LIMIT = 3
 
 
 class ModelChoice(BaseModel):
@@ -114,6 +120,8 @@ class Result(BaseModel):
 
 class Mark(BaseModel):
     model: str
+    label: str
+    effort: str
     decision: str | None
     payout: float | None
     right: bool
@@ -238,10 +246,40 @@ def compare_version(db: Connection, base: int, pick: Pick, by: str) -> int:
     return version
 
 
+def claims_in(db: Connection, size: str) -> int:
+    return len(labelled(db, "evaluation", size)) or 1
+
+
+def estimate_of(db: Connection, items: list[dict[str, Any]], size: str) -> float:
+    """What runs the planned items would likely cost, from the last practice run's tokens."""
+    tokens_in, tokens_out = tokens_per_claim(db)
+    claims_each = claims_in(db, size)
+    return sum(
+        (
+            tokens_in * BY_ID[item["model"]].input_price
+            + tokens_out * BY_ID[item["model"]].output_price
+        )
+        / 1_000_000
+        * claims_each
+        for item in items
+    )
+
+
+def spent_on(db: Connection, plan: list[dict[str, Any]]) -> float:
+    return sum(run_cost(db, int(item["run_id"])) for item in plan if item.get("run_id"))
+
+
 def start_next(db: Connection, service: AgentService, compare_id: int) -> None:
-    """Start the comparison's next planned run, or mark it finished when none is left."""
-    row = db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id)).mappings()
-    found = row.one()
+    """Start the comparison's next planned run, or mark it finished when none is left. A
+    comparison stopped meanwhile starts nothing more, and one whose next run would go over
+    the spending limit stops there."""
+    found = (
+        db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id))
+        .mappings()
+        .one()
+    )
+    if found["status"] != "running":
+        return
     plan: list[dict[str, Any]] = [dict(item) for item in found["plan"]]
     waiting = next((item for item in plan if item.get("run_id") is None), None)
     if waiting is None:
@@ -251,21 +289,44 @@ def start_next(db: Connection, service: AgentService, compare_id: int) -> None:
             .values(status="finished")
         )
         return
+    next_run = estimate_of(db, [waiting], found["size"])
+    if next_run > limit_of(db) or spent_on(db, plan) + next_run > RUNS_OF_LIMIT * limit_of(db):
+        stop(db, compare_id)
+        return
     body = StartRunRequest(label_set="evaluation", size=found["size"], concurrency=CONCURRENCY)
     run_id, ids = create_run(db, body, int(waiting["version"]), found["started_by"])
     waiting["run_id"] = run_id
-    db.execute(update(comparisons).where(comparisons.c.compare_id == compare_id).values(plan=plan))
+    moved = db.execute(
+        update(comparisons)
+        .where(comparisons.c.compare_id == compare_id, comparisons.c.status == "running")
+        .values(plan=plan)
+    )
+    if moved.rowcount == 0:
+        # Stopped while this run was being made: it never starts.
+        db.rollback()
+        return
     dispatch(db, service, run_id, ids, CONCURRENCY)
 
 
+def limit_of(db: Connection) -> float:
+    from undercover_api.improvement import spend_limit  # noqa: PLC0415 - imports compare's module
+
+    return spend_limit(db)
+
+
 def after_run(db: Connection, run_id: int, service: AgentService) -> None:
-    """A run finished: if it was a comparison's, start that comparison's next one."""
-    for row in db.execute(
+    """A run finished: if it was the run a comparison started last, start the next one. A
+    finish reported twice finds a later run started, and starts nothing more."""
+    # The finished run's scores stand whatever happens to the next one.
+    db.commit()
+    rows = db.execute(
         select(comparisons.c.compare_id, comparisons.c.plan).where(
             comparisons.c.status == "running"
         )
-    ).mappings():
-        if any(item.get("run_id") == run_id for item in row["plan"]):
+    ).mappings()
+    for row in list(rows):
+        started = [item["run_id"] for item in row["plan"] if item.get("run_id") is not None]
+        if started and started[-1] == run_id:
             try:
                 start_next(db, service, int(row["compare_id"]))
             except (AgentUnavailableError, HTTPException) as error:
@@ -300,6 +361,19 @@ def start(
         select(comparisons.c.compare_id).where(comparisons.c.status == "running")
     ).first():
         raise HTTPException(409, "A comparison is running: wait for it, or stop it")
+    if body.size == "whole" and any(pick.model in SMALL_ONLY for pick in body.picks):
+        raise HTTPException(409, "Opus and Fable run on the 5 claims: 25 would cost too much")
+    limit = limit_of(db)
+    dearest = max(estimate_of(db, [{"model": pick.model}], body.size) for pick in body.picks)
+    likely = (
+        estimate_of(db, [{"model": pick.model} for pick in body.picks], body.size) * body.repeats
+    )
+    if dearest > limit or likely > RUNS_OF_LIMIT * limit:
+        raise HTTPException(
+            409,
+            f"This would likely cost ${likely:.2f}, over the limit: ${limit:.2f} a run and "
+            f"${RUNS_OF_LIMIT * limit:.2f} a comparison. Fewer runs or a cheaper model",
+        )
     base = need_current(db)
     versions = [compare_version(db, base, pick, engineer.name) for pick in body.picks]
     plan = [
@@ -319,7 +393,12 @@ def start(
             )
         )
     )
-    start_next(db, service, compare_id)
+    try:
+        start_next(db, service, compare_id)
+    except HTTPException:
+        db.rollback()
+        stop(db, compare_id)
+        raise
     return comparison_of(db, compare_id)
 
 
@@ -332,16 +411,26 @@ def stop_comparison(compare_id: int, _: SignedInEngineer, db: Database) -> Compa
 
 @compare_router.post("/propose", operation_id="propose_compared", status_code=201)
 def propose(
-    body: ProposeRequest, engineer: SignedInEngineer, db: Database, service: AgentCalls
+    body: ProposeRequest,
+    request: Request,
+    engineer: SignedInEngineer,
+    db: Database,
+    service: AgentCalls,
 ) -> dict[str, int]:
     """Hand a compared model to an improvement round, in the improver's place: the round
     baselines the current version, then waits for a person's review, then the exam decides."""
     from undercover_api.improvement import start_round_with  # noqa: PLC0415 - imports this
 
+    if body.model not in offered(request):
+        raise HTTPException(409, f"{label_of(body.model)} isn't offered in this region")
     reason = body.reason or f"Compared: {label_of(body.model)} at {body.effort} effort"
-    round_id = start_round_with(
-        db, service, engineer.name, {"model": body.model, "effort": body.effort, "reason": reason}
-    )
+    preset = {
+        "model": body.model,
+        "effort": body.effort,
+        "reason": reason,
+        "by": engineer.name,
+    }
+    round_id = start_round_with(db, service, engineer.name, preset)
     return {"round_id": round_id}
 
 
@@ -384,8 +473,9 @@ def result_of(
             finished_runs.append(run)
     by_run = [run.scores.accuracy for run in finished_runs if run.scores]
     claims_seen = sum(run.scores.claims for run in finished_runs if run.scores)
+    one_run = claims_seen // len(finished_runs) if finished_runs else 0
     accuracy = mean(by_run)
-    low_high = wilson(accuracy, claims_seen) if accuracy is not None and claims_seen else None
+    low_high = wilson(accuracy, one_run) if accuracy is not None and one_run else None
     straight = mean([run.scores.straight_through for run in finished_runs if run.scores])
     grades = [run.scores.grade for run in finished_runs if run.scores and run.scores.grade]
     tokens = sum(tokens_in_run(db, run.run_id) for run in finished_runs)
@@ -440,7 +530,9 @@ def answer_of(results: list[Result]) -> tuple[str | None, str | None]:
         return f"None meets the targets yet; the best is {name_of(best)}.", None
     cheapest = min(passing, key=lambda r: r.cost_per_claim or 0)
     better = [
-        r for r in done if r is not cheapest and r.low is not None and r.low > (cheapest.high or 1)
+        r
+        for r in passing
+        if r is not cheapest and r.low is not None and r.low > (cheapest.high or 1)
     ]
     if better:
         top = max(better, key=lambda r: r.accuracy or 0)
@@ -449,13 +541,23 @@ def answer_of(results: list[Result]) -> tuple[str | None, str | None]:
             "the cheapest that meets the targets.",
             cheapest.model + ":" + cheapest.effort,
         )
-    if len(done) == 1:
-        return f"{name_of(cheapest)} meets the targets.", cheapest.model + ":" + cheapest.effort
-    return (
-        f"{name_of(cheapest)} is enough: it meets the targets for the least, "
-        "and the others' ranges overlap it.",
-        cheapest.model + ":" + cheapest.effort,
+    return enough_line(cheapest, [r for r in done if r is not cheapest]), (
+        cheapest.model + ":" + cheapest.effort
     )
+
+
+def enough_line(cheapest: Result, others: list[Result]) -> str:
+    """Why the cheapest that passes is the pick, when nothing dearer is clearly better."""
+    if not others:
+        return f"{name_of(cheapest)} meets the targets."
+    if not any(r.passes for r in others):
+        return f"{name_of(cheapest)} is the only one that meets the targets."
+    if any(r.passes and (r.accuracy or 0) > (cheapest.accuracy or 0) for r in others):
+        return (
+            f"{name_of(cheapest)} is enough: it meets the targets for the least, and the "
+            "higher scores' ranges overlap it."
+        )
+    return f"{name_of(cheapest)} is enough: it meets the targets for the least."
 
 
 def differences_of(
@@ -463,22 +565,20 @@ def differences_of(
 ) -> tuple[list[Difference], int]:
     """Each claim a pick got wrong, beside the handler's answer and every pick's, from each
     pick's first finished run."""
-    firsts: list[tuple[str, dict[str, RunClaim]]] = []
+    firsts: list[tuple[dict[str, Any], dict[str, RunClaim]]] = []
     for items in groups:
         for item in items:
             run_id = item.get("run_id")
             if run_id is not None and run_row(db, int(run_id))["status"] == "finished":
                 found, _ = run_claims(db, int(run_id))
-                firsts.append(
-                    (label_of(items[0]["model"]), {c.original_claim_id: c for c in found})
-                )
+                firsts.append((items[0], {c.original_claim_id: c for c in found}))
                 break
     if not firsts:
         return [], 0
     originals: list[str] = sorted({key for _, by_claim in firsts for key in by_claim})
     found_rows: list[Difference] = []
     for original in originals:
-        seen = [(label, by_claim.get(original)) for label, by_claim in firsts]
+        seen = [(pick, by_claim.get(original)) for pick, by_claim in firsts]
         copies = [c for _, c in seen if c is not None]
         if not copies or all(c.payout_matched for c in copies):
             continue
@@ -491,16 +591,23 @@ def differences_of(
                 handler_payout=sample.handler_payout,
                 marks=[
                     Mark(
-                        model=label,
+                        model=pick["model"],
+                        label=label_of(pick["model"]),
+                        effort=pick["effort"],
                         decision=c.decision if c else None,
                         payout=c.payout if c else None,
                         right=bool(c and c.payout_matched),
                     )
-                    for label, c in seen
+                    for pick, c in seen
                 ],
             )
         )
     return found_rows, len(originals)
+
+
+def stalled(db: Connection, plan: list[dict[str, Any]]) -> bool:
+    started = [item["run_id"] for item in plan if item.get("run_id") is not None]
+    return bool(started) and run_row(db, int(started[-1]))["status"] == "stopped"
 
 
 def comparison_of(db: Connection, compare_id: int) -> Comparison:
@@ -511,6 +618,11 @@ def comparison_of(db: Connection, compare_id: int) -> Comparison:
     )
     if row is None:
         raise HTTPException(404, f"Comparison {compare_id} not found")
+    status = str(row["status"])
+    if status == "running" and stalled(db, row["plan"]):
+        # Its run was stopped as stale, so it will never finish: the comparison stops too.
+        stop(db, compare_id)
+        status = "stopped"
     targets = (accuracy_objective(db), straight_through_objective(db))
     groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for item in row["plan"]:
@@ -523,7 +635,7 @@ def comparison_of(db: Connection, compare_id: int) -> Comparison:
         compare_id=compare_id,
         size=row["size"],
         repeats=row["repeats"],
-        status=row["status"],
+        status=status,
         started_by=row["started_by"],
         started_at=row["started_at"],
         accuracy_target=targets[0],

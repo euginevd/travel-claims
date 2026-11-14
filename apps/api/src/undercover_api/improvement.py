@@ -344,7 +344,18 @@ def get_improver_brief(round_id: int, db: Database) -> Brief:
 
 @agent_eval_router.post("/rounds/{round_id}/proposal", operation_id="propose_configuration")
 def propose_configuration(round_id: int, body: Proposal, db: Database) -> Round:
-    """The improver's proposal: a new version with its diff, waiting for a senior handler."""
+    """The improver's proposal: a new version with its diff, waiting for a senior handler.
+    It chooses from the cheaper models and efforts only; Fable or max is a person's choice,
+    made in Compare."""
+    if body.model not in IMPROVER_MODELS or body.effort not in IMPROVER_EFFORTS:
+        raise HTTPException(
+            422, f"The improver chooses from {', '.join(IMPROVER_MODELS)} at low to high"
+        )
+    return propose_version(db, round_id, body, "Improver")
+
+
+def propose_version(db: Connection, round_id: int, body: Proposal, by: str) -> Round:
+    """A proposed version for a round, from the improver or a person's pick in Compare."""
     row = round_row(db, round_id)
     if row["status"] != "improving":
         raise HTTPException(409, f"Round {round_id} isn't waiting for a proposal")
@@ -376,7 +387,7 @@ def propose_configuration(round_id: int, body: Proposal, db: Database) -> Round:
             diff=diff,
             status="proposed",
             parent_version=base.version,
-            proposed_by="Improver",
+            proposed_by=by,
             created_at=now(),
         )
     )
@@ -463,7 +474,7 @@ def after_run(db: Connection, round_id: int, service: AgentService) -> None:
                 reason=preset["reason"],
                 cost=0,
             )
-            propose_configuration(round_id, pick, db)
+            propose_version(db, round_id, pick, str(preset.get("by") or row["started_by"]))
             return
         db.commit()
         try:

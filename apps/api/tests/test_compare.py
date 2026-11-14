@@ -1,4 +1,4 @@
-from api_helpers import FakeAgent
+from api_helpers import AGENT, FakeAgent
 from fastapi.testclient import TestClient
 from test_evaluations import finish, register, work_all
 
@@ -115,3 +115,48 @@ def test_the_answer_names_the_cheapest_pass_and_says_whether_dearer_is_clearly_b
     none, nothing = answer_of([miss])
     assert none == "None meets the targets yet; the best is Opus at medium."
     assert nothing is None
+
+
+def test_the_dearest_models_run_on_5_claims_and_the_improver_keeps_to_its_three(
+    client: TestClient, sam: dict[str, str], dana: dict[str, str]
+) -> None:
+    register(client)
+    # The improvement budget, which caps each compared run too, at its lowest.
+    lowest = {"round_spend_limit": 0.5, "reason": "Keep it cheap"}
+    assert client.put("/api/staff/settings", json=lowest, headers=dana).status_code == 200
+    body = {
+        "picks": [{"model": "claude-fable-5-2", "effort": "max"}],
+        "size": "whole",
+        "repeats": 1,
+    }
+    refused = client.post("/api/engineering/compare", json=body, headers=sam)
+    assert refused.status_code == 409
+    assert "5 claims" in refused.json()["detail"]
+    dear = {
+        "picks": [
+            {"model": "claude-fable-5-2", "effort": "max"},
+            {"model": "claude-opus-5-5", "effort": "max"},
+            {"model": "claude-sonnet-5-5", "effort": "max"},
+        ],
+        "size": "tiny",
+        "repeats": 3,
+    }
+    over = client.post("/api/engineering/compare", json=dear, headers=sam)
+    assert over.status_code == 409
+    assert "over the" in over.json()["detail"]
+
+    started = client.post("/api/engineering/rounds", headers=sam).json()
+    for run_id in (started["baseline_eval_run"], started["baseline_held_run"]):
+        work_all(client, run_id, sam, "decline")
+        finish(client, run_id)
+    fable = {
+        "instructions": "You decide one travel insurance claim for UnderCover. " * 3,
+        "model": "claude-fable-5-2",
+        "effort": "max",
+        "reason": "Most capable",
+        "cost": 0.01,
+    }
+    proposed = client.post(
+        f"/api/agent/rounds/{started['round_id']}/proposal", json=fable, headers=AGENT
+    )
+    assert proposed.status_code == 422

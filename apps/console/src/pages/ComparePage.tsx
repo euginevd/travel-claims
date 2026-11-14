@@ -11,6 +11,7 @@ const SIZES = [
   { size: "whole", claims: 25, label: "25" },
 ] as const;
 const POLL_MS = 5000;
+const SMALL_ONLY = new Set(["claude-opus-5-5", "claude-fable-5-2"]);
 // One colour a model, the same on every chart and card.
 const COLOURS: Record<string, string> = {
   "claude-haiku-5-5": "#3d6b3a",
@@ -173,7 +174,7 @@ export function CostChart({ results, target }: { results: CompareResult[]; targe
           ${10 ** power >= 1 ? String(10 ** power) : (10 ** power).toFixed(-power)}
         </text>
       ))}
-      {shown.map((r) => (
+      {shown.map((r, index) => (
         <g key={`${r.model}:${r.effort}`}>
           <line
             x1={x(r.cost_per_claim ?? 0)}
@@ -194,7 +195,7 @@ export function CostChart({ results, target }: { results: CompareResult[]; targe
           <text
             className="chart-name"
             x={x(r.cost_per_claim ?? 0) + 12}
-            y={y(r.accuracy ?? 0) + 4}
+            y={y(r.accuracy ?? 0) + (index % 2 === 0 ? 4 : 22)}
             style={{ fill: colour(r.model) }}
           >
             {r.label} {pct(r.accuracy)}
@@ -241,13 +242,14 @@ function ResultCard({
         <span className="hint">
           right
           {result.low !== null && result.high !== null
-            ? ` · likely ${pct(result.low)}–${pct(result.high)}`
+            ? ` · likely ${String(Math.round(result.low * 100))}–${pct(result.high)}`
             : ""}
         </span>
       </p>
       {result.by_run.length > 0 && (
         <span
           className="compare-runs"
+          role="img"
           aria-label={`Each run: ${result.by_run.map(pct).join(", ")}`}
         >
           {result.by_run.map((share, index) => (
@@ -340,7 +342,7 @@ export function ComparePage({ api }: { api: Api }) {
   const heading = useFocusHeading();
   const [models, setModels] = useState<ModelChoice[] | null>(null);
   const [picks, setPicks] = useState<Record<string, string>>({});
-  const [size, setSize] = useState<"tiny" | "whole">("tiny");
+  const [chosenSize, setSize] = useState<"tiny" | "whole">("tiny");
   const [repeats, setRepeats] = useState(1);
   const [found, setFound] = useState<Comparison | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -438,6 +440,9 @@ export function ComparePage({ api }: { api: Api }) {
   }
 
   const count = Object.keys(picks).length;
+  // Opus and Fable run on the 5 claims only: 25 would cost too much.
+  const smallOnly = Object.keys(picks).some((id) => SMALL_ONLY.has(id));
+  const size = smallOnly ? "tiny" : chosenSize;
   const claims = SIZES.find((one) => one.size === size)?.claims ?? 5;
   const cost = models ? estimate(models, picks, claims, repeats) : 0;
   const cheapest = found?.cheapest_pass ?? null;
@@ -486,6 +491,7 @@ export function ComparePage({ api }: { api: Api }) {
                       type="radio"
                       name="compare-size"
                       checked={size === one.size}
+                      disabled={one.size === "whole" && smallOnly}
                       onChange={() => {
                         setSize(one.size);
                       }}
@@ -541,7 +547,10 @@ export function ComparePage({ api }: { api: Api }) {
             {found.repeats === 1 ? "run" : "runs"} each · {when(found.started_at)}
             {running && " · running"}
           </p>
-          <div className={`compare-answer${found.answer && cheapest ? " is-good" : ""}`}>
+          <div
+            className={`compare-answer${found.answer && cheapest ? " is-good" : ""}`}
+            aria-live="polite"
+          >
             {found.answer && cheapest ? (
               <Check size={18} strokeWidth={2} aria-hidden="true" />
             ) : null}
@@ -618,18 +627,18 @@ export function ComparePage({ api }: { api: Api }) {
                     <span className="claim-marks">
                       {difference.marks.map((mark) => (
                         <span
-                          key={mark.model}
+                          key={`${mark.model}:${mark.effort}`}
                           className={mark.right ? "is-right" : "is-wrong"}
-                          title={mark.model}
+                          title={`${mark.label} ${mark.effort}`}
                         >
                           <span
                             className="model-dot"
-                            style={{
-                              background: colour(
-                                found.results.find((r) => r.label === mark.model)?.model ?? "",
-                              ),
-                            }}
+                            aria-hidden="true"
+                            style={{ background: colour(mark.model) }}
                           />
+                          <span className="visually-hidden">
+                            {mark.label} {mark.effort}:{" "}
+                          </span>
                           {mark.right
                             ? "✓"
                             : mark.decision === "approve"

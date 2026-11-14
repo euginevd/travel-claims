@@ -93,8 +93,22 @@ const COMPARISON: Comparison = {
       handler_decision: "approve",
       handler_payout: 250,
       marks: [
-        { model: "Haiku 5.5", decision: "refer", payout: null, right: false },
-        { model: "Fable 5.2", decision: "approve", payout: 250, right: true },
+        {
+          model: "claude-haiku-5-5",
+          label: "Haiku 5.5",
+          effort: "medium",
+          decision: "refer",
+          payout: null,
+          right: false,
+        },
+        {
+          model: "claude-fable-5-2",
+          label: "Fable 5.2",
+          effort: "high",
+          decision: "approve",
+          payout: 250,
+          right: true,
+        },
       ],
     },
   ],
@@ -142,6 +156,7 @@ test("compare sends the picks with their efforts, the claims and the runs each",
   });
   render(<ComparePage api={createApi(fetchFn, () => "t")} />);
   await user.click(await screen.findByRole("checkbox", { name: "Compare Fable 5.2" }));
+  expect(screen.getByRole("radio", { name: "25" })).toBeDisabled();
   await user.click(
     within(screen.getByRole("group", { name: "Fable 5.2 effort" })).getByRole("radio", {
       name: "max",
@@ -213,14 +228,32 @@ test("a running comparison shows each model's state, and stops; a failed start s
         claim_type: "baggage",
         handler_decision: "decline",
         handler_payout: 0,
-        marks: [{ model: "Sonnet 5.5", decision: "approve", payout: 120, right: false }],
+        marks: [
+          {
+            model: "claude-sonnet-5-5",
+            label: "Sonnet 5.5",
+            effort: "high",
+            decision: "approve",
+            payout: 120,
+            right: false,
+          },
+        ],
       },
       {
         claim_id: "CLM-1021",
         claim_type: "medical",
         handler_decision: "refer",
         handler_payout: null,
-        marks: [{ model: "Sonnet 5.5", decision: null, payout: null, right: false }],
+        marks: [
+          {
+            model: "claude-sonnet-5-5",
+            label: "Sonnet 5.5",
+            effort: "high",
+            decision: null,
+            payout: null,
+            right: false,
+          },
+        ],
       },
     ],
   };

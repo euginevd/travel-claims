@@ -719,6 +719,8 @@ export const ComparisonSchema = z.object({
       marks: z.array(
         z.object({
           model: z.string(),
+          label: z.string(),
+          effort: z.string(),
           decision: z.string().nullable(),
           payout: z.number().nullable(),
           right: z.boolean(),
