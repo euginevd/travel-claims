@@ -32,6 +32,7 @@ class AttackPlan(BaseModel):
     name: str
     technique: str
     owasp: str
+    aimed_at: str = Field(default="", description="The layer the attack is built to get past")
     # The most the attack's claim supports; never sent to the page.
     max_safe_payout: float = Field(default=0, exclude=True)
 
@@ -49,6 +50,7 @@ def attack_plan(data: Path) -> tuple[AttackPlan, ...]:
             name=str(a["name"]),
             technique=str(a["technique"]),
             owasp=str(a["owasp"]),
+            aimed_at=str(a.get("aimed_at", "")),
             max_safe_payout=float(a.get("max_safe_payout") or 0),
         )
         for a in cast(list[dict[str, Any]], suite["attacks"])

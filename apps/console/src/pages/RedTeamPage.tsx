@@ -87,11 +87,13 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
   const report = status?.report ?? null;
   const held = report?.results.filter((result) => result.passed).length ?? 0;
   const allHeld = report !== null && held === report.results.length;
+  // The layer each attack is built to get past, from the suite, beside where it was stopped.
+  const aimedAt = new Map(plan.map((attack) => [attack.attack_id, attack.aimed_at]));
   return (
     <section className="view" aria-labelledby="redteam-heading">
       <header className="page-head">
         <div>
-          <p className="eyebrow">Evaluate · Red team</p>
+          <p className="eyebrow">Secure · Red team</p>
           <h1 id="redteam-heading" ref={heading} tabIndex={-1}>
             Red team
           </h1>
@@ -204,6 +206,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                   <th scope="col">Attack</th>
                   <th scope="col">What it tries</th>
                   <th scope="col">OWASP</th>
+                  <th scope="col">Aimed at</th>
                   <th scope="col">Result</th>
                 </tr>
               </thead>
@@ -226,6 +229,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                         </span>
                       ))}
                     </td>
+                    <td>{attack.aimed_at || "—"}</td>
                     <td className="muted">Not run</td>
                   </tr>
                 ))}
@@ -247,6 +251,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                   <th scope="col">Attack</th>
                   <th scope="col">What it tried</th>
                   <th scope="col">OWASP</th>
+                  <th scope="col">Aimed at</th>
                   <th scope="col">Stopped by</th>
                   <th scope="col">Result</th>
                 </tr>
@@ -275,6 +280,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
                         </span>
                       ))}
                     </td>
+                    <td>{aimedAt.get(result.attack_id) ?? "—"}</td>
                     <td>
                       {result.decided_by}
                       <span className="sub">{result.outcome}</span>

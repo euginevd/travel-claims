@@ -289,7 +289,7 @@ export function PosturePage({ api }: { api: Api }) {
   }, [api, generation]);
 
   return (
-    <section className="view" aria-labelledby="posture-heading">
+    <section className="view fit" aria-labelledby="posture-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Secure · Posture</p>

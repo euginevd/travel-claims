@@ -15,7 +15,6 @@ import { when } from "../format";
 import { wilson } from "../stats";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import {
-  AGENTS_HREF,
   DETECTIONS_HREF,
   IMPROVEMENT_HREF,
   LIVE_HREF,
@@ -53,12 +52,6 @@ function modelName(model: string): string {
   const [, name = model, major, minor] = /^claude-([a-z]+)-(\d+)-(\d+)/.exec(model) ?? [];
   const title = name.charAt(0).toUpperCase() + name.slice(1);
   return major ? `${title} ${major}.${minor ?? "0"}` : title;
-}
-
-function who(by: string | null, at: string | null, reason?: string | null): string {
-  return [by && at ? `${by}, ${when(at)}` : by, reason ? `“${reason}”` : null]
-    .filter(Boolean)
-    .join(" · ");
 }
 
 /** "Good morning" and so on, by the engineer's own clock. */
@@ -246,82 +239,28 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
             })}
           </ul>
 
-          <div className="overview-bottom">
-            <section className="panel" aria-labelledby="controls-heading">
-              <div className="panel-head">
-                <h2 id="controls-heading">Controls</h2>
-                <a className="stage-link small" href={AGENTS_HREF}>
-                  See the agents
-                </a>
-              </div>
-              <ul className="controls">
-                <li>
-                  <span>
-                    <b>Agent</b>
-                    <small className="muted">
-                      {who(
-                        overview.agent.changed_by,
-                        overview.agent.changed_at,
-                        overview.agent.reason,
-                      ) || "Senior handlers, from the dashboard"}
-                    </small>
-                  </span>
-                  <span className={`chip ${overview.agent.on ? "chip-good" : "chip-bad"}`}>
-                    {overview.agent.on ? `On · ${String(overview.agent.working)} working` : "Off"}
-                  </span>
-                </li>
-                <li>
-                  <span>
-                    <b>Payouts</b>
-                    <small className="muted">
-                      {who(
-                        overview.payouts.changed_by,
-                        overview.payouts.changed_at,
-                        overview.payouts.reason,
-                      ) || "Senior handlers, from the dashboard"}
-                    </small>
-                  </span>
-                  <span className={`chip ${overview.payouts.paused ? "chip-bad" : "chip-good"}`}>
-                    {overview.payouts.paused ? "Paused" : "Live"}
-                  </span>
-                </li>
-                <li>
-                  <span>
-                    <b>Agent version</b>
-                    <small className="muted">
-                      The instructions and model it runs on; AI engineers change it in Versions
-                    </small>
-                  </span>
-                  <a className="stage-link small" href={IMPROVEMENT_HREF}>
-                    {version.version !== null ? `Version ${String(version.version)}` : "None"}
-                  </a>
-                </li>
-              </ul>
-            </section>
-            <section className="panel measure" aria-labelledby="measure-heading">
-              <div className="panel-head">
-                <h2 id="measure-heading">How we measure</h2>
-              </div>
-              <ul>
-                <li>
-                  <b>An exam it never sees the answers to:</b> claims senior handlers decided,
-                  growing to 100; nothing the agent or the improver can call returns a label.
-                </li>
-                <li>
-                  <b>Ranges, not just scores:</b> 25 claims can&apos;t pin a score down, so each
-                  shows where it likely sits (Wilson, 95%).
-                </li>
-                <li>
-                  <b>A judge for the reasons:</b> a separate model grades each explanation against
-                  the handler&apos;s, 0 to 3; shown, never used to decide.
-                </li>
-                <li>
-                  <b>Attacks through the front door:</b> the red team makes claims in the
-                  customers&apos; portal, so every layer is tested as a customer reaches it.
-                </li>
-              </ul>
-            </section>
-          </div>
+          {/* Folded, so the overview fits the window; the agent and payouts are in the top bar. */}
+          <details className="panel measure">
+            <summary>How we measure</summary>
+            <ul>
+              <li>
+                <b>An exam it never sees the answers to:</b> claims senior handlers decided, growing
+                to 100; nothing the agent or the improver can call returns a label.
+              </li>
+              <li>
+                <b>Ranges, not just scores:</b> 25 claims can&apos;t pin a score down, so each shows
+                where it likely sits (Wilson, 95%).
+              </li>
+              <li>
+                <b>A judge for the reasons:</b> a separate model grades each explanation against the
+                handler&apos;s, 0 to 3; shown, never used to decide.
+              </li>
+              <li>
+                <b>Attacks through the front door:</b> the red team makes claims in the
+                customers&apos; portal, so every layer is tested as a customer reaches it.
+              </li>
+            </ul>
+          </details>
         </>
       )}
     </section>

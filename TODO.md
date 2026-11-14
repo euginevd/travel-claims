@@ -2,21 +2,17 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 
 ## Medium: a plan, then one to two days each
 
-1. **Model playground** in the control plane. Run the same claims on different models and effort levels, and compare time, cost, pass or fail, and quality side by side. An engineer can then pick a model for each agent from the results. Check how others build playgrounds (Bedrock, LangSmith, Braintrust). Deliver a plan and a mockup.
-2. **Red team, rethought.** First check whether a red-team run works at all; it seems not to. Then reconsider the name and the scope:
-   - is "red team" the right word, or is something more common (AI security testing, adversarial testing) clearer and wider than prompt injection?
-   - what do real tools test beyond prompt injection (Garak, PyRIT, Promptfoo)?
-   - should it move from Evaluate to Secure?
+1. **Compare models, phase 3**: a model for each of the other agents (screening, specialists, drafting, the judge, the improver, the Copilot), changed on Agents with a reason and recorded in the audit log, each compared on its own task. Plan: [docs/plan-compare.md](docs/plan-compare.md).
+2. **Red team, step 2.** Step 1 is built (#120): the page sits under Secure, each attack names its layer, and three of 14 attacks now reach the claim agent. Next:
+   - attacks on Wattle and the Copilot: another customer's data, a tool without its confirm card, prompt extraction, a walk over several messages;
+   - attacks on deciding a referral and on the guardian, each one it should hold;
+   - RT-11 with a police report attached, so it reaches the approval limit;
+   - a run on `dev`, where the Bedrock guardrail runs first.
 
-   Deliver a proposal, checked online.
-3. **The agents page, rethought** (`#/agents`).
-   - Follow a claim: a rich claim chosen by default, its path shown as a slow animation, with a Clear button beside it.
-   - The path drawn in AWS architecture style: customer, portal, Wattle, then every component it touches (Guardrails, AgentCore and the rest), based on what the claim actually used.
-   - Check that the trust boundaries are right.
-   - Each agent shown with its spec, lit green while it works.
-   - Check online how others show this to an AI engineer.
-
-   Deliver a plan and a mockup.
+   [docs/proposal-redteam.md](docs/proposal-redteam.md).
+3. **Fit-the-window leftovers** (design-system rule 40), small:
+   - Agents leaves about 300px empty under the map at 1710×1270: let the map grow with the height.
+   - Dashboard Today is short when nothing needs the handler: open "Everything else" then, scrolling inside its card.
 
 ## Large: research and a plan first, several days each
 
@@ -51,7 +47,6 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 ## From the second audit (#118)
 
 - Redeploy the bootstrap stack (yours to run): its boundary now lets the api write the audit seals' copy (known mistake 61); until then the copy is refused and the audit page shows no write-once copy.
-- Red-team report: rerun the suite and refresh `docs/redteam-report.md` and the README's figure; the report is the 8 November run of eight attacks, before the ninth attack and claim agent version 3.
 - Permissions audit (decision 32, rule 28): narrow the deploy role and boundary now the build has settled. From the audit: the deploy role's `guardduty:*`, `config:*`, `securityhub:*`, `access-analyzer:*`, `ssm:*` on `/platform/*`, Route 53 on every zone and the whole state bucket; the plan role's `bedrock-agentcore:Get*` and `List*`, which read customers' memory records; and whether `BudgetEmail` should be required.
 - Audit follow-ups, each needing your call:
   - A plain handler now decides referrals up to the approval limit (decision 57), and the AWS demo's test button signs anyone in as one, so a passer-by can pay a referred claim up to $1,000 of made-up money. Decision 54 kept the demo to a handler who couldn't pay.
@@ -73,6 +68,5 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
   - Encryption and masking settings missing the model-invocation logs' bucket, AgentCore Memory and the agent runtime's log group.
   - Accessibility: the claim page's evidence tabs (arrow keys), focus returned when a card closes, the agents map's roles, a focus ring at 3:1, and an off switch for single-key shortcuts.
   - Browser tests for the paths that change something: claim by chat and send, decide a referral, sign-off, the agent switch.
-  - Red-team attacks for Wattle, the Copilot, deciding a referral and the guardian.
   - A red-team report still passes if it names any unpaid claim: tie each result to a claim the red team's customer made after the run started, or have the agent report on its own key.
   - Shared web code still copied in each app (formatters, the fetch and error core, tokens), raw colours in the two new stylesheets, and the dashboard's dead Dispatch code.

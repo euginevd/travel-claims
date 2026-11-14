@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     receipts_bucket: str | None = None
     # A copy of each audit seal in write-once storage (S3 Object Lock) when set (AWS).
     audit_bucket: str | None = None
+    # The models this deployment can call, by plain name; empty means every model (locally).
+    offered_models: str = ""
     # The agent: over HTTP locally, on AgentCore Runtime when its ARN is set (AWS).
     agent_url: str = "http://127.0.0.1:8080"
     agent_runtime_arn: str | None = None

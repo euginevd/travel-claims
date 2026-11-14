@@ -605,6 +605,7 @@ export const AttackPlanSchema = z.object({
   name: z.string(),
   technique: z.string(),
   owasp: z.string(),
+  aimed_at: z.string().default(""),
 });
 export type AttackPlan = z.infer<typeof AttackPlanSchema>;
 
@@ -655,6 +656,99 @@ export const CostsSchema = z.object({
   ),
 });
 export type Costs = z.infer<typeof CostsSchema>;
+
+export const ModelChoiceSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  input_price: z.number(),
+  output_price: z.number(),
+  efforts: z.array(z.string()),
+  default_effort: z.string(),
+  speed: z.string(),
+  good_for: z.string(),
+  may_decline: z.boolean(),
+  offered: z.boolean(),
+  in_use: z.boolean(),
+  in_use_effort: z.string().nullable(),
+  cost_per_claim: z.number(),
+});
+export type ModelChoice = z.infer<typeof ModelChoiceSchema>;
+
+export const CompareResultSchema = z.object({
+  model: z.string(),
+  label: z.string(),
+  effort: z.string(),
+  version: z.number(),
+  in_use: z.boolean(),
+  runs: z.array(z.number()),
+  finished: z.number(),
+  planned: z.number(),
+  claims: z.number(),
+  accuracy: z.number().nullable(),
+  low: z.number().nullable(),
+  high: z.number().nullable(),
+  by_run: z.array(z.number()),
+  payout_accuracy: z.number().nullable(),
+  straight_through: z.number().nullable(),
+  declined: z.number(),
+  grade: z.number().nullable(),
+  cost_per_claim: z.number().nullable(),
+  seconds_per_claim: z.number().nullable(),
+  tokens_per_claim: z.number().nullable(),
+  passes: z.boolean().nullable(),
+});
+export type CompareResult = z.infer<typeof CompareResultSchema>;
+
+export const ComparisonSchema = z.object({
+  compare_id: z.number(),
+  size: z.string(),
+  repeats: z.number(),
+  status: z.string(),
+  started_by: z.string(),
+  started_at: z.string(),
+  accuracy_target: z.number(),
+  straight_through_target: z.number(),
+  results: z.array(CompareResultSchema),
+  answer: z.string().nullable(),
+  cheapest_pass: z.string().nullable(),
+  differences: z.array(
+    z.object({
+      claim_id: z.string(),
+      claim_type: z.string(),
+      handler_decision: z.string().nullable(),
+      handler_payout: z.number().nullable(),
+      marks: z.array(
+        z.object({
+          model: z.string(),
+          label: z.string(),
+          effort: z.string(),
+          decision: z.string().nullable(),
+          payout: z.number().nullable(),
+          right: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+  compared_claims: z.number(),
+  head_to_head: z
+    .array(
+      z.object({
+        a: z.string(),
+        b: z.string(),
+        a_share: z.number().nullable(),
+        judged: z.number(),
+      }),
+    )
+    .default([]),
+  head_to_head_state: z.enum(["none", "judging", "done"]).default("none"),
+});
+export type Comparison = z.infer<typeof ComparisonSchema>;
+
+export interface CompareRequest {
+  picks: { model: string; effort: string }[];
+  size: "one" | "tiny" | "whole";
+  repeats: number;
+}
 
 export const AlertSchema = z.object({
   severity: z.enum(["high", "medium"]),
@@ -797,6 +891,11 @@ export interface Api {
   listTraces: () => Promise<TraceRow[]>;
   getBudget: () => Promise<Budget>;
   getCosts: (days: number) => Promise<Costs>;
+  listCompareModels: () => Promise<ModelChoice[]>;
+  latestComparison: () => Promise<Comparison | null>;
+  startComparison: (request: CompareRequest) => Promise<Comparison>;
+  stopComparison: (compareId: number) => Promise<Comparison>;
+  proposeCompared: (model: string, effort: string) => Promise<{ round_id: number }>;
   setBudget: (limit: number, reason: string) => Promise<Budget>;
   getAlerts: () => Promise<Alert[]>;
   getTrends: () => Promise<Trends>;
@@ -943,6 +1042,15 @@ export function createApi(
     listTraces: () => call(z.array(TraceRowSchema), "GET", "/traces"),
     getBudget: () => call(BudgetSchema, "GET", "/budget"),
     getCosts: (days) => call(CostsSchema, "GET", `/costs?days=${String(days)}`),
+    listCompareModels: () => call(z.array(ModelChoiceSchema), "GET", "/compare/models"),
+    latestComparison: () => call(ComparisonSchema.nullable(), "GET", "/compare/latest"),
+    startComparison: (request) => call(ComparisonSchema, "POST", "/compare", { body: request }),
+    stopComparison: (compareId) =>
+      call(ComparisonSchema, "POST", `/compare/${String(compareId)}/stop`),
+    proposeCompared: (model, effort) =>
+      call(z.object({ round_id: z.number() }), "POST", "/compare/propose", {
+        body: { model, effort },
+      }),
     setBudget: (limit, reason) => call(BudgetSchema, "PUT", "/budget", { body: { limit, reason } }),
     getAlerts: () => call(z.array(AlertSchema), "GET", "/alerts"),
     getTrends: () => call(TrendsSchema, "GET", "/trends"),

@@ -75,7 +75,7 @@ Rectangles are external entities, circles processes, cylinders data stores, red 
 - **TB2** Agent and `api`: model output is untrusted. The `api` checks every decision against manual section 14 and the payout calculation before any payment.
 - **TB3** App to Claude: claim text leaves the machine. Only made-up data is sent (spec 26); on Bedrock it stays in Australia.
 - **TB4** The drafting assistant: its draft is untrusted, validated by the `api` and shown to the customer, who edits it and taps Send claim; it is never sent for them. The claim agent reads the customer's own words; on AWS a guardrail filters personal data from letters.
-- **TB5** The judge: gets one pair of reasons at a time and returns a grade the `api` validates. The claim agent and improver never see the pairs (spec 24).
+- **TB5** The judge: gets one pair of reasons at a time and returns a grade the `api` validates; for Compare's head to head, the handler's reason and two models' explanations, unnamed, returning first, second or tie. The claim agent and improver never see them (spec 24).
 - **TB6** The Copilot: uses the handler's own token, never saved, and every tool is a staff route the `api` authorises again. Sign-off, send-back and dispatch wait on a confirm card (R11, R28).
 
 ## Top risks

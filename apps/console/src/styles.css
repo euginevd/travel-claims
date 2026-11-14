@@ -203,6 +203,44 @@ main.page {
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
+/* Fit the window (design-system.md 40): the page is the window's height less the top bar, the
+   tabs and main's padding; the row marked .fill takes what's left and its list scrolls inside.
+   On a window too short for the rest, .fill keeps a usable height and the page scrolls. */
+.view.fit {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 190px);
+}
+
+.view.fit.no-tabs {
+  height: calc(100dvh - 152px);
+}
+
+.view.fit > * {
+  flex: none;
+}
+
+.view.fit > .fill {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 260px;
+}
+
+.fill > .table-wrap,
+.fill .fill-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.fill > .table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+
 .table-wrap:focus-visible {
   outline-offset: -2px;
 }
@@ -1017,6 +1055,16 @@ main.page {
 
 /* ---------- Live ---------- */
 
+.live-detail {
+  gap: 12px;
+}
+
+.live-detail-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
 .live-charts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1302,6 +1350,30 @@ main.page {
 
 .trace-outcome .prose {
   margin: 0 0 6px;
+}
+
+.trace-outcome .prose.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Trace: the steps and the side column share the rest of the window, each scrolling inside. */
+.view.fit > .trace-cols {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.trace-cols > .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.trace-cols > .stack {
+  align-content: start;
 }
 
 .trace-timeline {

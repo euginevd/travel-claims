@@ -628,9 +628,8 @@ export function ImprovementPage({ api }: { api: Api }) {
             Versions
           </h1>
           <p className="lede">
-            The claim agent&apos;s releases: what each changed, whether it did better, and which is
-            in use. The Improver agent proposes; a person approves, and a version goes live only if
-            it does better on a 25-claim exam it never saw the answers to.
+            The claim agent&apos;s releases. The Improver proposes, a person approves, and a version
+            goes live only if it does better on the 25-claim exam.
           </p>
         </div>
         {!open && (

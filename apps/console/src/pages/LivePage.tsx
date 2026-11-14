@@ -565,8 +565,18 @@ export function LivePage({ api }: { api: Api }) {
   // The period just chosen is loading until its own answer arrives.
   const shown = live?.days === days ? live : null;
   const quiet = shown !== null && shown.totals.decided === 0 && shown.totals.reviewed === 0;
+  // The detail below the summary, one section at a time, so the page fits the window.
+  const [detail, setDetail] = useState<string | null>(null);
+  const tabs = [
+    ...(quiet ? [] : [{ key: "slices", label: "By version and claim type" }]),
+    { key: "disagreements", label: `Disagreements · ${String(shown?.disagreements.length ?? 0)}` },
+    { key: "feedback", label: "Customer feedback" },
+    { key: "trends", label: "Each agent, day by day" },
+  ];
+  const open =
+    detail ?? (shown?.disagreements.length ? "disagreements" : (tabs[0]?.key ?? "feedback"));
   return (
-    <section className="view" aria-labelledby="live-heading">
+    <section className="view fit" aria-labelledby="live-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Observe · Live</p>
@@ -630,22 +640,46 @@ export function LivePage({ api }: { api: Api }) {
             <>
               <Tiles live={shown} />
               <Trends live={shown} />
-              <div className="live-charts">
-                <SliceTable
-                  title="By version"
-                  column="Version"
-                  rows={shown.by_version}
-                  current={shown.version === null ? undefined : `v${String(shown.version)}`}
-                />
-                <SliceTable title="By claim type" column="Claim type" rows={shown.by_claim_type} />
-              </div>
             </>
           )}
-          <Disagreements api={api} rows={shown.disagreements} />
-          <CustomerFeedback live={shown} />
+          <div className="fill live-detail">
+            <div className="audit-filters" role="group" aria-label="Show">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  aria-pressed={open === tab.key}
+                  onClick={() => {
+                    setDetail(tab.key);
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="fill-scroll live-detail-body">
+              {open === "slices" && (
+                <div className="live-charts">
+                  <SliceTable
+                    title="By version"
+                    column="Version"
+                    rows={shown.by_version}
+                    current={shown.version === null ? undefined : `v${String(shown.version)}`}
+                  />
+                  <SliceTable
+                    title="By claim type"
+                    column="Claim type"
+                    rows={shown.by_claim_type}
+                  />
+                </div>
+              )}
+              {open === "disagreements" && <Disagreements api={api} rows={shown.disagreements} />}
+              {open === "feedback" && <CustomerFeedback live={shown} />}
+              {open === "trends" && <TrendsPanels api={api} />}
+            </div>
+          </div>
         </>
       )}
-      <TrendsPanels api={api} />
     </section>
   );
 }

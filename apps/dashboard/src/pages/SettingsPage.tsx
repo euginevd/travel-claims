@@ -239,7 +239,8 @@ export function SettingsPage({ api, handler, onReset }: Props) {
         </>
       )}
       {settings && texts && (
-        <>
+        // The form beside its history and the reset, so the page fits a wide window.
+        <div className="settings-cols">
           <form className="panel settings-card" noValidate onSubmit={(event) => void save(event)}>
             <div className="panel-head">
               <h2>Limits and targets</h2>
@@ -338,33 +339,35 @@ export function SettingsPage({ api, handler, onReset }: Props) {
               )}
             </p>
           </form>
-          <section className="panel" aria-labelledby={`${ids}-changes`}>
-            <div className="panel-head">
-              <h2 id={`${ids}-changes`}>Recent changes</h2>
-              <p className="muted small">Newest first.</p>
-            </div>
-            {settings.changes.length === 0 ? (
-              <p className="muted settings-empty">
-                <span className="icon-tile" aria-hidden="true">
-                  <History size={15} strokeWidth={1.75} />
-                </span>
-                {senior
-                  ? "Nothing has been changed yet. Change a value above and it's listed here with your name and reason."
-                  : "Nothing has been changed yet. A senior handler's changes are listed here with their name and reason."}
-              </p>
-            ) : (
-              <ol className="settings-changes">
-                {settings.changes.map((change, index) => (
-                  <Change
-                    key={`${change.key}-${change.changed_at}-${String(index)}`}
-                    change={change}
-                  />
-                ))}
-              </ol>
-            )}
-          </section>
-          {senior && onReset && <DemoControls api={api} onReset={onReset} />}
-        </>
+          <div className="settings-side">
+            <section className="panel" aria-labelledby={`${ids}-changes`}>
+              <div className="panel-head">
+                <h2 id={`${ids}-changes`}>Recent changes</h2>
+                <p className="muted small">Newest first.</p>
+              </div>
+              {settings.changes.length === 0 ? (
+                <p className="muted settings-empty">
+                  <span className="icon-tile" aria-hidden="true">
+                    <History size={15} strokeWidth={1.75} />
+                  </span>
+                  {senior
+                    ? "Nothing has been changed yet. Change a value and it's listed here with your name and reason."
+                    : "Nothing has been changed yet. A senior handler's changes are listed here with their name and reason."}
+                </p>
+              ) : (
+                <ol className="settings-changes">
+                  {settings.changes.map((change, index) => (
+                    <Change
+                      key={`${change.key}-${change.changed_at}-${String(index)}`}
+                      change={change}
+                    />
+                  ))}
+                </ol>
+              )}
+            </section>
+            {senior && onReset && <DemoControls api={api} onReset={onReset} />}
+          </div>
+        </div>
       )}
     </section>
   );

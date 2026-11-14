@@ -147,6 +147,10 @@ class ApiClient:
         path = f"/api/agent/runs/{run_id}/grades"
         return cast(Json, self._call("POST", path, {"grades": grades}))
 
+    def record_verdicts(self, compare_id: int, verdicts: list[Json]) -> Json:
+        path = f"/api/agent/compare/{compare_id}/verdicts"
+        return cast(Json, self._call("POST", path, {"verdicts": verdicts}))
+
     def brief(self, round_id: int) -> Json:
         return cast(Json, self._call("GET", f"/api/agent/rounds/{round_id}/brief"))
 

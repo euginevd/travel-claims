@@ -36,6 +36,12 @@ queue's waiting claims, and it tells /api/agent/dispatches/{run_id}/finish inste
 
 /judge grades each finished copy's explanation against the handler's, in the background, and
 posts the grades to /api/agent/runs/{run_id}/grades. It keeps and logs none of what it is sent.
+
+    POST {AGENT_URL}/head-to-head {"compare_id": 1, "duels": [{"key": ..., "handler_...": ...,
+                                                               "first": {...}, "second": {...}}]}
+
+/head-to-head has the judge pick the better of two models' explanations of each claim, blind and
+in both orders, and posts the verdicts to /api/agent/compare/{compare_id}/verdicts.
 """
 
 import json
@@ -87,6 +93,10 @@ class AgentService(Protocol):
     def improve(self, round_id: int) -> None: ...
 
     def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None: ...
+
+    def head_to_head(self, compare_id: int, duels: list[dict[str, object]]) -> None:
+        """Have the judge pick the better of two explanations of each claim, in both orders."""
+        ...
 
     def redteam(self) -> None: ...
 
@@ -147,6 +157,10 @@ class HttpAgentService:
     def judge(self, run_id: int, pairs: list[dict[str, object]]) -> None:
         body: dict[str, object] = {"run_id": run_id, "pairs": pairs}
         self._accepted(self._post("/judge", body, TIMEOUT_SECONDS))
+
+    def head_to_head(self, compare_id: int, duels: list[dict[str, object]]) -> None:
+        body: dict[str, object] = {"compare_id": compare_id, "duels": duels}
+        self._accepted(self._post("/head-to-head", body, TIMEOUT_SECONDS))
 
     def redteam(self) -> None:
         self._accepted(self._post("/redteam", {}, TIMEOUT_SECONDS))

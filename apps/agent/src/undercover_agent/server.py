@@ -25,7 +25,7 @@ from undercover_agent.customer_facing import customer_facing
 from undercover_agent.dispatcher import Dispatcher
 from undercover_agent.explain import Explainer, ExplainRequest, Explanation
 from undercover_agent.improver import RoundImprover
-from undercover_agent.judge import JudgeRequest, RunJudge
+from undercover_agent.judge import HeadToHeadRequest, JudgeRequest, RunJudge
 from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.reasoning import reasoning_check_for
 from undercover_agent.receipts import reader_for
@@ -50,6 +50,7 @@ INVOCABLE = Literal[
     "/dispatch",
     "/improve",
     "/judge",
+    "/head-to-head",
     "/redteam",
     "/draft",
     "/ask",
@@ -391,6 +392,14 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
         if "runs" not in judge:
             return JSONResponse({"refused": "The judge isn't set up"}, status_code=409)
         judge["runs"].judge(request)
+        return JSONResponse({"accepted": True}, status_code=202)
+
+    @app.post("/head-to-head", operation_id="head_to_head", dependencies=[Depends(agents_key)])
+    def head_to_head(request: HeadToHeadRequest) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
+        """Pick the better of two models' explanations of each claim, in the background."""
+        if "runs" not in judge:
+            return JSONResponse({"refused": "The judge isn't set up"}, status_code=409)
+        judge["runs"].head_to_head(request)
         return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/redteam", operation_id="redteam", dependencies=[Depends(agents_key)])

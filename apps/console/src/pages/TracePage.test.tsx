@@ -89,3 +89,20 @@ test("a claim's link opens its trace straight away", async () => {
   expect(await screen.findByText("Referred to a handler")).toBeInTheDocument();
   expect(fetchFn.calls.some((c) => c.path.includes("trace-suggestion"))).toBe(false);
 });
+
+test("a long reason folds to three lines, with a button for the rest", async () => {
+  const user = userEvent.setup();
+  const reason = "The receipt names a different traveller. ".repeat(10);
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/claims/CLM-1017/trace": () => [
+      200,
+      { ...TRACE, outcome: { ...TRACE.outcome, reason } },
+    ],
+  });
+  render(<TracePage api={createApi(fetchFn, () => "t")} claimId="CLM-1017" />);
+  await user.click(await screen.findByRole("button", { name: "Show all" }));
+  expect(screen.getByRole("button", { name: "Show less" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+});

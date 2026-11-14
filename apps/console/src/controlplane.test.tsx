@@ -9,8 +9,9 @@ import { AgentsWidget, AlertsList, KpiRow, ReleasesWidget } from "./components/O
 import { RecentTraces } from "./components/RecentTraces";
 import { ReleaseHistory } from "./components/ReleaseHistory";
 import { TrendsPanels } from "./components/TrendsPanels";
+import { Architecture } from "./components/Architecture";
 import { AgentsPage, pathOf } from "./pages/AgentsPage";
-import { AuditPage } from "./pages/AuditPage";
+import { AuditPage, changedLine } from "./pages/AuditPage";
 import { CostPage } from "./pages/CostPage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { fakeFetch } from "./testing";
@@ -73,7 +74,10 @@ test("the bell counts the alerts and opens them; with none it says so", async ()
       api={createApi(fakeFetch({ "GET /api/engineering/alerts": () => [200, ALERTS] }), () => "t")}
     />,
   );
-  await user.click(await screen.findByRole("button", { name: "2 alerts" }));
+  localStorage.clear();
+  await user.click(await screen.findByRole("button", { name: "2 new alerts" }));
+  // Opening marks them seen: the count clears, the list keeps them.
+  expect(screen.getByRole("button", { name: "2 alerts, all seen" })).toBeInTheDocument();
   const list = screen.getByRole("region", { name: "Alerts" });
   expect(within(list).getByRole("link", { name: /budget of \$5.00/ })).toHaveAttribute(
     "href",
@@ -122,7 +126,8 @@ test("cost shows the spend at a glance, where it goes and the dearest claims", a
   });
   render(<CostPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText("On course for $5.14 by the month's end")).toBeInTheDocument();
-  expect(screen.getByText("Live claims")).toBeInTheDocument();
+  expect(screen.getAllByText("Live claims")).toHaveLength(2); // where it goes, and the key
+  expect(screen.getByRole("img", { name: /Spend a day/ })).toBeInTheDocument();
   expect(screen.queryByText("Copilot")).toBeNull();
   expect(screen.getByRole("link", { name: "CLM-1024" })).toHaveAttribute(
     "href",
@@ -441,7 +446,9 @@ test("the audit log says its chain is intact, or which records changed", async (
     />,
   );
   expect(
-    await screen.findByText(/Changed after sealing: setting:1 · chain broken at seal 1/),
+    await screen.findByText(
+      /1 record changed after sealing \(setting 1\) · chain broken at seal 1/,
+    ),
   ).toBeInTheDocument();
 });
 
@@ -495,14 +502,42 @@ test("a claim's path lights the parts it went through", async () => {
   const box = await screen.findByLabelText("Follow a claim");
   await user.type(box, "clm-1");
   await user.click(screen.getByRole("button", { name: "Show its path" }));
-  expect(await screen.findByText(/Lit: the 9 parts/)).toBeInTheDocument();
+  // Its stops in order, played from the first; a stop opens that agent's card.
+  const steps = await screen.findByRole("list", { name: "The claim's path" });
+  expect(
+    within(steps)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent),
+  ).toEqual([
+    "1 portal",
+    "2 api",
+    "3 screening",
+    "4 Claim agent",
+    "5 context",
+    "6 specialists",
+    "7 payout",
+    "8 sign_off",
+  ]);
+  expect(within(steps).getAllByRole("listitem")[0]).toHaveAttribute("aria-current", "step");
+  await user.click(within(steps).getByRole("button", { name: "4 Claim agent" }));
+  expect(screen.getByRole("heading", { name: "Claim agent" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Replay" }));
+  // The same claim as services: locally, each names its stand-in.
+  await user.click(screen.getByRole("button", { name: "Services" }));
+  const services = screen.getByRole("list", { name: "The services CLM-1 could reach" });
+  expect(within(services).getByText("agent container").closest("li")).toHaveClass("is-used");
+  expect(within(services).getByText("Bedrock Guardrails").closest("li")).toHaveClass("is-skipped");
+  await user.click(screen.getByRole("button", { name: "Agents" }));
   await user.clear(box);
   await user.type(box, "CLM-2");
   await user.click(screen.getByRole("button", { name: "Show its path" }));
   expect(await screen.findByText("No claim CLM-2")).toBeInTheDocument();
   await user.clear(box);
-  await user.click(screen.getByRole("button", { name: "Clear" }));
-  expect(screen.queryByText(/Lit:/)).toBeNull();
+  await user.type(box, "clm-1");
+  await user.click(screen.getByRole("button", { name: "Show its path" }));
+  await user.click(await screen.findByRole("button", { name: "Clear" }));
+  expect(screen.queryByRole("list", { name: "The claim's path" })).toBeNull();
+  expect(box).toHaveValue("");
 });
 
 test("each agent's days and the weeks show, an unusual day marked", async () => {
@@ -585,4 +620,42 @@ test("the audit page says when the seals couldn't be checked", async () => {
   });
   render(<AuditPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't check the seals");
+});
+
+test("a changed seal names its records in words", () => {
+  expect(changedLine(["override:CLM-1018:2026-11-13", "override:CLM-1017:2026-11-13"], [])).toBe(
+    "2 records changed after sealing (CLM-1018, CLM-1017)",
+  );
+  expect(changedLine([], ["setting:2"])).toBe("1 record missing after sealing (setting 2)");
+});
+
+test("on AWS, the services view names the AWS services a claim used", () => {
+  const trace = {
+    steps: [
+      { step_id: 1, kind: "tool", content: "search_memory", created_at: "2026-11-13T06:00:00Z" },
+    ],
+    model_calls: [],
+    total_cost: 0,
+    total_tokens: 0,
+    summary: "",
+    status: "decided",
+    outcome: null,
+    config_version: 3,
+    average_cost: null,
+  };
+  render(
+    <Architecture
+      claimId="CLM-9"
+      trace={trace as never}
+      path={new Set(["portal", "api", "screening", "claim_agent", "sign_off"])}
+      onAws
+    />,
+  );
+  const used = (name: string) => screen.getByText(name).closest("li")?.className;
+  expect(used("AgentCore Runtime")).toBe("is-used");
+  expect(used("Bedrock Guardrails")).toBe("is-used");
+  expect(used("AgentCore Memory")).toBe("is-used");
+  expect(used("Step Functions")).toBe("is-used");
+  expect(used("AgentCore Gateway")).toBe("is-skipped");
+  expect(used("Bedrock (Australia)")).toBe("is-skipped");
 });

@@ -19,11 +19,23 @@ const LINKS: Record<string, string> = {
   live: LIVE_HREF,
 };
 
+const SEEN_KEY = "console-seen-alerts";
+
+function readSeen(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
 /** What needs an engineer now, on every page: a bell with a count, opening the list. Worked
- * out in code by the api; refreshed every half minute. */
+ * out in code by the api; refreshed every half minute. The count is the alerts not yet seen:
+ * opening the list marks them seen, and the list keeps showing each until it's fixed. */
 export function AlertBell({ api }: { api: Api }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [open, setOpen] = useState(false);
+  const [seen, setSeen] = useState(readSeen);
   // Whether the last read failed: the bell then says it can't tell, never "no alerts", as it
   // carries the alert for a changed audit record.
   const [unread, setUnread] = useState(false);
@@ -50,7 +62,8 @@ export function AlertBell({ api }: { api: Api }) {
     };
   }, [api]);
 
-  const high = alerts.some((alert) => alert.severity === "high");
+  const fresh = alerts.filter((alert) => !seen.has(alert.text));
+  const high = fresh.some((alert) => alert.severity === "high");
   return (
     <div className="alert-bell">
       <button
@@ -60,17 +73,27 @@ export function AlertBell({ api }: { api: Api }) {
         aria-label={
           unread
             ? "Alerts unavailable"
-            : alerts.length
-              ? `${String(alerts.length)} alerts`
-              : "No alerts"
+            : fresh.length
+              ? `${String(fresh.length)} new alerts`
+              : alerts.length
+                ? `${String(alerts.length)} alerts, all seen`
+                : "No alerts"
         }
         onClick={() => {
           setOpen((now) => !now);
+          // Only today's alerts are kept, so a fixed one that comes back counts as new.
+          const now = new Set(alerts.map((alert) => alert.text));
+          setSeen(now);
+          try {
+            localStorage.setItem(SEEN_KEY, JSON.stringify([...now]));
+          } catch {
+            // Private windows refuse storage: the count clears for this visit only.
+          }
         }}
       >
         <Bell size={17} strokeWidth={1.75} aria-hidden="true" />
-        {alerts.length > 0 && (
-          <span className={high ? "bell-count is-high" : "bell-count"}>{alerts.length}</span>
+        {fresh.length > 0 && (
+          <span className={high ? "bell-count is-high" : "bell-count"}>{fresh.length}</span>
         )}
       </button>
       {open && (

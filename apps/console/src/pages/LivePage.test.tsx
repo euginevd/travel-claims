@@ -59,16 +59,24 @@ test("shows the tiles, the disagreements and feedback, and adds a claim after a 
   expect(await screen.findByText("Handler disagreement")).toBeInTheDocument();
   expect(screen.getByText(/1 of 1 reviewed decisions overridden or sent back/)).toBeInTheDocument();
   expect(screen.getByRole("img", { name: /Claims decided each day/ })).toBeInTheDocument();
-  // A customer's words are text, never markup.
-  expect(screen.getByText("<b>Which receipt?</b>")).toBeInTheDocument();
-
-  // The exam beside live, and the breakdown by version with the one in use marked.
+  // The exam beside live.
   const exam = screen.getByRole("region", { name: "Exam against live table" });
   expect(within(exam).getByText("84%")).toBeInTheDocument();
   expect(screen.getByText("Live is over 10% below the exam", { exact: false })).toBeInTheDocument();
+
+  // The detail one section at a time: a customer's words are text, never markup.
+  await user.click(screen.getByRole("button", { name: "Customer feedback" }));
+  expect(screen.getByText("<b>Which receipt?</b>")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "By version and claim type" }));
   expect(
     within(screen.getByRole("region", { name: "By version table" })).getByText("In use"),
   ).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Each agent, day by day" }));
+  expect(screen.getByRole("button", { name: "Each agent, day by day" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(screen.getByRole("button", { name: /^Disagreements/ }));
   expect(screen.getByText("1 to review")).toBeInTheDocument();
 
   const table = within(screen.getByRole("region", { name: "Disagreements table" })).getByRole(

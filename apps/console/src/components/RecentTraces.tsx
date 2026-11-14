@@ -51,7 +51,7 @@ export function RecentTraces({ api }: { api: Api }) {
     );
   }
   return (
-    <section className="panel" aria-labelledby="traces-heading">
+    <section className="panel fill" aria-labelledby="traces-heading">
       <div className="panel-head">
         <h2 id="traces-heading">Recent traces</h2>
         <p className="panel-note">Newest first. A claim opens its trace</p>

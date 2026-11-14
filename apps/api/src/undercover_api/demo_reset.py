@@ -26,6 +26,7 @@ from undercover_api.db import (
     calculations,
     claim_drafts,
     claims,
+    comparisons,
     configurations,
     customer_requests,
     decisions,
@@ -221,6 +222,7 @@ def reset_evaluations(db: Connection) -> None:
     _remove(db, list(db.scalars(select(claims.c.claim_id).where(claims.c.source == EVALUATION))))
     db.execute(delete(grades))
     db.execute(delete(rounds))
+    db.execute(delete(comparisons))
     db.execute(delete(runs))
     # A version still being tested lost its round with the rest: it was never taken.
     db.execute(

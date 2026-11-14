@@ -14,6 +14,7 @@ import { PosturePage } from "./pages/PosturePage";
 import { RedTeamPage } from "./pages/RedTeamPage";
 import { AgentsPage } from "./pages/AgentsPage";
 import { AuditPage } from "./pages/AuditPage";
+import { ComparePage } from "./pages/ComparePage";
 import { CostPage } from "./pages/CostPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { VersionPage } from "./pages/VersionPage";
@@ -30,6 +31,7 @@ import {
   POSTURE_HREF,
   REDTEAM_HREF,
   SCOREBOARD_HREF,
+  COMPARE_HREF,
   AGENTS_HREF,
   AUDIT_HREF,
   BUDGETS_HREF,
@@ -185,7 +187,7 @@ const NAV: NavSection[] = [
     label: "Evaluate",
     links: [
       { href: SCOREBOARD_HREF, label: "Scoreboard" },
-      { href: REDTEAM_HREF, label: "Red team" },
+      { href: COMPARE_HREF, label: "Compare" },
     ],
   },
   {
@@ -193,6 +195,7 @@ const NAV: NavSection[] = [
     links: [
       { href: POSTURE_HREF, label: "Posture" },
       { href: DETECTIONS_HREF, label: "Guardrails" },
+      { href: REDTEAM_HREF, label: "Red team" },
     ],
   },
   {
@@ -214,6 +217,7 @@ const HREFS: Record<Exclude<Route["page"], "run" | "version">, string> = {
   detections: DETECTIONS_HREF,
   redteam: REDTEAM_HREF,
   scoreboard: SCOREBOARD_HREF,
+  compare: COMPARE_HREF,
   live: LIVE_HREF,
   improvement: IMPROVEMENT_HREF,
   trace: TRACE_HREF,
@@ -253,6 +257,8 @@ function page(route: Route, api: Api, name: string) {
       return <RedTeamPage api={api} />;
     case "scoreboard":
       return <ScoreboardPage api={api} />;
+    case "compare":
+      return <ComparePage api={api} />;
     case "live":
       return <LivePage api={api} />;
     case "improvement":

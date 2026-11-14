@@ -78,8 +78,13 @@ class Settings(BaseSettings):
     drafting_max_tokens: int = 2_000
     judge_max_tokens: int = 1_000
     improver_model: str = "claude-sonnet-5-5"
+    # More models a version may name (Compare tries them): on Bedrock, their Australian
+    # inference profiles, comma-separated; the API needs none.
+    extra_models: str = ""
     improver_max_tokens: int = 16_000
     model_timeout_seconds: float = 60.0
+    # Opus and Fable think for longer on a turn: they get this long instead.
+    slow_model_timeout_seconds: float = 300.0
     # The improver writes up to 16,000 tokens in one call, minutes of output at its model's pace.
     improver_timeout_seconds: float = 600.0
     model_retries: int = 2

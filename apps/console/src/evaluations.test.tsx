@@ -103,6 +103,7 @@ test("an AI engineer starts a run from the scoreboard", async () => {
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("link", { name: "Run 3" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Run a practice test" }));
   await userEvent.click(screen.getByRole("button", { name: "Start the practice run" }));
   expect(fetchFn.calls.some((c) => c.method === "POST" && c.path === "/api/engineering/runs")).toBe(
     true,
@@ -301,11 +302,13 @@ test("the scoreboard charts each version's exam, scores claim types and compares
 
   // Both versions' exams on one chart, each with its likely range; claim types weakest first.
   expect(await screen.findByRole("img", { name: /v1 60% .*v2 84%/ })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "By claim type" }));
   const types = await screen.findByRole("region", { name: "By claim type table" });
   const [, first] = within(types).getAllByRole("row");
   expect(first).toHaveTextContent("Baggage");
 
   // The latest two exams compared: the trip delay claim went from wrong to right.
+  await user.click(screen.getByRole("button", { name: "Compare two runs" }));
   const diff = await screen.findByRole("region", { name: "Claims decided differently table" });
   expect(within(diff).getByText("Better")).toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Before"), "6");

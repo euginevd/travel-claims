@@ -180,7 +180,7 @@ test("the navigation marks the page the engineer is on", async () => {
     ["#/runs/3", "Evaluate: Scoreboard"],
     ["#/improvement", "Govern: Versions"],
     ["#/trace", "Observe: Trace"],
-    ["#/threats", "Evaluate: Red team"],
+    ["#/threats", "Secure: Red team"],
     ["#/agents", "Observe: Agents"],
     ["#/audit", "Govern: Audit log"],
     ["#/versions/2", "Govern: Versions"],
@@ -226,6 +226,7 @@ test("the scoreboard shows the latest scored run's measures and starts the chose
 
   // A practice run only: the exam is left to improvement rounds.
   expect(screen.queryByRole("radio", { name: "Held-out set" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Run a practice test" }));
   await user.click(screen.getByRole("radio", { name: /All 25/ }));
   await user.click(screen.getByRole("button", { name: "Start the practice run" }));
   expect(fetchFn.calls.find((call) => call.method === "POST")?.body).toEqual({

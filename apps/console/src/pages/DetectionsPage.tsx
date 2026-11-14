@@ -90,7 +90,7 @@ export function DetectionsPage({ api }: { api: Api }) {
   const shown = found?.days === days ? found : null;
   const events = shown?.events.filter((e) => filter === "all" || e.kind === filter) ?? [];
   return (
-    <section className="view" aria-labelledby="detections-heading">
+    <section className="view fit" aria-labelledby="detections-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Secure · Guardrails</p>
@@ -225,7 +225,7 @@ export function DetectionsPage({ api }: { api: Api }) {
               stopped that a handler then approved. Red-team claims are never counted as real.
             </p>
           </section>
-          <section className="panel" aria-labelledby="events-heading">
+          <section className="panel fill" aria-labelledby="events-heading">
             <div className="panel-head">
               <h2 id="events-heading">What fired</h2>
               <p className="panel-note">

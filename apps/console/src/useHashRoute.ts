@@ -10,6 +10,7 @@ export type Route =
   | { page: "detections" }
   | { page: "redteam" }
   | { page: "scoreboard" }
+  | { page: "compare" }
   | { page: "live" }
   | { page: "run"; runId: number }
   | { page: "improvement" }
@@ -29,6 +30,7 @@ export const POSTURE_HREF = "#/posture";
 export const DETECTIONS_HREF = "#/guardrails";
 export const REDTEAM_HREF = "#/redteam";
 export const SCOREBOARD_HREF = "#/scoreboard";
+export const COMPARE_HREF = "#/compare";
 export const LIVE_HREF = "#/live";
 export const IMPROVEMENT_HREF = "#/versions";
 export const TRACE_HREF = "#/trace";
@@ -55,6 +57,7 @@ const PAGES: Record<string, Route> = {
   [OLD_BUDGETS_HREF]: { page: "budgets" },
   [POSTURE_HREF]: { page: "posture" },
   [SCOREBOARD_HREF]: { page: "scoreboard" },
+  [COMPARE_HREF]: { page: "compare" },
   [LIVE_HREF]: { page: "live" },
   [IMPROVEMENT_HREF]: { page: "improvement" },
   [TRACE_HREF]: { page: "trace" },

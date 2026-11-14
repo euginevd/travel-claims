@@ -1,0 +1,835 @@
+"""Compare: the same practice claims on up to three models and efforts, to pick the claim agent's
+model.
+
+Each pick becomes a `compare` configuration (the current instructions, with the pick's model and
+effort), never made current and kept out of Versions. Its runs are ordinary practice runs, worked
+one after another as each finishes, so scores, run pages, the judge and the spending limits work
+as they do for any run. What the page shows (each model's scores and spread, the one-line
+answer, the claims decided differently) is worked out here in code from those runs. Propose
+hands a pick to an improvement round in the improver's place: a person approves it and the exam
+decides."""
+
+import logging
+from typing import Annotated, Any, Literal
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field, StringConstraints, model_validator
+from sqlalchemy import Connection, func, insert, select, update
+
+from undercover_api.agent_service import AgentService, AgentUnavailableError
+from undercover_api.assurance import wilson
+from undercover_api.auth import Database, SignedInEngineer
+from undercover_api.business_settings import accuracy_objective, straight_through_objective
+from undercover_api.claims import find_decision
+from undercover_api.db import claims, comparisons, configurations, model_calls, now, runs, steps
+from undercover_api.evaluations import (
+    AGENT,
+    AgentCalls,
+    Run,
+    RunClaim,
+    StartRunRequest,
+    configuration,
+    create_run,
+    current_version,
+    dispatch,
+    labelled,
+    labels_of,
+    need_current,
+    new_id,
+    run_claims,
+    run_cost,
+    run_of,
+    run_row,
+)
+from undercover_api.model_registry import BY_ID, EFFORTS, MODELS_INFO, Effort, Model, label_of
+from undercover_api.model_registry import offered as offered_of
+from undercover_api.models import Strict
+
+log = logging.getLogger(__name__)
+compare_router = APIRouter(prefix="/api/engineering/compare")
+compare_agent_router = APIRouter(prefix="/api/agent/compare", dependencies=AGENT)
+
+COMPARE = "compare"
+CONCURRENCY = 5
+# The dearest models run on the 5-claim set only: 25 claims on Fable is about $10 a run.
+SMALL_ONLY = {"claude-opus-5-5", "claude-fable-5-2"}
+# A practice claim's tokens when no run has been worked yet, for the estimate.
+TOKENS_IN, TOKENS_OUT = 12_000, 1_500
+# Each run keeps an improvement round's spending limit; a whole comparison, three of them.
+RUNS_OF_LIMIT = 3
+# The most explanations the judge compares for one comparison: 25 claims by 3 pairs is 75.
+MOST_DUELS = 100
+Size = Literal["one", "tiny", "whole"]
+
+
+class ModelChoice(BaseModel):
+    id: str
+    label: str
+    input_price: float
+    output_price: float
+    efforts: list[str]
+    default_effort: str
+    speed: str
+    good_for: str
+    may_decline: bool
+    offered: bool
+    in_use: bool
+    in_use_effort: str | None
+    cost_per_claim: float = Field(description="Estimated, from the last practice run's tokens")
+
+
+class Pick(Strict):
+    model: Model
+    effort: Effort
+
+
+class CompareRequest(Strict):
+    picks: list[Pick] = Field(min_length=1, max_length=3)
+    size: Size
+    repeats: int = Field(ge=1, le=3)
+
+    @model_validator(mode="after")
+    def different(self) -> CompareRequest:
+        if len({(p.model, p.effort) for p in self.picks}) != len(self.picks):
+            raise ValueError("Pick each model and effort once")
+        return self
+
+
+class ProposeRequest(Strict):
+    model: Model
+    effort: Effort
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = ""
+
+
+class Result(BaseModel):
+    model: str
+    label: str
+    effort: str
+    version: int
+    in_use: bool
+    runs: list[int]
+    finished: int
+    planned: int
+    claims: int
+    accuracy: float | None
+    low: float | None
+    high: float | None
+    by_run: list[float]
+    payout_accuracy: float | None
+    straight_through: float | None
+    declined: int
+    grade: float | None
+    cost_per_claim: float | None
+    seconds_per_claim: float | None
+    tokens_per_claim: int | None
+    passes: bool | None
+
+
+class Mark(BaseModel):
+    model: str
+    label: str
+    effort: str
+    decision: str | None
+    payout: float | None
+    right: bool
+
+
+class Difference(BaseModel):
+    claim_id: str
+    claim_type: str
+    handler_decision: str | None
+    handler_payout: float | None
+    marks: list[Mark]
+
+
+class HeadToHead(BaseModel):
+    """Two picks' explanations of the same claims, judged blind in both orders."""
+
+    a: str = Field(description="The first pick, as model:effort")
+    b: str
+    a_share: float | None = Field(
+        description="How often the first pick's explanation was the better, ties counted half"
+    )
+    judged: int
+
+
+class Verdict(Strict):
+    key: Annotated[str, StringConstraints(max_length=200)]
+    a_score: float | None = Field(ge=0, le=1)
+
+
+class VerdictsIn(Strict):
+    verdicts: list[Verdict] = Field(max_length=MOST_DUELS)
+
+
+class Comparison(BaseModel):
+    compare_id: int
+    size: str
+    repeats: int
+    status: str
+    started_by: str
+    started_at: str
+    accuracy_target: float
+    straight_through_target: float
+    results: list[Result]
+    answer: str | None
+    cheapest_pass: str | None
+    differences: list[Difference]
+    compared_claims: int
+    head_to_head: list[HeadToHead]
+    head_to_head_state: Literal["none", "judging", "done"]
+
+
+# --- Models ---
+
+
+def tokens_per_claim(db: Connection) -> tuple[float, float]:
+    """The input and output tokens a practice claim took on the last finished run."""
+    last = db.execute(
+        select(runs.c.run_id)
+        .where(runs.c.status == "finished", runs.c.label_set == "evaluation")
+        .order_by(runs.c.run_id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if last is None:
+        return TOKENS_IN, TOKENS_OUT
+    row = db.execute(
+        select(
+            func.sum(model_calls.c.input_tokens),
+            func.sum(model_calls.c.output_tokens),
+            func.count(func.distinct(claims.c.claim_id)),
+        )
+        .select_from(model_calls.join(claims, claims.c.claim_id == model_calls.c.claim_id))
+        .where(claims.c.run_id == last)
+    ).one()
+    tokens_in, tokens_out, copies = row
+    if not copies:
+        return TOKENS_IN, TOKENS_OUT
+    return float(tokens_in or 0) / int(copies), float(tokens_out or 0) / int(copies)
+
+
+def offered(request: Request) -> set[str]:
+    return offered_of(request.app.state.settings.offered_models)
+
+
+@compare_router.get("/models", operation_id="list_compare_models")
+def list_models(request: Request, _: SignedInEngineer, db: Database) -> list[ModelChoice]:
+    """Every model Compare can try, with its prices, efforts and an estimate a claim."""
+    can = offered(request)
+    current = current_version(db)
+    in_use = configuration(db, current) if current is not None else None
+    tokens_in, tokens_out = tokens_per_claim(db)
+    return [
+        ModelChoice(
+            id=info.id,
+            label=info.label,
+            input_price=info.input_price,
+            output_price=info.output_price,
+            efforts=list(EFFORTS),
+            default_effort=info.default_effort,
+            speed=info.speed,
+            good_for=info.good_for,
+            may_decline=info.may_decline,
+            offered=info.id in can,
+            in_use=in_use is not None and in_use.model == info.id,
+            in_use_effort=in_use.effort if in_use and in_use.model == info.id else None,
+            cost_per_claim=round(
+                (tokens_in * info.input_price + tokens_out * info.output_price) / 1_000_000, 6
+            ),
+        )
+        for info in MODELS_INFO
+    ]
+
+
+# --- Starting and moving on ---
+
+
+def compare_version(db: Connection, base: int, pick: Pick, by: str) -> int:
+    """The `compare` configuration for a pick on the current instructions, made once."""
+    instructions = configuration(db, base).instructions
+    found = db.execute(
+        select(configurations.c.version).where(
+            configurations.c.status == COMPARE,
+            configurations.c.model == pick.model,
+            configurations.c.effort == pick.effort,
+            configurations.c.instructions == instructions,
+        )
+    ).scalar()
+    if found is not None:
+        return int(found)
+    version = int(db.execute(select(func.max(configurations.c.version))).scalar_one() or 0) + 1
+    db.execute(
+        insert(configurations).values(
+            version=version,
+            instructions=instructions,
+            model=pick.model,
+            effort=pick.effort,
+            reason=f"Compare: {label_of(pick.model)}, {pick.effort} effort",
+            diff="",
+            status=COMPARE,
+            parent_version=base,
+            proposed_by=by,
+            created_at=now(),
+        )
+    )
+    return version
+
+
+def claims_in(db: Connection, size: str) -> int:
+    return len(labelled(db, "evaluation", size)) or 1
+
+
+def estimate_of(db: Connection, items: list[dict[str, Any]], size: str) -> float:
+    """What runs the planned items would likely cost, from the last practice run's tokens."""
+    tokens_in, tokens_out = tokens_per_claim(db)
+    claims_each = claims_in(db, size)
+    return sum(
+        (
+            tokens_in * BY_ID[item["model"]].input_price
+            + tokens_out * BY_ID[item["model"]].output_price
+        )
+        / 1_000_000
+        * claims_each
+        for item in items
+    )
+
+
+def spent_on(db: Connection, plan: list[dict[str, Any]]) -> float:
+    return sum(run_cost(db, int(item["run_id"])) for item in plan if item.get("run_id"))
+
+
+def start_next(db: Connection, service: AgentService, compare_id: int) -> None:
+    """Start the comparison's next planned run, or mark it finished when none is left. A
+    comparison stopped meanwhile starts nothing more, and one whose next run would go over
+    the spending limit stops there."""
+    found = (
+        db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id))
+        .mappings()
+        .one()
+    )
+    if found["status"] != "running":
+        return
+    plan: list[dict[str, Any]] = [dict(item) for item in found["plan"]]
+    waiting = next((item for item in plan if item.get("run_id") is None), None)
+    if waiting is None:
+        db.execute(
+            update(comparisons)
+            .where(comparisons.c.compare_id == compare_id)
+            .values(status="finished")
+        )
+        ask_head_to_head(db, service, compare_id)
+        return
+    next_run = estimate_of(db, [waiting], found["size"])
+    if next_run > limit_of(db) or spent_on(db, plan) + next_run > RUNS_OF_LIMIT * limit_of(db):
+        stop(db, compare_id)
+        return
+    body = StartRunRequest(label_set="evaluation", size=found["size"], concurrency=CONCURRENCY)
+    run_id, ids = create_run(db, body, int(waiting["version"]), found["started_by"])
+    waiting["run_id"] = run_id
+    moved = db.execute(
+        update(comparisons)
+        .where(comparisons.c.compare_id == compare_id, comparisons.c.status == "running")
+        .values(plan=plan)
+    )
+    if moved.rowcount == 0:
+        # Stopped while this run was being made: it never starts.
+        db.rollback()
+        return
+    dispatch(db, service, run_id, ids, CONCURRENCY)
+
+
+def key_of(item: dict[str, Any]) -> str:
+    return f"{item['model']}:{item['effort']}"
+
+
+def first_finished(db: Connection, items: list[dict[str, Any]]) -> dict[str, RunClaim]:
+    """A pick's first finished run's copies, by the claim they copy."""
+    for item in items:
+        run_id = item.get("run_id")
+        if run_id is not None and run_row(db, int(run_id))["status"] == "finished":
+            found, _ = run_claims(db, int(run_id))
+            return {c.original_claim_id: c for c in found}
+    return {}
+
+
+def side_of(db: Connection, copy: RunClaim | None) -> dict[str, object] | None:
+    decision = find_decision(db, copy.claim_id) if copy else None
+    if decision is None:
+        return None
+    return {
+        "decision": str(decision.decision),
+        "payout": decision.payout,
+        "section": decision.section,
+        "reason": decision.reason,
+    }
+
+
+def duels_for(db: Connection, groups: list[list[dict[str, Any]]]) -> list[dict[str, object]]:
+    """Each claim's two explanations for every pair of picks, beside the handler's, from each
+    pick's first finished run: the decisions, sections and reasons only."""
+    firsts = [(key_of(items[0]), first_finished(db, items)) for items in groups]
+    originals = sorted({o for _, by_claim in firsts for o in by_claim})
+    labels = labels_of(db, originals)
+    duels: list[dict[str, object]] = []
+    for original in originals:
+        label = labels.get(original)
+        if label is None:
+            continue
+        sides = [
+            (key, side)
+            for key, by_claim in firsts
+            if (side := side_of(db, by_claim.get(original))) is not None
+        ]
+        for i, (a_key, a_side) in enumerate(sides):
+            for b_key, b_side in sides[i + 1 :]:
+                duels.append(
+                    {
+                        "key": f"{original}|{a_key}|{b_key}",
+                        "handler_decision": str(label.get("decision", "")),
+                        "handler_payout": float(label.get("payout") or 0),
+                        "handler_section": str(label.get("reference", "")),
+                        "handler_reason": str(label.get("reason", "")),
+                        "first": a_side,
+                        "second": b_side,
+                    }
+                )
+    return duels[:MOST_DUELS]
+
+
+def ask_head_to_head(db: Connection, service: AgentService, compare_id: int) -> None:
+    """Hand a finished comparison's explanations to the judge, once, two picks at a time. The
+    scores stand without it: a judge that can't be reached means no head to head."""
+    found = (
+        db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id))
+        .mappings()
+        .one()
+    )
+    if found["judging_since"] is not None or found["verdicts"] is not None:
+        return
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for item in found["plan"]:
+        groups.setdefault(key_of(item), []).append(dict(item))
+    duels = duels_for(db, list(groups.values())) if len(groups) > 1 else []
+    if not duels:
+        return
+    db.execute(
+        update(comparisons)
+        .where(comparisons.c.compare_id == compare_id)
+        .values(judging_since=now())
+    )
+    db.commit()
+    try:
+        service.head_to_head(compare_id, duels)
+    except AgentUnavailableError as error:
+        log.warning("comparison %s: the judge couldn't be asked: %s", compare_id, error)
+        db.execute(
+            update(comparisons)
+            .where(comparisons.c.compare_id == compare_id)
+            .values(judging_since=None)
+        )
+        db.commit()
+
+
+@compare_agent_router.post("/{compare_id}/verdicts", operation_id="record_verdicts")
+def record_verdicts(compare_id: int, body: VerdictsIn, db: Database) -> dict[str, int]:
+    """Keep the judge's head-to-head verdicts, once: a second answer is ignored."""
+    found = db.execute(
+        select(comparisons.c.verdicts).where(comparisons.c.compare_id == compare_id)
+    ).first()
+    if found is None:
+        raise HTTPException(404, f"Comparison {compare_id} not found")
+    if found[0] is None:
+        db.execute(
+            update(comparisons)
+            .where(comparisons.c.compare_id == compare_id)
+            .values(verdicts={v.key: v.a_score for v in body.verdicts})
+        )
+    return {"verdicts": len(body.verdicts)}
+
+
+def head_to_head_of(keys: list[str], verdicts: dict[str, float | None] | None) -> list[HeadToHead]:
+    """Each pair of picks' share of claims where the first's explanation was the better."""
+    pairs: list[HeadToHead] = []
+    for i, a in enumerate(keys):
+        for b in keys[i + 1 :]:
+            scores = [
+                score
+                for key, score in (verdicts or {}).items()
+                if key.endswith(f"|{a}|{b}") and score is not None
+            ]
+            pairs.append(
+                HeadToHead(
+                    a=a,
+                    b=b,
+                    a_share=round(sum(scores) / len(scores), 4) if scores else None,
+                    judged=len(scores),
+                )
+            )
+    return pairs
+
+
+def limit_of(db: Connection) -> float:
+    from undercover_api.improvement import spend_limit  # noqa: PLC0415 - imports compare's module
+
+    return spend_limit(db)
+
+
+def after_run(db: Connection, run_id: int, service: AgentService) -> None:
+    """A run finished: if it was the run a comparison started last, start the next one. A
+    finish reported twice finds a later run started, and starts nothing more."""
+    # The finished run's scores stand whatever happens to the next one.
+    db.commit()
+    rows = db.execute(
+        select(comparisons.c.compare_id, comparisons.c.plan).where(
+            comparisons.c.status == "running"
+        )
+    ).mappings()
+    for row in list(rows):
+        started = [item["run_id"] for item in row["plan"] if item.get("run_id") is not None]
+        if started and started[-1] == run_id:
+            try:
+                start_next(db, service, int(row["compare_id"]))
+            except (AgentUnavailableError, HTTPException) as error:
+                db.rollback()
+                stop(db, int(row["compare_id"]))
+                log.warning("comparison %s stopped: %s", row["compare_id"], error)
+            return
+
+
+def stop(db: Connection, compare_id: int) -> None:
+    db.execute(
+        update(comparisons).where(comparisons.c.compare_id == compare_id).values(status="stopped")
+    )
+    db.commit()
+
+
+@compare_router.post("", operation_id="start_comparison", status_code=201)
+def start(
+    body: CompareRequest,
+    request: Request,
+    engineer: SignedInEngineer,
+    db: Database,
+    service: AgentCalls,
+) -> Comparison:
+    """Compare up to three models and efforts on the same practice claims, each run the times
+    asked, one run after another."""
+    can = offered(request)
+    for pick in body.picks:
+        if pick.model not in can:
+            raise HTTPException(409, f"{label_of(pick.model)} isn't offered in this region")
+    if db.execute(
+        select(comparisons.c.compare_id).where(comparisons.c.status == "running")
+    ).first():
+        raise HTTPException(409, "A comparison is running: wait for it, or stop it")
+    if body.size == "whole" and any(pick.model in SMALL_ONLY for pick in body.picks):
+        raise HTTPException(409, "Opus and Fable run on the 5 claims: 25 would cost too much")
+    limit = limit_of(db)
+    dearest = max(estimate_of(db, [{"model": pick.model}], body.size) for pick in body.picks)
+    likely = (
+        estimate_of(db, [{"model": pick.model} for pick in body.picks], body.size) * body.repeats
+    )
+    if dearest > limit or likely > RUNS_OF_LIMIT * limit:
+        raise HTTPException(
+            409,
+            f"This would likely cost ${likely:.2f}, over the limit: ${limit:.2f} a run and "
+            f"${RUNS_OF_LIMIT * limit:.2f} a comparison. Fewer runs or a cheaper model",
+        )
+    base = need_current(db)
+    versions = [compare_version(db, base, pick, engineer.name) for pick in body.picks]
+    plan = [
+        {"model": pick.model, "effort": pick.effort, "version": version, "run_id": None}
+        for _ in range(body.repeats)
+        for pick, version in zip(body.picks, versions, strict=True)
+    ]
+    compare_id = new_id(
+        db.execute(
+            insert(comparisons).values(
+                size=body.size,
+                repeats=body.repeats,
+                plan=plan,
+                status="running",
+                started_by=engineer.name,
+                started_at=now(),
+            )
+        )
+    )
+    try:
+        start_next(db, service, compare_id)
+    except HTTPException:
+        db.rollback()
+        stop(db, compare_id)
+        raise
+    return comparison_of(db, compare_id)
+
+
+@compare_router.post("/{compare_id}/stop", operation_id="stop_comparison")
+def stop_comparison(compare_id: int, _: SignedInEngineer, db: Database) -> Comparison:
+    """Stop a comparison: the run in progress finishes, and no more start."""
+    stop(db, compare_id)
+    return comparison_of(db, compare_id)
+
+
+@compare_router.post("/propose", operation_id="propose_compared", status_code=201)
+def propose(
+    body: ProposeRequest,
+    request: Request,
+    engineer: SignedInEngineer,
+    db: Database,
+    service: AgentCalls,
+) -> dict[str, int]:
+    """Hand a compared model to an improvement round, in the improver's place: the round
+    baselines the current version, then waits for a person's review, then the exam decides."""
+    from undercover_api.improvement import start_round_with  # noqa: PLC0415 - imports this
+
+    if body.model not in offered(request):
+        raise HTTPException(409, f"{label_of(body.model)} isn't offered in this region")
+    reason = body.reason or f"Compared: {label_of(body.model)} at {body.effort} effort"
+    preset = {
+        "model": body.model,
+        "effort": body.effort,
+        "reason": reason,
+        "by": engineer.name,
+    }
+    round_id = start_round_with(db, service, engineer.name, preset)
+    return {"round_id": round_id}
+
+
+# --- Reading ---
+
+
+def declined_in(db: Connection, run_id: int) -> int:
+    return int(
+        db.execute(
+            select(func.count(func.distinct(steps.c.claim_id)))
+            .select_from(steps.join(claims, claims.c.claim_id == steps.c.claim_id))
+            .where(claims.c.run_id == run_id, steps.c.kind == "refusal")
+        ).scalar_one()
+    )
+
+
+def tokens_in_run(db: Connection, run_id: int) -> int:
+    total = db.execute(
+        select(func.sum(model_calls.c.input_tokens + model_calls.c.output_tokens))
+        .select_from(model_calls.join(claims, claims.c.claim_id == model_calls.c.claim_id))
+        .where(claims.c.run_id == run_id)
+    ).scalar_one_or_none()
+    return int(total or 0)
+
+
+def mean(values: list[float]) -> float | None:
+    return round(sum(values) / len(values), 4) if values else None
+
+
+def result_of(
+    db: Connection, items: list[dict[str, Any]], current: int | None, targets: tuple[float, float]
+) -> Result:
+    first = items[0]
+    finished_runs: list[Run] = []
+    for item in items:
+        if item.get("run_id") is None:
+            continue
+        run = run_of(db, run_row(db, int(item["run_id"])))
+        if run.status == "finished" and run.scores is not None:
+            finished_runs.append(run)
+    by_run = [run.scores.accuracy for run in finished_runs if run.scores]
+    claims_seen = sum(run.scores.claims for run in finished_runs if run.scores)
+    one_run = claims_seen // len(finished_runs) if finished_runs else 0
+    accuracy = mean(by_run)
+    low_high = wilson(accuracy, one_run) if accuracy is not None and one_run else None
+    straight = mean([run.scores.straight_through for run in finished_runs if run.scores])
+    grades = [run.scores.grade for run in finished_runs if run.scores and run.scores.grade]
+    tokens = sum(tokens_in_run(db, run.run_id) for run in finished_runs)
+    current_model = configuration(db, current) if current is not None else None
+    passes = (
+        None
+        if accuracy is None or straight is None
+        else accuracy >= targets[0] - 1e-9 and straight >= targets[1] - 1e-9
+    )
+    return Result(
+        model=first["model"],
+        label=label_of(first["model"]),
+        effort=first["effort"],
+        version=int(first["version"]),
+        in_use=current_model is not None
+        and current_model.model == first["model"]
+        and current_model.effort == first["effort"],
+        runs=[int(item["run_id"]) for item in items if item.get("run_id") is not None],
+        finished=len(finished_runs),
+        planned=len(items),
+        claims=claims_seen,
+        accuracy=accuracy,
+        low=round(low_high[0], 4) if low_high else None,
+        high=round(low_high[1], 4) if low_high else None,
+        by_run=by_run,
+        payout_accuracy=mean([run.scores.payout_accuracy for run in finished_runs if run.scores]),
+        straight_through=straight,
+        declined=sum(declined_in(db, run.run_id) for run in finished_runs),
+        grade=mean(grades),
+        cost_per_claim=mean([run.scores.cost_per_claim for run in finished_runs if run.scores]),
+        seconds_per_claim=mean(
+            [run.scores.seconds_per_claim for run in finished_runs if run.scores]
+        ),
+        tokens_per_claim=round(tokens / claims_seen) if claims_seen else None,
+        passes=passes,
+    )
+
+
+def name_of(result: Result) -> str:
+    return f"{result.label} at {result.effort}"
+
+
+def answer_of(results: list[Result]) -> tuple[str | None, str | None]:
+    """The one line: the cheapest pick that meets the targets, and whether a dearer one is
+    clearly better (its likely range above the cheapest's) or the ranges overlap."""
+    done = [r for r in results if r.accuracy is not None and r.cost_per_claim is not None]
+    if not done:
+        return None, None
+    passing = [r for r in done if r.passes]
+    if not passing:
+        best = max(done, key=lambda r: r.accuracy or 0)
+        return f"None meets the targets yet; the best is {name_of(best)}.", None
+    cheapest = min(passing, key=lambda r: r.cost_per_claim or 0)
+    better = [
+        r
+        for r in passing
+        if r is not cheapest and r.low is not None and r.low > (cheapest.high or 1)
+    ]
+    if better:
+        top = max(better, key=lambda r: r.accuracy or 0)
+        return (
+            f"{name_of(top)} is clearly better than {name_of(cheapest)}, "
+            "the cheapest that meets the targets.",
+            cheapest.model + ":" + cheapest.effort,
+        )
+    return enough_line(cheapest, [r for r in done if r is not cheapest]), (
+        cheapest.model + ":" + cheapest.effort
+    )
+
+
+def enough_line(cheapest: Result, others: list[Result]) -> str:
+    """Why the cheapest that passes is the pick, when nothing dearer is clearly better."""
+    if not others:
+        return f"{name_of(cheapest)} meets the targets."
+    if not any(r.passes for r in others):
+        return f"{name_of(cheapest)} is the only one that meets the targets."
+    if any(r.passes and (r.accuracy or 0) > (cheapest.accuracy or 0) for r in others):
+        return (
+            f"{name_of(cheapest)} is enough: it meets the targets for the least, and the "
+            "higher scores' ranges overlap it."
+        )
+    return f"{name_of(cheapest)} is enough: it meets the targets for the least."
+
+
+def differences_of(
+    db: Connection, groups: list[list[dict[str, Any]]]
+) -> tuple[list[Difference], int]:
+    """Each claim a pick got wrong, beside the handler's answer and every pick's, from each
+    pick's first finished run."""
+    firsts: list[tuple[dict[str, Any], dict[str, RunClaim]]] = []
+    for items in groups:
+        for item in items:
+            run_id = item.get("run_id")
+            if run_id is not None and run_row(db, int(run_id))["status"] == "finished":
+                found, _ = run_claims(db, int(run_id))
+                firsts.append((items[0], {c.original_claim_id: c for c in found}))
+                break
+    if not firsts:
+        return [], 0
+    originals: list[str] = sorted({key for _, by_claim in firsts for key in by_claim})
+    found_rows: list[Difference] = []
+    for original in originals:
+        seen = [(pick, by_claim.get(original)) for pick, by_claim in firsts]
+        copies = [c for _, c in seen if c is not None]
+        if not copies or all(c.payout_matched for c in copies):
+            continue
+        sample = copies[0]
+        found_rows.append(
+            Difference(
+                claim_id=original,
+                claim_type=sample.claim_type,
+                handler_decision=sample.handler_decision,
+                handler_payout=sample.handler_payout,
+                marks=[
+                    Mark(
+                        model=pick["model"],
+                        label=label_of(pick["model"]),
+                        effort=pick["effort"],
+                        decision=c.decision if c else None,
+                        payout=c.payout if c else None,
+                        right=bool(c and c.payout_matched),
+                    )
+                    for pick, c in seen
+                ],
+            )
+        )
+    return found_rows, len(originals)
+
+
+def stalled(db: Connection, plan: list[dict[str, Any]]) -> bool:
+    started = [item["run_id"] for item in plan if item.get("run_id") is not None]
+    return bool(started) and run_row(db, int(started[-1]))["status"] == "stopped"
+
+
+def comparison_of(db: Connection, compare_id: int) -> Comparison:
+    row = (
+        db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id))
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(404, f"Comparison {compare_id} not found")
+    status = str(row["status"])
+    if status == "running" and stalled(db, row["plan"]):
+        # Its run was stopped as stale, so it will never finish: the comparison stops too.
+        stop(db, compare_id)
+        status = "stopped"
+    targets = (accuracy_objective(db), straight_through_objective(db))
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in row["plan"]:
+        groups.setdefault((item["model"], item["effort"]), []).append(dict(item))
+    current = current_version(db)
+    results = [result_of(db, items, current, targets) for items in groups.values()]
+    answer, cheapest = answer_of(results)
+    differences, compared = differences_of(db, list(groups.values()))
+    keys = [f"{model}:{effort}" for model, effort in groups]
+    state: Literal["none", "judging", "done"] = (
+        "done"
+        if row["verdicts"] is not None
+        else "judging"
+        if row["judging_since"] is not None
+        else "none"
+    )
+    return Comparison(
+        compare_id=compare_id,
+        size=row["size"],
+        repeats=row["repeats"],
+        status=status,
+        started_by=row["started_by"],
+        started_at=row["started_at"],
+        accuracy_target=targets[0],
+        straight_through_target=targets[1],
+        results=results,
+        answer=answer,
+        cheapest_pass=cheapest,
+        differences=differences,
+        compared_claims=compared,
+        head_to_head=head_to_head_of(keys, row["verdicts"]) if len(keys) > 1 else [],
+        head_to_head_state=state if len(keys) > 1 else "none",
+    )
+
+
+@compare_router.get("/latest", operation_id="latest_comparison")
+def latest(_: SignedInEngineer, db: Database) -> Comparison | None:
+    """The newest comparison with its results so far, or none yet."""
+    found = db.execute(
+        select(comparisons.c.compare_id).order_by(comparisons.c.compare_id.desc()).limit(1)
+    ).scalar_one_or_none()
+    return comparison_of(db, int(found)) if found is not None else None
+
+
+@compare_router.get("/{compare_id}", operation_id="get_comparison")
+def get(compare_id: int, _: SignedInEngineer, db: Database) -> Comparison:
+    return comparison_of(db, compare_id)
+
+
+__all__ = ["BY_ID", "after_run", "compare_agent_router", "compare_router"]

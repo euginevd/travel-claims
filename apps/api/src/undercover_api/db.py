@@ -158,6 +158,25 @@ runs = Table(
     Column("grading_since", String(32)),
 )
 
+# A comparison of models on the same claims: its planned runs, worked one after another.
+comparisons = Table(
+    "comparisons",
+    metadata,
+    Column("compare_id", Integer, primary_key=True, autoincrement=True),
+    Column("size", String(10), nullable=False),
+    Column("repeats", Integer, nullable=False),
+    # [{model, effort, version, run_id}], in the order they run.
+    Column("plan", JSON, nullable=False),
+    # running, finished or stopped
+    Column("status", String(20), nullable=False),
+    Column("started_by", String(200), nullable=False),
+    Column("started_at", String(32), nullable=False),
+    # When the judge was handed the picks' explanations, and its verdicts once back:
+    # {"<claim>|<model:effort>|<model:effort>": the first pick's share, 0 to 1, or null}.
+    Column("judging_since", String(32), nullable=True),
+    Column("verdicts", JSON, nullable=True),
+)
+
 # A senior handler's dispatch: claim agents working the claims that were waiting when it started.
 dispatches = Table(
     "dispatches",
