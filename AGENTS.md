@@ -141,6 +141,7 @@ CI and tooling
 58. Semgrep blocks `urllib` and `http.client` calls to a URL from a variable, even when the scheme is checked: use `httpx2`, the client the apps already pin.
 62. ESLint and `tsc` passing isn't the web lint: CI's `npm run lint` also runs `prettier --check`. Run `npm run lint` in each changed app before pushing.
 63. A page sized for a laptop left a third of the developer's 1710×1270 window empty: screenshot a changed dashboard or console page at 1710×1270 and 1440×900, and make it fit and fill the window (`design-system.md` 40).
+64. CI's pyright checks `tests` as well as `src` (a test's untyped dict failed #120): run `uv run pyright` with no path, as CI does.
 
 Docker
 

@@ -1,3 +1,5 @@
+from typing import cast
+
 from api_helpers import AGENT, FakeAgent
 from fastapi.testclient import TestClient
 from test_evaluations import finish, register, work_all
@@ -48,8 +50,10 @@ def test_compare_runs_each_model_in_turn_and_never_puts_one_in_use(
     assert agent.calls[-1][0] == "head_to_head"
     duels = agent.duels[-1]
     assert len(duels) == 5
-    assert duels[0]["key"].endswith("|claude-sonnet-5-5:medium|claude-fable-5-2:high")
-    assert {"decision", "reason"} <= set(duels[0]["first"])
+    assert str(duels[0]["key"]).endswith("|claude-sonnet-5-5:medium|claude-fable-5-2:high")
+    first = duels[0]["first"]
+    assert isinstance(first, dict)
+    assert {"decision", "reason"} <= set(cast(dict[str, object], first))
     assert done["head_to_head_state"] == "judging"
     verdicts = [
         {"key": d["key"], "a_score": score}
