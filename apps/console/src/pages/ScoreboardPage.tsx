@@ -796,6 +796,14 @@ function RunsTable({ runs, api, onChanged }: { runs: Run[]; api: Api; onChanged:
   );
 }
 
+const DETAILS = [
+  { key: "runs", label: "Runs" },
+  { key: "types", label: "By claim type" },
+  { key: "compare", label: "Compare two runs" },
+  { key: "growth", label: "The exam's growth" },
+  { key: "start", label: "Start a run" },
+];
+
 export function ScoreboardPage({ api }: { api: Api }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -804,6 +812,8 @@ export function ScoreboardPage({ api }: { api: Api }) {
   const [criteria, setCriteria] = useState<SuccessCriteria | null>(null);
   const [criteriaError, setCriteriaError] = useState<string | null>(null);
   const [criteriaAttempt, setCriteriaAttempt] = useState(0);
+  // The detail under the summary, one section at a time, so the page fits the window.
+  const [detail, setDetail] = useState("runs");
   const heading = useFocusHeading();
   const refresh = useCallback(() => {
     setGeneration((value) => value + 1);
@@ -870,7 +880,7 @@ export function ScoreboardPage({ api }: { api: Api }) {
 
   const latestExam = runs ? (scored(runs).filter(isExam).at(-1) ?? null) : null;
   return (
-    <section className="view" aria-labelledby="scoreboard-heading">
+    <section className="view fit" aria-labelledby="scoreboard-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Evaluate · Scoreboard</p>
@@ -878,10 +888,18 @@ export function ScoreboardPage({ api }: { api: Api }) {
             Scoreboard
           </h1>
           <p className="lede">
-            How the agent scores on claims a senior handler already decided. The exam is 25 claims
-            it never learns from; practice runs are for quick checks.
+            Scores on claims a senior handler already decided; the exam is 25 it never learns from.
           </p>
         </div>
+        <button
+          type="button"
+          className="button secondary page-head-side"
+          onClick={() => {
+            setDetail("start");
+          }}
+        >
+          Run a practice test
+        </button>
       </header>
       {runs && <ExamPanel runs={runs} version={version} criteria={criteria} />}
       <div className="pair wide-first">
@@ -910,26 +928,52 @@ export function ScoreboardPage({ api }: { api: Api }) {
           Loading the runs…
         </p>
       )}
-      {runs && runs.length > 0 && (
-        <div className="live-charts">
-          <ByClaimType api={api} exam={latestExam} />
-          <Compare api={api} runs={runs} />
+      {runs && (
+        <div className="fill live-detail">
+          <div className="audit-filters" role="group" aria-label="Show">
+            {DETAILS.filter(
+              (tab) => runs.length > 0 || ["runs", "growth", "start"].includes(tab.key),
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                aria-pressed={detail === tab.key}
+                onClick={() => {
+                  setDetail(tab.key);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="fill-scroll live-detail-body">
+            {detail === "runs" &&
+              (runs.length === 0 ? (
+                <div className="panel empty">
+                  <span className="icon-tile">
+                    <FlaskConical size={19} strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                  <h2>No runs yet</h2>
+                  <p className="muted">Run a practice test, or an improvement round for an exam.</p>
+                </div>
+              ) : (
+                <RunsTable runs={runs} api={api} onChanged={refresh} />
+              ))}
+            {detail === "start" && (
+              <StartRun
+                api={api}
+                onStarted={() => {
+                  setDetail("runs");
+                  refresh();
+                }}
+              />
+            )}
+            {detail === "types" && <ByClaimType api={api} exam={latestExam} />}
+            {detail === "compare" && <Compare api={api} runs={runs} />}
+            {detail === "growth" && <ExamGrowth api={api} />}
+          </div>
         </div>
       )}
-      <div className="pair">
-        <ExamGrowth api={api} />
-        <StartRun api={api} onStarted={refresh} />
-      </div>
-      {runs?.length === 0 && (
-        <div className="panel empty">
-          <span className="icon-tile">
-            <FlaskConical size={19} strokeWidth={1.75} aria-hidden="true" />
-          </span>
-          <h2>No runs yet</h2>
-          <p className="muted">Start a practice run above, or an improvement round for an exam.</p>
-        </div>
-      )}
-      {runs && runs.length > 0 && <RunsTable runs={runs} api={api} onChanged={refresh} />}
     </section>
   );
 }

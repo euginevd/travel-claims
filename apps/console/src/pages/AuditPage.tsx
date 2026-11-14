@@ -75,6 +75,21 @@ export function auditCsv(entries: AuditEntry[]): string {
 }
 
 /** Govern · Audit log: who changed what, and why, from the records the api keeps. */
+/** The sealing check's finding in words: how many records, and which claims or switches, from
+ * refs like `override:CLM-1018:<when>`; each record's detail is in the table. */
+export function changedLine(changed: string[], missing: string[]): string {
+  // A claim by its id; anything else by its kind and key ("setting 1").
+  const name = (ref: string) => {
+    const [kind = ref, key = ""] = ref.split(":");
+    return key.startsWith("CLM-") ? key : `${kind} ${key}`.trim();
+  };
+  const part = (refs: string[], verb: string) =>
+    refs.length
+      ? `${String(refs.length)} ${refs.length === 1 ? "record" : "records"} ${verb} after sealing (${[...new Set(refs.map(name))].join(", ")})`
+      : "";
+  return [part(changed, "changed"), part(missing, "missing")].filter(Boolean).join(" · ");
+}
+
 export function AuditPage({ api }: { api: Api }) {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +155,7 @@ export function AuditPage({ api }: { api: Api }) {
     else days.push({ day, rows: [entry] });
   }
   return (
-    <section className="view page-in" aria-labelledby="audit-heading">
+    <section className="view page-in fit" aria-labelledby="audit-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Govern · Audit log</p>
@@ -179,7 +194,7 @@ export function AuditPage({ api }: { api: Api }) {
                 ? `${String(chain.sealed)} entries sealed in a SHA-256 hash chain · intact${chain.anchored ? " · copied to write-once storage" : ""}`
                 : `${
                     chain.changed.length + chain.missing.length
-                      ? `Changed after sealing: ${[...chain.changed, ...chain.missing].join(", ")}`
+                      ? changedLine(chain.changed, chain.missing)
                       : "The seals don't match their write-once copy"
                   }${
                     chain.broken_at === null
@@ -258,7 +273,7 @@ export function AuditPage({ api }: { api: Api }) {
               {entries.length === 0 ? "Nothing recorded yet." : "Nothing matches."}
             </p>
           ) : (
-            <div className="panel audit-log">
+            <div className="panel audit-log fill">
               <TableScroll label="Audit log">
                 <table className="audit-table">
                   <thead>

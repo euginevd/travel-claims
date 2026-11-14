@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Api, Budget, Costs } from "../api";
-import { BarSeries, Meter, MiniBar } from "../components/Charts";
+import { Meter, MiniBar } from "../components/Charts";
 import { Widget } from "../components/Widget";
 import { when } from "../format";
 import { modelName } from "../traceTimeline";
@@ -24,6 +24,59 @@ const KINDS: Record<string, string> = { live: "Live", redteam: "Red team", evalu
 
 /** Govern · Cost: what the agents' model calls cost, where it goes, and the daily budget that
  * switches the agent off when it's reached. Engineers set the budget, with a reason. */
+const SOURCES = [
+  { key: "live", label: "Live claims" },
+  { key: "evaluation", label: "Evaluations" },
+  { key: "redteam", label: "Red team" },
+  { key: "assistants", label: "Assistants" },
+] as const;
+const SLOT = 10;
+const TALL = 100;
+
+/** Spend a day, each bar split by where it went; drawn to fill its box. */
+export function SpendChart({ days }: { days: Costs["days"] }) {
+  const high = Math.max(...days.map((day) => day.total), 0.0001);
+  return (
+    <div className="spend">
+      <svg
+        className="spend-chart"
+        viewBox={`0 0 ${String(days.length * SLOT)} ${String(TALL)}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Spend a day, highest ${dollars(high)}`}
+      >
+        {days.map((day, index) => {
+          let top = TALL;
+          return (
+            <g key={day.day}>
+              <title>{`${day.day}: ${dollars(day.total)}`}</title>
+              {SOURCES.map((source) => {
+                const tall = (day[source.key] / high) * (TALL - 2);
+                top -= tall;
+                return tall > 0 ? (
+                  <rect
+                    key={source.key}
+                    className={`spend-${source.key}`}
+                    x={index * SLOT + 1.5}
+                    y={top}
+                    width={SLOT - 3}
+                    height={tall}
+                  />
+                ) : null;
+              })}
+            </g>
+          );
+        })}
+      </svg>
+      <p className="spend-axis small muted">
+        <span>{days[0]?.day}</span>
+        <span>highest {dollars(high)} a day</span>
+        <span>{days[days.length - 1]?.day}</span>
+      </p>
+    </div>
+  );
+}
+
 export function CostPage({ api }: { api: Api }) {
   const heading = useFocusHeading();
   const [budget, setBudget] = useState<Budget | null>(null);
@@ -87,7 +140,7 @@ export function CostPage({ api }: { api: Api }) {
   const state = budget ? budgetState(budget.share) : null;
   const sourceTotal = costs ? costs.by_source.reduce((sum, one) => sum + one.cost, 0) : 0;
   return (
-    <section className="view page-in" aria-labelledby="cost-heading">
+    <section className="view page-in fit" aria-labelledby="cost-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Govern · Cost</p>
@@ -165,14 +218,7 @@ export function CostPage({ api }: { api: Api }) {
                 label={`Last ${String(days)} days`}
                 value={costs ? dollars(costs.period_total) : "—"}
                 sub="Every model call: live, red team, exams and assistants"
-              >
-                {costs && (
-                  <BarSeries
-                    values={costs.days.map((day) => ({ name: day.day, value: day.total }))}
-                    label="Spend a day"
-                  />
-                )}
-              </Widget>
+              />
             </li>
           </ul>
 
@@ -301,6 +347,22 @@ export function CostPage({ api }: { api: Api }) {
               </p>
             </section>
           </div>
+          {costs && costs.days.length > 0 && (
+            <section className="panel fill" aria-labelledby="spend-heading">
+              <div className="panel-head">
+                <h2 id="spend-heading">Spend a day</h2>
+                <ul className="spend-key small" aria-label="Key">
+                  {SOURCES.map((source) => (
+                    <li key={source.key}>
+                      <i className={`spend-${source.key}`} aria-hidden="true" />
+                      {source.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <SpendChart days={costs.days} />
+            </section>
+          )}
         </>
       )}
     </section>

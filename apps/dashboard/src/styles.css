@@ -2268,7 +2268,23 @@ h3.sub-head {
 .settings-page {
   display: grid;
   gap: 22px;
-  max-width: 920px;
+}
+
+.settings-cols,
+.settings-side {
+  display: grid;
+  gap: 22px;
+  align-items: start;
+}
+
+.settings-cols {
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+}
+
+@media (max-width: 1100px) {
+  .settings-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .settings-page .page-head,

@@ -1,5 +1,7 @@
 """The judge: grades each finished evaluation copy's explanation against the handler's, in the
-background, and posts the grades to the api. The grades are shown, never used to decide.
+background, and posts the grades to the api. The grades are shown, never used to decide. For a
+comparison of models it also picks the better of two explanations of the same claim, blind to
+which model wrote which and in both orders, so neither the name nor the position counts.
 
 It keeps nothing it is sent: no step, checkpoint, memory or log holds a handler's reason. A copy
 it can't grade is posted as not graded, so a run never waits on it.
@@ -39,6 +41,59 @@ class Pair(BaseModel):
     handler_reason: Reason
 
 
+class Side(BaseModel):
+    """One model's decision and explanation, without the model's name."""
+
+    model_config = ConfigDict(extra="forbid")
+    decision: Short
+    payout: float = Field(ge=0, le=1_000_000)
+    section: Short
+    reason: Reason
+
+
+class Duel(BaseModel):
+    """Two models' explanations of one claim beside the handler's."""
+
+    model_config = ConfigDict(extra="forbid")
+    key: Annotated[str, StringConstraints(max_length=200)]
+    handler_decision: Short
+    handler_payout: float = Field(ge=0, le=1_000_000)
+    handler_section: Short
+    handler_reason: Reason
+    first: Side
+    second: Side
+
+
+class HeadToHeadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    compare_id: int = Field(ge=1)
+    duels: list[Duel] = Field(min_length=1, max_length=100)
+
+
+# Each answer as points for the side shown first.
+FIRST_POINTS = {"first": 1.0, "tie": 0.5, "second": 0.0}
+
+
+def side_as_text(name: str, side: Side) -> str:
+    return (
+        f"Explanation {name}: {side.decision}, paying ${side.payout:,.2f}, citing "
+        f"{side.section or '(none)'}.\n"
+        # nosemgrep: raw-html-format - markers around data for the model, not HTML
+        f"<explanation_{name}>\n{side.reason}\n</explanation_{name}>"
+    )
+
+
+def duel_as_text(duel: Duel, first: Side, second: Side) -> str:
+    """What the judge reads: the handler's answer, then two explanations named only by order."""
+    return (
+        f"Senior handler: {duel.handler_decision}, paying ${duel.handler_payout:,.2f}, citing "
+        f"{duel.handler_section or '(none)'}.\n"
+        # nosemgrep: raw-html-format - markers around data for the model, not HTML
+        f"<handler_reason>\n{duel.handler_reason}\n</handler_reason>\n\n"
+        f"{side_as_text('first', first)}\n\n{side_as_text('second', second)}"
+    )
+
+
 class JudgeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     run_id: int = Field(ge=1)
@@ -76,6 +131,44 @@ class RunJudge:
         )
         thread.start()
         return thread
+
+    def head_to_head(self, request: HeadToHeadRequest) -> threading.Thread:
+        thread = threading.Thread(
+            target=self.compare_all,
+            args=(request,),
+            name=f"run-compare-{request.compare_id}-judge",
+            daemon=True,
+        )
+        thread.start()
+        return thread
+
+    def compare_all(self, request: HeadToHeadRequest) -> None:
+        with ThreadPoolExecutor(max_workers=AT_ONCE) as pool:
+            found = list(pool.map(self.prefer_both, request.duels))
+        try:
+            self._api.record_verdicts(request.compare_id, found)
+        except ApiError as error:
+            log.warning(
+                "comparison %s: the verdicts weren't taken: %s", request.compare_id, error.detail
+            )
+
+    def prefer_both(self, duel: Duel) -> Json:
+        """The first side's share of the two readings, each order once; a reading the model
+        fails or won't answer is left out, and with neither the duel has no score."""
+        points: list[float] = []
+        for first, second, flipped in (
+            (duel.first, duel.second, False),
+            (duel.second, duel.first, True),
+        ):
+            try:
+                found, _ = self._judge.prefer(duel_as_text(duel, first, second))
+            except Exception:  # noqa: BLE001 - a failed reading only leaves this order out
+                log.warning("duel %s couldn't be judged", duel.key)
+                found = None
+            if found is not None:
+                share = FIRST_POINTS[found.better]
+                points.append(1 - share if flipped else share)
+        return {"key": duel.key, "a_score": sum(points) / len(points) if points else None}
 
     def grade_run(self, request: JudgeRequest) -> None:
         with ThreadPoolExecutor(max_workers=AT_ONCE) as pool:

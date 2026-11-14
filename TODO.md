@@ -2,33 +2,24 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 
 ## Medium: a plan, then one to two days each
 
-1. **Compare models, phase 2**: head-to-head reasons (the judge picks the better of two explanations, blind, in both orders, shown as a win-rate grid) and a one-claim mode beside 5 and 25 claims. Phase 3 after it: a model for each of the other agents, changed on Agents with a reason. Plan: [docs/plan-compare.md](docs/plan-compare.md).
-2. **Red team, rethought.** First check whether a red-team run works at all; it seems not to. Then reconsider the name and the scope:
-   - is "red team" the right word, or is something more common (AI security testing, adversarial testing) clearer and wider than prompt injection?
-   - what do real tools test beyond prompt injection (Garak, PyRIT, Promptfoo)?
-   - should it move from Evaluate to Secure?
+1. **Compare models, phase 3**: a model for each of the other agents (screening, specialists, drafting, the judge, the improver, the Copilot), changed on Agents with a reason and recorded in the audit log, each compared on its own task. Plan: [docs/plan-compare.md](docs/plan-compare.md).
+2. **Red team, step 2.** Step 1 is built: the page moved to Secure, each attack is aimed at a layer, and five new attacks reached the claim agent. Next:
+   - attacks on Wattle and the Copilot (another customer's data, a tool without its confirm card, prompt extraction, a walk over several messages);
+   - an attack the guardian should hold;
+   - a version of RT-11 with a police report, so it reaches the approval limit.
 
-   Deliver a proposal, checked online.
-3. **The agents page, rethought** (`#/agents`).
-   - Follow a claim: a rich claim chosen by default, its path shown as a slow animation, with a Clear button beside it.
-   - The path drawn in AWS architecture style: customer, portal, Wattle, then every component it touches (Guardrails, AgentCore and the rest), based on what the claim actually used.
-   - Check that the trust boundaries are right.
-   - Each agent shown with its spec, lit green while it works.
-   - Check online how others show this to an AI engineer.
-
-   Deliver a plan and a mockup.
-
+   [docs/proposal-redteam.md](docs/proposal-redteam.md).
 ## Large: research and a plan first, several days each
 
-4. **The Secure tab, rethought.** Map what we check against the OWASP Top 10 for LLM applications, the OWASP agentic AI threats, the newer AI threat-modelling frameworks (MAESTRO and others) and MCP security. Then plan how the tab covers them, checked against how others do it.
-5. **Privacy and personal data.**
+3. **The Secure tab, rethought.** Map what we check against the OWASP Top 10 for LLM applications, the OWASP agentic AI threats, the newer AI threat-modelling frameworks (MAESTRO and others) and MCP security. Then plan how the tab covers them, checked against how others do it.
+4. **Privacy and personal data.**
    - Who sees which data: what handlers may and may not see, and whether AI engineers may see claim data, and which kinds.
    - Masking, encryption, retention.
    - Which regulations apply: the Australian Privacy Act and its Privacy Principles, the notifiable data breach scheme, and APRA CPS 234 for insurers.
    - Breach notification.
 
    Deliver recommendations and a plan to build them in.
-6. **Agents as the centrepiece of the control plane's Overview.**
+5. **Agents as the centrepiece of the control plane's Overview.**
    - Agents with personas.
    - Tool calls, and one agent calling another, shown as they happen.
    - A swarm: what changes at 250,000 claims a day instead of 25 (queueing, concurrency, cost, limits), and the features that scale needs.
@@ -37,9 +28,9 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 
 ## Last: once every feature and screen has settled
 
-7. **Sign-in pages.** The three sign-in pages (portal, dashboard, control plane) haven't changed while the apps did. Audit the message and the animation on the left of each, then propose whether to change them. Build only once the proposal is agreed.
+6. **Sign-in pages.** The three sign-in pages (portal, dashboard, control plane) haven't changed while the apps did. Audit the message and the animation on the left of each, then propose whether to change them. Build only once the proposal is agreed.
 
-8. **Walkthrough video, re-recorded.** It covers:
+7. **Walkthrough video, re-recorded.** It covers:
    - the landing page;
    - GitHub, quickly: repo structure, architecture diagram, threat model;
    - the customer portal, making a claim and its AI features;
@@ -51,7 +42,6 @@ Ordered by effort, smallest first, with the finishing touches last. Each item en
 ## From the second audit (#118)
 
 - Redeploy the bootstrap stack (yours to run): its boundary now lets the api write the audit seals' copy (known mistake 61); until then the copy is refused and the audit page shows no write-once copy.
-- Red-team report: rerun the suite and refresh `docs/redteam-report.md` and the README's figure; the report is the 8 November run of eight attacks, before the ninth attack and claim agent version 3.
 - Permissions audit (decision 32, rule 28): narrow the deploy role and boundary now the build has settled. From the audit: the deploy role's `guardduty:*`, `config:*`, `securityhub:*`, `access-analyzer:*`, `ssm:*` on `/platform/*`, Route 53 on every zone and the whole state bucket; the plan role's `bedrock-agentcore:Get*` and `List*`, which read customers' memory records; and whether `BudgetEmail` should be required.
 - Audit follow-ups, each needing your call:
   - A plain handler now decides referrals up to the approval limit (decision 57), and the AWS demo's test button signs anyone in as one, so a passer-by can pay a referred claim up to $1,000 of made-up money. Decision 54 kept the demo to a handler who couldn't pay.

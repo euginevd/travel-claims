@@ -108,6 +108,7 @@ test("the run form starts from the handlers' number of agents at once", async ()
     ],
   });
   render(<ScoreboardPage api={createApi(fetchFn, () => "t")} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Run a practice test" }));
   expect(await screen.findByDisplayValue("8")).toHaveAccessibleName("Claims worked at once");
 });
 

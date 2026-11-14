@@ -1,9 +1,16 @@
 // Compare models (docs/features.md 21a): pick models, run them on the same claims, read the answer.
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createApi, type CompareResult, type Comparison, type ModelChoice } from "../api";
 import { fakeFetch } from "../testing";
-import { ComparePage, estimate, perClaim } from "./ComparePage";
+import {
+  chartNote,
+  ComparePage,
+  CostChart,
+  estimate,
+  HeadToHeadGrid,
+  perClaim,
+} from "./ComparePage";
 
 const model = (id: string, label: string, extra: Partial<ModelChoice> = {}): ModelChoice => ({
   id,
@@ -113,6 +120,10 @@ const COMPARISON: Comparison = {
     },
   ],
   compared_claims: 5,
+  head_to_head: [
+    { a: "claude-haiku-5-5:medium", b: "claude-fable-5-2:high", a_share: 0.25, judged: 5 },
+  ],
+  head_to_head_state: "done",
 };
 
 test("the answer, the chart, a card a model and the claims decided differently", async () => {
@@ -162,6 +173,14 @@ test("compare sends the picks with their efforts, the claims and the runs each",
       name: "max",
     }),
   );
+  // An effort on an unticked model ticks it; unticking leaves it be.
+  await user.click(
+    within(screen.getByRole("group", { name: "Sonnet 5.5 effort" })).getByRole("radio", {
+      name: "high",
+    }),
+  );
+  expect(screen.getByRole("checkbox", { name: "Compare Sonnet 5.5" })).toBeChecked();
+  await user.click(screen.getByRole("checkbox", { name: "Compare Sonnet 5.5" }));
   await user.click(screen.getByRole("radio", { name: "2" }));
   expect(screen.getByText("About $3.85")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Compare" }));
@@ -290,4 +309,101 @@ test("models that can't be loaded say so", async () => {
   });
   render(<ComparePage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Down");
+});
+
+test("the chart note says how much less the cheapest costs when all score the same", () => {
+  const haiku = result({ accuracy: 1, low: 0.57, high: 1 });
+  const fable = result({
+    model: "claude-fable-5-2",
+    label: "Fable 5.2",
+    accuracy: 1,
+    cost_per_claim: 0.3,
+  });
+  expect(chartNote([haiku, fable])).toBe(
+    "All scored 100%: Haiku 5.5 costs 60× less than Fable 5.2",
+  );
+  expect(chartNote([haiku, { ...fable, accuracy: 0.8 }])).toBe("Up and to the left is better");
+  expect(chartNote([haiku])).toBe("Up and to the left is better");
+  // Two models at about the same cost: both labels drawn, the second a line up.
+  render(
+    <CostChart
+      results={[
+        haiku,
+        { ...haiku, model: "claude-sonnet-5-5", label: "Sonnet 5.5", cost_per_claim: 0.006 },
+      ]}
+      target={0.8}
+      claims={5}
+    />,
+  );
+  const labels = screen.getAllByText(/· \$0\.00/);
+  expect(labels).toHaveLength(2);
+  expect(labels[0]?.getAttribute("y")).not.toBe(labels[1]?.getAttribute("y"));
+});
+
+test("the chart is drawn at its box's size", () => {
+  let report: ResizeObserverCallback = () => undefined;
+  const disconnect = vi.fn();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        report = callback;
+      }
+      observe() {}
+      disconnect = disconnect;
+    },
+  );
+  const view = render(<CostChart results={[result({})]} target={0.8} claims={5} />);
+  act(() => {
+    report(
+      [{ contentRect: { width: 900, height: 400 } } as ResizeObserverEntry],
+      {} as ResizeObserver,
+    );
+    report([], {} as ResizeObserver);
+    report([{ contentRect: { width: 0, height: 0 } } as ResizeObserverEntry], {} as ResizeObserver);
+  });
+  expect(screen.getByRole("img")).toHaveAttribute("viewBox", "0 0 900 400");
+  view.unmount();
+  expect(disconnect).toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+test("the head-to-head grid reads row against column, and one claim is a choice", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/compare/models": () => [200, MODELS],
+    "GET /api/engineering/compare/latest": () => [200, COMPARISON],
+    "POST /api/engineering/compare": () => [201, { ...COMPARISON, status: "running" }],
+  });
+  render(<ComparePage api={createApi(fetchFn, () => "t")} />);
+  const grid = await screen.findByRole("table");
+  const [, haiku, fable] = within(grid).getAllByRole("row");
+  expect(haiku).toHaveTextContent("25%");
+  expect(fable).toHaveTextContent("75%");
+  expect(screen.getByText(/blind, both orders · 5 claims/)).toBeInTheDocument();
+
+  await user.click(
+    within(screen.getByRole("group", { name: "Claims" })).getByRole("radio", { name: "1" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Compare" }));
+  expect(fetchFn.calls.find((call) => call.method === "POST")?.body).toMatchObject({
+    size: "one",
+  });
+});
+
+test("the grid says when the judge hasn't answered yet", () => {
+  const running = {
+    ...COMPARISON,
+    status: "running",
+    head_to_head: [],
+    head_to_head_state: "none" as const,
+  };
+  const { rerender } = render(<HeadToHeadGrid found={running} />);
+  expect(screen.getByText("Once every run has finished")).toBeInTheDocument();
+  rerender(
+    <HeadToHeadGrid found={{ ...running, status: "finished", head_to_head_state: "judging" }} />,
+  );
+  expect(screen.getByText(/The judge is reading/)).toBeInTheDocument();
+  rerender(<HeadToHeadGrid found={{ ...running, status: "finished" }} />);
+  expect(screen.getByText("Not judged")).toBeInTheDocument();
 });

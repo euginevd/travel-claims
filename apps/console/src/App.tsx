@@ -188,7 +188,6 @@ const NAV: NavSection[] = [
     links: [
       { href: SCOREBOARD_HREF, label: "Scoreboard" },
       { href: COMPARE_HREF, label: "Compare" },
-      { href: REDTEAM_HREF, label: "Red team" },
     ],
   },
   {
@@ -196,6 +195,7 @@ const NAV: NavSection[] = [
     links: [
       { href: POSTURE_HREF, label: "Posture" },
       { href: DETECTIONS_HREF, label: "Guardrails" },
+      { href: REDTEAM_HREF, label: "Red team" },
     ],
   },
   {

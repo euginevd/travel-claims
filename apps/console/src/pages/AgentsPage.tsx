@@ -1,4 +1,4 @@
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useCallback, useEffect, useState, type SubmitEvent } from "react";
 import {
   LIVE_PERIODS,
   type AgentNode,
@@ -9,6 +9,7 @@ import {
   type Trace,
 } from "../api";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
+import { Architecture } from "../components/Architecture";
 
 // While the agent works, the map follows it.
 const POLL_MS = 4000;
@@ -71,17 +72,58 @@ const THREAT_NAMES: Record<string, string> = {
 // Names too long for a box; the card beside the map gives the full one.
 const SHORT: Record<string, string> = { screening: "Instruction check" };
 
+// The trust boundaries, named and worded as the threat model has them (TB1a to TB6).
 const ZONES = [
-  { x: 10, y: 38, w: 200, h: 342, label: "TB1 · customers: untrusted" },
-  { x: 500, y: 38, w: 445, h: 342, label: "TB2 · agents: output untrusted" },
+  { x: 10, y: 38, w: 200, h: 222, label: "TB1a · customers: untrusted" },
+  { x: 10, y: 280, w: 200, h: 100, label: "TB4 · draft" },
+  { x: 500, y: 38, w: 445, h: 342, label: "TB2 · agent output: untrusted until the api checks it" },
   {
-    x: 255,
-    y: 508,
-    w: 690,
-    h: 100,
-    label: "AI engineers' agents: attack, grade and improve, never on a live claim's path",
+    x: 500,
+    y: 386,
+    w: 445,
+    h: 30,
+    label: "TB3 · claim text goes to the model (Bedrock, Australia)",
   },
+  { x: 996, y: 400, w: 188, h: 100, label: "TB6 · handler's token" },
+  { x: 506, y: 520, w: 188, h: 100, label: "TB5 · judge" },
 ];
+
+// A claim's way through the map, in order; a call out to context or a specialist comes back.
+const ROUTE = [
+  "portal",
+  "api",
+  "screening",
+  "claim_agent",
+  "context",
+  "specialists",
+  "payout",
+  "sign_off",
+];
+const AND_BACK = new Set(["context", "specialists"]);
+const HOP_MS = 1000;
+
+/** The stops a claim made, in order, from the parts its trace says it went through. */
+export function routeOf(path: Set<string>): string[] {
+  return ROUTE.filter((key) => path.has(key));
+}
+
+/** The dot's line through the stops: out to context or a specialist and back to the agent. */
+function routeLine(stops: string[]): string {
+  const points: [number, number][] = [];
+  for (const key of stops) {
+    const at = AT[key];
+    if (!at) continue;
+    points.push(at);
+    if (AND_BACK.has(key) && AT.claim_agent) points.push(AT.claim_agent);
+  }
+  return points.map(([x, y], i) => `${i ? "L" : "M"}${String(x)} ${String(y)}`).join(" ");
+}
+
+function stillMotion(): boolean {
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+}
 
 function edgePoints(edge: Edge): [number, number, number, number] {
   const [x1, y1] = AT[edge.from] ?? [0, 0];
@@ -104,6 +146,8 @@ export function AgentsMapSvg({
   selected,
   onSelect,
   path = null,
+  now = null,
+  replay = 0,
 }: {
   map: AgentsMap;
   zones: boolean;
@@ -111,7 +155,12 @@ export function AgentsMapSvg({
   onSelect: (key: string) => void;
   /** One claim's path: the agents and code it went through; everything else is dimmed. */
   path?: Set<string> | null;
+  /** The stop the claim is shown at now, as its path plays. */
+  now?: string | null;
+  /** Bumped to play the path again. */
+  replay?: number;
 }) {
+  const stops = path ? routeOf(path) : [];
   const nodes = new Map(map.nodes.map((node) => [node.key, node]));
   const working = (map.nodes.find((n) => n.key === "claim_agent")?.working ?? 0) > 0;
   return (
@@ -183,10 +232,20 @@ export function AgentsMapSvg({
           </g>
         );
       })}
+      {path && stops.length > 1 && !stillMotion() && (
+        <circle key={replay} r="8" className="map-dot">
+          <animateMotion
+            dur={`${String(routeLine(stops).split("L").length * (HOP_MS / 1000))}s`}
+            fill="freeze"
+            path={routeLine(stops)}
+          />
+        </circle>
+      )}
       {[...nodes.values()].map((node) => (
         <MapNode
           key={node.key}
           node={node}
+          now={node.key === now}
           dim={path !== null && !path.has(node.key)}
           selected={node.key === selected}
           onSelect={() => {
@@ -214,7 +273,8 @@ export function pathOf(trace: Trace): Set<string> {
     path.add("specialists");
   }
   if (trace.outcome?.decision === "approve") path.add("payout");
-  if (trace.status === "waiting_for_sign_off" || /sign.?off/i.test(said)) path.add("sign_off");
+  if (trace.status === "waiting_for_sign_off" || /held for (a senior's )?sign.?off/i.test(said))
+    path.add("sign_off");
   return path;
 }
 
@@ -227,23 +287,87 @@ export function AgentsPage({ api }: { api: Api }) {
   const [zones, setZones] = useState(true);
   const [following, setFollowing] = useState("");
   const [path, setPath] = useState<Set<string> | null>(null);
+  // The followed claim's trace, for the AWS view, and which view shows.
+  const [shown, setShown] = useState<{ claimId: string; trace: Trace } | null>(null);
+  const [view, setView] = useState<"agents" | "aws">("agents");
   const [pathError, setPathError] = useState<string | null>(null);
+  // When the claim's path started playing, the clock it plays by, and a counter that replays it.
+  const [startedAt, setStartedAt] = useState(0);
+  const [clock, setClock] = useState(0);
+  const [replay, setReplay] = useState(0);
+  const stops = path ? routeOf(path) : [];
+
+  const show = useCallback(
+    async (claimId: string) => {
+      setPathError(null);
+      try {
+        const trace = await api.getTrace(claimId);
+        setPath(pathOf(trace));
+        setShown({ claimId, trace });
+        play();
+      } catch (caught) {
+        setPath(null);
+        setShown(null);
+        setPathError(caught instanceof Error ? caught.message : String(caught));
+      }
+    },
+    [api],
+  );
+
+  function play() {
+    const at = Date.now();
+    setStartedAt(at);
+    setClock(at);
+    setReplay((n) => n + 1);
+  }
 
   async function follow(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const wanted = following.trim().toUpperCase();
-    if (!wanted) {
-      setPath(null);
-      return;
-    }
-    setPathError(null);
-    try {
-      setPath(pathOf(await api.getTrace(wanted)));
-    } catch (caught) {
-      setPath(null);
-      setPathError(caught instanceof Error ? caught.message : String(caught));
-    }
+    if (wanted) await show(wanted);
   }
+
+  function clear() {
+    setFollowing("");
+    setPath(null);
+    setShown(null);
+    setView("agents");
+    setPathError(null);
+  }
+
+  // Open on the fullest recent claim, as Trace does, so the page starts by showing a path.
+  useEffect(() => {
+    let live = true;
+    api.suggestTrace().then(
+      (found) => {
+        if (live && found.claim_id) {
+          setFollowing(found.claim_id);
+          void show(found.claim_id);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, show]);
+
+  // Play the path a stop a second; with reduced motion, show it whole at once.
+  const count = stops.length;
+  useEffect(() => {
+    if (count === 0 || stillMotion()) return;
+    const timer = window.setInterval(() => {
+      const at = Date.now();
+      setClock(at);
+      if (at - startedAt > count * HOP_MS) window.clearInterval(timer);
+    }, HOP_MS / 4);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [count, replay, startedAt]);
+  const step = stillMotion()
+    ? count - 1
+    : Math.max(0, Math.min(count - 1, Math.floor((clock - startedAt) / HOP_MS)));
   const heading = useFocusHeading();
 
   useEffect(() => {
@@ -283,6 +407,8 @@ export function AgentsPage({ api }: { api: Api }) {
   }, [api]);
 
   const nodes = new Map(map?.nodes.map((node) => [node.key, node]));
+  // On AWS the agent calls Claude through Bedrock's Australian profiles (au.anthropic.…).
+  const onAws = /anthropic\./.test(map?.claim_agent_model ?? "");
   const chosen = nodes.get(selected);
   const threat = threats?.agents.find((row) => row.agent === THREAT_NAMES[selected]);
 
@@ -331,6 +457,28 @@ export function AgentsPage({ api }: { api: Api }) {
                 Agent {map.agent_on ? "on" : "off"} · payouts{" "}
                 {map.payouts_paused ? "paused" : "live"}
               </p>
+              {shown && (
+                <div className="audit-filters" role="group" aria-label="View">
+                  <button
+                    type="button"
+                    aria-pressed={view === "agents"}
+                    onClick={() => {
+                      setView("agents");
+                    }}
+                  >
+                    Agents
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={view === "aws"}
+                    onClick={() => {
+                      setView("aws");
+                    }}
+                  >
+                    {onAws ? "On AWS" : "Services"}
+                  </button>
+                </div>
+              )}
               <label className="small">
                 <input
                   type="checkbox"
@@ -352,23 +500,54 @@ export function AgentsPage({ api }: { api: Api }) {
                   setFollowing(event.target.value);
                 }}
               />
-              <button type="submit" className="button secondary">
-                {following.trim() ? "Show its path" : "Clear"}
+              <button type="submit" className="button secondary" disabled={!following.trim()}>
+                Show its path
               </button>
               {path && (
-                <span className="small muted">
-                  Lit: the {String(path.size)} parts it went through
-                </span>
+                <>
+                  <button type="button" className="button secondary" onClick={play}>
+                    Replay
+                  </button>
+                  <button type="button" className="button secondary" onClick={clear}>
+                    Clear
+                  </button>
+                </>
               )}
               {pathError && <span className="small error-text">{pathError}</span>}
             </form>
-            <AgentsMapSvg
-              map={map}
-              zones={zones}
-              selected={selected}
-              onSelect={setSelected}
-              path={path}
-            />
+            {view === "aws" && shown && path ? (
+              <Architecture claimId={shown.claimId} trace={shown.trace} path={path} onAws={onAws} />
+            ) : (
+              <AgentsMapSvg
+                map={map}
+                zones={zones}
+                selected={selected}
+                onSelect={setSelected}
+                path={path}
+                now={stops[step] ?? null}
+                replay={replay}
+              />
+            )}
+            {path && (
+              <ol className="path-steps" aria-label="The claim's path">
+                {stops.map((key, index) => (
+                  <li
+                    key={key}
+                    className={index < step ? "done" : index === step ? "now" : ""}
+                    aria-current={index === step ? "step" : undefined}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(key);
+                      }}
+                    >
+                      {index + 1} {nodes.get(key)?.label ?? key}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
           <aside className="panel agent-card" aria-live="polite">
             {chosen && (
@@ -424,11 +603,13 @@ export function AgentsPage({ api }: { api: Api }) {
 
 function MapNode({
   node,
+  now,
   dim,
   selected,
   onSelect,
 }: {
   node: AgentNode;
+  now: boolean;
   dim: boolean;
   selected: boolean;
   onSelect: () => void;
@@ -437,7 +618,7 @@ function MapNode({
   const model = node.model?.replace("claude-", "").replace(/-\d.*$/, "") ?? "code";
   return (
     <g
-      className={`map-node who-${node.who}${selected ? " selected" : ""}${node.working > 0 ? " working" : ""}${dim ? " dim" : ""}`}
+      className={`map-node who-${node.who}${selected ? " selected" : ""}${node.working > 0 ? " working" : ""}${dim ? " dim" : ""}${now ? " now" : ""}`}
       transform={`translate(${String(x - W / 2)} ${String(y - H / 2)})`}
       role="button"
       tabIndex={0}

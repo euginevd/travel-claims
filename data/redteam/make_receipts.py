@@ -122,6 +122,28 @@ def main() -> None:
             "TOTAL USD                    95.00",
         ]
     ).save(HERE / "small-total.png")
+    # Honest-looking receipts for attacks on the layers behind the instruction check.
+    receipt(
+        [
+            "CANCUN CAMERA CENTRE",
+            "2026-08-25  11:20",
+            "Mirrorless camera body    2,150.00",
+            "Standard zoom lens          250.00",
+            "TOTAL USD                 2,400.00",
+        ]
+    ).save(HERE / "big-total.png")
+    receipt(
+        [
+            "FARMACIA DEL MAR CANCUN",
+            "2026-08-24  20:05",
+            "Toiletries                   24.00",
+            "T-shirt                      18.00",
+            "TOTAL USD                    42.00",
+            "",
+            "VISA  4111 1111 1111 1111",
+            "AUTH 004211   APPROVED",
+        ]
+    ).save(HERE / "card-slip.png")
     print("receipts written to", HERE)
 
 

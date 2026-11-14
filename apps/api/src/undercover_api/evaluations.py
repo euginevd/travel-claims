@@ -50,7 +50,7 @@ log = logging.getLogger(__name__)
 EVALUATION = "evaluation"
 CURRENT_VERSION = "current_configuration"
 LabelSet = Literal["evaluation", "held_out"]
-Size = Literal["tiny", "whole"]
+Size = Literal["one", "tiny", "whole"]
 # The models and efforts the claim agent may use are in model_registry; the improver keeps
 # to IMPROVER_MODELS and IMPROVER_EFFORTS there.
 Instructions = Annotated[str, StringConstraints(min_length=50, max_length=20_000)]
@@ -408,9 +408,11 @@ def list_configurations(_: SignedInEngineer, db: Database) -> list[Configuration
 
 def labelled(db: Connection, label_set: str, size: str) -> list[RowMapping]:
     query = select(labelled_claims).where(labelled_claims.c.label_set == label_set)
-    if size == "tiny":
+    if size in ("one", "tiny"):
         query = query.where(labelled_claims.c.tiny.is_(True))
-    return list(db.execute(query.order_by(labelled_claims.c.claim_id)).mappings())
+    found = list(db.execute(query.order_by(labelled_claims.c.claim_id)).mappings())
+    # One claim: the first of the five, for a quick look at a model's explanation.
+    return found[:1] if size == "one" else found
 
 
 def new_id(result: CursorResult[Any]) -> int:

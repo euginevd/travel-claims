@@ -239,7 +239,6 @@ test("the overview's other states: fit, nothing to attend to, no version, and a 
   expect(await screen.findByText("Yes: passes all 5 gates.")).toBeInTheDocument();
   expect(screen.getByText(/No agent version in use/)).toBeInTheDocument();
   expect(screen.getByText("Nothing needs attention.")).toBeInTheDocument();
-  expect(screen.getByText("On · 3 working")).toBeInTheDocument();
   expect(screen.getByLabelText("Fails")).toBeInTheDocument();
   unmount();
   render(

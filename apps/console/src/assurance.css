@@ -180,6 +180,15 @@
   font-size: 0.85rem;
 }
 
+.measure summary {
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.measure[open] summary {
+  margin-bottom: 8px;
+}
+
 .measure li {
   position: relative;
   padding: 5px 0 5px 16px;
@@ -597,16 +606,7 @@ pre.diff {
 
 /* Overview, laid out to fill the page: verdict beside the controls, the gates across the page,
    then what needs attention beside how it's measured. */
-.overview-top,
-.overview-bottom {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: 18px;
-  align-items: stretch;
-  margin: 18px 0;
-}
-
-.overview-bottom {
+.overview-top {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   margin-bottom: 0;
 }
@@ -672,8 +672,7 @@ pre.diff {
 }
 
 @media (max-width: 1000px) {
-  .overview-top,
-  .overview-bottom {
+  .overview-top {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -773,11 +772,6 @@ pre.diff {
   margin: 5px 0;
 }
 
-.overview-bottom {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 0;
-}
-
 .overview-side {
   display: grid;
   gap: 16px;
@@ -800,16 +794,6 @@ pre.diff {
   .fit-brief-box .fit-actions {
     grid-column: 1 / -1;
   }
-}
-
-@media (max-width: 1000px) {
-  .overview-bottom {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.overview-bottom {
-  align-items: start;
 }
 
 /* ---------- The switches in the header: green when on, red when off ---------- */
@@ -1385,13 +1369,39 @@ pre.diff {
 }
 
 .model-pick {
+  position: relative;
   display: grid;
   align-content: start;
-  gap: 8px;
-  padding: 14px;
+  gap: 6px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg);
+}
+
+.pick-cover {
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.pick-cover::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  content: "";
+}
+
+.model-pick .effort-switch,
+.model-pick-top input {
+  position: relative;
+  z-index: 1;
+}
+
+.model-pick.is-off .pick-cover {
+  cursor: default;
 }
 
 .model-pick.is-on {
@@ -1432,6 +1442,21 @@ pre.diff {
   gap: 2px 10px;
   margin: 0;
   font-size: 0.82rem;
+}
+
+.pick-short {
+  display: none;
+}
+
+@media (max-height: 1000px) {
+  .model-facts,
+  .pick-good {
+    display: none;
+  }
+
+  .pick-short {
+    display: inline;
+  }
 }
 
 .model-facts dt {
@@ -1480,10 +1505,8 @@ pre.diff {
 }
 
 .compare-run {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 28px;
   align-items: end;
+  gap: 10px 20px;
 }
 
 .compare-go {
@@ -1503,10 +1526,11 @@ pre.diff {
 
 .compare-answer {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   align-items: center;
   margin: 0 var(--ringw);
-  padding: 14px 18px;
+  padding: 10px 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg);
@@ -1518,20 +1542,51 @@ pre.diff {
   color: var(--good);
 }
 
+.compare-when {
+  margin-left: auto;
+}
+
 .compare-answer b {
   color: var(--ink);
   font-weight: 500;
 }
 
+/* The page fills the window's height (design-system.md, Fit the window): the last row takes
+   what's left, and the chart is drawn at its box's size. 190px is the top bar, the tabs and
+   main's padding. */
+.compare-view {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 190px);
+}
+
+.compare-bottom {
+  flex: 1;
+  align-items: stretch;
+}
+
+.compare-bottom > .panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-chart-box {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+}
+
 .cost-chart {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }
 
 .cost-chart text {
   fill: var(--ink-3);
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .cost-chart .chart-name {
@@ -1592,8 +1647,8 @@ pre.diff {
 .compare-card {
   display: grid;
   align-content: start;
-  gap: 10px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg);
@@ -1611,9 +1666,22 @@ pre.diff {
   gap: 8px;
 }
 
+.pick-chip {
+  margin-left: 8px;
+  font-size: 0.72rem;
+}
+
+.compare-big-row {
+  display: flex;
+  min-height: 40px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
 .compare-big {
   margin: 0;
-  font: 400 2.1rem/1 var(--font-head);
+  font: 400 1.7rem/1 var(--font-head);
 }
 
 .compare-big .hint {
@@ -1640,9 +1708,9 @@ pre.diff {
 .compare-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px 12px;
+  gap: 4px 12px;
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
 
 .compare-stats dt {
@@ -1654,28 +1722,76 @@ pre.diff {
   margin: 0;
 }
 
-.compare-card-foot {
+.compare-bottom {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+  max-height: 440px;
+  margin: 0 var(--ringw);
+}
+
+.compare-side {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding-top: 10px;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.compare-differences {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.h2h {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.h2h th,
+.h2h td {
+  padding: 6px 8px;
   border-top: 1px solid var(--line-2);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.h2h thead th {
+  border-top: 0;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.h2h tbody th {
+  text-align: left;
+  font-weight: 500;
+}
+
+.h2h .h2h-self {
+  color: var(--ink-3);
+}
+
+.h2h .is-ahead {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.h2h .is-behind {
+  background: var(--warm-tint);
+  color: var(--warm);
 }
 
 .claim-boxes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
-  margin: 0 var(--ringw);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .claim-box {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-height: 160px;
-  padding: 14px;
+  gap: 2px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg);
@@ -1687,7 +1803,7 @@ pre.diff {
 
 .claim-box-big {
   margin-top: 4px;
-  font: 400 1.8rem/1.1 var(--font-head);
+  font: 400 1.3rem/1.1 var(--font-head);
 }
 
 .claim-marks {
@@ -1715,6 +1831,10 @@ pre.diff {
   .compare-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .compare-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1726,4 +1846,169 @@ pre.diff {
   .compare-go {
     margin-left: 0;
   }
+}
+
+/* ---------- Cost: spend a day, filling the rest of the window ---------- */
+
+.spend {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.spend-chart {
+  flex: 1;
+  width: 100%;
+  min-height: 80px;
+}
+
+.spend-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0 0;
+}
+
+.spend-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spend-key i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 2px;
+}
+
+.spend-live {
+  fill: var(--good-dot);
+  background: var(--good-dot);
+}
+
+.spend-evaluation {
+  fill: var(--info-soft);
+  background: var(--info-soft);
+}
+
+.spend-redteam {
+  fill: var(--acc);
+  background: var(--acc);
+}
+
+.spend-assistants {
+  fill: var(--ink-3);
+  background: var(--ink-3);
+}
+
+/* ---------- Agents: one claim's path, played a stop a second ---------- */
+
+.map-dot {
+  fill: var(--acc);
+}
+
+.map-node.now rect {
+  stroke: var(--acc);
+  stroke-width: 3;
+}
+
+.map-node.working rect {
+  fill: var(--good-tint);
+  animation: map-working 1.6s ease-in-out infinite;
+}
+
+@keyframes map-working {
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-node.working rect {
+    animation: none;
+  }
+}
+
+.path-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.path-steps button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.path-steps .done button {
+  background: var(--acc-tint);
+  color: var(--acc-d);
+}
+
+.path-steps .now button {
+  background: var(--good-tint);
+  color: var(--good);
+  font-weight: 600;
+}
+
+/* ---------- Agents: the same claim as services ---------- */
+
+.arch {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1.5px dashed var(--info-soft);
+  border-radius: 14px;
+}
+
+.arch-group {
+  margin: 0;
+  color: var(--info);
+  font-size: 0.8rem;
+}
+
+.arch-services {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arch-services li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  font-size: 0.8rem;
+}
+
+.arch-services li.is-used {
+  border: 2px solid var(--acc);
+}
+
+.arch-services li.is-skipped {
+  opacity: 0.45;
+}
+
+.arch-services b {
+  font-size: 0.86rem;
+  font-weight: 600;
 }

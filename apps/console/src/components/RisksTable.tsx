@@ -73,7 +73,8 @@ export function RisksTable({ api }: { api: Api }) {
   const tested = coverage.threats.filter((row) => row.attacks.length > 0).length;
   return (
     <>
-      <div className="panel">
+      {/* The page's last row: it fills the window and its rows scroll inside. */}
+      <div className="panel fill">
         <div className="panel-head">
           <h2>Each risk and its control</h2>
           <p className="panel-note">

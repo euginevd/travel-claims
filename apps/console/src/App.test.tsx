@@ -26,7 +26,7 @@ test("an AI engineer signs in with the test account and lands on the security po
   expect(screen.getByText("Sam Carter")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Secure" })).toHaveAttribute("href", "#/posture");
   expect(screen.getByRole("link", { name: "Observe" })).toHaveAttribute("href", "#/agents");
-  expect(screen.queryByRole("link", { name: "Evaluate: Red team" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Secure: Red team" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Queue" })).not.toBeInTheDocument();
 });
 

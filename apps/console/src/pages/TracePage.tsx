@@ -63,8 +63,13 @@ function cents(value: number): string {
 }
 
 /** How the claim ended up, first: the decision, its reason and what it cites. */
+// Past this many characters the reason shows three lines, with a button for the rest.
+const LONG_REASON = 320;
+
 function Outcome({ claimId, trace }: { claimId: string; trace: Trace }) {
   const outcome = trace.outcome;
+  const [all, setAll] = useState(false);
+  const long = (outcome?.reason.length ?? 0) > LONG_REASON;
   return (
     <div className="panel trace-outcome">
       <h2 className="trace-title">{claimId}</h2>
@@ -84,9 +89,21 @@ function Outcome({ claimId, trace }: { claimId: string; trace: Trace }) {
             </span>
           </p>
           {/* The agent's own words: text only, never markup. */}
-          <p className="prose" dir="auto">
+          <p className={long && !all ? "prose is-clamped" : "prose"} dir="auto">
             {outcome.reason}
           </p>
+          {long && (
+            <button
+              type="button"
+              className="link-button small"
+              aria-expanded={all}
+              onClick={() => {
+                setAll((now) => !now);
+              }}
+            >
+              {all ? "Show less" : "Show all"}
+            </button>
+          )}
           <p className="small muted">
             Cites {outcome.section || "nothing"}
             {trace.config_version === null
@@ -326,7 +343,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
 
   const trace = shown?.trace;
   return (
-    <section className="view" aria-labelledby="trace-heading">
+    <section className="view fit" aria-labelledby="trace-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Observe · Trace</p>
@@ -368,7 +385,7 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
         <>
           <Outcome claimId={shown.claimId} trace={trace} />
           <Totals trace={trace} />
-          <div className="cols wide-side">
+          <div className="cols wide-side fill trace-cols">
             <div className="panel">
               <div className="panel-head">
                 <h2>What happened</h2>
@@ -379,21 +396,22 @@ export function TracePage({ api, claimId: opened }: { api: Api; claimId?: string
               {trace.steps.length === 0 && trace.model_calls.length === 0 ? (
                 <p className="muted">Nothing was recorded for this claim.</p>
               ) : (
-                <ol className="trace-timeline">
+                <ol className="trace-timeline fill-scroll">
                   {timeline(trace).map((entry, index) => (
                     <EntryRow key={`${entry.type}-${String(index)}`} entry={entry} />
                   ))}
                 </ol>
               )}
             </div>
-            <div className="stack">
+            <div className="stack fill-scroll">
               <Security trace={trace} />
               <Cost trace={trace} />
             </div>
           </div>
         </>
       )}
-      {!loading && <RecentTraces api={api} />}
+      {/* A trace fills the page; the Trace tab, with no claim, lists the recent ones. */}
+      {!loading && !shown && <RecentTraces api={api} />}
     </section>
   );
 }

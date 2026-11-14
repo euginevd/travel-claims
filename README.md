@@ -32,8 +32,8 @@ The idea and synthetic data come from [the UnderCover project](https://github.co
 
 | | |
 |---|---|
-| Red team | 8 of 8 attacks held: hidden instructions in receipt images and PDFs, forged approvals, goal hijacking, payout inflation, cross-customer access and a forged tool call ([report](docs/redteam-report.md)) |
-| Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.0016 |
+| Red team | 14 of 14 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access, a forged tool call and card numbers; the instruction check stopped nine, the claim agent three ([report](docs/redteam-report.md)) |
+| Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.014 |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
 | Tests | 676 Python tests at 88% coverage, 322 web app tests, and browser tests with an accessibility scan in CI |
 | Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
@@ -54,7 +54,7 @@ One design, the one a regulated insurer would run, with the platform team's cont
 2. **Money never in a prompt:** code pays, after checking the approval limit and the pause switch; a payout can't run twice.
 3. **Tool rules:** AgentCore Policy (Cedar) allows each gateway only its own tools.
 4. **Checked answers:** grounding checks, Automated Reasoning against the policy wording, and letters filtered for personal numbers.
-5. **Red team:** nine attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
+5. **Red team:** fourteen attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
 6. **Identity:** separate sign-ins per app, machine tokens between services, and GitHub to AWS over OIDC with no stored keys.
 7. **Pipeline:** Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every PR; images shipped with an SBOM; packages at least 7 days old.
 

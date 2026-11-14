@@ -87,16 +87,16 @@ Ours scores claims to pick a model, so it is an experiment. It's named in the me
   - pass or fail against the targets;
   - the one-line answer;
   - the claims decided differently.
-- [x] The Compare page under Evaluate, between Scoreboard and Red team: the fact cards, the run bar, the answer, the cost chart, the model cards and the claim boxes.
+- [x] The Compare page under Evaluate, after Scoreboard: the fact cards, the run bar, the answer, the cost chart, the model cards and the claim boxes.
 - [x] `compare` configurations are hidden from Versions and refused as current.
 - [x] Tests: the main path, the answer line's three cases (one cheapest pass, none pass, ranges overlap), and that a compared configuration can't be made current.
 
 ### 2. Head to head, one claim, and Propose
 
-- [ ] The judge compares two models' explanations of the same claim, blind to which wrote which, in both orders so position doesn't count. The win rates fill the grid.
-- [ ] One claim, a third choice beside 5 and 25: size-1 runs, shown in the same cards.
+- [x] The judge compares two models' explanations of the same claim, blind to which wrote which, in both orders so position doesn't count. The win rates fill the grid.
+- [x] One claim, a third choice beside 5 and 25: size-1 runs, shown in the same cards.
 - [x] **Propose**: a proposed version from the card's model and effort, opened on Versions for review.
-- [ ] Tests: the proposal is proposed, not in use; a win rate from known verdicts.
+- [x] Tests: the proposal is proposed, not in use; a win rate from known verdicts.
 
 ### 3. A model for each agent
 

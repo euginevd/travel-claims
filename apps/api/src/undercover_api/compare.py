@@ -20,8 +20,10 @@ from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.assurance import wilson
 from undercover_api.auth import Database, SignedInEngineer
 from undercover_api.business_settings import accuracy_objective, straight_through_objective
+from undercover_api.claims import find_decision
 from undercover_api.db import claims, comparisons, configurations, model_calls, now, runs, steps
 from undercover_api.evaluations import (
+    AGENT,
     AgentCalls,
     Run,
     RunClaim,
@@ -31,6 +33,7 @@ from undercover_api.evaluations import (
     current_version,
     dispatch,
     labelled,
+    labels_of,
     need_current,
     new_id,
     run_claims,
@@ -44,6 +47,7 @@ from undercover_api.models import Strict
 
 log = logging.getLogger(__name__)
 compare_router = APIRouter(prefix="/api/engineering/compare")
+compare_agent_router = APIRouter(prefix="/api/agent/compare", dependencies=AGENT)
 
 COMPARE = "compare"
 CONCURRENCY = 5
@@ -53,6 +57,9 @@ SMALL_ONLY = {"claude-opus-5-5", "claude-fable-5-2"}
 TOKENS_IN, TOKENS_OUT = 12_000, 1_500
 # Each run keeps an improvement round's spending limit; a whole comparison, three of them.
 RUNS_OF_LIMIT = 3
+# The most explanations the judge compares for one comparison: 25 claims by 3 pairs is 75.
+MOST_DUELS = 100
+Size = Literal["one", "tiny", "whole"]
 
 
 class ModelChoice(BaseModel):
@@ -78,7 +85,7 @@ class Pick(Strict):
 
 class CompareRequest(Strict):
     picks: list[Pick] = Field(min_length=1, max_length=3)
-    size: Literal["tiny", "whole"]
+    size: Size
     repeats: int = Field(ge=1, le=3)
 
     @model_validator(mode="after")
@@ -135,6 +142,26 @@ class Difference(BaseModel):
     marks: list[Mark]
 
 
+class HeadToHead(BaseModel):
+    """Two picks' explanations of the same claims, judged blind in both orders."""
+
+    a: str = Field(description="The first pick, as model:effort")
+    b: str
+    a_share: float | None = Field(
+        description="How often the first pick's explanation was the better, ties counted half"
+    )
+    judged: int
+
+
+class Verdict(Strict):
+    key: Annotated[str, StringConstraints(max_length=200)]
+    a_score: float | None = Field(ge=0, le=1)
+
+
+class VerdictsIn(Strict):
+    verdicts: list[Verdict] = Field(max_length=MOST_DUELS)
+
+
 class Comparison(BaseModel):
     compare_id: int
     size: str
@@ -149,6 +176,8 @@ class Comparison(BaseModel):
     cheapest_pass: str | None
     differences: list[Difference]
     compared_claims: int
+    head_to_head: list[HeadToHead]
+    head_to_head_state: Literal["none", "judging", "done"]
 
 
 # --- Models ---
@@ -288,6 +317,7 @@ def start_next(db: Connection, service: AgentService, compare_id: int) -> None:
             .where(comparisons.c.compare_id == compare_id)
             .values(status="finished")
         )
+        ask_head_to_head(db, service, compare_id)
         return
     next_run = estimate_of(db, [waiting], found["size"])
     if next_run > limit_of(db) or spent_on(db, plan) + next_run > RUNS_OF_LIMIT * limit_of(db):
@@ -306,6 +336,136 @@ def start_next(db: Connection, service: AgentService, compare_id: int) -> None:
         db.rollback()
         return
     dispatch(db, service, run_id, ids, CONCURRENCY)
+
+
+def key_of(item: dict[str, Any]) -> str:
+    return f"{item['model']}:{item['effort']}"
+
+
+def first_finished(db: Connection, items: list[dict[str, Any]]) -> dict[str, RunClaim]:
+    """A pick's first finished run's copies, by the claim they copy."""
+    for item in items:
+        run_id = item.get("run_id")
+        if run_id is not None and run_row(db, int(run_id))["status"] == "finished":
+            found, _ = run_claims(db, int(run_id))
+            return {c.original_claim_id: c for c in found}
+    return {}
+
+
+def side_of(db: Connection, copy: RunClaim | None) -> dict[str, object] | None:
+    decision = find_decision(db, copy.claim_id) if copy else None
+    if decision is None:
+        return None
+    return {
+        "decision": str(decision.decision),
+        "payout": decision.payout,
+        "section": decision.section,
+        "reason": decision.reason,
+    }
+
+
+def duels_for(db: Connection, groups: list[list[dict[str, Any]]]) -> list[dict[str, object]]:
+    """Each claim's two explanations for every pair of picks, beside the handler's, from each
+    pick's first finished run: the decisions, sections and reasons only."""
+    firsts = [(key_of(items[0]), first_finished(db, items)) for items in groups]
+    originals = sorted({o for _, by_claim in firsts for o in by_claim})
+    labels = labels_of(db, originals)
+    duels: list[dict[str, object]] = []
+    for original in originals:
+        label = labels.get(original)
+        if label is None:
+            continue
+        sides = [
+            (key, side)
+            for key, by_claim in firsts
+            if (side := side_of(db, by_claim.get(original))) is not None
+        ]
+        for i, (a_key, a_side) in enumerate(sides):
+            for b_key, b_side in sides[i + 1 :]:
+                duels.append(
+                    {
+                        "key": f"{original}|{a_key}|{b_key}",
+                        "handler_decision": str(label.get("decision", "")),
+                        "handler_payout": float(label.get("payout") or 0),
+                        "handler_section": str(label.get("reference", "")),
+                        "handler_reason": str(label.get("reason", "")),
+                        "first": a_side,
+                        "second": b_side,
+                    }
+                )
+    return duels[:MOST_DUELS]
+
+
+def ask_head_to_head(db: Connection, service: AgentService, compare_id: int) -> None:
+    """Hand a finished comparison's explanations to the judge, once, two picks at a time. The
+    scores stand without it: a judge that can't be reached means no head to head."""
+    found = (
+        db.execute(select(comparisons).where(comparisons.c.compare_id == compare_id))
+        .mappings()
+        .one()
+    )
+    if found["judging_since"] is not None or found["verdicts"] is not None:
+        return
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for item in found["plan"]:
+        groups.setdefault(key_of(item), []).append(dict(item))
+    duels = duels_for(db, list(groups.values())) if len(groups) > 1 else []
+    if not duels:
+        return
+    db.execute(
+        update(comparisons)
+        .where(comparisons.c.compare_id == compare_id)
+        .values(judging_since=now())
+    )
+    db.commit()
+    try:
+        service.head_to_head(compare_id, duels)
+    except AgentUnavailableError as error:
+        log.warning("comparison %s: the judge couldn't be asked: %s", compare_id, error)
+        db.execute(
+            update(comparisons)
+            .where(comparisons.c.compare_id == compare_id)
+            .values(judging_since=None)
+        )
+        db.commit()
+
+
+@compare_agent_router.post("/{compare_id}/verdicts", operation_id="record_verdicts")
+def record_verdicts(compare_id: int, body: VerdictsIn, db: Database) -> dict[str, int]:
+    """Keep the judge's head-to-head verdicts, once: a second answer is ignored."""
+    found = db.execute(
+        select(comparisons.c.verdicts).where(comparisons.c.compare_id == compare_id)
+    ).first()
+    if found is None:
+        raise HTTPException(404, f"Comparison {compare_id} not found")
+    if found[0] is None:
+        db.execute(
+            update(comparisons)
+            .where(comparisons.c.compare_id == compare_id)
+            .values(verdicts={v.key: v.a_score for v in body.verdicts})
+        )
+    return {"verdicts": len(body.verdicts)}
+
+
+def head_to_head_of(keys: list[str], verdicts: dict[str, float | None] | None) -> list[HeadToHead]:
+    """Each pair of picks' share of claims where the first's explanation was the better."""
+    pairs: list[HeadToHead] = []
+    for i, a in enumerate(keys):
+        for b in keys[i + 1 :]:
+            scores = [
+                score
+                for key, score in (verdicts or {}).items()
+                if key.endswith(f"|{a}|{b}") and score is not None
+            ]
+            pairs.append(
+                HeadToHead(
+                    a=a,
+                    b=b,
+                    a_share=round(sum(scores) / len(scores), 4) if scores else None,
+                    judged=len(scores),
+                )
+            )
+    return pairs
 
 
 def limit_of(db: Connection) -> float:
@@ -631,6 +791,14 @@ def comparison_of(db: Connection, compare_id: int) -> Comparison:
     results = [result_of(db, items, current, targets) for items in groups.values()]
     answer, cheapest = answer_of(results)
     differences, compared = differences_of(db, list(groups.values()))
+    keys = [f"{model}:{effort}" for model, effort in groups]
+    state: Literal["none", "judging", "done"] = (
+        "done"
+        if row["verdicts"] is not None
+        else "judging"
+        if row["judging_since"] is not None
+        else "none"
+    )
     return Comparison(
         compare_id=compare_id,
         size=row["size"],
@@ -645,6 +813,8 @@ def comparison_of(db: Connection, compare_id: int) -> Comparison:
         cheapest_pass=cheapest,
         differences=differences,
         compared_claims=compared,
+        head_to_head=head_to_head_of(keys, row["verdicts"]) if len(keys) > 1 else [],
+        head_to_head_state=state if len(keys) > 1 else "none",
     )
 
 
@@ -662,4 +832,4 @@ def get(compare_id: int, _: SignedInEngineer, db: Database) -> Comparison:
     return comparison_of(db, compare_id)
 
 
-__all__ = ["BY_ID", "after_run", "compare_router"]
+__all__ = ["BY_ID", "after_run", "compare_agent_router", "compare_router"]

@@ -44,6 +44,34 @@ def test_compare_runs_each_model_in_turn_and_never_puts_one_in_use(
     assert done["differences"]
     assert done["answer"]
 
+    # Finished: the judge is handed each claim's two explanations, beside the handler's, once.
+    assert agent.calls[-1][0] == "head_to_head"
+    duels = agent.duels[-1]
+    assert len(duels) == 5
+    assert duels[0]["key"].endswith("|claude-sonnet-5-5:medium|claude-fable-5-2:high")
+    assert {"decision", "reason"} <= set(duels[0]["first"])
+    assert done["head_to_head_state"] == "judging"
+    verdicts = [
+        {"key": d["key"], "a_score": score}
+        for d, score in zip(duels, [1, 1, 0.5, 0, None], strict=True)
+    ]
+    path = f"/api/agent/compare/{done['compare_id']}/verdicts"
+    assert client.post(path, json={"verdicts": verdicts}, headers=AGENT).status_code == 200
+    # A second answer is ignored.
+    again = [{"key": duels[0]["key"], "a_score": 0}]
+    assert client.post(path, json={"verdicts": again}, headers=AGENT).status_code == 200
+    judged = client.get("/api/engineering/compare/latest", headers=sam).json()
+    assert judged["head_to_head_state"] == "done"
+    assert judged["head_to_head"] == [
+        {
+            "a": "claude-sonnet-5-5:medium",
+            "b": "claude-fable-5-2:high",
+            "a_share": 0.625,
+            "judged": 4,
+        }
+    ]
+    assert client.post(path, json={"verdicts": []}, headers=sam).status_code in (401, 403)
+
     # A compared model stays out of Versions and can't be put in use by hand.
     fable = done["results"][1]["version"]
     versions = client.get("/api/engineering/versions", headers=sam).json()
@@ -160,3 +188,18 @@ def test_the_dearest_models_run_on_5_claims_and_the_improver_keeps_to_its_three(
         f"/api/agent/rounds/{started['round_id']}/proposal", json=fable, headers=AGENT
     )
     assert proposed.status_code == 422
+
+
+def test_one_claim_is_a_run_of_the_first_practice_claim(
+    client: TestClient, sam: dict[str, str], agent: FakeAgent
+) -> None:
+    register(client)
+    body = {"picks": [{"model": "claude-haiku-5-5", "effort": "low"}], "size": "one", "repeats": 1}
+    started = client.post("/api/engineering/compare", json=body, headers=sam)
+    assert started.status_code == 201, started.text
+    kind, _, claim_ids = agent.calls[-1]
+    assert kind == "dispatch"
+    assert claim_ids is not None
+    assert len(claim_ids.split(",")) == 1
+    # One pick: nothing to judge head to head.
+    assert started.json()["head_to_head_state"] == "none"

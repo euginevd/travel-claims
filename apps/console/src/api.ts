@@ -605,6 +605,7 @@ export const AttackPlanSchema = z.object({
   name: z.string(),
   technique: z.string(),
   owasp: z.string(),
+  aimed_at: z.string().default(""),
 });
 export type AttackPlan = z.infer<typeof AttackPlanSchema>;
 
@@ -729,12 +730,23 @@ export const ComparisonSchema = z.object({
     }),
   ),
   compared_claims: z.number(),
+  head_to_head: z
+    .array(
+      z.object({
+        a: z.string(),
+        b: z.string(),
+        a_share: z.number().nullable(),
+        judged: z.number(),
+      }),
+    )
+    .default([]),
+  head_to_head_state: z.enum(["none", "judging", "done"]).default("none"),
 });
 export type Comparison = z.infer<typeof ComparisonSchema>;
 
 export interface CompareRequest {
   picks: { model: string; effort: string }[];
-  size: "tiny" | "whole";
+  size: "one" | "tiny" | "whole";
   repeats: number;
 }
 
