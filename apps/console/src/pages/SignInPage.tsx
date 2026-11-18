@@ -1,4 +1,4 @@
-import { ArrowRight, Check, LoaderCircle, Lock, Route, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle, Lock } from "lucide-react";
 import {
   AuthenticatorStep,
   authenticatorCode,
@@ -25,13 +25,13 @@ const TEST_ACCOUNT = { name: "Sam Carter", role: "AI engineer" };
 // How long the "signed in" tick and the page's exit play before the scoreboard rises in.
 const EXIT_MS = 450;
 
-// Each is true of the app: every claim has a trace (Claim trace), the red team's attacks are
-// mapped to OWASP risks (Threat coverage), and a proposed configuration is only tried after an
-// AI engineer approves it (Improvement).
+// Each is true of the app: every claim has a trace, each step, model call and cent (Trace); the
+// latest red-team run held 27 of 27 attacks (docs/redteam-report.md); and a claim costs under a
+// cent of Claude on Haiku 5.5 (0.55 cents measured on the Cost page).
 const POINTS = [
-  { Icon: Route, text: "Every decision traced" },
-  { Icon: ShieldCheck, text: "Red-teamed against OWASP risks" },
-  { Icon: Check, text: "Changes need approval" },
+  { figure: "100", unit: "%", text: "Decisions traced" },
+  { figure: "27", unit: "of 27", text: "Attacks held" },
+  { figure: "<1", unit: "¢", text: "Per claim" },
 ];
 
 interface SignInPageProps {
@@ -195,30 +195,31 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
         <main className="signin-main" id="main">
           <section className="signin-hero">
-            <h1 aria-label="Every AI decision, measured.">
+            <h1 aria-label="Every AI agent, in view.">
               <span className="headline-line" aria-hidden="true">
                 <span className="word w1">Every </span>
                 <span className="word w2">AI </span>
-                <span className="word w3">decision,</span>
+                <span className="word w3">agent,</span>
               </span>
               <span className="headline-line" aria-hidden="true">
                 <span className="word w4">
-                  <em>measured.</em>
+                  <em>in view.</em>
                 </span>
               </span>
             </h1>
             <p className="signin-lede rise d4">
-              Evals and security for the claims agent: score it against handlers&apos; decisions,
-              approve its improvements and attack it with the red team.
+              Observe, evaluate, secure and govern the agent team: watch each agent work, score it
+              against handlers&apos; decisions, red-team it and approve every change.
             </p>
             <div className="rise d5">
               <SignInRun />
             </div>
             <ul className="signin-points">
-              {POINTS.map(({ Icon, text }) => (
+              {POINTS.map(({ figure, unit, text }) => (
                 <li key={text} className="signin-point">
-                  <span className="icon-tile">
-                    <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="signin-figure">
+                    {figure}
+                    <small>{unit}</small>
                   </span>
                   {text}
                 </li>

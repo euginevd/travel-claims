@@ -17,7 +17,7 @@ test("an AI engineer signs in with the test account and lands on the security po
     "GET /api/engineering/runs": () => [200, []],
   });
   render(<App fetchFn={fetchFn} />);
-  expect(screen.getByRole("heading", { name: "Every AI decision, measured." })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Every AI agent, in view." })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Continue as Sam" }));
   // The overview is home: one page, so no tabs under it.
   expect(await screen.findByRole("heading", { name: /^Good \w+, Sam$/ })).toBeInTheDocument();

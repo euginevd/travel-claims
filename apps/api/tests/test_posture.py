@@ -92,8 +92,8 @@ def test_attacks_stopped_first_leave_the_layers_behind_untested(
     assert found["controls"]["agentic_tested"] == 1
     untested = [i["title"] for i in found["issues"] if i["link"] == "coverage"]
     assert "No attack tests LLM02 sensitive information disclosure" in untested
-    # Supply chain is a build check, not an attack's job.
-    assert not any("LLM03" in title for title in untested)
+    # Supply chain is a build check, not an attack's job, and LLM09 doesn't apply.
+    assert not any("LLM04" in t or "LLM09" in t or "ASI05" in t for t in untested)
 
 
 def test_a_failed_attack_makes_the_posture_failing(client: TestClient, sam: dict[str, str]) -> None:

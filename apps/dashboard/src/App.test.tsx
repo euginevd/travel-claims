@@ -30,8 +30,10 @@ test("a handler signs in and sees the queue", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  // What needs a handler shows first; everything else is folded, then in tabs.
-  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
+  // Everything else starts folded; opened, it shows every claim in tabs.
+  const more = await screen.findByRole("button", { name: /Everything else/ });
+  expect(more).toHaveAttribute("aria-expanded", "false");
+  await user.click(more);
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   const table = await screen.findByRole("table");
   expect(within(table).getByRole("link", { name: "CLM-1001" })).toHaveAttribute(
@@ -48,7 +50,7 @@ test("the sign-in page is a plain staff sign-in with no list of people", () => {
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
   expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 1 })).toHaveAccessibleName(
-    "The agent recommends. You decide.",
+    "Agents settle the routine. You make the call.",
   );
   expect(screen.queryByText(/customer/i)).not.toBeInTheDocument();
   // The only people offered are the two test accounts, and only in a test build.

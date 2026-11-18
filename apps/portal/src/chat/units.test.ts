@@ -4,6 +4,7 @@ import {
   loadDismissed,
   noun,
   pickNews,
+  policyNamedIn,
   saveDismissed,
   suggestions,
   DISMISSED_KEY,
@@ -218,4 +219,43 @@ test("a saved claim comes back as far as it got", () => {
   });
   expect(back).toMatchObject({ story: "I hurt my ankle.", location: "Rome" });
   expect(back.lines).toEqual([{ description: "Clinic", category: "medical", amount: 120 }]);
+});
+
+test("a claim starts on the trip the customer named, else the latest", () => {
+  const kenya = {
+    ...MY_POLICY,
+    policy_id: "POL-K",
+    trip: {
+      ...MY_POLICY.trip,
+      destination: "Nairobi and the Maasai Mara, Kenya",
+      departs_on: "2026-06-28",
+    },
+  };
+  const lanka = {
+    ...MY_POLICY,
+    policy_id: "POL-L",
+    trip: { ...MY_POLICY.trip, destination: "Bentota, Sri Lanka", departs_on: "2026-08-08" },
+  };
+  const both = [kenya, lanka];
+  expect(policyNamedIn("My bag was late when I flew into Nairobi", both)?.policy_id).toBe("POL-K");
+  expect(policyNamedIn("It was my Kenya trip and the bag was lost", both)?.policy_id).toBe("POL-K");
+  expect(policyNamedIn("My bag was late and the hotel was awful", both)?.policy_id).toBe("POL-L");
+});
+
+test("the assistant's own question is asked once a claim, however it's reworded", () => {
+  const filled = {
+    ...fill(null, "lost_bag", ["x"], "2026-06-12"),
+    location: "Rome",
+    lines: [{ description: "Shirt", category: "clothing" as const, amount: 40 }],
+    claimType: "baggage_delay" as const,
+    questions: ["Did the airline already pay you anything?"],
+  };
+  const trip = { departs_on: "2026-06-10", returns_on: "2026-06-18" };
+  expect(nextMissing(filled, new Set(), trip)).toEqual({
+    question: "Did the airline already pay you anything?",
+  });
+  const reworded = { ...filled, questions: ["Has anyone already refunded these costs?"] };
+  expect(nextMissing(reworded, new Set(["Did the airline already pay you anything?"]), trip)).toBe(
+    null,
+  );
 });

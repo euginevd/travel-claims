@@ -96,7 +96,7 @@ a:hover {
 }
 
 :focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -368,7 +368,7 @@ h2 {
 
 .button.secondary:focus-visible,
 .button.soft:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -653,7 +653,7 @@ textarea:focus-visible {
 }
 
 .project-link:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
 }
 
 @media (max-width: 860px) {
@@ -872,7 +872,7 @@ textarea:focus-visible {
 }
 
 .tile:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -937,7 +937,7 @@ textarea:focus-visible {
 }
 
 .need-row input[type="file"]:focus-visible + label {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 

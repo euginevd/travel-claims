@@ -98,7 +98,7 @@ a:hover {
 
 /* One visible focus ring everywhere. */
 :focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -309,7 +309,7 @@ kbd {
 }
 
 .button.secondary:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -1193,8 +1193,23 @@ main.signin-main {
   animation-delay: 1.1s;
 }
 
-.signin-point .icon-tile {
-  margin-bottom: 9px;
+.signin-figure {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-family: var(--font-head);
+  font-size: clamp(28px, 3.8vh, 36px);
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--ink);
+}
+
+.signin-figure small {
+  margin-left: 5px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--ink-3);
 }
 
 /* The glass shell with a thin light running round its border. */
@@ -1536,7 +1551,7 @@ main.signin-main {
 }
 
 .account:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 

@@ -56,6 +56,9 @@ MEASURES = ("accuracy", "payout_accuracy", "straight_through")
 # How far cost per claim must move to count as better or worse; time per claim is too noisy
 # on a few claims to judge by.
 COST_NOISE = 0.10
+# And by at least this many dollars a claim: on Haiku a claim costs half a cent, where a tenth of
+# a cent is 20% and still noise (a better version was rolled back for $0.0005 more a claim).
+COST_FLOOR = 0.001
 # How many more claims a measure must get right to count as better: one claim either way is
 # within the noise of a 25-claim exam. Any claim lost still counts as worse.
 BETTER_BY = 2
@@ -434,10 +437,9 @@ def verdict(baseline: Scores, candidate: Scores) -> dict[str, Any]:
     changed = {m: claims_changed(baseline, candidate, m) for m in MEASURES}
     worse = [LABELS[m] for m, by in changed.items() if by < 0]
     better = [LABELS[m] for m, by in changed.items() if by >= BETTER_BY]
-    if candidate.cost_per_claim < baseline.cost_per_claim * (1 - COST_NOISE):
-        better.append("cost per claim")
-    elif candidate.cost_per_claim > baseline.cost_per_claim * (1 + COST_NOISE):
-        worse.append("cost per claim")
+    moved = candidate.cost_per_claim - baseline.cost_per_claim
+    if abs(moved) > max(baseline.cost_per_claim * COST_NOISE, COST_FLOOR):
+        (better if moved < 0 else worse).append("cost per claim")
     kept = not worse and bool(better)
     outcome = "better" if kept else "worse" if worse else "unclear"
     if worse:

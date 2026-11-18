@@ -4,50 +4,71 @@ import { createApi } from "../api";
 import { fakeFetch } from "../testing";
 import { RisksTable } from "./RisksTable";
 
+function row(id: string, status: string, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    was: "",
+    risk: `Risk ${id}`,
+    atlas: "",
+    control: "A control",
+    note: "",
+    status,
+    attacks: [],
+    last_fired: null,
+    fired: 0,
+    ...extra,
+  };
+}
+
 const COVERAGE = {
   redteam_run_at: "2026-11-09T01:00:00Z",
-  threats: [
+  frameworks: [
     {
-      owasp: "LLM01",
-      risk: "Prompt injection",
-      atlas: "AML.T0051",
-      control: "Hidden-instruction check",
-      attacks: [
-        { attack_id: "RT-01", name: "Receipt", passed: true },
-        { attack_id: "RT-02", name: "Story", passed: false },
+      key: "llm",
+      name: "OWASP LLM Top 10",
+      version: "2026",
+      risks: [
+        row("LLM01", "failing", {
+          risk: "Prompt injection",
+          atlas: "AML.T0051",
+          attacks: [
+            { attack_id: "RT-01", name: "Receipt", passed: true },
+            { attack_id: "RT-02", name: "Story", passed: false },
+          ],
+          last_fired: "2026-11-09T01:00:00Z",
+          fired: 3,
+        }),
+        row("LLM03", "tested", {
+          risk: "Excessive agency",
+          was: "LLM06",
+          attacks: [{ attack_id: "RT-06", name: "Inflation", passed: true }],
+        }),
+        row("LLM04", "built_in", { note: "Checked on every PR, not by an attack" }),
+        row("LLM06", "gap"),
       ],
-      last_fired: "2026-11-09T01:00:00Z",
-      fired: 3,
+      mapped: 4,
+      tested: 2,
+      failing: 1,
+      built_in: 1,
+      gaps: 1,
     },
     {
-      owasp: "LLM03",
-      risk: "Supply chain",
-      atlas: "",
-      control: "Pinned",
-      attacks: [],
-      last_fired: null,
-      fired: 0,
+      key: "maestro",
+      name: "CSA MAESTRO",
+      version: "seven layers",
+      risks: [row("L1", "tested", { risk: "Foundation models" })],
+      mapped: 1,
+      tested: 1,
+      failing: 0,
+      built_in: 0,
+      gaps: 0,
     },
   ],
-  agents: [
-    {
-      agent: "Claim agent",
-      model: "claude-sonnet-5-5",
-      tools: "get_claim",
-      sources: "context",
-      worst_case: "Approves a claim it shouldn't",
-      stopped_by: "The payout code",
-    },
-  ],
-  payouts: {
-    paused: true,
-    changed_by: "Dana Whitfield",
-    changed_at: "2026-11-09T01:00:00Z",
-    reason: "Test",
-  },
+  agents: [],
+  payouts: { paused: false, changed_by: null, changed_at: null, reason: null },
 };
 
-test("shows each risk with its tests and what fired, then the agents, after a retry", async () => {
+test("shows each framework's coverage and status, switching between them, after a retry", async () => {
   const user = userEvent.setup();
   let fail = true;
   const fetchFn = fakeFetch({
@@ -58,12 +79,19 @@ test("shows each risk with its tests and what fired, then the agents, after a re
   fail = false;
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByText(/Prompt injection/)).toBeInTheDocument();
-  expect(screen.getByText(/1 of 2 tested by an attack/)).toBeInTheDocument();
-  expect(screen.getByLabelText("Held")).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "OWASP LLM Top 10: 4 of 4 mapped · 2 tested · 1 got through · 1 built in · 1 gap",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText("was LLM06 (2025)")).toBeInTheDocument();
   expect(screen.getByLabelText("Failed")).toBeInTheDocument();
-  expect(screen.getByText("No attack yet")).toBeInTheDocument();
+  expect(screen.getByText("Got through")).toBeInTheDocument();
+  expect(screen.getByText("Gap")).toBeInTheDocument();
+  expect(screen.getByText("Checked on every PR, not by an attack")).toBeInTheDocument();
   expect(screen.getByText("3 times")).toBeInTheDocument();
-  expect(screen.getByText("MITRE ATLAS AML.T0051")).toBeInTheDocument();
-  // Each agent's blast radius is on the agents map now, not repeated here.
-  expect(screen.queryByRole("rowheader", { name: /Claim agent/ })).toBeNull();
+  await user.click(screen.getByRole("radio", { name: /MAESTRO/ }));
+  expect(screen.getByRole("columnheader", { name: "Layer" })).toBeInTheDocument();
+  expect(screen.getByText(/Foundation models/)).toBeInTheDocument();
+  expect(screen.queryByText(/Prompt injection/)).toBeNull();
 });

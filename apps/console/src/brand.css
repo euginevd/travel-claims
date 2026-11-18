@@ -60,6 +60,7 @@
   --radius-card: 20px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --lift: 0 1px 2px rgb(31 30 28 / 4%);
+  --float: 0 18px 40px -18px rgb(31 30 28 / 22%);
 
   --font-head: "Newsreader", Georgia, serif;
   --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -89,7 +90,7 @@ a:hover {
 }
 
 :focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -329,7 +330,7 @@ b {
 }
 
 .button.secondary:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -459,7 +460,7 @@ textarea::placeholder {
 }
 
 .seg-option input:focus-visible + span {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 1px;
 }
 
@@ -1647,8 +1648,23 @@ main.signin-main {
   color: var(--ink);
 }
 
-.signin-point .icon-tile {
-  margin-bottom: 9px;
+.signin-figure {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8px;
+  font-family: var(--font-head);
+  font-size: clamp(28px, 3.8vh, 36px);
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--ink);
+}
+
+.signin-figure small {
+  margin-left: 5px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--ink-3);
 }
 
 /* The glass shell with a thin light running round its border. */
@@ -1992,7 +2008,7 @@ main.signin-main {
 }
 
 .account:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -2421,7 +2437,7 @@ main.gate {
 }
 
 .wattle-next-q button:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 

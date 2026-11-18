@@ -18,6 +18,7 @@ import { AskedPanel } from "../components/AskedPanel";
 import { RiskPanel } from "../components/RiskPanel";
 import { SimilarPanel } from "../components/SimilarPanel";
 import { LetterPanel } from "../components/LetterPanel";
+import { shortcutsOn } from "../shortcuts";
 
 interface ClaimPageProps {
   api: Api;
@@ -29,12 +30,12 @@ interface ClaimPageProps {
 const WORKABLE = new Set<Claim["status"]>(["waiting", "sent_back"]);
 const OVERRIDABLE = new Set<Claim["status"]>(["decided", "waiting_for_sign_off"]);
 
-/** Whether a key press is a shortcut, not typing in a field or a combination. */
+/** Whether a key press is a shortcut: shortcuts on, not typing in a field or a combination. */
 function isShortcut(event: KeyboardEvent): boolean {
   const typing =
     event.target instanceof Element &&
     event.target.closest("input, textarea, select, [contenteditable='true']");
-  return !typing && !event.ctrlKey && !event.metaKey && !event.altKey;
+  return shortcutsOn() && !typing && !event.ctrlKey && !event.metaKey && !event.altKey;
 }
 // After failed polls, wait longer each time, up to this many times the usual wait.
 const MOST_BACK_OFF = 16;
@@ -435,9 +436,29 @@ export function ClaimPage({ api, claimId, handler, pollMs }: ClaimPageProps) {
               id={`tab-${one.key}`}
               aria-selected={shown === one.key}
               aria-controls={`panel-${one.key}`}
+              tabIndex={shown === one.key ? 0 : -1}
               className={shown === one.key ? "on" : undefined}
               onClick={() => {
                 setTab(one.key);
+              }}
+              onKeyDown={(event) => {
+                // Arrow keys, Home and End move between the tabs (the ARIA tabs pattern).
+                const at = tabs.findIndex((t) => t.key === one.key);
+                const to =
+                  event.key === "ArrowRight"
+                    ? (at + 1) % tabs.length
+                    : event.key === "ArrowLeft"
+                      ? (at - 1 + tabs.length) % tabs.length
+                      : event.key === "Home"
+                        ? 0
+                        : event.key === "End"
+                          ? tabs.length - 1
+                          : -1;
+                const next = tabs[to];
+                if (!next) return;
+                event.preventDefault();
+                setTab(next.key);
+                document.getElementById(`tab-${next.key}`)?.focus();
               }}
             >
               {one.label}

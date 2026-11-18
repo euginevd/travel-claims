@@ -164,6 +164,20 @@ def seed_engineers(db: Connection, data: Path) -> None:
             db.execute(insert(engineers).values(**engineer))
 
 
+def seed_new_policies(db: Connection, data: Path) -> None:
+    """Add any policy in the records that a database seeded earlier lacks, such as a recent trip
+    added so a live demo claim is within the 90-day filing window. Never changes one already
+    there."""
+    for policy in read(data / "records", "policies.json"):
+        insert_if_new(
+            db,
+            policies,
+            policy_id=policy["policy_id"],
+            customer_id=policy["customer_id"],
+            record=policy,
+        )
+
+
 # When the seeded queue was loaded: its claims' service clock starts then, not on their
 # historical submission dates, so a demo's queue isn't overdue months after the data was written.
 QUEUE_LOADED_ON = "queue_loaded_on"
@@ -181,6 +195,7 @@ def seed_if_empty(engine: Engine, data: Path) -> bool:
         seed_labels(db, data)
         seed_engineers(db, data)
         if is_seeded(db):
+            seed_new_policies(db, data)
             mark_queue_loaded(db)
             return False
         seed(db, data)

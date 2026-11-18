@@ -20,7 +20,7 @@
 
 I designed and built UnderCover end to end to show AI engineering, security and cloud architecture working together. It has three apps for three audiences, a LangGraph claim agent and a handlers' Copilot, running on AWS with AgentCore and Bedrock. Every risk in the threat model has a control, every AWS resource is Terraform, and each control is a setting.
 
-The idea and synthetic data come from [the UnderCover project](https://github.com/ed-donner/undercover) in Ed Donner's AI FDE course, which I recently completed after his [Proficient AI Engineer program](https://proficientaiengineer.com/certificate/c5032879-fe81-45d9-b460-68de7631bfda). The code, architecture and controls are my own.
+Idea and fictional data from [UnderCover](https://github.com/ed-donner/undercover) in Ed Donner's AI FDE course (after his [Proficient AI Engineer program](https://proficientaiengineer.com/certificate/c5032879-fe81-45d9-b460-68de7631bfda)); code written from scratch with Claude Code ([AGENTS.md](AGENTS.md)), design and controls my own.
 
 <div align="center">
 
@@ -32,10 +32,10 @@ The idea and synthetic data come from [the UnderCover project](https://github.co
 
 | | |
 |---|---|
-| Red team | 14 of 14 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access, a forged tool call and card numbers; the instruction check stopped nine, the claim agent three ([report](docs/redteam-report.md)) |
-| Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.014 |
+| Red team | 27 of 27 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access and card numbers on the claim agent; another customer's data, prompt extraction and a three-message walk on Wattle; the Copilot's confirm card; handlers deciding what they mustn't; a tricked agent for the guardian to hold; and memory poisoning, a looping claim, a note for a specialist, a claim reaching for another and an instruction in a tool's result ([report](docs/redteam-report.md)) |
+| Cost | Under a cent of Claude a claim on Haiku 5.5 (0.55 cents measured locally) |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
-| Tests | 676 Python tests at 88% coverage, 322 web app tests, and browser tests with an accessibility scan in CI |
+| Tests | 684 Python tests at 88% coverage, 331 web app tests, and browser tests with an accessibility scan in CI |
 | Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
 
 Deployed to AWS from the pipeline and tested end to end, then torn down to keep the bill near zero. The [walkthrough](#walkthrough) shows it running.
@@ -54,7 +54,7 @@ One design, the one a regulated insurer would run, with the platform team's cont
 2. **Money never in a prompt:** code pays, after checking the approval limit and the pause switch; a payout can't run twice.
 3. **Tool rules:** AgentCore Policy (Cedar) allows each gateway only its own tools.
 4. **Checked answers:** grounding checks, Automated Reasoning against the policy wording, and letters filtered for personal numbers.
-5. **Red team:** fourteen attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
+5. **Red team:** 27 attacks on every agent a customer or handler reaches, mapped to OWASP's 2026 LLM and agentic lists, its MCP Top 10 and MAESTRO, with no OWASP risk left untested; an improvement is kept only if the red team still holds.
 6. **Identity:** separate sign-ins per app, machine tokens between services, and GitHub to AWS over OIDC with no stored keys.
 7. **Pipeline:** Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every PR; images shipped with an SBOM; packages at least 7 days old.
 
@@ -64,9 +64,9 @@ Details: the [threat model](docs/threat-model.md), the [checklist](docs/checklis
 
 <div align="center">
 
-<img src="docs/assets/undercover-60s.gif" width="880" alt="A minute on UnderCover, sped up: the project page, the repo, the AWS architecture and threat model, security at every DevSecOps stage, a customer's claim, a reused receipt referred to a handler, a senior handler's sign-off, the evals scoreboard, the improver held for approval, the red team, defence in depth, a claim trace and the pipeline's security scans.">
+<img src="docs/assets/undercover-60s.gif" width="880" alt="A minute on UnderCover, sped up: the project page, the repo, the AWS architecture and STRIDE threat model; Oliver claims for a delayed bag by chat with Wattle; the agent finds it payable but refers his third claim in a year to a person, and the senior handler asks the Copilot and approves it; then the AI control plane: the agent team, the claim's trace, the exam, an improver round rolled back by its gates, posture across OWASP LLM, Agentic and MCP Top 10 and MAESTRO, the red team, guardrails and cost.">
 
-The full three-minute walkthrough, with captions, plays on the project page ([the video](apps/home/media/walkthrough.mp4)).
+The full three-minute walkthrough follows one claim end to end: the customer, the handler, then the AI control plane, where engineers observe, evaluate, secure and govern the agents. It plays on the project page ([the video](apps/home/media/walkthrough.mp4)), with captions on screen. It was recorded from the local stack by [scripts](e2e/walkthrough), so a retake is a few commands.
 
 </div>
 
@@ -77,11 +77,11 @@ Docker runs every app on a laptop to try it or test a change. AWS is deployed by
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), clone the repo and run `bash scripts/setup.sh`.
 2. Copy `.env.example` to `.env` and add an Anthropic API key with its workspace ID.
 3. Run `docker compose up --build -d` and open the project page at http://127.0.0.1:5172.
-4. Sign in to an app with its test account (below), and make a claim with the [sample receipts](data/sample-receipts). `04-injection-test-mara-lodge.png` hides an instruction the hidden-instruction check should catch.
+4. Sign in to an app with its test account (below), and make a claim with the [sample receipts](data/sample-receipts). `04-injection-test-mara-lodge.png` hides an instruction the hidden-instruction check should catch. For a claim the agent can settle on its own, sign in as Oliver and send `05-queenstown-clothes-bag-delayed.png` with the airline's `06-queenstown-airline-delay-report.png`: his Queenstown trip is recent, so it's within the 90 days to claim.
 5. Browser tests, in [e2e](e2e): `npm ci` and `npx playwright install chromium` once, then `npm run stack`, `npm test` and `npm run stack:down`.
 6. Start over: `docker compose down -v` (deletes the local database), then `up` again.
 
-A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
+A claim costs under a cent of Claude on Haiku 5.5. Running costs: [costs.md](docs/costs.md).
 
 ## Apps
 
@@ -90,7 +90,7 @@ A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
 | `home` | Anyone: the project page | http://127.0.0.1:5172 | none |
 | `portal` | Customers chat with Wattle to make, track and ask about claims | http://127.0.0.1:5173 | Oliver Grant: **Use test account** |
 | `dashboard` | Handlers work the queue and sign off payouts | http://127.0.0.1:5174 | Dana Whitfield, senior: **Continue as Dana** |
-| `console` | AI engineers: evals, live monitoring, red team | http://127.0.0.1:5175 | Sam Carter: **Continue as Sam** |
+| `console` | AI engineers' control plane: the agents live, evals, model comparison, red team, cost and audit | http://127.0.0.1:5175 | Sam Carter: **Continue as Sam** |
 
 Behind them: `api` (claims, decisions, payments), `agent` (the claim agent), `copilot` (the handlers' Wattle AI) and `context` (policy lookups as an MCP server). Every feature: [features.md](docs/features.md).
 
@@ -114,5 +114,6 @@ Each is tracked in the [security trade-offs](guides/04-security-trade-offs.md) a
 2. [AWS runbook](guides/02-aws-runbook.md): deploy to `dev` and tear it down, step by step.
 3. [AWS architecture](guides/03-aws-architecture.md): the design layer by layer, and where the platform team takes over.
 4. [Security trade-offs](guides/04-security-trade-offs.md): the risks accepted, and the fix for production.
+5. [At scale](guides/05-at-scale.md): what 250,000 claims a day would need, and why people, not agents, are the bottleneck.
 
 Developers start with [AGENTS.md](AGENTS.md), then [spec.md](docs/spec.md) and [TODO.md](TODO.md). To contribute: [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability: [SECURITY.md](SECURITY.md).

@@ -7,7 +7,7 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="preload" href="fonts/newsreader-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="styles.css" integrity="sha384-FNq7t9VKa5CSEMKN9H8BfT6ZE4kh/uU3rviHAlj43DguDOsXLYScaEvfwNOcdao+" />
+    <link rel="stylesheet" href="styles.css" integrity="sha384-u/GXv1XUjhLH5Z2o7Y/urxila7bS0OFeql45FyYc159ql2wnbMglWqOoSoHWxMsU" />
     <script src="app.js" integrity="sha384-fHoyaYzaTgUwco6wtyTGAa6Z+3SMlUykl/58xjuncPtnHnyBtAK0xrQ1x0bi51L4" defer></script>
   </head>
   <body>
@@ -42,7 +42,6 @@
           <!-- The walkthrough: a still, or once app.js names the recording, its poster and one play button -->
           <figure class="stage rise d3">
             <div class="browser">
-              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
               <img class="screen" id="walkthrough-still" src="img/portal.jpg" alt="The customer portal" width="1280" height="800" />
               <video class="screen" id="walkthrough" hidden playsinline preload="metadata" poster="img/walkthrough-poster.jpg" width="1600" height="900" aria-label="A walkthrough of the apps, end to end"><track kind="captions" src="media/walkthrough.en.vtt" srclang="en" label="English" /></video>
               <div class="player" id="walkthrough-bar" hidden>

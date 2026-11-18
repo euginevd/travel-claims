@@ -39,9 +39,8 @@ export function answerOf(found: Detections): string {
   const rails = found.guardrails;
   const on = rails.filter((rail) => rail.mode !== "Missing").length;
   const missing = rails.length - on;
-  const tested = rails.filter((rail) => rail.reached !== null && rail.stopped !== null);
-  const attacks = Math.max(0, ...tested.map((rail) => rail.reached ?? 0));
-  const stopped = tested.reduce((sum, rail) => sum + (rail.stopped ?? 0), 0);
+  // The run's own totals: an attack two guardrails met is still one attack.
+  const { attacks, attacks_stopped: stopped } = found;
   const hits = rails.reduce((sum, rail) => sum + (rail.hits ?? 0), 0);
   return [
     `${String(on)} guardrails on`,

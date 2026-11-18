@@ -3,7 +3,9 @@
 from langgraph.store.memory import InMemoryStore
 from stubs import START, FakeApi, FakeClaude, config, decide, graph_for, tool_use
 
+from undercover_agent.api_client import ApiError
 from undercover_agent.memory import StoreMemory, memory_of
+from undercover_agent.models import Json
 
 
 def test_a_decided_claim_is_remembered_and_recalled_on_the_next() -> None:
@@ -75,3 +77,23 @@ def test_only_the_decision_section_numbers_and_check_counts_are_remembered() -> 
     assert "waive" not in remembered
     assert "loyal" not in remembered
     assert "Qantas" not in remembered
+
+
+def test_memory_of_a_claim_that_no_longer_exists_is_never_recalled() -> None:
+    """A demo reset removes claims; remembering one would make a fresh claim look like a repeat."""
+    memory = StoreMemory(InMemoryStore())
+    graph_for(FakeApi(), FakeClaude([decide("decline", 0, 1)]), memory).invoke(
+        START, config("CLM-2001")
+    )
+
+    class AfterReset(FakeApi):
+        def claim(self, claim_id: str) -> Json:
+            if claim_id == "CLM-2001":
+                raise ApiError(404, "No such claim")
+            return super().claim(claim_id)
+
+    api = AfterReset()
+    claude = FakeClaude([tool_use("search_memory", {}, 1), decide("decline", 0, 2)])
+    graph_for(api, claude, memory).invoke(START, config("CLM-2002"))
+    recalled = " ".join(text for _, text in api.steps_recorded if "emembered" in text)
+    assert "CLM-2001" not in recalled

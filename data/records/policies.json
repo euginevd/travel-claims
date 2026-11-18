@@ -108,6 +108,24 @@
     "status": "active"
   },
   {
+    "policy_id": "POL-2030",
+    "customer_id": "CUS-3005",
+    "plan": "premium",
+    "add_ons": [],
+    "purchased_on": "2026-10-20",
+    "sold_through": "TripNest checkout",
+    "trip": {
+      "destination": "Queenstown, New Zealand",
+      "departs_on": "2026-11-05",
+      "returns_on": "2026-11-15",
+      "trip_cost": 4600.0
+    },
+    "travelers": [
+      "Oliver Grant"
+    ],
+    "status": "active"
+  },
+  {
     "policy_id": "POL-2007",
     "customer_id": "CUS-3007",
     "plan": "economy",
