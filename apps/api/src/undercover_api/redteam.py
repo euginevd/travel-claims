@@ -5,9 +5,9 @@ import json
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import Connection, delete, insert, select
 
@@ -57,6 +57,30 @@ def attack_plan(data: Path) -> tuple[AttackPlan, ...]:
             max_safe_payout=float(a.get("max_safe_payout") or 0),
         )
         for a in cast(list[dict[str, Any]], suite["attacks"])
+    )
+
+
+def plan_of(http: Request) -> tuple[AttackPlan, ...]:
+    settings_now: Settings = http.app.state.settings
+    return attack_plan(settings_now.seed_data_dir)
+
+
+AttackPlans = Annotated[tuple[AttackPlan, ...], Depends(plan_of)]
+
+
+def retagged(report: RedTeamReport | None, plan: tuple[AttackPlan, ...]) -> RedTeamReport | None:
+    """A report with each attack's risks as today's suite tags them, so a run from before the
+    move to the 2026 OWASP ids still counts against the right risks."""
+    if report is None:
+        return None
+    tags = {attack.attack_id: attack.owasp for attack in plan}
+    return report.model_copy(
+        update={
+            "results": [
+                result.model_copy(update={"owasp": tags.get(result.attack_id, result.owasp)})
+                for result in report.results
+            ]
+        }
     )
 
 

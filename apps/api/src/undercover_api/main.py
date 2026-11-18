@@ -16,6 +16,7 @@ from sqlalchemy import Connection, Engine, RowMapping, delete, insert, select, u
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
+from undercover_api.activity import activity_router
 from undercover_api.agent_service import (
     DRAFT_TIMEOUT_SECONDS,
     AgentRefusedError,
@@ -887,6 +888,7 @@ def create_app(
         agent_queue_router,
         insights_router,
         assurance_router,
+        activity_router,
         staff_usage_router,
         budget_router,
         costs_router,

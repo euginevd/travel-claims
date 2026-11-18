@@ -796,12 +796,6 @@ pre.diff {
   margin: 5px 0;
 }
 
-.overview-side {
-  display: grid;
-  gap: 16px;
-  align-content: start;
-}
-
 @media (max-width: 1100px) {
   .gate-boxes {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1264,25 +1258,9 @@ pre.diff {
   font-size: 0.76rem;
 }
 
-.overview-main {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.agents-widget svg {
-  width: 100%;
-  height: auto;
-}
-
 @media (max-width: 1000px) {
   .widgets {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .overview-main {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2035,4 +2013,329 @@ pre.diff {
 .arch-services b {
   font-size: 0.86rem;
   font-weight: 600;
+}
+
+/* ---------- The Overview: the agent team first (features 20a) ---------- */
+
+/* The fold under the brief: what needs attention, one line until opened. */
+.folds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  align-items: flex-start;
+  margin: -6px 0 14px;
+}
+
+.folds > .attention-fold[open] {
+  flex-basis: 100%;
+}
+
+.attention-fold > summary {
+  width: fit-content;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.attention-fold[open] > summary {
+  margin-bottom: 8px;
+}
+
+/* The team and the live feed take the page's spare height and scroll inside. */
+.team-row,
+.view.fit > .team-row.fill {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 16px;
+  min-height: 0;
+}
+
+.team-row > .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+}
+
+.persona {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+}
+
+.persona.lead {
+  border-color: var(--acc-edge);
+  background: linear-gradient(120deg, var(--bg) 55%, var(--acc-tint));
+}
+
+.persona-body {
+  min-width: 0;
+}
+
+.persona-body p {
+  margin: 0;
+}
+
+.persona-name {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.persona-model {
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--ink-3);
+  font-size: 0.72rem;
+}
+
+.persona-state {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+
+.persona-state i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--soft-2);
+}
+
+.persona-state.on {
+  color: var(--good);
+}
+
+.persona-state.on i {
+  background: var(--good-dot);
+  animation: team-pulse 1.6s var(--ease) infinite;
+}
+
+.persona-voice {
+  margin-top: 4px !important;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.persona-work {
+  margin-top: 6px !important;
+  font-size: 0.8rem;
+}
+
+.persona-last {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--ink-2);
+  font-size: 0.75rem;
+}
+
+/* An AI agent's icon: a dark tile with the coral AI badge; code (the guardian, the api, the
+   context server) is a plain tile without the badge. */
+.agent-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 13px;
+  background: var(--ink);
+  color: var(--white);
+}
+
+.agent-icon.big {
+  grid-row: 1 / 2;
+  width: 44px;
+  height: 44px;
+}
+
+.agent-icon.small {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.agent-icon.big::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--acc)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z'/%3E%3C/svg%3E")
+    center / 10px no-repeat;
+}
+
+.agent-icon.code {
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--ink-2);
+}
+
+/* The live feed: who → whom, what, which claim, when; new rows slide in. */
+.feed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event > a,
+.event > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.event > a:hover {
+  background: var(--bg-work);
+}
+
+.event.fresh {
+  animation: team-slide 0.6s var(--ease) both;
+}
+
+.event-who {
+  display: inline-flex;
+  align-items: center;
+}
+
+.event-arrow {
+  margin: 0 4px;
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+
+.event-what {
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.event-what b {
+  font-weight: 600;
+}
+
+.event-what small {
+  display: block;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+}
+
+.event-tag {
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+}
+
+.event-tag.a2a {
+  background: var(--info-tint);
+  color: var(--info);
+}
+
+.event-tag.ok {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.event-tag.warn {
+  background: var(--warm-tint);
+  color: var(--warm);
+}
+
+.event-tag.bad {
+  background: var(--del-tint);
+  color: var(--del);
+}
+
+/* The evidence under the team: the four figures and the five gates in one compact row. */
+.evidence-strip {
+  display: grid;
+  grid-template-columns: 4fr 5fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.evidence-strip .widgets {
+  gap: 10px;
+  margin: 0;
+}
+
+.evidence-strip .gate-boxes {
+  margin: 0;
+}
+
+.evidence-strip .widget,
+.evidence-strip .gate-box {
+  padding: 10px 12px;
+}
+
+/* Compact: the figure and its chart; the detail is a click away on each page. */
+.evidence-strip .widget-sub,
+.evidence-strip .gate-box > small {
+  display: none;
+}
+
+.evidence-strip .widget {
+  grid-template-rows: auto auto 24px;
+}
+
+@keyframes team-pulse {
+  50% {
+    box-shadow: 0 0 0 5px var(--good-soft);
+  }
+}
+
+@keyframes team-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-state.on i,
+  .event.fresh {
+    animation: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .team-row,
+  .evidence-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

@@ -18,6 +18,7 @@ from undercover_api.db import assistant_calls, claims, now
 from undercover_api.models import QuestionAnswer, QuestionRequest
 from undercover_api.notices import first_name
 from undercover_api.portal import DraftLimiter, claim_for_customer
+from undercover_api.redteam import AttackPlans
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +105,11 @@ CLAIM_ID = re.compile(r"\bCLM-\d{4,6}\b", re.IGNORECASE)
 
 @engineer_ask_router.post("/ask", operation_id="ask_wattle_engineering")
 def ask_engineering(
-    body: QuestionRequest, engineer: SignedInEngineer, db: Database, tools: Asking
+    body: QuestionRequest,
+    engineer: SignedInEngineer,
+    db: Database,
+    tools: Asking,
+    plan: AttackPlans,
 ) -> QuestionAnswer:
     """Wattle AI for the AI engineers: read-only answers from the runs, rounds, red team, threat
     coverage, the live numbers and the traces of any claims named in the question."""
@@ -134,7 +139,7 @@ def ask_engineering(
         "runs": [r.model_dump(mode="json") for r in list_runs(engineer, db)[:10]],
         "rounds": [r.model_dump(mode="json") for r in list_rounds(engineer, db)[:8]],
         "redteam": status_of(db).model_dump(mode="json"),
-        "threats": threat_coverage(engineer, db).model_dump(mode="json"),
+        "threats": threat_coverage(engineer, db, plan).model_dump(mode="json"),
         "traces": traces,
         "live": live_summary(db),
     }

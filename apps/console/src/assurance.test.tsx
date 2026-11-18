@@ -355,7 +355,7 @@ test("only the red team left to run, and a gate that fails", async () => {
   expect(await screen.findByText(partly.headline)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Run the red team" })).toHaveClass("button");
   expect(screen.queryByRole("link", { name: /Run the exam/ })).toBeNull();
-  expect(screen.getByText("1 thing")).toBeInTheDocument();
+  expect(screen.getByText("1 thing needs attention")).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/, Sam$/);
 });
 
