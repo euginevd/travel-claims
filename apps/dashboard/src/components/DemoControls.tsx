@@ -45,8 +45,8 @@ export function DemoControls({ api, onReset }: Props) {
   const [view, setView] = useState<ResetView | null>(null);
   const [ticked, setTicked] = useState<ResetRequest>({
     claims: true,
-    evaluations: false,
-    red_team: false,
+    evaluations: true,
+    red_team: true,
     agent_off: true,
     payouts_off: true,
   });
