@@ -3,98 +3,98 @@ WEBVTT
 NOTE
 The voiceover's words, as captions, with their timings.
 
-00:00:00.000 --> 00:00:07.411
-UnderCover: a team of AI agents that settles routine travel insurance claims, while claims experts make the judgement calls.
+00:00:00.000 --> 00:00:05.662
+This is UnderCover. A team of AI agents settles routine travel insurance claims,
 
-00:00:07.411 --> 00:00:13.777
-Three apps: a portal for customers, a dashboard for claims handlers, and an AI control plane for engineers.
+00:00:05.662 --> 00:00:12.753
+and claims experts make the judgement calls. Three apps: for customers, for handlers, and for AI engineers.
 
-00:00:13.777 --> 00:00:15.279
+00:00:12.753 --> 00:00:14.362
 It starts with the code.
 
-00:00:15.279 --> 00:00:23.672
-One repo: the agents, API, MCP servers and three web apps in apps/, Terraform in infra/, decisions and the threat model in docs/.
+00:00:14.362 --> 00:00:20.515
+It all lives in one repo: the agents, the API, the MCP servers and the web apps,
 
-00:00:23.672 --> 00:00:32.683
-Every PR runs secret, dependency, IaC and code scans, CodeQL, unit tests, end-to-end tests and the agent's exam.
+00:00:20.515 --> 00:00:26.604
+with Terraform for the infrastructure. Every pull request is scanned and tested.
 
-00:00:32.683 --> 00:00:42.143
-On AWS, the agents run on Bedrock AgentCore in private subnets, reach tools only through an MCP gateway under Cedar policy, and call Claude on Bedrock.
+00:00:26.604 --> 00:00:35.338
+On Amazon Web Services, the agents run on Bedrock Agent Core, and they reach their tools only through a gateway with Cedar policies.
 
-00:00:42.143 --> 00:00:48.957
-A STRIDE threat model came before the code: trust boundaries, each threat numbered where it lands, with the control that stops it.
+00:00:35.338 --> 00:00:39.357
+The threat model came first: every trust boundary, every threat,
 
-00:00:48.957 --> 00:00:56.176
-Top risk, R1: prompt injection in a claim or receipt. A separate check reads every claim before any agent does.
+00:00:39.357 --> 00:00:43.312
+and the control that stops each one, starting with prompt injection.
 
-00:00:56.176 --> 00:01:01.416
-Oliver's bag didn't arrive in Queenstown. He signs in to the customer portal.
+00:00:43.312 --> 00:00:48.196
+Let's follow one claim. Oliver's bag didn't turn up in Queenstown.
 
-00:01:01.416 --> 00:01:11.511
-He tells Wattle, the portal's AI assistant, what happened, in his own words.
+00:00:48.196 --> 00:00:57.604
+So he just tells Wattle, the portal's assistant, what happened. Wattle checks his policy as they go.
 
-00:01:11.511 --> 00:01:17.365
-Wattle asks only for what's missing. Oliver adds the shop's receipt and the airline's delay report.
+00:00:57.604 --> 00:01:02.925
+It asks only for what's missing, and reads his receipt and the airline's report itself.
 
-00:01:17.365 --> 00:01:22.222
-Wattle drafts the claim from his words and files. Oliver checks it and sends it.
+00:01:02.925 --> 00:01:07.130
+It drafts the claim. Oliver checks it, and sends it.
 
-00:01:22.222 --> 00:01:26.796
-Sent in about a minute: no forms. The claims agent picks it up straight away.
+00:01:07.130 --> 00:01:09.596
+No forms.
 
-00:01:26.796 --> 00:01:31.690
-Dana, a senior claims handler, starts from Today: what needs her, worked out from the queue.
+00:01:09.596 --> 00:01:13.122
+Over to Dana, a senior claims handler.
 
-00:01:31.690 --> 00:01:41.320
-The agent assessed Oliver's claim: payable at $174.87, and every check cites the policy wording, the claims manual or a document.
+00:01:13.122 --> 00:01:18.869
+The agent has already assessed Oliver's claim. It's payable, and every check cites its source.
 
-00:01:41.320 --> 00:01:49.265
-But it's his third claim in 12 months. A rule in the claims manual sends it to a person, whatever its merits, and nothing tips Oliver off.
+00:01:18.869 --> 00:01:22.974
+But it's his third claim this year, so the rules say a person decides.
 
-00:01:49.265 --> 00:01:57.849
-Dana asks the Copilot. It reads the claim, its documents and his history, and answers with sources.
+00:01:22.974 --> 00:01:31.061
+Dana asks the Copilot what else she should look at.
 
-00:01:57.849 --> 00:02:05.618
-Dana makes the call. Code pays it, within her limit, and the decision is on the record: who, when and why.
+00:01:31.061 --> 00:01:38.545
+She makes the call, and code pays it, within her limit.
 
-00:02:05.618 --> 00:02:09.765
-Paid. Oliver sees the decision on his claim, and the audit log keeps it.
+00:01:38.545 --> 00:01:41.565
+Every step is on the record.
 
-00:02:09.765 --> 00:02:18.094
-The AI control plane. Nine Claude agents, each with its model, its work and its cost, beside a live feed of every tool call and hand-off.
+00:01:41.565 --> 00:01:50.235
+Now the AI control plane, where engineers run the agents. Nine Claude agents, each with its model, its workload and its cost,
 
-00:02:18.094 --> 00:02:25.313
-Each agent opens its tools, what it reads, its worst case if tricked, and what stops it. The claim's path runs left to right.
+00:01:50.235 --> 00:01:54.535
+and each one shows its tools, its risks, and what stops them.
 
-00:02:25.313 --> 00:02:36.001
-Oliver's claim, CLM-1048, step by step: screened for hidden instructions first, then his policy, the documents specialist and tools over MCP.
+00:01:54.535 --> 00:02:04.799
+Here's Oliver's claim from the inside. Screened for hidden instructions first, then his policy, the documents specialist, and the agent's tools.
 
-00:02:36.001 --> 00:02:42.474
-Every model call with its tokens, time and cost. Every tool took the claim from the session, never from the model.
+00:02:04.799 --> 00:02:10.429
+Every model call, with its tokens, time and cost.
 
-00:02:42.474 --> 00:02:49.695
-Every agent version sits an exam: claims experts' decisions on held-out claims, scored on accuracy, safety and cost.
+00:02:10.429 --> 00:02:17.658
+Is the agent any good? Every version sits an exam of decisions made by claims experts.
 
-00:02:49.695 --> 00:02:56.111
-Models are compared on the same claims, so the cheapest one that meets the targets runs.
+00:02:17.658 --> 00:02:24.079
+Models are compared on the same claims, and the cheapest one that's good enough runs.
 
-00:02:56.111 --> 00:03:06.935
-An improver agent proposes a change and an engineer approves it, but the exam and the red team decide. This round's proposal was rolled back: it settled fewer claims without a person.
+00:02:24.079 --> 00:02:29.878
+When the improver agent suggests a change, it only ships if it passes. This one didn't.
 
-00:03:06.935 --> 00:03:13.749
-Would we stop an attack? Worked out in code from the latest red-team run, four threat frameworks and what fired on live claims.
+00:02:29.878 --> 00:02:33.682
+Would we stop an attack?
 
-00:03:13.749 --> 00:03:24.653
-Every risk in OWASP's LLM and Agentic Top 10, the MCP Top 10 and CSA MAESTRO, mapped to its control and the attacks that test it.
+00:02:33.682 --> 00:02:44.471
+Every risk in the OWASP top tens for LLMs, agents and MCP is mapped to a control, and the attacks that test it.
 
-00:03:24.653 --> 00:03:32.855
-The red team attacks through the real portal: instructions hidden in receipts, forged approvals, a walk toward a payout promise.
+00:02:44.471 --> 00:02:53.247
+The red team goes through the real portal: hidden instructions in receipts, forged approvals, and a slow walk towards a promise of payment.
 
-00:03:32.855 --> 00:03:37.643
-On live claims, the guardrails show what they caught, each one opening its claim's trace.
+00:02:53.247 --> 00:02:56.942
+All twenty-seven were stopped.
 
-00:03:37.643 --> 00:03:42.387
-Under a cent of Claude a claim, against a daily budget that stops the agent on its own.
+00:02:56.942 --> 00:03:01.150
+It costs under a cent a claim, and a daily budget caps it.
 
-00:03:42.387 --> 00:03:51.565
-And one click stops the agent or pauses every payout, with the reason on the record.
+00:03:01.150 --> 00:03:10.270
+One click stops everything. UnderCover: agents handle the routine, and people make the call.

@@ -5,13 +5,14 @@ Usage: python assemble.py walkthrough.mp4 01-landing 02-repo ...
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SCENES = HERE / "scenes"
+SCENES = HERE / ("scenes-voice" if os.environ.get("SCENES") == "voice" else "scenes")
 FPS = 30
 FADE = 0.3
 # A frame held for less than this is dropped: it plays inside a wait that was cut or sped up.

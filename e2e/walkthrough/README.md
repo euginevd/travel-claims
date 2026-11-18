@@ -20,15 +20,20 @@ python trim.py                   # speeds up typing and tab switching
 python assemble.py walkthrough.mp4 01-landing 02-repo 03-customer 04-handler 05-overview 06-trace 07-evaluate 08-secure 09-govern 10-end
 ```
 
-## The voiceover
+## The narrated version
 
-`voice.py` reads each caption aloud with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx), run locally, so no text leaves the machine. Where a line runs past its caption, the picture holds just before the next one. It writes `walkthrough-voice.mp4` and its retimed captions, which the project page offers as "With voiceover".
+The project page's "With voiceover" plays a narrated cut. Its script is [narration.txt](narration.txt): one spoken line for each caption, said as that caption's screen appears. The scenes are recorded again without the caption box (`NO_CAPTIONS=1`), into `scenes-voice/` (`SCENES=voice`), and `voice.py` reads the script with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx), run locally, so no text leaves the machine. Where a line runs past its screen, the picture holds just before the next one. It writes `walkthrough-voice.mp4` and the script as its captions.
 
 ```bash
+export SCENES=voice NO_CAPTIONS=1        # then record every scene as above
+python trim.py
+python assemble.py clean.mp4 01-landing 02-repo 03-customer 04-handler 05-overview 06-trace 07-evaluate 08-secure 09-govern 10-end
 uv venv --python 3.12 .venv && uv pip install --python .venv kokoro-onnx soundfile
 mkdir model   # kokoro-v1.0.onnx and voices-v1.0.bin from kokoro-onnx's model-files-v1.0 release
-.venv/Scripts/python voice.py walkthrough.mp4 walkthrough.en.vtt walkthrough-voice.mp4 af_heart 1.2
+NARRATION=narration.txt .venv/Scripts/python voice.py clean.mp4 clean.en.vtt walkthrough-voice.mp4 af_heart 1.0
 ```
+
+`node poster.cjs` draws the thumbnail (`poster.png`) from `slide.html`; save it as `apps/home/img/walkthrough-poster.jpg`.
 
 `assemble.py` also writes `walkthrough.en.vtt` beside the video. Re-encode with
 `ffmpeg -i walkthrough.mp4 -c:v libx264 -preset slow -crf 25 -tune stillimage -movflags +faststart -an final.mp4`

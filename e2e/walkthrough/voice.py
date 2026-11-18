@@ -5,6 +5,7 @@ next caption (clear of the scene fades) until the line ends. Writes the video wi
 captions retimed to match."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -28,6 +29,7 @@ GAP = 0.35  # silence after a line before the next one starts
 HOLD_BEFORE = 0.45  # hold this far before the next caption, clear of a scene's fade
 
 SAY = [
+    (r"\bAWS\b", "Amazon Web Services"),
     (r"CLM-1048", "claim ten forty-eight"),
     (r"\$174\.87", "a hundred and seventy-four dollars eighty-seven"),
     (r"\bOWASP's\b", "oh-wasp's"),
@@ -65,6 +67,19 @@ def cues(path: Path) -> list[tuple[float, float, str]]:
     return found
 
 
+def narrated(lines: list[tuple[float, float, str]]) -> list[tuple[float, float, str]]:
+    """NARRATION names a script with one spoken line per caption, said at that caption's moment
+    in place of its words. Without it, the captions are read as they are."""
+    script = os.environ.get("NARRATION")
+    if not script:
+        return lines
+    text = Path(script).read_text(encoding="utf-8")
+    said = [x.strip() for x in text.splitlines() if x.strip() and not x.startswith("#")]
+    if len(said) != len(lines):
+        sys.exit(f"{script} has {len(said)} lines for {len(lines)} captions")
+    return [(a, b, words) for (a, b, _), words in zip(lines, said, strict=True)]
+
+
 def length(path: Path) -> float:
     out = subprocess.run(  # noqa: S603 - ffprobe with arguments built here
         [FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
@@ -84,6 +99,7 @@ def stamp(s: float) -> str:
 def main() -> None:
     kokoro = Kokoro(str(HERE / "model/kokoro-v1.0.onnx"), str(HERE / "model/voices-v1.0.bin"))
     lines = cues(VTT)
+    lines = narrated(lines)
     total = length(VIDEO)
     clips = []
     for _, _, text in lines:

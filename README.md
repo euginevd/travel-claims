@@ -66,7 +66,7 @@ Details: the [threat model](docs/threat-model.md), the [checklist](docs/checklis
 
 <img src="docs/assets/undercover-60s.gif" width="880" alt="A minute on UnderCover, sped up: the project page, the repo, the AWS architecture and STRIDE threat model; Oliver claims for a delayed bag by chat with Wattle; the agent finds it payable but refers his third claim in a year to a person, and the senior handler asks the Copilot and approves it; then the AI control plane: the agent team, the claim's trace, the exam, an improver round rolled back by its gates, posture across OWASP LLM, Agentic and MCP Top 10 and MAESTRO, the red team, guardrails and cost.">
 
-The full three-minute walkthrough follows one claim end to end: the customer, the handler, then the AI control plane, where engineers observe, evaluate, secure and govern the agents. It plays on the project page ([the video](apps/home/media/walkthrough.mp4)), with captions on screen; a second version, about four minutes, reads them aloud. It was recorded from the local stack by [scripts](e2e/walkthrough), so a retake is a few commands.
+The full three-minute walkthrough follows one claim end to end: the customer, the handler, then the AI control plane, where engineers observe, evaluate, secure and govern the agents. It plays on the project page ([the video](apps/home/media/walkthrough.mp4)), with captions on screen; a second version is narrated instead. It was recorded from the local stack by [scripts](e2e/walkthrough), so a retake is a few commands.
 
 </div>
 

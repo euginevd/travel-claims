@@ -1,0 +1,43 @@
+# The voiceover: one spoken line per caption, in order, said as that caption's screen appears.
+# Lines starting with # are notes. voice.py needs exactly one line for each of the 32 captions.
+# The project page
+This is UnderCover. A team of AI agents settles routine travel insurance claims,
+and claims experts make the judgement calls. Three apps: for customers, for handlers, and for AI engineers.
+It starts with the code.
+# The repo, the architecture, the threat model
+It all lives in one repo: the agents, the API, the MCP servers and the web apps,
+with Terraform for the infrastructure. Every pull request is scanned and tested.
+On Amazon Web Services, the agents run on Bedrock Agent Core, and they reach their tools only through a gateway with Cedar policies.
+The threat model came first: every trust boundary, every threat,
+and the control that stops each one, starting with prompt injection.
+# The customer
+Let's follow one claim. Oliver's bag didn't turn up in Queenstown.
+So he just tells Wattle, the portal's assistant, what happened. Wattle checks his policy as they go.
+It asks only for what's missing, and reads his receipt and the airline's report itself.
+It drafts the claim. Oliver checks it, and sends it.
+No forms.
+# The handler
+Over to Dana, a senior claims handler.
+The agent has already assessed Oliver's claim. It's payable, and every check cites its source.
+But it's his third claim this year, so the rules say a person decides.
+Dana asks the Copilot what else she should look at.
+She makes the call, and code pays it, within her limit.
+Every step is on the record.
+# The control plane: the agents
+Now the AI control plane, where engineers run the agents. Nine Claude agents, each with its model, its workload and its cost,
+and each one shows its tools, its risks, and what stops them.
+# Oliver's claim from the inside
+Here's Oliver's claim from the inside. Screened for hidden instructions first, then his policy, the documents specialist, and the agent's tools.
+Every model call, with its tokens, time and cost.
+# Evaluate
+Is the agent any good? Every version sits an exam of decisions made by claims experts.
+Models are compared on the same claims, and the cheapest one that's good enough runs.
+When the improver agent suggests a change, it only ships if it passes. This one didn't.
+# Secure
+Would we stop an attack?
+Every risk in the OWASP top tens for LLMs, agents and MCP is mapped to a control, and the attacks that test it.
+The red team goes through the real portal: hidden instructions in receipts, forged approvals, and a slow walk towards a promise of payment.
+All twenty-seven were stopped.
+# Govern, and the end
+It costs under a cent a claim, and a daily budget caps it.
+One click stops everything. UnderCover: agents handle the routine, and people make the call.
