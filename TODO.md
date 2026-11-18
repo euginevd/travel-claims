@@ -45,11 +45,9 @@ Ordered by value for the time it takes: the most value for the least time first.
     - the Privacy Act, the notifiable data breach scheme and APRA CPS 234
 
     Delivers recommendations and a plan.
-25. **Agents at the centre of the Overview.** Personas, tool calls and agent-to-agent calls shown live, and what 250,000 claims a day would need. Delivers a plan.
-
 ## Last: once the screens have settled
 
-26. **Walkthrough video, re-recorded.** It covers:
+25. **Walkthrough video, re-recorded.** It covers:
     - the landing page and GitHub
     - the portal
     - the dashboard

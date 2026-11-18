@@ -114,5 +114,6 @@ Each is tracked in the [security trade-offs](guides/04-security-trade-offs.md) a
 2. [AWS runbook](guides/02-aws-runbook.md): deploy to `dev` and tear it down, step by step.
 3. [AWS architecture](guides/03-aws-architecture.md): the design layer by layer, and where the platform team takes over.
 4. [Security trade-offs](guides/04-security-trade-offs.md): the risks accepted, and the fix for production.
+5. [At scale](guides/05-at-scale.md): what 250,000 claims a day would need, and why people, not agents, are the bottleneck.
 
 Developers start with [AGENTS.md](AGENTS.md), then [spec.md](docs/spec.md) and [TODO.md](TODO.md). To contribute: [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability: [SECURITY.md](SECURITY.md).

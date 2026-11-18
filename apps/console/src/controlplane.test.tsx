@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { createApi, type AgentsMap, type Budget, type VersionCard } from "./api";
 import { AlertBell } from "./components/AlertBell";
 import { ExamGrowth } from "./components/ExamGrowth";
-import { AgentsWidget, AlertsList, KpiRow, ReleasesWidget } from "./components/OverviewWidgets";
+import { AgentTeam } from "./components/AgentTeam";
+import { AlertsList, KpiRow } from "./components/OverviewWidgets";
 import { RecentTraces } from "./components/RecentTraces";
 import { ReleaseHistory } from "./components/ReleaseHistory";
 import { TrendsPanels } from "./components/TrendsPanels";
@@ -312,19 +313,13 @@ test("the overview's widgets: spend, guardrails, the map, alerts and releases", 
   render(
     <>
       <KpiRow api={api} />
-      <AgentsWidget api={api} />
       <AlertsList api={api} />
-      <ReleasesWidget api={api} />
     </>,
   );
   expect(await screen.findByText("$5.20")).toBeInTheDocument();
   expect(await screen.findByText("3")).toBeInTheDocument();
   expect(screen.getByText(/red-teamed$/)).toBeInTheDocument();
-  expect(await screen.findByText("#4 Lower effort")).toBeInTheDocument();
-  expect(screen.getByText("84% right on 25 claims · Stopped 8 of 8 attacks")).toBeInTheDocument();
-  expect(screen.getByText("Being tested")).toBeInTheDocument();
   expect(await screen.findByText("2 runs stalled")).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: /Claim agent/ })).toBeInTheDocument();
 });
 
 test("before any run, the red team lists the attacks it will make", async () => {
@@ -658,4 +653,44 @@ test("on AWS, the services view names the AWS services a claim used", () => {
   expect(used("Step Functions")).toBe("is-used");
   expect(used("AgentCore Gateway")).toBe("is-skipped");
   expect(used("Bedrock (Australia)")).toBe("is-skipped");
+});
+
+test("the Overview shows the agent team and what the agents are doing now", async () => {
+  const persona = {
+    model: "claude-haiku-5-5",
+    voice: "I decide routine claims and cite every source.",
+    working: true,
+    work: "27 decided · 225 model calls",
+    cost: 0.13,
+    last: "called get_policy on CLM-1001",
+    last_at: new Date().toISOString(),
+  };
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/activity?team=true": () => [
+      200,
+      {
+        team: [
+          { ...persona, key: "claim_agent", name: "Claim agent" },
+          { ...persona, key: "medical", name: "Medical", working: false, cost: null },
+        ],
+        events: [
+          {
+            event_id: "s2",
+            at: new Date().toISOString(),
+            agent: "claim_agent",
+            to: "medical",
+            kind: "ask",
+            tool: "review_medical",
+            claim_id: "CLM-1001",
+          },
+        ],
+      },
+    ],
+  });
+  render(<AgentTeam api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByText("2 AI agents · 1 working now · last 14 days")).toBeInTheDocument();
+  expect(screen.getAllByText(/I decide routine claims/)).toHaveLength(2);
+  const row = screen.getByRole("link", { name: /Claim agent asked Medical, CLM-1001/ });
+  expect(row).toHaveAttribute("href", "#/trace/CLM-1001");
+  expect(screen.getByText("agent → agent")).toBeInTheDocument();
 });
