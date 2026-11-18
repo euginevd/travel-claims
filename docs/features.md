@@ -50,7 +50,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 ## AI control plane (`console`)
 
-In menu order: Overview, then the control plane's four jobs: Observe (Agents, Live, Trace), Evaluate (Scoreboard, Compare), Secure (Posture, Guardrails, Red team) and Govern (Cost, Versions, Audit log). The agent and payouts switches show in the header on every page, green when on and red when off; read-only here.
+In menu order: Overview, then the control plane's four jobs: Observe (Agents, Live, Trace), Evaluate (Scoreboard, Compare), Secure (Posture, Guardrails, Red team) and Govern (Cost, Versions, Audit log). The agent and payouts switches show in the header on every page, green when on and red when off. An engineer can stop either from there, saying why in a line (a card under the pill); turning it back on stays a senior handler's, in the dashboard.
 
 | # | Feature | Status | PR |
 |---|---|---|---|

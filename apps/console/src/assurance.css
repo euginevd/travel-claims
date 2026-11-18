@@ -822,6 +822,78 @@ pre.diff {
   text-decoration: none;
 }
 
+button.control-pill {
+  border: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+button.control-pill:hover {
+  filter: brightness(0.96);
+}
+
+/* The stop card, under the pill that opened it. */
+.stop-card {
+  position: fixed;
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg);
+  box-shadow: var(--float);
+}
+
+.stop-card form {
+  display: grid;
+  gap: 10px;
+}
+
+.stop-card p,
+.stop-card h2 {
+  margin: 0;
+}
+
+.stop-card h2 {
+  font-family: var(--font-head);
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+
+.stop-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stop-card-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.stop-card input {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.stop-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .control-pill {
   display: inline-flex;
   align-items: center;
@@ -839,10 +911,6 @@ pre.diff {
 .control-pill.is-on {
   background: #eef5ec;
   color: var(--good);
-}
-
-.control-pills:hover .control-pill {
-  filter: brightness(0.97);
 }
 
 .control-pill .status-dot {

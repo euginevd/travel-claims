@@ -364,7 +364,8 @@ class Controls(BaseModel):
 
 @assurance_router.get("/controls", operation_id="get_controls")
 def get_controls(_: SignedInEngineer, db: Database) -> Controls:
-    """The agent and payouts switches for the header on every page; read-only here."""
+    """The agent and payouts switches for the header on every page. Engineers can stop either
+    (engineer_switches); only a senior handler turns them back on."""
     return Controls(agent=agent_switch(db), payouts=payout_switch(db))
 
 
