@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>slide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --ink: #24231f; --ink-2: #5d5a52; --acc: #e2795f; --paper: #faf8f4; --line: #e8e4dc; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink); font-family: "Plus Jakarta Sans", system-ui, sans-serif; overflow: hidden; }
+  .title { height: 100%; display: grid; place-content: center; text-align: center; gap: 22px; }
+  .title .mark { width: 92px; height: 92px; margin: 0 auto; border-radius: 26px; background: var(--acc); display: grid; place-items: center; box-shadow: 0 24px 60px -24px rgb(226 121 95 / 70%); }
+  .title h1 { margin: 0; font: 500 92px/1 "Newsreader", Georgia, serif; letter-spacing: -0.02em; }
+  .title p { margin: 0; font-size: 29px; color: var(--ink-2); max-width: 1000px; line-height: 1.35; }
+  .chips { display: flex; gap: 12px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .chips span { padding: 9px 18px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: 22px; color: var(--ink-2); }
+  .tracks { display: flex; gap: 18px; justify-content: center; margin-top: 8px; }
+  .tracks b { padding: 10px 22px; border-radius: 12px; font-size: 22px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .t1 { background: #eef4ff; color: #2c5cc5; } .t2 { background: #fff1ec; color: #c4532f; } .t3 { background: #ecf7f0; color: #23784a; }
+  .stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
+  .stage img { max-width: 92%; max-height: 92%; transform-origin: 50% 50%; transition: transform 2.6s cubic-bezier(.45,.05,.25,1); box-shadow: 0 30px 80px -40px rgb(0 0 0 / 35%); border-radius: 10px; background: #fff; }
+  .fade-in { animation: fin 0.8s ease both; }
+  @keyframes fin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const kind = new URLSearchParams(location.search).get("k");
+  const root = document.getElementById("root");
+  const logo = '<svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v6a2 2 0 0 0 4 0"/></svg>';
+  if (kind === "title") {
+    root.innerHTML = `<div class="title fade-in"><div class="mark">${logo}</div><h1>UnderCover</h1>
+      <p>A team of AI agents that settles routine travel insurance claims, built to be measured and attacked.</p>
+      <div class="tracks"><b class="t1">The product</b><b class="t2">AI engineering</b><b class="t3">AI security</b></div></div>`;
+  } else if (kind === "end") {
+    root.innerHTML = `<div class="title fade-in"><div class="mark">${logo}</div><h1>UnderCover</h1>
+      <p>Agents settle the routine. People make the call. Security lets both happen.</p>
+      <div class="chips"><span>Claude on Bedrock</span><span>LangGraph agents</span><span>MCP tools</span><span>Bedrock AgentCore</span><span>Evals and gates</span><span>Red team</span><span>OWASP LLM and Agentic 2026</span></div>
+      <p style="font-size:24px;margin-top:10px">github.com/euginevd/travel-claims</p></div>`;
+  } else {
+    // Only the diagrams the walkthrough shows, built as elements, never from the address as markup.
+    const DIAGRAMS = { "architecture-overview": "architecture-overview.png", "threat-model": "threat-model.png" };
+    const file = Object.hasOwn(DIAGRAMS, kind) ? DIAGRAMS[kind] : null;
+    const stage = document.createElement("div");
+    stage.className = "stage fade-in";
+    if (file) {
+      const img = document.createElement("img");
+      img.id = "img";
+      img.alt = "";
+      img.src = "../../docs/assets/" + file;
+      stage.append(img);
+    }
+    root.replaceChildren(stage);
+  }
+  // Zoom to a point of the image (fractions of its size) at a scale.
+  window.focusOn = (fx, fy, scale) => {
+    const img = document.getElementById("img");
+    const r = img.getBoundingClientRect();
+    const dx = (0.5 - fx) * r.width / (img._s || 1);
+    const dy = (0.5 - fy) * r.height / (img._s || 1);
+    img._s = scale;
+    img.style.transform = `scale(${scale}) translate(${dx}px, ${dy}px)`;
+  };
+</script>
+</body>
+</html>
