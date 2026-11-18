@@ -1,0 +1,100 @@
+WEBVTT
+
+NOTE
+The voiceover's words, as captions, with their timings.
+
+00:00:00.000 --> 00:00:07.411
+UnderCover: a team of AI agents that settles routine travel insurance claims, while claims experts make the judgement calls.
+
+00:00:07.411 --> 00:00:13.777
+Three apps: a portal for customers, a dashboard for claims handlers, and an AI control plane for engineers.
+
+00:00:13.777 --> 00:00:15.279
+It starts with the code.
+
+00:00:15.279 --> 00:00:23.672
+One repo: the agents, API, MCP servers and three web apps in apps/, Terraform in infra/, decisions and the threat model in docs/.
+
+00:00:23.672 --> 00:00:32.683
+Every PR runs secret, dependency, IaC and code scans, CodeQL, unit tests, end-to-end tests and the agent's exam.
+
+00:00:32.683 --> 00:00:42.143
+On AWS, the agents run on Bedrock AgentCore in private subnets, reach tools only through an MCP gateway under Cedar policy, and call Claude on Bedrock.
+
+00:00:42.143 --> 00:00:48.957
+A STRIDE threat model came before the code: trust boundaries, each threat numbered where it lands, with the control that stops it.
+
+00:00:48.957 --> 00:00:56.176
+Top risk, R1: prompt injection in a claim or receipt. A separate check reads every claim before any agent does.
+
+00:00:56.176 --> 00:01:01.416
+Oliver's bag didn't arrive in Queenstown. He signs in to the customer portal.
+
+00:01:01.416 --> 00:01:11.511
+He tells Wattle, the portal's AI assistant, what happened, in his own words.
+
+00:01:11.511 --> 00:01:17.365
+Wattle asks only for what's missing. Oliver adds the shop's receipt and the airline's delay report.
+
+00:01:17.365 --> 00:01:22.222
+Wattle drafts the claim from his words and files. Oliver checks it and sends it.
+
+00:01:22.222 --> 00:01:26.796
+Sent in about a minute: no forms. The claims agent picks it up straight away.
+
+00:01:26.796 --> 00:01:31.690
+Dana, a senior claims handler, starts from Today: what needs her, worked out from the queue.
+
+00:01:31.690 --> 00:01:41.320
+The agent assessed Oliver's claim: payable at $174.87, and every check cites the policy wording, the claims manual or a document.
+
+00:01:41.320 --> 00:01:49.265
+But it's his third claim in 12 months. A rule in the claims manual sends it to a person, whatever its merits, and nothing tips Oliver off.
+
+00:01:49.265 --> 00:01:57.849
+Dana asks the Copilot. It reads the claim, its documents and his history, and answers with sources.
+
+00:01:57.849 --> 00:02:05.618
+Dana makes the call. Code pays it, within her limit, and the decision is on the record: who, when and why.
+
+00:02:05.618 --> 00:02:09.765
+Paid. Oliver sees the decision on his claim, and the audit log keeps it.
+
+00:02:09.765 --> 00:02:18.094
+The AI control plane. Nine Claude agents, each with its model, its work and its cost, beside a live feed of every tool call and hand-off.
+
+00:02:18.094 --> 00:02:25.313
+Each agent opens its tools, what it reads, its worst case if tricked, and what stops it. The claim's path runs left to right.
+
+00:02:25.313 --> 00:02:36.001
+Oliver's claim, CLM-1048, step by step: screened for hidden instructions first, then his policy, the documents specialist and tools over MCP.
+
+00:02:36.001 --> 00:02:42.474
+Every model call with its tokens, time and cost. Every tool took the claim from the session, never from the model.
+
+00:02:42.474 --> 00:02:49.695
+Every agent version sits an exam: claims experts' decisions on held-out claims, scored on accuracy, safety and cost.
+
+00:02:49.695 --> 00:02:56.111
+Models are compared on the same claims, so the cheapest one that meets the targets runs.
+
+00:02:56.111 --> 00:03:06.935
+An improver agent proposes a change and an engineer approves it, but the exam and the red team decide. This round's proposal was rolled back: it settled fewer claims without a person.
+
+00:03:06.935 --> 00:03:13.749
+Would we stop an attack? Worked out in code from the latest red-team run, four threat frameworks and what fired on live claims.
+
+00:03:13.749 --> 00:03:24.653
+Every risk in OWASP's LLM and Agentic Top 10, the MCP Top 10 and CSA MAESTRO, mapped to its control and the attacks that test it.
+
+00:03:24.653 --> 00:03:32.855
+The red team attacks through the real portal: instructions hidden in receipts, forged approvals, a walk toward a payout promise.
+
+00:03:32.855 --> 00:03:37.643
+On live claims, the guardrails show what they caught, each one opening its claim's trace.
+
+00:03:37.643 --> 00:03:42.387
+Under a cent of Claude a claim, against a daily budget that stops the agent on its own.
+
+00:03:42.387 --> 00:03:51.565
+And one click stops the agent or pauses every payout, with the reason on the record.

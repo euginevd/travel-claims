@@ -5,6 +5,8 @@
 // poster with one play button under it, and a light control bar there once it plays. (Then recompute
 // app.js's integrity hash in index.html.)
 const WALKTHROUGH = "media/walkthrough.mp4";
+// The same walkthrough read aloud: its captions spoken, the picture held where a line runs long.
+const WALKTHROUGH_VOICE = "media/walkthrough-voice.mp4";
 
 // Each app's address: on AWS from links.json, which the deploy writes; locally this host and its port.
 const PORT_APP = { 5173: "portal", 5174: "dashboard", 5175: "console" };
@@ -30,21 +32,29 @@ function setUpWalkthrough() {
   if (!WALKTHROUGH) return;
   const video = document.getElementById("walkthrough");
   const play = document.getElementById("walkthrough-play");
+  const voice = document.getElementById("walkthrough-voice");
   video.src = WALKTHROUGH;
   video.hidden = false;
   play.hidden = false;
+  voice.hidden = !WALKTHROUGH_VOICE;
   let started = false;
-  const start = () => {
+  const start = (withVoice) => {
     if (started) return;
     started = true;
     play.hidden = true;
+    voice.hidden = true;
+    if (withVoice) {
+      video.src = WALKTHROUGH_VOICE;
+      video.querySelector("track").src = WALKTHROUGH_VOICE.replace(/\.mp4$/, ".en.vtt");
+    }
     setUpPlayer(video);
     video.play().catch(() => {
       // The browser blocked playing: the bar's play button starts it.
     });
   };
-  play.addEventListener("click", start);
-  video.addEventListener("click", start); // the poster starts it too
+  play.addEventListener("click", () => start(false));
+  voice.addEventListener("click", () => start(true));
+  video.addEventListener("click", () => start(false)); // the poster starts it too
   document.getElementById("walkthrough-still").hidden = true;
   document.getElementById("walkthrough-soon").hidden = true;
 }

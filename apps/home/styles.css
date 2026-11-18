@@ -415,6 +415,36 @@ video.screen {
   opacity: 0.7;
 }
 
+/* The walkthrough read aloud: a quieter second choice beside the play button. */
+.play-voice {
+  margin: 18px 0 0 10px;
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.play-voice:hover {
+  border-color: var(--acc);
+}
+
+.play-voice:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+
+.play-voice[hidden] {
+  display: none;
+}
+
+.play-voice small {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
 .play-tile {
   display: grid;
   place-items: center;

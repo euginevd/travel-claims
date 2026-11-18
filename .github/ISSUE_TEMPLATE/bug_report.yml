@@ -1,0 +1,38 @@
+name: Bug report
+description: Something in an app, the agents or the pipeline doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: A security problem? Don't file it here; report it privately (see SECURITY.md).
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Customer portal
+        - Handlers' dashboard
+        - AI control plane
+        - The agents or the api
+        - Infrastructure or the pipeline
+        - Docs
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce it
+      placeholder: "1. Sign in as Dana\n2. Open CLM-1003\n3. ..."
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or agent version
+      placeholder: e.g. main at dd6c518, agent version 3
