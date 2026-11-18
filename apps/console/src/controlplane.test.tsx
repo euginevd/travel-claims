@@ -664,7 +664,7 @@ test("on AWS, the services view names the AWS services a claim used", () => {
 test("the Overview shows the agent team and what the agents are doing now", async () => {
   const persona = {
     model: "claude-haiku-5-5",
-    voice: "I decide routine claims and cite every source.",
+    voice: "Orchestrator with tools and HITL",
     working: true,
     work: "27 decided · 225 model calls",
     cost: 0.13,
@@ -695,7 +695,11 @@ test("the Overview shows the agent team and what the agents are doing now", asyn
   });
   render(<AgentTeam api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findByText("2 AI agents · 1 working now · last 14 days")).toBeInTheDocument();
-  expect(screen.getAllByText(/I decide routine claims/)).toHaveLength(2);
+  expect(screen.getAllByText(/Orchestrator with tools/)).toHaveLength(2);
+  expect(screen.getByRole("link", { name: /^Claim agent: / })).toHaveAttribute(
+    "href",
+    "#/agents/claim_agent",
+  );
   const row = screen.getByRole("link", { name: /Claim agent asked Medical, CLM-1001/ });
   expect(row).toHaveAttribute("href", "#/trace/CLM-1001");
   expect(screen.getByText("agent → agent")).toBeInTheDocument();

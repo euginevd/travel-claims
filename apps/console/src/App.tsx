@@ -242,7 +242,8 @@ function page(route: Route, api: Api, name: string) {
     case "overview":
       return <OverviewPage api={api} name={name} />;
     case "agents":
-      return <AgentsPage api={api} />;
+      // Keyed by the agent, so a card's link opens its agent even when the page is open.
+      return <AgentsPage key={route.agent ?? ""} api={api} agent={route.agent} />;
     case "audit":
       return <AuditPage api={api} />;
     case "budgets":

@@ -308,38 +308,40 @@ export function CostPage({ api }: { api: Api }) {
               <div className="panel-head">
                 <h2 id="limit-heading">Daily budget</h2>
               </div>
-              <div className="field">
-                <label htmlFor="budget-limit">Dollars a day</label>
-                <input
-                  id="budget-limit"
-                  inputMode="decimal"
-                  value={limit}
+              <div className="budget-form">
+                <div className="field">
+                  <label htmlFor="budget-limit">Dollars a day</label>
+                  <input
+                    id="budget-limit"
+                    inputMode="decimal"
+                    value={limit}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setLimit(event.target.value);
+                    }}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="budget-reason">Why? (optional)</label>
+                  <input
+                    id="budget-reason"
+                    value={reason}
+                    maxLength={200}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="button"
                   disabled={saving}
-                  onChange={(event) => {
-                    setLimit(event.target.value);
-                  }}
-                />
+                  onClick={() => void save()}
+                >
+                  {saving ? "Saving…" : "Save the budget"}
+                </button>
               </div>
-              <div className="field">
-                <label htmlFor="budget-reason">Why? (optional)</label>
-                <input
-                  id="budget-reason"
-                  value={reason}
-                  maxLength={200}
-                  disabled={saving}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                className="button"
-                disabled={saving}
-                onClick={() => void save()}
-              >
-                {saving ? "Saving…" : "Save the budget"}
-              </button>
               <p className="small muted">
                 {budget.changed_by && budget.changed_at
                   ? `Last set by ${budget.changed_by}, ${when(budget.changed_at)}.`
