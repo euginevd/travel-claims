@@ -8,6 +8,7 @@ from where it got to, and a held payout waits with interrupt() until the api res
 """
 
 import operator
+import re
 from importlib.resources import files  # nosemgrep: python37-compatibility-importlib2 - Python 3.14
 from typing import Annotated, Any, Literal, NotRequired, TypedDict, cast
 
@@ -37,6 +38,9 @@ from undercover_agent.tools import (
 Json = dict[str, Any]
 # The api answers a payment with this while payouts are paused.
 PAUSED = 423
+NOT_FOUND = 404
+# A remembered line starts with its claim's id (memory_of).
+REMEMBERED_CLAIM = re.compile(r"CLM-\d+")
 INSTRUCTIONS = files("undercover_agent").joinpath("instructions.md").read_text(encoding="utf-8")
 SCREEN_SECTION = "Claims manual: referral when a claim needs a person's judgement"
 
@@ -78,11 +82,25 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
     that turns receipts into fields before any model sees them."""
     tools = [*TOOLS, PROGRAM_TOOL] if programs else TOOLS
 
+    def exists(line: str) -> bool:
+        """Whether a remembered claim still exists: a demo reset removes claims, and memory of
+        one that's gone would make a fresh claim look like a repeat."""
+        named = REMEMBERED_CLAIM.match(line)
+        if named is None:
+            return True
+        try:
+            api.claim(named.group(0))
+        except ApiError as error:
+            return error.status != NOT_FOUND
+        return True
+
     def recall(claim_id: str) -> str:
         claim = api.claim(claim_id)
         if memory is None or not uses_memory(claim):
             return "Memory isn't used for this claim."
-        found = memory.recall(str(claim["customer_id"]), claim_id)
+        found = [
+            line for line in memory.recall(str(claim["customer_id"]), claim_id) if exists(line)
+        ]
         if not found:
             return "Nothing remembered about this customer yet."
         return "Remembered about this customer:\n" + "\n".join(f"- {line}" for line in found)

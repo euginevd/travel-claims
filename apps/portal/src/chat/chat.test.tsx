@@ -740,11 +740,15 @@ test("five files in all, and files that fail after sending are owned up to", asy
   await user.click(await screen.findByRole("button", { name: "Lost bag" }));
   await user.click(await screen.findByRole("button", { name: "Flying out" }));
   await user.upload(await screen.findByLabelText(/Snap them or drop them here/), [
+    png("a.png"),
     png("d.png"),
     png("e.png"),
     png("f.png"),
   ]);
-  expect(await screen.findByText("A claim can have up to 5 files.")).toBeInTheDocument();
+  // The same file again is refused; the rest count towards five.
+  expect(
+    await screen.findByText("You've already added that file. A claim can have up to 5 files."),
+  ).toBeInTheDocument();
   await user.click(await screen.findByRole("button", { name: "Send claim" }));
   expect(
     await screen.findByText(

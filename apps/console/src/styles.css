@@ -227,6 +227,11 @@ main.page {
   min-height: 260px;
 }
 
+/* Cost's chart is the last of four rows: a little less height keeps the page in the window. */
+.view.fit > .cost-spend.fill {
+  min-height: 240px;
+}
+
 .fill > .table-wrap,
 .fill .fill-scroll {
   flex: 1;
