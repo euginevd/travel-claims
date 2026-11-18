@@ -1,4 +1,4 @@
-import { ArrowRight, Check, FileSearch, Lock, UserRound } from "lucide-react";
+import { ArrowRight, Check, Lock } from "lucide-react";
 import {
   AuthenticatorStep,
   authenticatorCode,
@@ -37,12 +37,14 @@ export function testAccounts(env: ImportMetaEnv = import.meta.env) {
   return awsDemo ? ACCOUNTS.filter((option) => option.account !== "senior") : ACCOUNTS;
 }
 
-// Each is true of the app: a decision names what it relied on and each check its source; a
-// payout over the approval limit waits for a senior handler; a customer can ask for a person.
+// What a handler gets, as the portal shows it to customers: 8 of 10 is the target the console's
+// Live page measures; every decision names the policy section and sources it relied on; and any
+// handler decides a referral up to the approval limit ($1,000 by default, set by senior handlers),
+// while a payout above it waits for a senior's sign-off.
 const POINTS = [
-  { Icon: FileSearch, text: "Sources on every decision" },
-  { Icon: Lock, text: "Senior sign-off over the approval limit" },
-  { Icon: UserRound, text: "A Copilot that acts only after you confirm" },
+  { figure: "8", unit: "of 10", text: "Settled by AI agents" },
+  { figure: "100", unit: "%", text: "Decisions cite sources" },
+  { figure: "$1,000", unit: "", text: "Yours to approve" },
 ];
 
 const HEADLINE = [
@@ -231,10 +233,11 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               <SignInScene />
             </div>
             <ul className="signin-points">
-              {POINTS.map(({ Icon, text }) => (
+              {POINTS.map(({ figure, unit, text }) => (
                 <li key={text} className="signin-point">
-                  <span className="icon-tile" aria-hidden="true">
-                    <Icon size={15} strokeWidth={1.75} />
+                  <span className="signin-figure">
+                    {figure}
+                    {unit && <small>{unit}</small>}
                   </span>
                   {text}
                 </li>
