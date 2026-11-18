@@ -40,7 +40,19 @@
       <div class="chips"><span>Claude on Bedrock</span><span>LangGraph agents</span><span>MCP tools</span><span>Bedrock AgentCore</span><span>Evals and gates</span><span>Red team</span><span>OWASP LLM and Agentic 2026</span></div>
       <p style="font-size:24px;margin-top:10px">github.com/euginevd/travel-claims</p></div>`;
   } else {
-    root.innerHTML = `<div class="stage fade-in"><img id="img" src="../../docs/assets/${kind}.png" alt=""></div>`;
+    // Only the diagrams the walkthrough shows, built as elements, never from the address as markup.
+    const DIAGRAMS = { "architecture-overview": "architecture-overview.png", "threat-model": "threat-model.png" };
+    const file = Object.hasOwn(DIAGRAMS, kind) ? DIAGRAMS[kind] : null;
+    const stage = document.createElement("div");
+    stage.className = "stage fade-in";
+    if (file) {
+      const img = document.createElement("img");
+      img.id = "img";
+      img.alt = "";
+      img.src = "../../docs/assets/" + file;
+      stage.append(img);
+    }
+    root.replaceChildren(stage);
   }
   // Zoom to a point of the image (fractions of its size) at a scale.
   window.focusOn = (fx, fy, scale) => {

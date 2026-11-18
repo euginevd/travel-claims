@@ -41,8 +41,12 @@ const OVERLAY = `(() => {
   new MutationObserver(add).observe(document.documentElement, { childList: true });
 })();`;
 
+// A scene's name becomes its folder, so it may only be a number and lower-case words.
+const SCENE_NAME = /^\d{2}-[a-z]+$/;
+
 async function scene(name, fn, { reduced = false } = {}) {
-  const dir = path.join(OUT, name);
+  if (!SCENE_NAME.test(name)) throw new Error(`Not a scene name: ${name}`);
+  const dir = `${OUT}/${name}`;
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   const browser = await chromium.launch();
@@ -57,7 +61,7 @@ async function scene(name, fn, { reduced = false } = {}) {
   let n = 0;
   cdp.on("Page.screencastFrame", async (f) => {
     const file = `f${String(n++).padStart(5, "0")}.jpg`;
-    fs.writeFileSync(path.join(dir, file), Buffer.from(f.data, "base64"));
+    fs.writeFileSync(`${dir}/${file}`, Buffer.from(f.data, "base64"));
     frames.push({ file, t: f.metadata.timestamp });
     cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {});
   });
@@ -72,7 +76,8 @@ async function scene(name, fn, { reduced = false } = {}) {
     },
     async tag(text, cls) { await page.evaluate(([t, c]) => window.__tag(t, c), [text, cls]); },
     async cap(html, hold = 0) {
-      caps.push({ t: now(), text: html.replace(/<[^>]+>/g, "") });
+      // Captions mark words only with <b>; the captions file keeps the plain words.
+      caps.push({ t: now(), text: html.replaceAll("<b>", "").replaceAll("</b>", "") });
       await page.evaluate((h) => window.__cap(h), html);
       if (hold) await page.waitForTimeout(hold);
     },
@@ -119,7 +124,7 @@ async function scene(name, fn, { reduced = false } = {}) {
     const end = now();
     await cdp.send("Page.stopScreencast").catch(() => {});
     await page.waitForTimeout(300);
-    fs.writeFileSync(path.join(dir, "rec.json"), JSON.stringify({ t0: r.t0, end, frames, marks, caps }, null, 1));
+    fs.writeFileSync(`${dir}/rec.json`, JSON.stringify({ t0: r.t0, end, frames, marks, caps }, null, 1));
     await browser.close();
     console.log(`scene ${name}: ${frames.length} frames, ${(end - (r.t0 || end)).toFixed(1)} s raw`);
   }

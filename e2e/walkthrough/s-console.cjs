@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { scene } = require("./rec.cjs");
 const CLAIM = fs.readFileSync(path.join(__dirname, "claim.txt"), "utf8").trim();
+if (!/^CLM-\d+$/.test(CLAIM)) throw new Error(`claim.txt doesn't hold a claim number: ${CLAIM}`);
 const C = "http://127.0.0.1:5175/";
 const SLIDE = "file:///" + __dirname.replace(/\\/g, "/") + "/slide.html";
 const which = process.argv.slice(2);

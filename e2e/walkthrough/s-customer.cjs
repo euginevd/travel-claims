@@ -2,9 +2,11 @@
 const fs = require("fs");
 const path = require("path");
 const { scene } = require("./rec.cjs");
-const FILES = ["05-queenstown-clothes-bag-delayed.png", "06-queenstown-airline-delay-report.png"].map(
-  (f) => path.resolve(__dirname, "../../data/sample-receipts", f),
-);
+const RECEIPTS = path.resolve(__dirname, "../../data/sample-receipts");
+const FILES = [
+  `${RECEIPTS}/05-queenstown-clothes-bag-delayed.png`,
+  `${RECEIPTS}/06-queenstown-airline-delay-report.png`,
+];
 
 async function settle(page) {
   await page.waitForTimeout(1500);

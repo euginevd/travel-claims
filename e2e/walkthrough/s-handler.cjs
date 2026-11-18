@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { scene } = require("./rec.cjs");
 const CLAIM = fs.readFileSync(path.join(__dirname, "claim.txt"), "utf8").trim();
+if (!/^CLM-\d+$/.test(CLAIM)) throw new Error(`claim.txt doesn't hold a claim number: ${CLAIM}`);
 
 (async () => {
   await scene("04-handler", async (r) => {
