@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { createApi, type AgentsMap, type Budget, type VersionCard } from "./api";
 import { AlertBell } from "./components/AlertBell";
 import { ExamGrowth } from "./components/ExamGrowth";
-import { AgentTeam } from "./components/AgentTeam";
+import { AgentTeam, ago } from "./components/AgentTeam";
 import { AlertsList, KpiRow } from "./components/OverviewWidgets";
 import { RecentTraces } from "./components/RecentTraces";
 import { ReleaseHistory } from "./components/ReleaseHistory";
@@ -693,4 +693,87 @@ test("the Overview shows the agent team and what the agents are doing now", asyn
   const row = screen.getByRole("link", { name: /Claim agent asked Medical, CLM-1001/ });
   expect(row).toHaveAttribute("href", "#/trace/CLM-1001");
   expect(screen.getByText("agent → agent")).toBeInTheDocument();
+});
+
+test("each kind of feed row reads in words, and a failed poll pauses the feed", async () => {
+  const at = new Date(Date.now() - 90_000).toISOString();
+  const event = (event_id: string, agent: string, kind: string, extra: object = {}) => ({
+    event_id,
+    at,
+    agent,
+    to: null,
+    kind,
+    tool: "",
+    claim_id: "CLM-1002",
+    ...extra,
+  });
+  let fail = false;
+  const answer = () =>
+    fail
+      ? ([500, { detail: "Down" }] as [number, unknown])
+      : ([
+          200,
+          {
+            team: [
+              {
+                key: "judge",
+                name: "Judge",
+                model: null,
+                voice: "I grade.",
+                working: false,
+                work: "3 graded",
+                cost: 0,
+                last: "graded an exam",
+                last_at: null,
+              },
+            ],
+            events: [
+              event("e1", "claim_agent", "tool", { tool: "get_policy" }),
+              event("e2", "claim_agent", "read", { to: "context" }),
+              event("e3", "claim_agent", "ask", { to: null }),
+              event("e4", "screening", "clear"),
+              event("e5", "screening", "flag"),
+              event("e6", "guardian", "held"),
+              event("e7", "claim_agent", "error"),
+              event("e8", "wattle", "answer", { claim_id: null }),
+              event("e9", "copilot", "answer", { claim_id: null }),
+            ],
+          },
+        ] as [number, unknown]);
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/activity?team=true": answer,
+    "GET /api/engineering/activity?team=false": answer,
+  });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    render(<AgentTeam api={createApi(fetchFn, () => "t")} />);
+    expect(await screen.findByText(/called get_policy/)).toBeInTheDocument();
+    for (const words of [
+      "read the policy",
+      "asked a specialist",
+      "cleared the claim",
+      "flagged hidden instructions",
+      "held a payout for sign-off",
+      "stopped with an error",
+      "answered a customer",
+      "answered a handler",
+    ]) {
+      expect(screen.getByText(new RegExp(words))).toBeInTheDocument();
+    }
+    expect(screen.getByText("code")).toBeInTheDocument();
+    fail = true;
+    await vi.advanceTimersByTimeAsync(4500);
+    expect(await screen.findByText("paused: can't reach the api")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("how long ago, short", () => {
+  const now = Date.parse("2026-11-18T12:00:00Z");
+  expect(ago(null, now)).toBe("");
+  expect(ago("2026-11-18T11:59:56Z", now)).toBe("4 s");
+  expect(ago("2026-11-18T11:54:00Z", now)).toBe("6 min");
+  expect(ago("2026-11-18T10:00:00Z", now)).toBe("2 h");
+  expect(ago("2026-11-15T12:00:00Z", now)).toBe("3 d");
 });
