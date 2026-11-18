@@ -8,3 +8,6 @@ claim.txt
 model/
 *.wav
 graph.txt
+scenes-voice/
+narration.vtt
+poster.png

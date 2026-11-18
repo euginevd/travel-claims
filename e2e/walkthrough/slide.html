@@ -20,6 +20,26 @@
   .t1 { background: #eef4ff; color: #2c5cc5; } .t2 { background: #fff1ec; color: #c4532f; } .t3 { background: #ecf7f0; color: #23784a; }
   .stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
   .stage img { max-width: 92%; max-height: 92%; transform-origin: 50% 50%; transition: transform 2.6s cubic-bezier(.45,.05,.25,1); box-shadow: 0 30px 80px -40px rgb(0 0 0 / 35%); border-radius: 10px; background: #fff; }
+  #root { height: 100%; }
+  .poster { position: relative; height: 100%; padding: 0 110px; display: flex; align-items: center; justify-content: space-between; gap: 60px; background: radial-gradient(1200px 700px at 30% 40%, #fff 0%, var(--paper) 60%, #f3ede4 100%); }
+  .poster .copy { flex: 1; }
+  .poster .held { position: relative; flex: none; width: 320px; height: 320px; margin-right: 20px; }
+  .poster .held svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .poster .held circle { fill: none; stroke-width: 3.5; }
+  .poster .held .track { stroke: #e7e1d6; }
+  .poster .held .arc { stroke: #2f8a57; stroke-linecap: round; stroke-dasharray: 327 327; }
+  .poster .held-text { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 6px; }
+  .poster .held-text b { font: 500 66px/1 "Newsreader", Georgia, serif; letter-spacing: -0.02em; }
+  .poster .held-text span { font-size: 20px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #2f8a57; }
+  .poster .brand { position: absolute; top: 56px; left: 140px; display: flex; align-items: center; gap: 14px; font: 600 26px/1 "Plus Jakarta Sans", sans-serif; }
+  .mark.small { width: 44px; height: 44px; border-radius: 13px; margin: 0; background: var(--acc); display: grid; place-items: center; }
+  .mark.small svg { width: 26px; height: 26px; }
+  .poster .for { margin: 0 0 26px; font-size: 25px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--acc); }
+  .poster h1 { margin: 0; font: 500 100px/1.02 "Newsreader", Georgia, serif; letter-spacing: -0.02em; }
+  .poster h1 em { font-style: italic; color: #c4532f; }
+  .poster .proof { margin: 32px 0 0; max-width: 860px; font-size: 32px; line-height: 1.4; color: var(--ink-2); }
+  .poster .chips { justify-content: flex-start; margin-top: 42px; }
+  .poster .chips span { font-size: 23px; padding: 10px 20px; }
   .fade-in { animation: fin 0.8s ease both; }
   @keyframes fin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 </style>
@@ -30,7 +50,21 @@
   const kind = new URLSearchParams(location.search).get("k");
   const root = document.getElementById("root");
   const logo = '<svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v6a2 2 0 0 0 4 0"/></svg>';
-  if (kind === "title") {
+  if (kind === "poster") {
+    // The video's thumbnail: who it's for, what it shows, and one figure that proves it.
+    root.innerHTML = `<div class="poster">
+      <div class="copy">
+        <p class="for">For AI engineers and AI security architects</p>
+        <h1>Agentic AI<br>that's <em>evaluated</em><br>and <em>red-teamed</em></h1>
+        <p class="proof">Claude agents settle insurance claims end to end, with an exam, live traces and guardrails.</p>
+        <div class="chips"><span>LangGraph · MCP · Bedrock AgentCore</span><span>OWASP LLM &amp; Agentic Top 10</span></div>
+      </div>
+      <div class="held" aria-hidden="true">
+        <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="track"/><circle cx="60" cy="60" r="52" class="arc"/></svg>
+        <div class="held-text"><b>27/27</b><span>attacks held</span></div>
+      </div>
+    </div>`;
+  } else if (kind === "title") {
     root.innerHTML = `<div class="title fade-in"><div class="mark">${logo}</div><h1>UnderCover</h1>
       <p>A team of AI agents that settles routine travel insurance claims, built to be measured and attacked.</p>
       <div class="tracks"><b class="t1">The product</b><b class="t2">AI engineering</b><b class="t3">AI security</b></div></div>`;

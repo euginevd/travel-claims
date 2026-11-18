@@ -7,7 +7,10 @@ const { chromium } = require("@playwright/test");
 const W = 1600;
 const H = 900;
 // Drawn at 1.2x, so the frames are 1920x1080 and text stays sharp at the player's 1600x900.
-const OUT = path.join(__dirname, "scenes");
+// SCENES names the output folder (the voiced cut records into its own); NO_CAPTIONS=1 records
+// the caption times without drawing the captions, for a version whose words are spoken.
+const OUT = path.join(__dirname, process.env.SCENES === "voice" ? "scenes-voice" : "scenes");
+const DRAW_CAPTIONS = process.env.NO_CAPTIONS !== "1";
 
 const OVERLAY = `(() => {
   if (window.__ov) return;
@@ -54,6 +57,7 @@ async function scene(name, fn, { reduced = false } = {}) {
   await context.addInitScript(OVERLAY);
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(45000);
   const cdp = await context.newCDPSession(page);
   const frames = [];
   const marks = [];
@@ -78,7 +82,7 @@ async function scene(name, fn, { reduced = false } = {}) {
     async cap(html, hold = 0) {
       // Captions mark words only with <b>; the captions file keeps the plain words.
       caps.push({ t: now(), text: html.replaceAll("<b>", "").replaceAll("</b>", "") });
-      await page.evaluate((h) => window.__cap(h), html);
+      if (DRAW_CAPTIONS) await page.evaluate((h) => window.__cap(h), html);
       if (hold) await page.waitForTimeout(hold);
     },
     async spot(locator) {

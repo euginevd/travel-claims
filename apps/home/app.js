@@ -5,7 +5,7 @@
 // poster with one play button under it, and a light control bar there once it plays. (Then recompute
 // app.js's integrity hash in index.html.)
 const WALKTHROUGH = "media/walkthrough.mp4";
-// The same walkthrough read aloud: its captions spoken, the picture held where a line runs long.
+// The same walkthrough narrated: a spoken script in place of the on-screen captions.
 const WALKTHROUGH_VOICE = "media/walkthrough-voice.mp4";
 
 // Each app's address: on AWS from links.json, which the deploy writes; locally this host and its port.
