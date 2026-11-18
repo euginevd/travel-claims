@@ -195,21 +195,21 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
         <main className="signin-main" id="main">
           <section className="signin-hero">
-            <h1 aria-label="Every AI decision, measured.">
+            <h1 aria-label="Every AI agent, in view.">
               <span className="headline-line" aria-hidden="true">
                 <span className="word w1">Every </span>
                 <span className="word w2">AI </span>
-                <span className="word w3">decision,</span>
+                <span className="word w3">agent,</span>
               </span>
               <span className="headline-line" aria-hidden="true">
                 <span className="word w4">
-                  <em>measured.</em>
+                  <em>in view.</em>
                 </span>
               </span>
             </h1>
             <p className="signin-lede rise d4">
-              Evals and security for the claims agent: score it against handlers&apos; decisions,
-              approve its improvements and attack it with the red team.
+              Observe, evaluate, secure and govern the agent team: watch each agent work, score it
+              against handlers&apos; decisions, red-team it and approve every change.
             </p>
             <div className="rise d5">
               <SignInRun />

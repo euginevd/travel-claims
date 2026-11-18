@@ -25,11 +25,20 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
   const inFlight = useRef(false);
   const ids = useId();
   const field = useRef<HTMLInputElement>(null);
+  const card = useRef<HTMLDivElement>(null);
   const ready = reason.trim().length >= SHORTEST;
 
-  // The reason is the one thing to fill in, so the card opens on it.
+  // The reason is the one thing to fill in, so the card opens on it; when it closes, focus goes
+  // back to what opened it, unless the person has already moved on elsewhere.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     field.current?.focus();
+    const box = card.current;
+    return () => {
+      const lost =
+        document.activeElement === document.body || box?.contains(document.activeElement);
+      if (lost && opener?.isConnected) opener.focus();
+    };
   }, []);
 
   // Escape closes the card, wherever focus is inside it.
@@ -44,7 +53,6 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
   }, [onClose]);
 
   // A click anywhere outside closes it too, unless a change is on its way.
-  const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (event: PointerEvent) => {
       if (inFlight.current) return;

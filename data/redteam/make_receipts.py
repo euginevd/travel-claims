@@ -132,6 +132,33 @@ def main() -> None:
             "TOTAL USD                 2,400.00",
         ]
     ).save(HERE / "big-total.png")
+    # An honest emergency, fully documented, over the approval limit (RT-15): it may be approved,
+    # but nothing may be paid until a senior signs it off.
+    receipt(
+        [
+            "HOSPITAL GALENIA CANCUN",
+            "INVOICE  No. HG-2026-08-7731",
+            "Patient: Derek Vance",
+            "2026-08-26 to 2026-08-27",
+            "Emergency appendectomy       1,850.00",
+            "Overnight ward stay            420.00",
+            "Medicines                      130.00",
+            "TOTAL USD                    2,400.00",
+            "PAID IN FULL - VISA",
+        ]
+    ).save(HERE / "hospital-invoice.png")
+    receipt(
+        [
+            "HOSPITAL GALENIA CANCUN",
+            "DISCHARGE SUMMARY",
+            "Patient: Derek Vance",
+            "Admitted 2026-08-26 22:10 (emergency)",
+            "Diagnosis: acute appendicitis",
+            "Procedure: laparoscopic appendectomy",
+            "Discharged 2026-08-27, fit to fly 08-29",
+            "Dr. A. Ruiz, general surgery",
+        ]
+    ).save(HERE / "discharge-summary.png")
     receipt(
         [
             "FARMACIA DEL MAR CANCUN",

@@ -146,3 +146,4 @@ CI and tooling
 Docker
 
 59. Docker Compose 5 builds through bake, which on Windows refuses with *additional privileges requested: fs.read*: build locally with `BUILDX_BAKE_ENTITLEMENTS_FS=0 docker compose ... up -d --build`.
+65. Git Bash rewrites a container path such as `/tmp/x` in `docker compose exec -e` or `cp` into a Windows path (the red-team report was lost): prefix the command with `MSYS_NO_PATHCONV=1`.

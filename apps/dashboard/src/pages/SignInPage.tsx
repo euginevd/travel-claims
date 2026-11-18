@@ -40,14 +40,14 @@ export function testAccounts(env: ImportMetaEnv = import.meta.env) {
 // Each is true of the app: a decision names what it relied on and each check its source; a
 // payout over the approval limit waits for a senior handler; a customer can ask for a person.
 const POINTS = [
-  { Icon: FileSearch, text: "Sources on every recommendation" },
+  { Icon: FileSearch, text: "Sources on every decision" },
   { Icon: Lock, text: "Senior sign-off over the approval limit" },
-  { Icon: UserRound, text: "A person whenever one is asked for" },
+  { Icon: UserRound, text: "A Copilot that acts only after you confirm" },
 ];
 
 const HEADLINE = [
-  ["The", "agent", "recommends."],
-  ["You", "decide."],
+  ["Agents", "settle", "the routine."],
+  ["You", "make the call."],
 ];
 
 interface SignInPageProps {
@@ -212,7 +212,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
         <main className="signin-main" id="main">
           <section className="signin-hero">
-            <h1 aria-label="The agent recommends. You decide.">
+            <h1 aria-label="Agents settle the routine. You make the call.">
               {HEADLINE.map((line, row) => (
                 <span key={row} className="headline-line" aria-hidden="true">
                   {line.map((word, index) => (
@@ -224,8 +224,8 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               ))}
             </h1>
             <p className="signin-lede rise d4">
-              Review what the claims agent recommends, sign off large payouts and step in where a
-              person&apos;s judgement is needed.
+              The agent team settles routine claims on its own. Referrals, sign-offs and overrides
+              come to you, each with the agent&apos;s reasoning, its sources and a Copilot to ask.
             </p>
             <div className="rise d5">
               <SignInScene />
