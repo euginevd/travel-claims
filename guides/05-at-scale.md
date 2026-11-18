@@ -17,9 +17,9 @@ The prototype works about 25 claims a day. This guide works out what changes at 
 1. **People are the bottleneck, not the agents.** 80,000 referrals a day means hundreds of handlers. Each point of the straight-through rate saves about 2,500 reviews a day. So the exam, Compare models and the improver matter more than raw speed, and so does what each referral asks of a handler (the case brief, the drafted request).
 2. **A queue in place of the watcher.** Claims wait in a queue (SQS), and workers take them as capacity allows. When Bedrock's quotas fill, the queue holds claims back rather than failing them.
 3. **Bedrock quotas, raised ahead of time.** Tokens and requests a minute for each model in Sydney. Australian data stays in Australia, so there's no overflow to other regions: the quota is the ceiling.
-4. **One session per claim on AgentCore Runtime** (TODO 12), and claims picked up again after a restart, so a long day never loses work in flight.
+4. **One session per claim on AgentCore Runtime** (TODO 10), and claims picked up again after a restart, so a long day never loses work in flight.
 5. **Cost controls for each agent.** Prompt caching for the instructions and the policy wording, which every claim reads; the judge grading a sample rather than every claim; a budget for each agent, with a circuit breaker that stops it, not the whole team.
-6. **Limits and contention in the database.** Rate limits counted in the database (TODO 15), and care with rows every worker writes (the queue, the settings) on Aurora DSQL.
+6. **Limits and contention in the database.** Rate limits counted in the database (TODO 13), and care with rows every worker writes (the queue, the settings) on Aurora DSQL.
 7. **Observability by sampling.** Every referral's trace kept in full, a sample of the rest, and the Overview's figures from aggregates rather than a count of every row.
 
 ## What stays the same

@@ -1,6 +1,6 @@
 # Proposal: the Secure tab, rethought
 
-TODO item 23. A proposal for the developer to agree before anything is built. Researched 18 November 2026.
+TODO item 21. A proposal for the developer to agree before anything is built. Researched 18 November 2026.
 
 ## 1. What changed in the field
 

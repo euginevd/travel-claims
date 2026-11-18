@@ -18,6 +18,9 @@ from undercover_api.models import Strict
 
 BUDGET = "agent_daily_budget"
 DEFAULT_BUDGET = 5.0
+# The most a day can be set to: the month's whole budget for `dev` (costs.md), so no engineer,
+# the shared test account included, can lift the cap far enough to run up a real bill.
+MAX_BUDGET = 20.0
 # Above this share of the budget, the control plane warns before the agent stops.
 WARN_SHARE = 0.8
 BUDGET_GUARD = "Budget guard"
@@ -41,7 +44,9 @@ class Budget(BaseModel):
 
 
 class BudgetRequest(Strict):
-    limit: float = Field(ge=0.5, le=1000, description="Dollars a day for the agents' model calls")
+    limit: float = Field(
+        ge=0.5, le=MAX_BUDGET, description="Dollars a day for the agents' model calls"
+    )
     reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
 
 

@@ -150,9 +150,9 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   expect(screen.getByText(/Last set by Sam Carter/)).toBeInTheDocument();
   const limit = screen.getByLabelText("Dollars a day");
   await user.clear(limit);
-  await user.type(limit, "0.1");
+  await user.type(limit, "25");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $1,000");
+  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $20");
   await user.clear(limit);
   await user.type(limit, "8");
   await user.type(screen.getByLabelText("Why? (optional)"), "Busy week");
