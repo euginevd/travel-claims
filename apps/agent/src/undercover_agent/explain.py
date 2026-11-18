@@ -124,6 +124,34 @@ def clip(value: object) -> str:
     return text if len(text) <= LIMIT else text[:LIMIT] + "\n…(cut short)"
 
 
+# A trace's steps as Wattle reads them: each step shortened, the first few and the last many,
+# so a long trace's decision at the end is never cut off by the size limit.
+STEP_CHARS = 400
+FIRST_STEPS = 4
+LAST_STEPS = 14
+
+
+def trace_brief(trace: Json) -> Json:
+    """A long trace made short enough to read whole: its totals, its model calls counted, and
+    its first and last steps, the decision among them."""
+    steps = cast(list[Json], trace.get("steps") or [])
+    short = [
+        {**step, "content": str(step.get("content", ""))[:STEP_CHARS]}
+        for step in (
+            steps
+            if len(steps) <= FIRST_STEPS + LAST_STEPS
+            else [*steps[:FIRST_STEPS], *steps[-LAST_STEPS:]]
+        )
+    ]
+    return {
+        "total_cost": trace.get("total_cost"),
+        "total_tokens": trace.get("total_tokens"),
+        "model_calls": len(cast(list[Json], trace.get("model_calls") or [])),
+        "steps_in_all": len(steps),
+        "steps": short,
+    }
+
+
 class Explainer:
     """Answers one engineer question with a short, read-only tool loop."""
 
@@ -143,7 +171,9 @@ class Explainer:
             return clip(snapshots[name])
         if name == "claim_trace":
             found = request.traces.get(str(args.get("claim_id", "")).upper())
-            return clip(found or {"error": "Name the claim id in your question to trace it"})
+            if not isinstance(found, dict):
+                return as_text({"error": "Name the claim id in your question to trace it"})
+            return clip(trace_brief(found))
         return as_text({"error": f"Unknown tool {name}"})
 
     def explain(self, request: ExplainRequest) -> Explanation:
