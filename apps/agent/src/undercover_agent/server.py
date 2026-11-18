@@ -652,5 +652,7 @@ def build_app() -> FastAPI:
             settings.undercover_api,
             Path(os.environ.get("REDTEAM_DATA", "/app/data/redteam")),
             os.environ.get("REDTEAM_POLICY", redteam.POLICY),
+            api_client(),
+            os.environ.get("COPILOT_URL", ""),
         ).start,
     )

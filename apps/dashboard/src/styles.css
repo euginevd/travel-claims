@@ -1777,7 +1777,7 @@ h3.sub-head {
 }
 
 .reason-option:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 

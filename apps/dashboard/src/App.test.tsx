@@ -30,8 +30,11 @@ test("a handler signs in and sees the queue", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  // What needs a handler shows first; everything else is folded, then in tabs.
-  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
+  // With nothing needing the handler, everything else opens by itself, in tabs.
+  expect(await screen.findByRole("button", { name: /Everything else/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   const table = await screen.findByRole("table");
   expect(within(table).getByRole("link", { name: "CLM-1001" })).toHaveAttribute(
@@ -48,7 +51,7 @@ test("the sign-in page is a plain staff sign-in with no list of people", () => {
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
   expect(screen.getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { level: 1 })).toHaveAccessibleName(
-    "The agent recommends. You decide.",
+    "Agents settle the routine. You make the call.",
   );
   expect(screen.queryByText(/customer/i)).not.toBeInTheDocument();
   // The only people offered are the two test accounts, and only in a test build.
@@ -212,7 +215,6 @@ test("following a claim link opens the claim page with focus on its heading", as
   const user = userEvent.setup();
   saveToken("token-1");
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
-  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   await user.click(await screen.findByRole("link", { name: "CLM-1001" }));
   const heading = await screen.findByRole("heading", { level: 1, name: "Claim CLM-1001" });

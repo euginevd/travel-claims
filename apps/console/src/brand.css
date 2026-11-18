@@ -89,7 +89,7 @@ a:hover {
 }
 
 :focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -329,7 +329,7 @@ b {
 }
 
 .button.secondary:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -459,7 +459,7 @@ textarea::placeholder {
 }
 
 .seg-option input:focus-visible + span {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 1px;
 }
 
@@ -1992,7 +1992,7 @@ main.signin-main {
 }
 
 .account:has(input:focus-visible) {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 
@@ -2421,7 +2421,7 @@ main.gate {
 }
 
 .wattle-next-q button:focus-visible {
-  outline: 2px solid var(--acc);
+  outline: 2px solid var(--acc-d);
   outline-offset: 2px;
 }
 

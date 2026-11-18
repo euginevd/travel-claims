@@ -20,7 +20,7 @@
 
 I designed and built UnderCover end to end to show AI engineering, security and cloud architecture working together. It has three apps for three audiences, a LangGraph claim agent and a handlers' Copilot, running on AWS with AgentCore and Bedrock. Every risk in the threat model has a control, every AWS resource is Terraform, and each control is a setting.
 
-The idea and synthetic data come from [the UnderCover project](https://github.com/ed-donner/undercover) in Ed Donner's AI FDE course, which I recently completed after his [Proficient AI Engineer program](https://proficientaiengineer.com/certificate/c5032879-fe81-45d9-b460-68de7631bfda). The code, architecture and controls are my own.
+Idea and fictional data from [UnderCover](https://github.com/ed-donner/undercover) in Ed Donner's AI FDE course (after his [Proficient AI Engineer program](https://proficientaiengineer.com/certificate/c5032879-fe81-45d9-b460-68de7631bfda)); code written from scratch with Claude Code ([AGENTS.md](AGENTS.md)), design and controls my own.
 
 <div align="center">
 
@@ -32,10 +32,10 @@ The idea and synthetic data come from [the UnderCover project](https://github.co
 
 | | |
 |---|---|
-| Red team | 14 of 14 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access, a forged tool call and card numbers; the instruction check stopped nine, the claim agent three ([report](docs/redteam-report.md)) |
-| Cost | 2 to 4 cents of Claude a claim; the whole red-team run cost $0.014 |
+| Red team | 22 of 22 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access and card numbers on the claim agent; another customer's data, prompt extraction and a three-message walk on Wattle; the Copilot's confirm card; handlers deciding what they mustn't; and a tricked agent for the guardian to hold ([report](docs/redteam-report.md)) |
+| Cost | 2 to 4 cents of Claude a claim |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
-| Tests | 676 Python tests at 88% coverage, 322 web app tests, and browser tests with an accessibility scan in CI |
+| Tests | 684 Python tests at 88% coverage, 331 web app tests, and browser tests with an accessibility scan in CI |
 | Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
 
 Deployed to AWS from the pipeline and tested end to end, then torn down to keep the bill near zero. The [walkthrough](#walkthrough) shows it running.
@@ -54,7 +54,7 @@ One design, the one a regulated insurer would run, with the platform team's cont
 2. **Money never in a prompt:** code pays, after checking the approval limit and the pause switch; a payout can't run twice.
 3. **Tool rules:** AgentCore Policy (Cedar) allows each gateway only its own tools.
 4. **Checked answers:** grounding checks, Automated Reasoning against the policy wording, and letters filtered for personal numbers.
-5. **Red team:** fourteen attacks mapped to the OWASP Top 10 for LLMs; an improvement is kept only if the red team still holds.
+5. **Red team:** 22 attacks on every agent a customer or handler reaches, mapped to the OWASP Top 10 for LLMs and agentic threats; an improvement is kept only if the red team still holds.
 6. **Identity:** separate sign-ins per app, machine tokens between services, and GitHub to AWS over OIDC with no stored keys.
 7. **Pipeline:** Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every PR; images shipped with an SBOM; packages at least 7 days old.
 
@@ -90,7 +90,7 @@ A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
 | `home` | Anyone: the project page | http://127.0.0.1:5172 | none |
 | `portal` | Customers chat with Wattle to make, track and ask about claims | http://127.0.0.1:5173 | Oliver Grant: **Use test account** |
 | `dashboard` | Handlers work the queue and sign off payouts | http://127.0.0.1:5174 | Dana Whitfield, senior: **Continue as Dana** |
-| `console` | AI engineers: evals, live monitoring, red team | http://127.0.0.1:5175 | Sam Carter: **Continue as Sam** |
+| `console` | AI engineers' control plane: the agents live, evals, model comparison, red team, cost and audit | http://127.0.0.1:5175 | Sam Carter: **Continue as Sam** |
 
 Behind them: `api` (claims, decisions, payments), `agent` (the claim agent), `copilot` (the handlers' Wattle AI) and `context` (policy lookups as an MCP server). Every feature: [features.md](docs/features.md).
 

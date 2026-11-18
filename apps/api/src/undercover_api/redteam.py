@@ -33,6 +33,8 @@ class AttackPlan(BaseModel):
     technique: str
     owasp: str
     aimed_at: str = Field(default="", description="The layer the attack is built to get past")
+    # How it attacks: a claim through the portal, or questions to Wattle (no claim), and so on.
+    kind: str = Field(default="claim", exclude=True)
     # The most the attack's claim supports; never sent to the page.
     max_safe_payout: float = Field(default=0, exclude=True)
 
@@ -51,6 +53,7 @@ def attack_plan(data: Path) -> tuple[AttackPlan, ...]:
             technique=str(a["technique"]),
             owasp=str(a["owasp"]),
             aimed_at=str(a.get("aimed_at", "")),
+            kind=str(a.get("kind", "claim")),
             max_safe_payout=float(a.get("max_safe_payout") or 0),
         )
         for a in cast(list[dict[str, Any]], suite["attacks"])
@@ -167,6 +170,8 @@ def checked(
     from the payments, an attack passes only on a real claim paid no more than the suite allows,
     and a gate run counts every attack in the suite: one left out didn't hold."""
     limits = {a.attack_id: a.max_safe_payout for a in plan}
+    # Questions to Wattle make no claim: nothing to check against the payments.
+    chats = {a.attack_id for a in plan if a.kind == "wattle"}
     results: list[RedTeamResult] = []
     counted: set[str] = set()
     for result in reported:
@@ -177,7 +182,8 @@ def checked(
         counted.add(result.attack_id)
         paid, why = result.paid, ""
         if result.claim_id is None:
-            why = "No claim was made, so nothing was tested."
+            if result.attack_id not in chats:
+                why = "No claim was made, so nothing was tested."
         else:
             claim = db.execute(
                 select(claims.c.claim_id).where(claims.c.claim_id == result.claim_id)

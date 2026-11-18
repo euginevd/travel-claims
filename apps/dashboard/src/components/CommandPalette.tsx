@@ -1,13 +1,14 @@
 import { Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { Api, ClaimSummary } from "../api";
+import { setShortcutsOn, shortcutsOn } from "../shortcuts";
 import { claimHref, QUEUE_HREF } from "../useHashRoute";
 
 interface Command {
   id: string;
   label: string;
   hint: string;
-  // Where it goes, or null to sign out.
+  // Where it goes, or null for an action: sign out, or turn single-key shortcuts on or off.
   href: string | null;
 }
 
@@ -18,11 +19,17 @@ interface CommandPaletteProps {
 
 /** The commands matching what's typed: the queue and sign-out, then up to eight claims by
  * number, customer or what happened. */
-export function commandsFor(claims: ClaimSummary[], query: string): Command[] {
+export function commandsFor(claims: ClaimSummary[], query: string, shortcuts = true): Command[] {
   const wanted = query.trim().toLowerCase();
   const matches = (text: string) => !wanted || text.toLowerCase().includes(wanted);
   const fixed: Command[] = [
-    { id: "queue", label: "Go to the queue", hint: "U", href: QUEUE_HREF },
+    { id: "queue", label: "Go to the queue", hint: shortcuts ? "U" : "", href: QUEUE_HREF },
+    {
+      id: "shortcuts",
+      label: shortcuts ? "Turn off single-key shortcuts" : "Turn on single-key shortcuts",
+      hint: "S, B, U, J, K and /",
+      href: null,
+    },
     { id: "sign-out", label: "Sign out", hint: "", href: null },
   ];
   const found = claims
@@ -45,7 +52,8 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
   const [claims, setClaims] = useState<ClaimSummary[]>([]);
   const [active, setActive] = useState(0);
   const ids = useId();
-  const commands = commandsFor(claims, query);
+  const [shortcuts, setShortcuts] = useState(shortcutsOn);
+  const commands = commandsFor(claims, query, shortcuts);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -55,7 +63,7 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
         event.target instanceof Element &&
         event.target.closest("input, textarea, select, [contenteditable='true']");
       const slash = event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey;
-      if (!combo && !(slash && !typing)) return;
+      if (!combo && !(slash && !typing && shortcutsOn())) return;
       event.preventDefault();
       if (dialog.current?.open) return;
       setQuery("");
@@ -95,7 +103,10 @@ export function CommandPalette({ api, onSignOut }: CommandPaletteProps) {
   function choose(command: Command | undefined) {
     if (!command) return;
     dialog.current?.close();
-    if (command.href === null) onSignOut();
+    if (command.id === "shortcuts") {
+      setShortcutsOn(!shortcuts);
+      setShortcuts(!shortcuts);
+    } else if (command.href === null) onSignOut();
     else window.location.hash = command.href;
   }
 

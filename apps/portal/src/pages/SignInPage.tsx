@@ -27,49 +27,24 @@ const HEADLINE = [
   ["Let’s", "sort", "it", "out."],
 ];
 
-/** A number that counts up from zero once, quickly; still for reduced motion. */
-function useCountUp(end: number, delay: number): number {
-  const [value, setValue] = useState(() => (prefersStill() ? end : 0));
-  useEffect(() => {
-    if (prefersStill()) return;
-    let frame = 0;
-    const start = performance.now() + delay;
-    const step = (now: number) => {
-      const k = Math.min(1, Math.max(0, (now - start) / 900));
-      setValue(Math.round(end * (1 - (1 - k) ** 3)));
-      if (k < 1) frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [end, delay]);
-  return value;
-}
-
+// What the portal really does, in place of figures it can't back up.
 function Stats() {
-  const seconds = useCountUp(5, 900);
-  const inTen = useCountUp(8, 1050);
   return (
     <dl className="signin-stats">
       <div className="signin-stat">
-        <dt>Fastest claim paid</dt>
+        <dt>Most claims decided</dt>
+        <dd>Minutes</dd>
+      </div>
+      <div className="signin-stat">
+        <dt>Ask for a person</dt>
         <dd>
-          {seconds}
-          <small>sec</small>
+          1<small>tap</small>
         </dd>
       </div>
       <div className="signin-stat">
-        <dt>Decided in under 30 secs</dt>
+        <dt>Paid to your account</dt>
         <dd>
-          {inTen}
-          <small>in 10</small>
-        </dd>
-      </div>
-      <div className="signin-stat">
-        <dt>People on call</dt>
-        <dd>
-          24/7
+          PayID
           <span className="live-dot" aria-hidden="true" />
         </dd>
       </div>

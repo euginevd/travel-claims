@@ -11,6 +11,8 @@ import { draftRequest, headlineOf } from "./components/Verdict";
 import { briefOf, todayFigures, TodayPage, whyOf } from "./pages/TodayPage";
 import { ClaimPage } from "./pages/ClaimPage";
 import { claim, DANA, fakeFetch, MARCUS, REFERRAL, SUMMARY } from "./testing";
+import { commandsFor } from "./components/CommandPalette";
+import { setShortcutsOn, shortcutsOn } from "./shortcuts";
 
 const OFF: AgentSwitch = {
   on: false,
@@ -309,4 +311,44 @@ test("an open agent card keeps what the handler asked for when the status change
   // The card closes; it never becomes "Turn the agent on" under the reason being typed.
   expect(screen.queryByRole("button", { name: "Turn the agent on" })).not.toBeInTheDocument();
   expect(fetchFn.calls.filter((c) => c.path.endsWith("/agent"))).toHaveLength(0);
+});
+
+test("arrow keys move between the evidence tabs", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "GET /api/staff/claims/CLM-1001": () => [200, claim({ status: "decided" })],
+    "GET /api/staff/claims/CLM-1001/steps": () => [200, []],
+    "GET /api/staff/claims": () => [200, []],
+  });
+  render(
+    <ClaimPage
+      api={createApi(fetchFn, () => "t")}
+      claimId="CLM-1001"
+      handler={MARCUS}
+      pollMs={10}
+    />,
+  );
+  const tabs = await screen.findAllByRole("tab");
+  const [first, second] = tabs;
+  if (!first || !second) throw new Error("expected two tabs or more");
+  expect(second).toHaveAttribute("tabindex", "-1");
+  first.focus();
+  await user.keyboard("{ArrowRight}");
+  expect(second).toHaveFocus();
+  expect(second).toHaveAttribute("aria-selected", "true");
+  await user.keyboard("{ArrowLeft}");
+  expect(first).toHaveFocus();
+});
+
+test("single-key shortcuts can be turned off from the command palette", () => {
+  expect(shortcutsOn()).toBe(true);
+  expect(commandsFor([], "shortcut", true)[0]?.label).toBe("Turn off single-key shortcuts");
+  try {
+    setShortcutsOn(false);
+    expect(shortcutsOn()).toBe(false);
+    expect(commandsFor([], "shortcut", false)[0]?.label).toBe("Turn on single-key shortcuts");
+  } finally {
+    setShortcutsOn(true);
+  }
+  expect(shortcutsOn()).toBe(true);
 });
