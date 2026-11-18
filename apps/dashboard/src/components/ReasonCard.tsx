@@ -15,6 +15,20 @@ interface Props {
 }
 
 const SHORTEST = 3;
+// Below this width the card sits at the bottom of the screen instead (styles.css).
+const NARROW = 900;
+const CARD_WIDTH = 380;
+const EDGE = 16;
+
+/** Where the card opens: just below what opened it, centred on it and kept inside the window. */
+function below(opener: Element | null): { top: number; left: number } | undefined {
+  if (!(opener instanceof HTMLElement) || window.innerWidth <= NARROW) return undefined;
+  const box = opener.getBoundingClientRect();
+  const width = Math.min(CARD_WIDTH, window.innerWidth - 2 * EDGE);
+  const centred = box.left + box.width / 2 - width / 2;
+  const left = Math.min(Math.max(centred, EDGE), window.innerWidth - width - EDGE);
+  return { top: box.bottom + 10, left };
+}
 
 /** A switch's change, with why: the same small card for the agent switch and payouts. One short
  * line says why, kept with who and when; nothing changes until the dark button. */
@@ -25,11 +39,22 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
   const inFlight = useRef(false);
   const ids = useId();
   const field = useRef<HTMLInputElement>(null);
+  const card = useRef<HTMLDivElement>(null);
   const ready = reason.trim().length >= SHORTEST;
+  // Worked out once, as it opens: the button that opened it still has focus.
+  const [place] = useState(() => below(document.activeElement));
 
-  // The reason is the one thing to fill in, so the card opens on it.
+  // The reason is the one thing to fill in, so the card opens on it; when it closes, focus goes
+  // back to what opened it, unless the person has already moved on elsewhere.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     field.current?.focus();
+    const box = card.current;
+    return () => {
+      const lost =
+        document.activeElement === document.body || box?.contains(document.activeElement);
+      if (lost && opener?.isConnected) opener.focus();
+    };
   }, []);
 
   // Escape closes the card, wherever focus is inside it.
@@ -44,7 +69,6 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
   }, [onClose]);
 
   // A click anywhere outside closes it too, unless a change is on its way.
-  const card = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (event: PointerEvent) => {
       if (inFlight.current) return;
@@ -76,6 +100,7 @@ export function ReasonCard({ title, detail, example, confirm, failed, onConfirm,
     <div role="dialog" aria-labelledby={`${ids}-title`} ref={card}>
       <form
         className="payouts-popover"
+        style={place ? { top: place.top, left: place.left, right: "auto" } : undefined}
         onSubmit={(event) => {
           event.preventDefault();
           void submit();

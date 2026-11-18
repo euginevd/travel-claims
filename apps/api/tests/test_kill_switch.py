@@ -192,3 +192,36 @@ def test_two_payments_reading_the_switch_never_wait_for_each_other(database_url:
             assert done == [True], "the second payment waited for the first"
     finally:
         engine.dispose()
+
+
+def test_an_engineer_can_stop_the_agent_and_payouts_but_never_start_them(
+    client: TestClient, dana: dict[str, str], sam: dict[str, str]
+) -> None:
+    client.put("/api/staff/agent", json={"on": True, "reason": "Demo"}, headers=dana)
+    stop = {"reason": "Odd approvals on Live"}
+    assert client.post(
+        "/api/engineering/switches/agent/off", json=stop, headers=dana
+    ).status_code in (
+        401,
+        403,
+    )
+    off = client.post("/api/engineering/switches/agent/off", json=stop, headers=sam)
+    assert off.status_code == 200
+    assert off.json()["on"] is False
+    paused = client.post("/api/engineering/switches/payouts/pause", json=stop, headers=sam)
+    assert paused.status_code == 200
+    assert paused.json()["paused"] is True
+    assert paused.json()["changed_by"] == "Sam Carter"
+    # No way back on from the console: starting again is a senior handler's call.
+    assert (
+        client.post("/api/engineering/switches/agent/on", json=stop, headers=sam).status_code == 404
+    )
+    assert client.put(PAYOUTS, json={"paused": False, "reason": "x"}, headers=sam).status_code in (
+        401,
+        403,
+    )
+    with engine_of(client).connect() as db:
+        keys = db.execute(
+            select(setting_changes.c.key).where(setting_changes.c.changed_by == "Sam Carter")
+        ).scalars()
+        assert set(keys) == {"agent_switch", "payouts_paused"}

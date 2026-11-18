@@ -18,6 +18,10 @@ from undercover_api.models import Strict
 
 BUDGET = "agent_daily_budget"
 DEFAULT_BUDGET = 5.0
+# The most a day can be set to: the default. Engineers, the shared test account included, can
+# lower it to stop the agent sooner but never raise it. A full $5 every day would still pass the
+# month's $20 for `dev` (costs.md), so the AWS budget alert stays the backstop for the month.
+MAX_BUDGET = 5.0
 # Above this share of the budget, the control plane warns before the agent stops.
 WARN_SHARE = 0.8
 BUDGET_GUARD = "Budget guard"
@@ -41,7 +45,9 @@ class Budget(BaseModel):
 
 
 class BudgetRequest(Strict):
-    limit: float = Field(ge=0.5, le=1000, description="Dollars a day for the agents' model calls")
+    limit: float = Field(
+        ge=0.5, le=MAX_BUDGET, description="Dollars a day for the agents' model calls"
+    )
     reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
 
 
@@ -51,7 +57,8 @@ def today() -> str:
 
 def budget_limit(db: Connection) -> float:
     value = db.execute(select(settings.c.value).where(settings.c.key == BUDGET)).scalar()
-    return float(value) if isinstance(value, int | float) else DEFAULT_BUDGET
+    # Clamped on read too: a value stored before the cap can't lift it.
+    return min(float(value), MAX_BUDGET) if isinstance(value, int | float) else DEFAULT_BUDGET
 
 
 def spend_today(db: Connection) -> list[ModelSpend]:

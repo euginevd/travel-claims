@@ -15,9 +15,10 @@ from undercover_agent.ask import (
     next_step,
     question_for,
 )
-from undercover_agent.explain import Explainer, ExplainRequest
+from undercover_agent.explain import Explainer, ExplainRequest, trace_brief
 from undercover_agent.guardrail import Verdict
 from undercover_agent.models import Call, Json, Screening
+from undercover_agent.tools import as_text
 
 REQUEST = AskRequest(
     first_name="Maya",
@@ -300,3 +301,13 @@ def test_a_screened_exchange_is_left_out_so_it_doesnt_screen_the_rest() -> None:
     ]
     kept = [t.text for t in asked_with(history).history]
     assert kept == ["Is my bag covered?", "Yes, up to the plan's limit."]
+
+
+def test_a_long_trace_keeps_its_decision_for_wattle_to_read() -> None:
+    steps = [{"kind": "tool_call", "content": "x" * 2000} for _ in range(40)]
+    steps.append({"kind": "decision", "content": "Referred: the carrier report is missing."})
+    brief = trace_brief({"steps": steps, "model_calls": [{}] * 26, "total_cost": 0.01})
+    assert brief["steps"][-1]["content"] == "Referred: the carrier report is missing."
+    assert brief["steps_in_all"] == 41
+    assert brief["model_calls"] == 26
+    assert len(as_text(brief)) < 12000

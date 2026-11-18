@@ -210,6 +210,9 @@ def test_the_agent_reads_only_its_claims_policy_and_history(client: TestClient) 
     assert policy["policy_id"] == "POL-2001"
     assert [c["claim_id"] for c in history] == ["CLM-0412"]
     assert client.get("/api/agent/claims/CLM-9999/policy", headers=AGENT).status_code == 404
+    # The customer's other claims here count too: Oliver's coconut claim sees his passport one.
+    oliver = client.get("/api/agent/claims/CLM-1006/history", headers=AGENT).json()
+    assert "CLM-1005" in [c["claim_id"] for c in oliver]
 
 
 def test_the_queue_lists_every_claim(client: TestClient, marcus: dict[str, str]) -> None:

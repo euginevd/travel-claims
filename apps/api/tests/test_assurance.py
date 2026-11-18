@@ -220,3 +220,50 @@ def test_cost_splits_the_spend_by_what_spent_it(
     assert found["today"] == 0.35
     assert found["dearest"][0]["claim_id"] == "CLM-1001"
     assert client.get("/api/engineering/costs?days=3", headers=sam).status_code == 422
+
+
+def test_the_activity_feed_shows_who_did_what_and_never_the_claims_words(
+    client: TestClient, sam: dict[str, str], dana: dict[str, str], database_url: str
+) -> None:
+    from undercover_api.db import steps  # noqa: PLC0415 - only this test writes steps
+
+    start(client, "CLM-1001")
+    engine = make_engine(database_url)
+    with engine.begin() as db:
+        for kind, content in [
+            ("screening", "No instructions found. The story mentions a SECRET-STORY detail."),
+            ("tool_call", 'get_policy {"note": "SECRET-ARGUMENT"}'),
+            ("tool_call", 'check_documents {"question": "Is SECRET-QUESTION real?"}'),
+            ("tool_call", 'read_section {"section": 6}'),
+            ("tool_call", "SECRET-THOUGHT that isn't a tool at all"),
+            ("guardian", "Held. The guardian stopped SECRET-GUARDIAN payment."),
+            ("error", "The agent stopped: SECRET-ERROR"),
+            ("screening", "Instructions found: SECRET-INSTRUCTION in the story."),
+        ]:
+            db.execute(
+                insert(steps).values(
+                    claim_id="CLM-1001", kind=kind, content=content, sources=[], created_at=now()
+                )
+            )
+    engine.dispose()
+    response = client.get("/api/engineering/activity", headers=sam)
+    assert response.status_code == 200
+    assert "SECRET" not in response.text
+    events = response.json()["events"]
+    kinds = {(e["agent"], e["kind"], e["to"], e["tool"]) for e in events}
+    assert ("claim_agent", "ask", "documents", "check_documents") in kinds
+    assert ("claim_agent", "read", "context", "read_section") in kinds
+    assert ("claim_agent", "tool", "api", "get_policy") in kinds
+    assert ("screening", "clear", None, "") in kinds
+    assert ("screening", "flag", None, "") in kinds
+    assert ("guardian", "held", None, "") in kinds
+    assert ("claim_agent", "error", None, "") in kinds
+    # Words that aren't one of the agent's tools are never shown as written.
+    assert ("claim_agent", "tool", "api", "other") in kinds
+    # The feed alone, without the team's slower figures.
+    assert client.get("/api/engineering/activity?team=false", headers=sam).json()["team"] == []
+    team = {p["key"]: p for p in response.json()["team"]}
+    assert team["claim_agent"]["working"] is True
+    assert len(team) == 9
+    # Handlers don't see the console's records.
+    assert client.get("/api/engineering/activity", headers=dana).status_code in (401, 403)

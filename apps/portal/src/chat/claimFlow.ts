@@ -171,7 +171,9 @@ export function nextMissing(
   if (!filled.location.trim()) return "place";
   if (filled.lines.length === 0) return "items";
   if (!filled.claimType) return "type";
-  const question = filled.questions.find((q) => !asked.has(q));
+  // One of the assistant's own questions a claim, at most: each redraft words the same question
+  // anew ("already paid?", "already refunded?"), so after one answer it isn't asked again.
+  const question = asked.size === 0 ? filled.questions[0] : undefined;
   return question ? { question } : null;
 }
 

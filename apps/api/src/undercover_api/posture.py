@@ -22,7 +22,8 @@ from undercover_api.evaluations import current_version
 from undercover_api.kill_switch import payout_switch
 from undercover_api.live import FLAGGED, LIVE
 from undercover_api.models import SCREENING_MAKER, DecisionKind, RedTeamReport, RedTeamResult
-from undercover_api.threats import AGENTS, CATALOGUE
+from undercover_api.redteam import AttackPlans, retagged
+from undercover_api.threats import AGENTS, OWASP_RISKS
 
 posture_router = APIRouter(prefix="/api/engineering")
 
@@ -44,8 +45,6 @@ GUARDRAIL_REASONS = (
     f"{FLAGGED}. The guardrail couldn't check%",
 )
 HELD = "Held for sign-off"
-# Risks a build check covers rather than an attack: no gap when nothing attacks them.
-BUILD_CHECKED = {"LLM03"}
 
 # Each layer an attack meets, in order: (key, name, what it does). The guardrail and the check
 # are one layer here: a red-team result records either as the check's referral.
@@ -170,6 +169,9 @@ class Detections(BaseModel):
     events: list[Detection]
     guardrails: list[Guardrail] = []
     red_teamed: bool = False
+    # The red-team run's own totals: summing the guardrails would count an attack two layers met.
+    attacks: int = 0
+    attacks_stopped: int = 0
 
 
 class Posture(BaseModel):
@@ -223,12 +225,12 @@ def tested_risks(report: RedTeamReport | None) -> set[str]:
 
 def controls_of(report: RedTeamReport | None) -> Controls:
     tested = tested_risks(report)
-    ids = [row[0] for row in CATALOGUE]
+    ids = [risk.id for risk in OWASP_RISKS]
     llm = [i for i in ids if i.startswith("LLM")]
     agentic = [i for i in ids if i.startswith("ASI")]
     return Controls(
         risks=len(ids),
-        with_control=sum(1 for row in CATALOGUE if row[3].strip()),
+        with_control=sum(1 for risk in OWASP_RISKS if risk.control.strip()),
         tested=sum(1 for i in ids if i in tested),
         llm_tested=sum(1 for i in llm if i in tested),
         llm_total=len(llm),
@@ -285,12 +287,13 @@ def issues_of(
     found.extend(
         Issue(
             severity="medium",
-            title=f"No attack tests {owasp} {risk.lower()}",
-            detail=f"The control: {control}.",
+            title=f"No attack tests {risk.id} {risk.risk.lower()}",
+            detail=f"The control: {risk.control}.",
             link="coverage",
         )
-        for owasp, risk, _, control, _ in CATALOGUE
-        if owasp not in tested and owasp not in BUILD_CHECKED
+        for risk in OWASP_RISKS
+        # A risk a build or design control covers, or that doesn't apply, isn't a gap.
+        if risk.id not in tested and risk.untested == "gap"
     )
     return sorted(found, key=lambda issue: SEVERITY_ORDER[issue.severity])
 
@@ -608,10 +611,10 @@ def report_in_use(db: Connection, version: int | None) -> RedTeamReport | None:
 
 
 @posture_router.get("/posture", operation_id="get_security_posture")
-def get_posture(_: SignedInEngineer, db: Database) -> Posture:
+def get_posture(_: SignedInEngineer, db: Database, plan: AttackPlans) -> Posture:
     """Would an attack be stopped, and where: the security posture at a glance."""
     live = current_version(db)
-    report = report_in_use(db, live)
+    report = retagged(report_in_use(db, live), plan)
     layers = layers_of(report)
     tested_version = report.config_version if report else None
     readiness = Readiness(
@@ -639,7 +642,7 @@ def get_posture(_: SignedInEngineer, db: Database) -> Posture:
         inventory=Inventory(
             agents=len(AGENTS),
             models=len({row[1] for row in AGENTS}),
-            risks=len(CATALOGUE),
+            risks=len(OWASP_RISKS),
             live_version=live,
         ),
         controls=controls_of(report),
@@ -663,4 +666,6 @@ def list_detections(_: SignedInEngineer, db: Database, days: Days = 14) -> Detec
         events=after_of(db, detections_since(db, since)),
         guardrails=guardrails_of(db, since, counts, report),
         red_teamed=report is not None,
+        attacks=len(report.results) if report else 0,
+        attacks_stopped=sum(1 for r in report.results if r.passed) if report else 0,
     )

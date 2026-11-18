@@ -1,4 +1,4 @@
-import { ArrowRight, Check, FileSearch, Lock, UserRound } from "lucide-react";
+import { ArrowRight, Check, Lock } from "lucide-react";
 import {
   AuthenticatorStep,
   authenticatorCode,
@@ -37,17 +37,19 @@ export function testAccounts(env: ImportMetaEnv = import.meta.env) {
   return awsDemo ? ACCOUNTS.filter((option) => option.account !== "senior") : ACCOUNTS;
 }
 
-// Each is true of the app: a decision names what it relied on and each check its source; a
-// payout over the approval limit waits for a senior handler; a customer can ask for a person.
+// What a handler gets, as the portal shows it to customers: 8 of 10 is the target the console's
+// Live page measures; every decision names the policy section and sources it relied on; and any
+// handler decides a referral up to the approval limit ($1,000 by default, set by senior handlers),
+// and a payout above it is a senior's to sign off: the demo's first account is that senior.
 const POINTS = [
-  { Icon: FileSearch, text: "Sources on every recommendation" },
-  { Icon: Lock, text: "Senior sign-off over the approval limit" },
-  { Icon: UserRound, text: "A person whenever one is asked for" },
+  { figure: "8", unit: "of 10", text: "Settled by AI agents" },
+  { figure: "100", unit: "%", text: "Decisions cite sources" },
+  { figure: "$1K", unit: "+", text: "Yours to approve" },
 ];
 
 const HEADLINE = [
-  ["The", "agent", "recommends."],
-  ["You", "decide."],
+  ["Agents", "settle", "the routine."],
+  ["You", "make the call."],
 ];
 
 interface SignInPageProps {
@@ -212,7 +214,7 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
 
         <main className="signin-main" id="main">
           <section className="signin-hero">
-            <h1 aria-label="The agent recommends. You decide.">
+            <h1 aria-label="Agents settle the routine. You make the call.">
               {HEADLINE.map((line, row) => (
                 <span key={row} className="headline-line" aria-hidden="true">
                   {line.map((word, index) => (
@@ -224,17 +226,18 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               ))}
             </h1>
             <p className="signin-lede rise d4">
-              Review what the claims agent recommends, sign off large payouts and step in where a
-              person&apos;s judgement is needed.
+              The agent team settles routine claims on its own. Referrals, sign-offs and overrides
+              come to you, each with the agent&apos;s reasoning, its sources and a Copilot to ask.
             </p>
             <div className="rise d5">
               <SignInScene />
             </div>
             <ul className="signin-points">
-              {POINTS.map(({ Icon, text }) => (
+              {POINTS.map(({ figure, unit, text }) => (
                 <li key={text} className="signin-point">
-                  <span className="icon-tile" aria-hidden="true">
-                    <Icon size={15} strokeWidth={1.75} />
+                  <span className="signin-figure">
+                    {figure}
+                    {unit && <small>{unit}</small>}
                   </span>
                   {text}
                 </li>

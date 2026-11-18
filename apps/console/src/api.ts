@@ -214,15 +214,32 @@ export type Trace = z.infer<typeof TraceSchema>;
 
 export const ThreatCoverageSchema = z.object({
   redteam_run_at: z.string().nullable(),
-  threats: z.array(
+  frameworks: z.array(
     z.object({
-      owasp: z.string(),
-      risk: z.string(),
-      atlas: z.string(),
-      control: z.string(),
-      attacks: z.array(z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() })),
-      last_fired: z.string().nullable(),
-      fired: z.number(),
+      key: z.enum(["llm", "agentic", "mcp", "maestro"]),
+      name: z.string(),
+      version: z.string(),
+      risks: z.array(
+        z.object({
+          id: z.string(),
+          was: z.string(),
+          risk: z.string(),
+          atlas: z.string(),
+          control: z.string(),
+          note: z.string(),
+          status: z.enum(["tested", "failing", "built_in", "gap", "na"]),
+          attacks: z.array(
+            z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() }),
+          ),
+          last_fired: z.string().nullable(),
+          fired: z.number(),
+        }),
+      ),
+      mapped: z.number(),
+      tested: z.number(),
+      failing: z.number(),
+      built_in: z.number(),
+      gaps: z.number(),
     }),
   ),
   agents: z.array(
@@ -377,6 +394,8 @@ export const DetectionsSchema = z.object({
     )
     .default([]),
   red_teamed: z.boolean().default(false),
+  attacks: z.number().int().default(0),
+  attacks_stopped: z.number().int().default(0),
 });
 export type Guardrail = z.infer<typeof DetectionsSchema>["guardrails"][number];
 
@@ -856,6 +875,49 @@ export const AgentsMapSchema = z.object({
 export type AgentsMap = z.infer<typeof AgentsMapSchema>;
 export type AgentNode = AgentsMap["nodes"][number];
 
+// The agent team at work: each AI agent as a persona, and what the agents are doing now.
+// The feed names a tool but never its arguments, and never a claim's words.
+const AGENT_KEYS = [
+  "claim_agent",
+  "screening",
+  "documents",
+  "medical",
+  "wattle",
+  "drafting",
+  "copilot",
+  "judge",
+  "improver",
+] as const;
+export const ActivitySchema = z.object({
+  team: z.array(
+    z.object({
+      key: z.enum(AGENT_KEYS),
+      name: z.string(),
+      model: z.string().nullable(),
+      voice: z.string(),
+      working: z.boolean(),
+      work: z.string(),
+      cost: z.number().nullable(),
+      last: z.string(),
+      last_at: z.string().nullable(),
+    }),
+  ),
+  events: z.array(
+    z.object({
+      event_id: z.string(),
+      at: z.string(),
+      agent: z.enum([...AGENT_KEYS, "guardian"]),
+      to: z.enum([...AGENT_KEYS, "context", "api"]).nullable(),
+      kind: z.enum(["tool", "read", "ask", "clear", "flag", "held", "error", "answer"]),
+      tool: z.string(),
+      claim_id: z.string().nullable(),
+    }),
+  ),
+});
+export type Activity = z.infer<typeof ActivitySchema>;
+export type Persona = Activity["team"][number];
+export type AgentEvent = Activity["events"][number];
+
 export interface Api {
   getLive: (days: LivePeriod) => Promise<Live>;
   addToEvaluation: (claimId: string) => Promise<Added>;
@@ -887,6 +949,9 @@ export interface Api {
   getSuccessCriteria: () => Promise<SuccessCriteria>;
   getOverview: () => Promise<Overview>;
   getControls: () => Promise<Controls>;
+  /** Stops only: turning either back on is a senior handler's, in the dashboard. */
+  stopAgent: (reason: string) => Promise<unknown>;
+  pausePayouts: (reason: string) => Promise<unknown>;
   getAttacks: () => Promise<AttackPlan[]>;
   listTraces: () => Promise<TraceRow[]>;
   getBudget: () => Promise<Budget>;
@@ -904,6 +969,7 @@ export interface Api {
   getVersion: (version: number) => Promise<VersionCard>;
   getVersions: () => Promise<VersionCard[]>;
   getAgents: (days: LivePeriod) => Promise<AgentsMap>;
+  getActivity: (team: boolean) => Promise<Activity>;
   stopRun: (runId: number) => Promise<void>;
   getSettings: () => Promise<Settings>;
   ask: (question: string, history: AskTurn[]) => Promise<Answer>;
@@ -1038,6 +1104,9 @@ export function createApi(
     getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
     getOverview: () => call(OverviewSchema, "GET", "/overview"),
     getControls: () => call(ControlsSchema, "GET", "/controls"),
+    stopAgent: (reason) => call(z.object({}), "POST", "/switches/agent/off", { body: { reason } }),
+    pausePayouts: (reason) =>
+      call(z.object({}), "POST", "/switches/payouts/pause", { body: { reason } }),
     getAttacks: () => call(z.array(AttackPlanSchema), "GET", "/redteam/attacks"),
     listTraces: () => call(z.array(TraceRowSchema), "GET", "/traces"),
     getBudget: () => call(BudgetSchema, "GET", "/budget"),
@@ -1059,6 +1128,7 @@ export function createApi(
     getVersion: (version) => call(VersionCardSchema, "GET", `/versions/${String(version)}`),
     getVersions: () => call(z.array(VersionCardSchema), "GET", "/versions"),
     getAgents: (days) => call(AgentsMapSchema, "GET", `/agents?days=${String(days)}`),
+    getActivity: (team) => call(ActivitySchema, "GET", `/activity?team=${String(team)}`),
     stopRun: async (runId) => {
       await send("POST", `/runs/${String(runId)}/stop`);
     },

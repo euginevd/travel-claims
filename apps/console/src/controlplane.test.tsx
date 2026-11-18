@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { createApi, type AgentsMap, type Budget, type VersionCard } from "./api";
 import { AlertBell } from "./components/AlertBell";
 import { ExamGrowth } from "./components/ExamGrowth";
-import { AgentsWidget, AlertsList, KpiRow, ReleasesWidget } from "./components/OverviewWidgets";
+import { AgentTeam, ago } from "./components/AgentTeam";
+import { AlertsList, KpiRow } from "./components/OverviewWidgets";
 import { RecentTraces } from "./components/RecentTraces";
 import { ReleaseHistory } from "./components/ReleaseHistory";
 import { TrendsPanels } from "./components/TrendsPanels";
@@ -97,6 +98,12 @@ test("the bell counts the alerts and opens them; with none it says so", async ()
   );
   await user.click(await screen.findByRole("button", { name: "No alerts" }));
   expect(screen.getByText("Nothing needs you now.")).toBeInTheDocument();
+  // A click anywhere else closes it; so does Escape.
+  await user.click(document.body);
+  expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "No alerts" }));
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
 });
 
 const COSTS = {
@@ -141,7 +148,7 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
     "GET /api/engineering/budget": () => [200, BUDGET],
-    "PUT /api/engineering/budget": () => [200, { ...BUDGET, limit: 8, share: 0.65 }],
+    "PUT /api/engineering/budget": () => [200, { ...BUDGET, limit: 4, share: 0.65 }],
   });
   render(<CostPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findAllByText("Budget reached")).not.toHaveLength(0);
@@ -149,16 +156,16 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   expect(screen.getByText(/Last set by Sam Carter/)).toBeInTheDocument();
   const limit = screen.getByLabelText("Dollars a day");
   await user.clear(limit);
-  await user.type(limit, "0.1");
+  await user.type(limit, "25");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $1,000");
+  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $5");
   await user.clear(limit);
-  await user.type(limit, "8");
+  await user.type(limit, "4");
   await user.type(screen.getByLabelText("Why? (optional)"), "Busy week");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
   expect(await screen.findAllByText("Within budget")).not.toHaveLength(0);
   expect(fetchFn.calls.find((c) => c.method === "PUT")?.body).toEqual({
-    limit: 8,
+    limit: 4,
     reason: "Busy week",
   });
 });
@@ -312,19 +319,13 @@ test("the overview's widgets: spend, guardrails, the map, alerts and releases", 
   render(
     <>
       <KpiRow api={api} />
-      <AgentsWidget api={api} />
       <AlertsList api={api} />
-      <ReleasesWidget api={api} />
     </>,
   );
   expect(await screen.findByText("$5.20")).toBeInTheDocument();
   expect(await screen.findByText("3")).toBeInTheDocument();
   expect(screen.getByText(/red-teamed$/)).toBeInTheDocument();
-  expect(await screen.findByText("#4 Lower effort")).toBeInTheDocument();
-  expect(screen.getByText("84% right on 25 claims · Stopped 8 of 8 attacks")).toBeInTheDocument();
-  expect(screen.getByText("Being tested")).toBeInTheDocument();
   expect(await screen.findByText("2 runs stalled")).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: /Claim agent/ })).toBeInTheDocument();
 });
 
 test("before any run, the red team lists the attacks it will make", async () => {
@@ -658,4 +659,131 @@ test("on AWS, the services view names the AWS services a claim used", () => {
   expect(used("Step Functions")).toBe("is-used");
   expect(used("AgentCore Gateway")).toBe("is-skipped");
   expect(used("Bedrock (Australia)")).toBe("is-skipped");
+});
+
+test("the Overview shows the agent team and what the agents are doing now", async () => {
+  const persona = {
+    model: "claude-haiku-5-5",
+    voice: "Orchestrator with tools and HITL",
+    working: true,
+    work: "27 decided · 225 model calls",
+    cost: 0.13,
+    last: "called get_policy on CLM-1001",
+    last_at: new Date().toISOString(),
+  };
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/activity?team=true": () => [
+      200,
+      {
+        team: [
+          { ...persona, key: "claim_agent", name: "Claim agent" },
+          { ...persona, key: "medical", name: "Medical", working: false, cost: null },
+        ],
+        events: [
+          {
+            event_id: "s2",
+            at: new Date().toISOString(),
+            agent: "claim_agent",
+            to: "medical",
+            kind: "ask",
+            tool: "review_medical",
+            claim_id: "CLM-1001",
+          },
+        ],
+      },
+    ],
+  });
+  render(<AgentTeam api={createApi(fetchFn, () => "t")} />);
+  expect(await screen.findByText("2 AI agents · 1 working now · last 14 days")).toBeInTheDocument();
+  expect(screen.getAllByText(/Orchestrator with tools/)).toHaveLength(2);
+  expect(screen.getByRole("link", { name: /^Claim agent: / })).toHaveAttribute(
+    "href",
+    "#/agents/claim_agent",
+  );
+  const row = screen.getByRole("link", { name: /Claim agent asked Medical, CLM-1001/ });
+  expect(row).toHaveAttribute("href", "#/trace/CLM-1001");
+  expect(screen.getByText("agent → agent")).toBeInTheDocument();
+});
+
+test("each kind of feed row reads in words, and a failed poll pauses the feed", async () => {
+  const at = new Date(Date.now() - 90_000).toISOString();
+  const event = (event_id: string, agent: string, kind: string, extra: object = {}) => ({
+    event_id,
+    at,
+    agent,
+    to: null,
+    kind,
+    tool: "",
+    claim_id: "CLM-1002",
+    ...extra,
+  });
+  let fail = false;
+  const answer = () =>
+    fail
+      ? ([500, { detail: "Down" }] as [number, unknown])
+      : ([
+          200,
+          {
+            team: [
+              {
+                key: "judge",
+                name: "Judge",
+                model: null,
+                voice: "I grade.",
+                working: false,
+                work: "3 graded",
+                cost: 0,
+                last: "graded an exam",
+                last_at: null,
+              },
+            ],
+            events: [
+              event("e1", "claim_agent", "tool", { tool: "get_policy" }),
+              event("e2", "claim_agent", "read", { to: "context" }),
+              event("e3", "claim_agent", "ask", { to: null }),
+              event("e4", "screening", "clear"),
+              event("e5", "screening", "flag"),
+              event("e6", "guardian", "held"),
+              event("e7", "claim_agent", "error"),
+              event("e8", "wattle", "answer", { claim_id: null }),
+              event("e9", "copilot", "answer", { claim_id: null }),
+            ],
+          },
+        ] as [number, unknown]);
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/activity?team=true": answer,
+    "GET /api/engineering/activity?team=false": answer,
+  });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    render(<AgentTeam api={createApi(fetchFn, () => "t")} />);
+    expect(await screen.findByText(/called get_policy/)).toBeInTheDocument();
+    for (const words of [
+      "read the policy",
+      "asked a specialist",
+      "cleared the claim",
+      "flagged hidden instructions",
+      "held a payout for sign-off",
+      "stopped with an error",
+      "answered a customer",
+      "answered a handler",
+    ]) {
+      expect(screen.getByText(new RegExp(words))).toBeInTheDocument();
+    }
+    expect(screen.getByText("code")).toBeInTheDocument();
+    fail = true;
+    await vi.advanceTimersByTimeAsync(4500);
+    expect(await screen.findByText("paused: can't reach the api")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("how long ago, short", () => {
+  const now = Date.parse("2026-11-18T12:00:00Z");
+  expect(ago(null, now)).toBe("");
+  expect(ago("2026-11-18T11:59:56Z", now)).toBe("4 s");
+  expect(ago("2026-11-18T11:54:00Z", now)).toBe("6 min");
+  expect(ago("2026-11-18T10:00:00Z", now)).toBe("2 h");
+  expect(ago("2026-11-15T12:00:00Z", now)).toBe("3 d");
 });

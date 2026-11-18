@@ -13,7 +13,7 @@ const REFERRED = new Set([3, 9, 14, 18, 22]);
 const ATTACKS = [
   ["LLM01", "Injection"],
   ["LLM02", "Data leak"],
-  ["LLM06", "Excessive agency"],
+  ["LLM03", "Excessive agency"],
 ] as const;
 
 const TICK_MS = 180;

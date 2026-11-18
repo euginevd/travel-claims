@@ -235,6 +235,16 @@ button.agent-switch:hover {
   transition: transform 0.2s;
 }
 
+/* Everything else, open: a card that fills the rest of the window and scrolls inside. Its
+   max-height is set in code from where the card starts. */
+.today-more {
+  overflow: auto;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
 .folded[aria-expanded="true"] .chevron {
   transform: rotate(180deg);
 }

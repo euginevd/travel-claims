@@ -1,19 +1,15 @@
 // The Overview's widgets, as Langfuse's home is built from them: live work, quality, spend and
-// guardrails as figures with their trend, the agents map live, the alerts and the releases.
+// guardrails as figures with their trend, and the alerts.
 // Each loads on its own and stays quiet if it can't: the page's own error is the alert.
 import { useEffect, useState } from "react";
-import type { AgentsMap, Alert, Api, Budget, Detections, Live, VersionCard } from "../api";
-import { AgentsMapSvg } from "../pages/AgentsPage";
+import type { Alert, Api, Budget, Detections, Live } from "../api";
 import {
-  AGENTS_HREF,
   AUDIT_HREF,
   BUDGETS_HREF,
   DETECTIONS_HREF,
-  IMPROVEMENT_HREF,
   LIVE_HREF,
   OVERVIEW_HREF,
   SCOREBOARD_HREF,
-  versionHref,
 } from "../useHashRoute";
 import { Meter, Sparkline } from "./Charts";
 import { Widget } from "./Widget";
@@ -107,34 +103,6 @@ export function KpiRow({ api }: { api: Api }) {
   );
 }
 
-/** The agents map, live and small: the whole system at a glance; it opens the full map. */
-export function AgentsWidget({ api }: { api: Api }) {
-  const [load] = useState(() => () => api.getAgents(14));
-  const map: AgentsMap | null = useQuiet(load, 5_000);
-  return (
-    <section className="panel agents-widget" aria-labelledby="agents-widget-heading">
-      <div className="panel-head">
-        <h2 id="agents-widget-heading">The agents, live</h2>
-        <a className="stage-link small" href={AGENTS_HREF}>
-          Open the map
-        </a>
-      </div>
-      {map ? (
-        <AgentsMapSvg
-          map={map}
-          zones={false}
-          selected=""
-          onSelect={() => {
-            window.location.hash = AGENTS_HREF;
-          }}
-        />
-      ) : (
-        <span className="skeleton skeleton-card" aria-hidden="true" />
-      )}
-    </section>
-  );
-}
-
 const ALERT_LINKS: Record<string, string> = {
   overview: OVERVIEW_HREF,
   budgets: BUDGETS_HREF,
@@ -145,9 +113,14 @@ const ALERT_LINKS: Record<string, string> = {
 };
 
 /** The alerts the bell holds, listed: what needs an engineer now. */
-export function AlertsList({ api }: { api: Api }) {
+export function AlertsList({ api, onCount }: { api: Api; onCount?: (count: number) => void }) {
   const [load] = useState(() => () => api.getAlerts());
   const alerts: Alert[] | null = useQuiet(load, 30_000);
+  // The page counts these with its own items, so the fold's number matches what it lists.
+  const count = alerts?.length ?? 0;
+  useEffect(() => {
+    onCount?.(count);
+  }, [count, onCount]);
   if (!alerts || alerts.length === 0) return null;
   return (
     <ul className="attention">
@@ -163,51 +136,5 @@ export function AlertsList({ api }: { api: Api }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** The release in use and any being tested, by what each changed. */
-export function ReleasesWidget({ api }: { api: Api }) {
-  const [load] = useState(() => () => api.getVersions());
-  const cards: VersionCard[] | null = useQuiet(load);
-  const shown = (cards ?? []).filter(
-    (card) => card.in_use || card.status === "candidate" || card.status === "proposed",
-  );
-  return (
-    <section className="panel" aria-labelledby="releases-widget-heading">
-      <div className="panel-head">
-        <h2 id="releases-widget-heading">Releases</h2>
-        <a className="stage-link small" href={IMPROVEMENT_HREF}>
-          Every version
-        </a>
-      </div>
-      {shown.length === 0 ? (
-        <p className="muted small">{cards ? "No version in use yet." : "Loading…"}</p>
-      ) : (
-        <ul className="controls">
-          {shown.map((card) => (
-            <li key={card.version}>
-              <span>
-                <a href={versionHref(card.version)}>
-                  <b>
-                    #{card.version} {card.title}
-                  </b>
-                </a>
-                <small className="muted">
-                  {card.exam
-                    ? `${pct(card.exam.accuracy)} right on ${String(card.exam.claims)} claims`
-                    : "Not examined yet"}
-                  {" · "}
-                  {card.red_team ?? "no red-team run"}
-                </small>
-              </span>
-              <span className={card.in_use ? "chip chip-good" : "chip chip-info"}>
-                {card.in_use ? "In use" : "Being tested"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

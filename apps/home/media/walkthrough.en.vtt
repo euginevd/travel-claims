@@ -3,80 +3,98 @@ WEBVTT
 NOTE
 The walkthrough has no sound: these are the captions shown on screen, with their timings.
 
-00:00:00.000 --> 00:00:04.000
-UnderCover: AI agents for travel insurance claims, end to end
+00:00:00.000 --> 00:00:05.055
+UnderCover: a team of AI agents that settles routine travel insurance claims, while claims experts make the judgement calls.
 
-00:00:04.000 --> 00:00:09.000
-First, the customer's side
+00:00:05.055 --> 00:00:10.078
+Three apps: a portal for customers, a dashboard for claims handlers, and an AI control plane for engineers.
 
-00:00:09.000 --> 00:00:12.000
-1 · Customer portal
+00:00:10.078 --> 00:00:11.391
+It starts with the code.
 
-00:00:12.000 --> 00:00:26.000
-Wattle answers from the customer's own policy and cites its sources
+00:00:11.396 --> 00:00:15.374
+One repo: the agents, API, MCP servers and three web apps in apps/, Terraform in infra/, decisions and the threat model in docs/.
 
-00:00:26.000 --> 00:00:42.000
-Making a claim: a receipt is enough
+00:00:15.374 --> 00:00:21.661
+Every PR runs secret, dependency, IaC and code scans, CodeQL, unit tests, end-to-end tests and the agent's exam.
 
-00:00:42.000 --> 00:00:51.000
-Wattle reads the receipt and drafts the claim
+00:00:21.661 --> 00:00:27.936
+On AWS, the agents run on Bedrock AgentCore in private subnets, reach tools only through an MCP gateway under Cedar policy, and call Claude on Bedrock.
 
-00:00:51.000 --> 00:01:02.000
-The customer checks the draft, fixes anything wrong, and sends it
+00:00:27.936 --> 00:00:31.952
+A STRIDE threat model came before the code: trust boundaries, each threat numbered where it lands, with the control that stops it.
 
-00:01:02.000 --> 00:01:05.000
-Sent. The customer can follow it from here
+00:00:31.952 --> 00:00:35.468
+Top risk, R1: prompt injection in a claim or receipt. A separate check reads every claim before any agent does.
 
-00:01:07.000 --> 00:01:09.000
-Next, the claims team
+00:00:35.475 --> 00:00:40.715
+Oliver's bag didn't arrive in Queenstown. He signs in to the customer portal.
 
-00:01:09.000 --> 00:01:12.000
-2 · Handlers' dashboard
+00:00:40.715 --> 00:00:50.810
+He tells Wattle, the portal's AI assistant, what happened, in his own words.
 
-00:01:12.000 --> 00:01:17.000
-A handler sends the claim agents to work the waiting claims
+00:00:50.810 --> 00:00:55.554
+Wattle asks only for what's missing. Oliver adds the shop's receipt and the airline's delay report.
 
-00:01:17.000 --> 00:01:26.000
-The agent screens the claim for hidden instructions, then checks the policy and the documents
+00:00:55.554 --> 00:01:00.411
+Wattle drafts the claim from his words and files. Oliver checks it and sends it.
 
-00:01:26.000 --> 00:01:36.000
-Its recommendation, with its reasons and the sources it relied on
+00:01:00.411 --> 00:01:02.726
+Sent in about a minute: no forms. The claims agent picks it up straight away.
 
-00:01:36.000 --> 00:01:42.000
-It spots the same receipt on an earlier claim, and refers this one to a person
+00:01:02.735 --> 00:01:06.283
+Dana, a senior claims handler, starts from Today: what needs her, worked out from the queue.
 
-00:01:42.000 --> 00:01:47.000
-Larger payouts always wait for a person
+00:01:06.283 --> 00:01:10.051
+The agent assessed Oliver's claim: payable at $174.87, and every check cites the policy wording, the claims manual or a document.
 
-00:01:47.000 --> 00:02:00.000
-Wattle briefs the handler on any claim, with the handler's own access
+00:01:10.051 --> 00:01:14.091
+But it's his third claim in 12 months. A rule in the claims manual sends it to a person, whatever its merits, and nothing tips Oliver off.
 
-00:02:00.000 --> 00:02:04.000
-Larger payouts always wait for a person
+00:01:14.091 --> 00:01:22.675
+Dana asks the Copilot. It reads the claim, its documents and his history, and answers with sources.
 
-00:02:04.000 --> 00:02:09.000
-A senior handler signs off, and the customer is paid
+00:01:22.675 --> 00:01:30.444
+Dana makes the call. Code pays it, within her limit, and the decision is on the record: who, when and why.
 
-00:02:10.000 --> 00:02:13.000
-Last, the engineers who keep the AI honest
+00:01:30.444 --> 00:01:33.505
+Paid. Oliver sees the decision on his claim, and the audit log keeps it.
 
-00:02:13.000 --> 00:02:16.000
-3 · AI assurance console
+00:01:33.510 --> 00:01:41.423
+The AI control plane. Nine Claude agents, each with its model, its work and its cost, beside a live feed of every tool call and hand-off.
 
-00:02:16.000 --> 00:02:19.000
-Every version of the agent is scored against claims experts' decisions
+00:01:41.423 --> 00:01:45.764
+Each agent opens its tools, what it reads, its worst case if tricked, and what stops it. The claim's path runs left to right.
 
-00:02:19.000 --> 00:02:29.000
-An improver agent proposes changes. Nothing ships until an engineer approves
+00:01:45.768 --> 00:01:56.456
+Oliver's claim, CLM-1048, step by step: screened for hidden instructions first, then his policy, the documents specialist and tools over MCP.
 
-00:02:29.000 --> 00:02:39.000
-A red team attacks the agent with fraud and hidden instructions
+00:01:56.456 --> 00:02:02.121
+Every model call with its tokens, time and cost. Every tool took the claim from the session, never from the model.
 
-00:02:39.000 --> 00:02:48.000
-Each OWASP risk is mapped to a control and the attacks that test it
+00:02:02.124 --> 00:02:09.345
+Every agent version sits an exam: claims experts' decisions on held-out claims, scored on accuracy, safety and cost.
 
-00:02:48.000 --> 00:02:59.000
-And every decision is traced: each step, model call and cent
+00:02:09.345 --> 00:02:15.761
+Models are compared on the same claims, so the cheapest one that meets the targets runs.
 
-00:03:02.000 --> 00:03:06.000
-UnderCover: customers, claims experts and AI engineers, one system
+00:02:15.761 --> 00:02:21.551
+An improver agent proposes a change and an engineer approves it, but the exam and the red team decide. This round's proposal was rolled back: it settled fewer claims without a person.
+
+00:02:21.554 --> 00:02:25.365
+Would we stop an attack? Worked out in code from the latest red-team run, four threat frameworks and what fired on live claims.
+
+00:02:25.365 --> 00:02:36.269
+Every risk in OWASP's LLM and Agentic Top 10, the MCP Top 10 and CSA MAESTRO, mapped to its control and the attacks that test it.
+
+00:02:36.269 --> 00:02:44.471
+The red team attacks through the real portal: instructions hidden in receipts, forged approvals, a walk toward a payout promise.
+
+00:02:44.471 --> 00:02:48.084
+On live claims, the guardrails show what they caught, each one opening its claim's trace.
+
+00:02:48.087 --> 00:02:52.289
+Under a cent of Claude a claim, against a daily budget that stops the agent on its own.
+
+00:02:52.289 --> 00:02:56.278
+And one click stops the agent or pauses every payout, with the reason on the record.

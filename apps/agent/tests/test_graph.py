@@ -45,6 +45,29 @@ def test_a_decision_sent_back_is_decided_again() -> None:
     assert claude.turns_taken == 2
 
 
+def test_a_send_back_after_a_long_first_run_still_gets_to_decide() -> None:
+    lookups = [
+        tool_use("read_section", {"document": "policy_wording", "number": n}, n)
+        for n in range(1, 9)
+    ]
+    again = [
+        tool_use("read_section", {"document": "policy_wording", "number": 4}, 20),
+        tool_use("read_section", {"document": "claims_manual", "number": 7}, 21),
+    ]
+    api = FakeApi()
+    claude = FakeClaude(
+        [*lookups, decide("approve", 2500.0, 9), *again, decide("decline", 0.0, 22)]
+    )
+    graph = graph_for(api, claude)  # ten model calls a run
+    graph.invoke(START, config())
+    assert api.status == "waiting_for_sign_off"
+    api.notes.append("Apply the plan's maximum first.")
+    api.status, api.decision = "in_progress", None
+    graph.invoke(Command(resume="sent_back"), config())
+    assert api.decision is not None
+    assert api.decision["decision"] == "decline"
+
+
 def test_a_claim_with_hidden_instructions_never_reaches_the_claim_model() -> None:
     api = FakeApi()
     claude = FakeClaude([], flagged=True)

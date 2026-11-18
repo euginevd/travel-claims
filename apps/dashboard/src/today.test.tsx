@@ -7,10 +7,12 @@ import { useState } from "react";
 import { AgentToggle } from "./components/AgentSwitch";
 import { DemoControls } from "./components/DemoControls";
 import { StatusLine } from "./components/StatusLine";
-import { draftRequest, headlineOf } from "./components/Verdict";
+import { draftRequest, headlineOf, internalCheck } from "./components/Verdict";
 import { briefOf, todayFigures, TodayPage, whyOf } from "./pages/TodayPage";
 import { ClaimPage } from "./pages/ClaimPage";
 import { claim, DANA, fakeFetch, MARCUS, REFERRAL, SUMMARY } from "./testing";
+import { commandsFor } from "./components/CommandPalette";
+import { setShortcutsOn, shortcutsOn } from "./shortcuts";
 
 const OFF: AgentSwitch = {
   on: false,
@@ -63,6 +65,23 @@ test("each row says why it needs you, and the figures count today's work", () =>
 test("the next step is drafted from the check that failed", () => {
   const found = claim({ status: "decided", decision: REFERRAL });
   expect(draftRequest(found).title).toBe("Ask Maya about: instructions hidden in the claim");
+  expect(internalCheck(found)?.label).toBe("Instructions hidden in the claim");
+  const repeat = claim({
+    status: "decided",
+    decision: {
+      ...REFERRAL,
+      by_screening: false,
+      checklist: [
+        {
+          label: "Repeat claims: third claim in 12 months",
+          result: "fail",
+          detail: "Refer to SIU before payment.",
+          source: "Claims manual 9",
+        },
+      ],
+    },
+  });
+  expect(internalCheck(repeat)?.label).toBe("Repeat claims: third claim in 12 months");
   const receipt = claim({
     status: "decided",
     decision: {
@@ -77,7 +96,21 @@ test("the next step is drafted from the check that failed", () => {
 
 test("a handler sends the drafted request, or decides the referral within their limit", async () => {
   const user = userEvent.setup();
-  const found = claim({ status: "decided", decision: { ...REFERRAL, by_screening: false } });
+  const found = claim({
+    status: "decided",
+    decision: {
+      ...REFERRAL,
+      by_screening: false,
+      checklist: [
+        {
+          label: "Carrier delayed-baggage report",
+          result: "fail",
+          detail: "The airline's report of the delay",
+          source: "Policy wording 4",
+        },
+      ],
+    },
+  });
   const fetchFn = fakeFetch({
     "GET /api/staff/claims/CLM-1001": () => [200, found],
     "GET /api/staff/claims/CLM-1001/steps": () => [200, []],
@@ -163,8 +196,8 @@ test("the reset clears what's ticked, after a confirm", async () => {
     "GET /api/staff/agent": () => [200, OFF],
   });
   render(<DemoControls api={createApi(fetchFn, () => "t")} onReset={() => undefined} />);
-  await user.click(await screen.findByRole("checkbox", { name: /Evaluations/ }));
-  expect(screen.getByText(/Not now: wait for the evaluation run/)).toBeInTheDocument();
+  // Everything is ticked to start, so a running evaluation holds the reset until it's unticked.
+  expect(await screen.findByText(/Not now: wait for the evaluation run/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Reset the demo" })).toBeDisabled();
   await user.click(screen.getByRole("checkbox", { name: /Evaluations/ }));
   await user.click(screen.getByRole("button", { name: "Reset the demo" }));
@@ -173,7 +206,7 @@ test("the reset clears what's ticked, after a confirm", async () => {
   expect(fetchFn.calls.find((c) => c.method === "POST")?.body).toEqual({
     claims: true,
     evaluations: false,
-    red_team: false,
+    red_team: true,
     agent_off: true,
     payouts_off: true,
   });
@@ -309,4 +342,44 @@ test("an open agent card keeps what the handler asked for when the status change
   // The card closes; it never becomes "Turn the agent on" under the reason being typed.
   expect(screen.queryByRole("button", { name: "Turn the agent on" })).not.toBeInTheDocument();
   expect(fetchFn.calls.filter((c) => c.path.endsWith("/agent"))).toHaveLength(0);
+});
+
+test("arrow keys move between the evidence tabs", async () => {
+  const user = userEvent.setup();
+  const fetchFn = fakeFetch({
+    "GET /api/staff/claims/CLM-1001": () => [200, claim({ status: "decided" })],
+    "GET /api/staff/claims/CLM-1001/steps": () => [200, []],
+    "GET /api/staff/claims": () => [200, []],
+  });
+  render(
+    <ClaimPage
+      api={createApi(fetchFn, () => "t")}
+      claimId="CLM-1001"
+      handler={MARCUS}
+      pollMs={10}
+    />,
+  );
+  const tabs = await screen.findAllByRole("tab");
+  const [first, second] = tabs;
+  if (!first || !second) throw new Error("expected two tabs or more");
+  expect(second).toHaveAttribute("tabindex", "-1");
+  first.focus();
+  await user.keyboard("{ArrowRight}");
+  expect(second).toHaveFocus();
+  expect(second).toHaveAttribute("aria-selected", "true");
+  await user.keyboard("{ArrowLeft}");
+  expect(first).toHaveFocus();
+});
+
+test("single-key shortcuts can be turned off from the command palette", () => {
+  expect(shortcutsOn()).toBe(true);
+  expect(commandsFor([], "shortcut", true)[0]?.label).toBe("Turn off single-key shortcuts");
+  try {
+    setShortcutsOn(false);
+    expect(shortcutsOn()).toBe(false);
+    expect(commandsFor([], "shortcut", false)[0]?.label).toBe("Turn on single-key shortcuts");
+  } finally {
+    setShortcutsOn(true);
+  }
+  expect(shortcutsOn()).toBe(true);
 });

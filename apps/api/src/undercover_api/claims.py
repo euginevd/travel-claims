@@ -308,12 +308,54 @@ def claims_policy(db: Connection, claim_id: str) -> Policy:
 
 
 def claim_history(db: Connection, claim_id: str) -> list[PreviousClaim]:
-    """The earlier claims of a claim's customer."""
-    customer_id = find_claim(db, claim_id)["customer_id"]
+    """The earlier claims of a claim's customer: those on their record from before, and, for a
+    live claim, their other claims here, so a third claim in a year is seen in the history and
+    not only in memory. An evaluation copy sees only the record: a live claim's outcome would
+    give the exam its answer."""
+    claim = find_claim(db, claim_id)
+    customer_id = claim["customer_id"]
     record = db.execute(
         select(customers.c.record).where(customers.c.customer_id == customer_id)
     ).scalar_one()
-    return [PreviousClaim.model_validate(c) for c in record.get("previous_claims", [])]
+    earlier = [PreviousClaim.model_validate(c) for c in record.get("previous_claims", [])]
+    if claim["source"] == "evaluation":
+        return earlier
+    rows = db.execute(
+        select(
+            claims.c.claim_id,
+            claims.c.submitted_on,
+            claims.c.incident_date,
+            claims.c.claim_type,
+            claims.c.summary,
+            claims.c.status,
+            decisions.c.decision,
+            payments.c.amount,
+        )
+        .outerjoin(decisions, decisions.c.claim_id == claims.c.claim_id)
+        .outerjoin(payments, payments.c.claim_id == claims.c.claim_id)
+        .where(
+            claims.c.customer_id == customer_id,
+            claims.c.claim_id != claim_id,
+            claims.c.source != "evaluation",
+        )
+        .order_by(claims.c.submitted_on)
+    ).mappings()
+    return earlier + [
+        PreviousClaim(
+            claim_id=r["claim_id"],
+            filed_on=r["submitted_on"],
+            incident_date=r["incident_date"],
+            claim_type=r["claim_type"],
+            summary=r["summary"],
+            outcome=OUTCOMES.get(str(r["decision"]), str(r["status"]).replace("_", " ")),
+            amount_paid=float(r["amount"] or 0),
+        )
+        for r in rows
+    ]
+
+
+# A decision as the claim history words it, beside the record's own "approved" or "declined".
+OUTCOMES = {"approve": "approved", "decline": "declined", "refer": "referred to a person"}
 
 
 def policy_terms(policy: Policy) -> PolicyTerms:

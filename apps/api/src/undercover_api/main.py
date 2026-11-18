@@ -16,6 +16,7 @@ from sqlalchemy import Connection, Engine, RowMapping, delete, insert, select, u
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from undercover_api.account import account_router
+from undercover_api.activity import activity_router
 from undercover_api.agent_service import (
     DRAFT_TIMEOUT_SECONDS,
     AgentRefusedError,
@@ -82,6 +83,7 @@ from undercover_api.demo_reset import demo_reset_router
 from undercover_api.demo_sign_in import CognitoTestSignIn
 from undercover_api.dispatches import agent_dispatch_router, staff_dispatch_router
 from undercover_api.dsql import is_conflict
+from undercover_api.engineer_switches import engineer_switches_router
 from undercover_api.evaluations import EVALUATION, version_for_attempt
 from undercover_api.feedback import feedback_router
 from undercover_api.guardian import held_by, hold, noted_concern
@@ -887,6 +889,7 @@ def create_app(
         agent_queue_router,
         insights_router,
         assurance_router,
+        activity_router,
         staff_usage_router,
         budget_router,
         costs_router,
@@ -895,6 +898,7 @@ def create_app(
         trends_router,
         redteam_router,
         threats_router,
+        engineer_switches_router,
         posture_router,
         risk_router,
         letters_router,

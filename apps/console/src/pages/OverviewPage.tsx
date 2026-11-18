@@ -9,7 +9,8 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import type { Api, GateStatus, Overview } from "../api";
 import { RangeBar } from "../components/Charts";
-import { AgentsWidget, AlertsList, KpiRow, ReleasesWidget } from "../components/OverviewWidgets";
+import { AgentTeam } from "../components/AgentTeam";
+import { AlertsList, KpiRow } from "../components/OverviewWidgets";
 import { WattleMark } from "../components/Wattle";
 import { when } from "../format";
 import { wilson } from "../stats";
@@ -60,11 +61,13 @@ function greeting(now: Date): string {
   return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 }
 
-/** The console's home: is the agent fit to run, and how do we know? */
+/** The console's home: the agent team at work first, then whether it's fit to run and how we
+ * know. */
 export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   const [generation, setGeneration] = useState(0);
   const heading = useFocusHeading();
   const reload = useCallback(() => {
@@ -91,8 +94,9 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
   const missing = overview?.gates.filter(
     (gate) => gate.status === "none" && (gate.key === "held_out" || gate.key === "red_team"),
   );
+  const needs = (overview?.attention.length ?? 0) + alertCount;
   return (
-    <section className="page-in overview" aria-labelledby="overview-heading">
+    <section className="page-in overview view fit no-tabs" aria-labelledby="overview-heading">
       <p className="eyebrow">
         {today.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}
       </p>
@@ -144,21 +148,14 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
             )}
           </div>
 
-          <KpiRow api={api} />
-
-          <div className="overview-main">
-            <AgentsWidget api={api} />
-            <div className="overview-side">
-              <section className="panel" aria-labelledby="attention-heading">
-                <div className="panel-head">
-                  <h2 id="attention-heading">Needs attention</h2>
-                  <span className="muted small">
-                    {overview.attention.length}{" "}
-                    {overview.attention.length === 1 ? "thing" : "things"}
-                  </span>
-                </div>
-                <AlertsList api={api} />
-                {overview.attention.length === 0 ? (
+          <div className="folds">
+            <details className="attention-fold">
+              <summary>
+                {needs} {needs === 1 ? "thing needs" : "things need"} attention
+              </summary>
+              <section aria-label="Needs attention">
+                <AlertsList api={api} onCount={setAlertCount} />
+                {needs === 0 ? (
                   <p className="muted small">Nothing needs attention.</p>
                 ) : (
                   <ul className="attention">
@@ -201,66 +198,73 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
                   </ul>
                 )}
               </section>
-              <ReleasesWidget api={api} />
-            </div>
+            </details>
+            {/* Folded, so the overview fits the window; the agent and payouts are in the top bar. */}
+            <details className="attention-fold measure">
+              <summary>How we measure</summary>
+              <ul>
+                <li>
+                  <b>An exam it never sees the answers to:</b> claims senior handlers decided,
+                  growing to 100; nothing the agent or the improver can call returns a label.
+                </li>
+                <li>
+                  <b>Ranges, not just scores:</b> 25 claims can&apos;t pin a score down, so each
+                  shows where it likely sits (Wilson, 95%).
+                </li>
+                <li>
+                  <b>A judge for the reasons:</b> a separate model grades each explanation against
+                  the handler&apos;s, 0 to 3; shown, never used to decide.
+                </li>
+                <li>
+                  <b>Attacks through the front door:</b> the red team makes claims in the
+                  customers&apos; portal, so every layer is tested as a customer reaches it.
+                </li>
+              </ul>
+            </details>
           </div>
 
-          <ul className="gate-boxes" aria-label="Release gates">
-            {overview.gates.map((gate) => {
-              const { Icon, label } = MARKS[gate.status];
-              const link = LINKS[gate.link];
-              const range =
-                gate.share !== null && gate.claims > 0 ? wilson(gate.share, gate.claims) : null;
-              return (
-                <li key={gate.key} className={`gate-box is-${gate.status}`}>
-                  <span className="gate-box-head">
-                    <Icon size={16} strokeWidth={1.75} aria-label={label} />
-                    {gate.label}
-                  </span>
-                  <b>{gate.value}</b>
-                  {gate.share !== null && gate.key !== "sign_off" ? (
-                    <RangeBar value={gate.share} range={range} target={gate.target ?? undefined} />
-                  ) : (
-                    <span className="gate-empty" aria-hidden="true" />
-                  )}
-                  <small className="muted">
-                    {range && gate.key !== "red_team"
-                      ? `likely ${String(Math.round(range[0] * 100))}–${String(Math.round(range[1] * 100))}% · `
-                      : ""}
-                    {gate.note || gate.detail}
-                  </small>
-                  {link && (
-                    <a className="stage-link small" href={link.href}>
-                      {link.label}
-                    </a>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <AgentTeam api={api} />
 
-          {/* Folded, so the overview fits the window; the agent and payouts are in the top bar. */}
-          <details className="panel measure">
-            <summary>How we measure</summary>
-            <ul>
-              <li>
-                <b>An exam it never sees the answers to:</b> claims senior handlers decided, growing
-                to 100; nothing the agent or the improver can call returns a label.
-              </li>
-              <li>
-                <b>Ranges, not just scores:</b> 25 claims can&apos;t pin a score down, so each shows
-                where it likely sits (Wilson, 95%).
-              </li>
-              <li>
-                <b>A judge for the reasons:</b> a separate model grades each explanation against the
-                handler&apos;s, 0 to 3; shown, never used to decide.
-              </li>
-              <li>
-                <b>Attacks through the front door:</b> the red team makes claims in the
-                customers&apos; portal, so every layer is tested as a customer reaches it.
-              </li>
+          <div className="evidence-strip">
+            <KpiRow api={api} />
+            <ul className="gate-boxes" aria-label="Release gates">
+              {overview.gates.map((gate) => {
+                const { Icon, label } = MARKS[gate.status];
+                const link = LINKS[gate.link];
+                const range =
+                  gate.share !== null && gate.claims > 0 ? wilson(gate.share, gate.claims) : null;
+                return (
+                  <li key={gate.key} className={`gate-box is-${gate.status}`}>
+                    <span className="gate-box-head">
+                      <Icon size={16} strokeWidth={1.75} aria-label={label} />
+                      {gate.label}
+                    </span>
+                    <b>{gate.value}</b>
+                    {gate.share !== null && gate.key !== "sign_off" ? (
+                      <RangeBar
+                        value={gate.share}
+                        range={range}
+                        target={gate.target ?? undefined}
+                      />
+                    ) : (
+                      <span className="gate-empty" aria-hidden="true" />
+                    )}
+                    <small className="muted">
+                      {range && gate.key !== "red_team"
+                        ? `likely ${String(Math.round(range[0] * 100))}–${String(Math.round(range[1] * 100))}% · `
+                        : ""}
+                      {gate.note || gate.detail}
+                    </small>
+                    {link && (
+                      <a className="stage-link small" href={link.href}>
+                        {link.label}
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
-          </details>
+          </div>
         </>
       )}
     </section>

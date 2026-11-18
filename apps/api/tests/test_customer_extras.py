@@ -370,6 +370,11 @@ def test_wattle_for_engineers_sends_a_read_only_snapshot_and_named_traces(
     assert sent["first_name"] == "Sam"
     assert set(sent["traces"]) == {"CLM-1001"}
     assert {"runs", "rounds", "redteam", "threats"} <= set(sent)
+    assert "recent_referrals" in sent["live"]
+    # Asked about referrals with no claim named: the newest referrals' traces come along.
+    client.post("/api/engineering/ask", json={"question": "Why were claims referred?"}, headers=sam)
+    about = agent.explained[1]
+    assert set(about["traces"]) == {r["claim_id"] for r in about["live"]["recent_referrals"]}
     assert (
         client.post("/api/engineering/ask", json={"question": "hi"}, headers=maya).status_code
         == 401

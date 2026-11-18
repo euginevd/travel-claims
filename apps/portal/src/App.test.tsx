@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import { saveToken } from "./session";
@@ -169,7 +169,11 @@ test("Escape outside the side panel leaves it open", async () => {
   saveToken("token-c");
   window.location.hash = "#/claims";
   render(<App fetchFn={fakeFetch({ ...routes, "GET /api/customer/notices": () => [200, []] })} />);
-  await screen.findByRole("dialog", { name: "Your claims" });
+  const panel = await screen.findByRole("dialog", { name: "Your claims" });
+  // The panel takes focus as it opens; only then move it outside, or the panel takes it back.
+  await waitFor(() => {
+    expect(panel).toContainElement(document.activeElement as HTMLElement);
+  });
   (document.activeElement as HTMLElement | null)?.blur();
   await user.keyboard("{Escape}");
   expect(screen.getByRole("dialog", { name: "Your claims" })).toBeInTheDocument();

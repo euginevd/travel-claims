@@ -8,16 +8,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
-from sqlalchemy import insert, select
+from sqlalchemy import Connection, insert, select
 
 from undercover_api.account import my_cover
 from undercover_api.agent_service import AgentService, AgentUnavailableError
 from undercover_api.auth import Database, SignedInCustomer, SignedInEngineer
 from undercover_api.claims import claim_trace
-from undercover_api.db import assistant_calls, claims, now
+from undercover_api.db import assistant_calls, claims, decisions, now
+from undercover_api.dispatches import EVALUATION
 from undercover_api.models import QuestionAnswer, QuestionRequest
 from undercover_api.notices import first_name
 from undercover_api.portal import DraftLimiter, claim_for_customer
+from undercover_api.redteam import REDTEAM_CUSTOMER, AttackPlans
 
 log = logging.getLogger(__name__)
 
@@ -99,12 +101,33 @@ def ask_undercover(
 
 
 MAX_TRACES = 3
+REFERRAL_WORDS = re.compile(r"\brefer", re.IGNORECASE)
 CLAIM_ID = re.compile(r"\bCLM-\d{4,6}\b", re.IGNORECASE)
+
+
+def recent_referrals(db: Connection) -> list[dict[str, object]]:
+    """The newest live claims the agent referred to a person: ids, type and when, no words."""
+    rows = db.execute(
+        select(claims.c.claim_id, claims.c.claim_type, decisions.c.decided_at)
+        .join(decisions, decisions.c.claim_id == claims.c.claim_id)
+        .where(
+            decisions.c.decision == "refer",
+            claims.c.source != EVALUATION,
+            claims.c.customer_id != REDTEAM_CUSTOMER,
+        )
+        .order_by(decisions.c.decided_at.desc())
+        .limit(MAX_TRACES)
+    ).mappings()
+    return [dict(row) for row in rows]
 
 
 @engineer_ask_router.post("/ask", operation_id="ask_wattle_engineering")
 def ask_engineering(
-    body: QuestionRequest, engineer: SignedInEngineer, db: Database, tools: Asking
+    body: QuestionRequest,
+    engineer: SignedInEngineer,
+    db: Database,
+    tools: Asking,
+    plan: AttackPlans,
 ) -> QuestionAnswer:
     """Wattle AI for the AI engineers: read-only answers from the runs, rounds, red team, threat
     coverage, the live numbers and the traces of any claims named in the question."""
@@ -119,8 +142,14 @@ def ask_engineering(
     if not limiter.allow(f"eng:{engineer.engineer_id}", datetime.now(UTC).timestamp()):
         raise HTTPException(429, "That's a lot of questions in an hour. Please try again later.")
     said = " ".join([body.question, *(turn.text for turn in body.history)])
+    referred = recent_referrals(db)
+    named = list(dict.fromkeys(m.upper() for m in CLAIM_ID.findall(said)))
+    # Asked about referrals without naming a claim: the newest referrals' traces, so the answer
+    # can say which claims and why.
+    if not named and REFERRAL_WORDS.search(said):
+        named = [str(r["claim_id"]) for r in referred]
     traces: dict[str, object] = {}
-    for found in dict.fromkeys(m.upper() for m in CLAIM_ID.findall(said)):
+    for found in named:
         if len(traces) == MAX_TRACES:
             break
         try:
@@ -134,9 +163,9 @@ def ask_engineering(
         "runs": [r.model_dump(mode="json") for r in list_runs(engineer, db)[:10]],
         "rounds": [r.model_dump(mode="json") for r in list_rounds(engineer, db)[:8]],
         "redteam": status_of(db).model_dump(mode="json"),
-        "threats": threat_coverage(engineer, db).model_dump(mode="json"),
+        "threats": threat_coverage(engineer, db, plan).model_dump(mode="json"),
         "traces": traces,
-        "live": live_summary(db),
+        "live": live_summary(db) | {"recent_referrals": referred},
     }
     try:
         answer = service.explain(request)

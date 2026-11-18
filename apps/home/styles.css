@@ -352,33 +352,11 @@ h1 em {
   color: var(--ink-2);
 }
 
-/* The walkthrough: one framed screen, a still until the recording exists. */
+/* The walkthrough: one screen, a still until the recording exists; no browser frame around it. */
 /* The frame shrinks on shorter screens so the whole page fits without scrolling. */
 .stage {
   max-width: clamp(480px, (100vh - 716px) * 1.6, 960px);
   margin: 36px auto 0;
-}
-
-.browser {
-  padding: 10px;
-  border: 1px solid var(--ring);
-  border-radius: 28px;
-  background: radial-gradient(120% 90% at 100% 100%, var(--wash-blush) 0%, var(--bg) 60%);
-  box-shadow: var(--lift);
-}
-
-.dots {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 12px;
-}
-
-.dots i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--line-strong);
 }
 
 .screen {
@@ -387,8 +365,9 @@ h1 em {
   height: auto;
   aspect-ratio: 1440 / 855;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 24px;
   background: var(--soft);
+  box-shadow: var(--lift);
 }
 
 video.screen {
@@ -709,13 +688,8 @@ video.screen {
     margin-top: 32px;
   }
 
-  .browser {
-    padding: 8px;
-    border-radius: 24px;
-  }
-
   .screen {
-    border-radius: 16px;
+    border-radius: 18px;
   }
 
   .apps {

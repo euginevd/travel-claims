@@ -10,11 +10,24 @@ import {
 } from "../api";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { Architecture } from "../components/Architecture";
+import {
+  AUDIT_HREF,
+  DETECTIONS_HREF,
+  IMPROVEMENT_HREF,
+  LIVE_HREF,
+  REDTEAM_HREF,
+  SCOREBOARD_HREF,
+} from "../useHashRoute";
 
 // While the agent works, the map follows it.
 const POLL_MS = 4000;
 const W = 168;
 const H = 66;
+// The map's laid-out size: on a tall window its rows spread apart (up to MAX_STRETCH) to fill it.
+const MAP_TOP = 28;
+const MAP_W = 1200;
+const MAP_H = 592;
+const MAX_STRETCH = 1.6;
 
 // Where each agent sits: the claim's path in one line across the middle, customers' agents on
 // the left, what the claim agent calls above and below it, the handlers' side on the right, and
@@ -35,6 +48,12 @@ const AT: Record<string, [number, number]> = {
   judge: [600, 570],
   improver: [845, 570],
 };
+
+/** Where an agent sits once the map's rows are spread by `stretch`. */
+function placed(key: string, stretch: number): [number, number] {
+  const [x, y] = AT[key] ?? [0, 0];
+  return [x, MAP_TOP + (y - MAP_TOP) * stretch];
+}
 
 interface Edge {
   from: string;
@@ -108,13 +127,12 @@ export function routeOf(path: Set<string>): string[] {
 }
 
 /** The dot's line through the stops: out to context or a specialist and back to the agent. */
-function routeLine(stops: string[]): string {
+function routeLine(stops: string[], stretch: number): string {
   const points: [number, number][] = [];
   for (const key of stops) {
-    const at = AT[key];
-    if (!at) continue;
-    points.push(at);
-    if (AND_BACK.has(key) && AT.claim_agent) points.push(AT.claim_agent);
+    if (!AT[key]) continue;
+    points.push(placed(key, stretch));
+    if (AND_BACK.has(key)) points.push(placed("claim_agent", stretch));
   }
   return points.map(([x, y], i) => `${i ? "L" : "M"}${String(x)} ${String(y)}`).join(" ");
 }
@@ -125,9 +143,9 @@ function stillMotion(): boolean {
     : false;
 }
 
-function edgePoints(edge: Edge): [number, number, number, number] {
-  const [x1, y1] = AT[edge.from] ?? [0, 0];
-  const [x2, y2] = AT[edge.to] ?? [0, 0];
+function edgePoints(edge: Edge, stretch: number): [number, number, number, number] {
+  const [x1, y1] = placed(edge.from, stretch);
+  const [x2, y2] = placed(edge.to, stretch);
   // From the side of one box to the side of the other, whichever faces it.
   if (Math.abs(x2 - x1) > Math.abs(y2 - y1)) {
     const dir = x2 > x1 ? 1 : -1;
@@ -135,6 +153,29 @@ function edgePoints(edge: Edge): [number, number, number, number] {
   }
   const dir = y2 > y1 ? 1 : -1;
   return [x1, y1 + (dir * H) / 2, x2, y2 - (dir * H) / 2];
+}
+
+/** The map's box: its width sets the map's laid-out height (the least it takes), and on a tall
+ * window the box is taller still, so the map's rows spread to fill it (design-system 40). */
+function useMapBox() {
+  // A callback ref: the box appears only once the map has loaded, after the page mounts.
+  const [element, box] = useState<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      if (width > 0) setSize({ width: Math.round(width), height: Math.round(height) });
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [element]);
+  const laidOut = (size.width * MAP_H) / MAP_W;
+  const stretch = laidOut > 0 ? Math.min(MAX_STRETCH, Math.max(1, size.height / laidOut)) : 1;
+  return { box, stretch, minHeight: laidOut > 0 ? Math.round(laidOut) : undefined };
 }
 
 /** Security · Agents: every agent, how they connect and what each is doing. */
@@ -148,6 +189,7 @@ export function AgentsMapSvg({
   path = null,
   now = null,
   replay = 0,
+  stretch = 1,
 }: {
   map: AgentsMap;
   zones: boolean;
@@ -159,14 +201,16 @@ export function AgentsMapSvg({
   now?: string | null;
   /** Bumped to play the path again. */
   replay?: number;
+  /** How far the rows spread apart to fill a tall box: 1 is the laid-out map. */
+  stretch?: number;
 }) {
   const stops = path ? routeOf(path) : [];
   const nodes = new Map(map.nodes.map((node) => [node.key, node]));
   const working = (map.nodes.find((n) => n.key === "claim_agent")?.working ?? 0) > 0;
   return (
     <svg
-      viewBox="0 28 1200 592"
-      role="img"
+      viewBox={`0 ${String(MAP_TOP)} ${String(MAP_W)} ${String(MAP_H * stretch)}`}
+      role="group"
       aria-label="How the agents connect: the claim goes from the portal to the api, the hidden-instruction check, the claim agent, the payout code and, over the limit, a senior's sign-off."
     >
       <defs>
@@ -183,16 +227,21 @@ export function AgentsMapSvg({
         </marker>
       </defs>
       {zones &&
-        ZONES.map((zone) => (
-          <g key={zone.label} className="map-zone">
-            <rect x={zone.x} y={zone.y} width={zone.w} height={zone.h} rx="16" />
-            <text x={zone.x + 10} y={zone.y + 16}>
-              {zone.label}
-            </text>
-          </g>
-        ))}
+        ZONES.map((zone) => {
+          // A zone spreads with its rows; the one-line band stays a band.
+          const y = MAP_TOP + (zone.y - MAP_TOP) * stretch;
+          const h = zone.h > 30 ? zone.h * stretch : zone.h;
+          return (
+            <g key={zone.label} className="map-zone">
+              <rect x={zone.x} y={y} width={zone.w} height={h} rx="16" />
+              <text x={zone.x + 10} y={y + 16}>
+                {zone.label}
+              </text>
+            </g>
+          );
+        })}
       {EDGES.map((edge) => {
-        const [x1, y1, x2, y2] = edgePoints(edge);
+        const [x1, y1, x2, y2] = edgePoints(edge, stretch);
         const shut =
           (edge.gate === "agent" && !map.agent_on) ||
           (edge.gate === "payouts" && map.payouts_paused);
@@ -235,9 +284,9 @@ export function AgentsMapSvg({
       {path && stops.length > 1 && !stillMotion() && (
         <circle key={replay} r="8" className="map-dot">
           <animateMotion
-            dur={`${String(routeLine(stops).split("L").length * (HOP_MS / 1000))}s`}
+            dur={`${String(routeLine(stops, stretch).split("L").length * (HOP_MS / 1000))}s`}
             fill="freeze"
-            path={routeLine(stops)}
+            path={routeLine(stops, stretch)}
           />
         </circle>
       )}
@@ -246,6 +295,7 @@ export function AgentsMapSvg({
           key={node.key}
           node={node}
           now={node.key === now}
+          stretch={stretch}
           dim={path !== null && !path.has(node.key)}
           selected={node.key === selected}
           onSelect={() => {
@@ -278,12 +328,30 @@ export function pathOf(trace: Trace): Set<string> {
   return path;
 }
 
-export function AgentsPage({ api }: { api: Api }) {
+// The Overview names Documents and Medical apart; on the map they share one box.
+const ON_MAP: Record<string, string> = { documents: "specialists", medical: "specialists" };
+
+// Where each agent's evidence is: the page an engineer opens next to judge it.
+const DEEPER: Record<string, [string, string]> = {
+  claim_agent: [SCOREBOARD_HREF, "Its exam scores"],
+  screening: [DETECTIONS_HREF, "What it flagged"],
+  specialists: [LIVE_HREF, "Claims they worked"],
+  wattle: [REDTEAM_HREF, "Attacks on it"],
+  drafting: [REDTEAM_HREF, "Attacks on it"],
+  copilot: [AUDIT_HREF, "What it did for handlers"],
+  judge: [SCOREBOARD_HREF, "The grades it gave"],
+  improver: [IMPROVEMENT_HREF, "Its proposals"],
+  red_team: [REDTEAM_HREF, "The latest run"],
+};
+
+export function AgentsPage({ api, agent }: { api: Api; agent?: string }) {
   const [days, setDays] = useState<LivePeriod>(14);
+  const { box: mapBox, stretch, minHeight: mapMinHeight } = useMapBox();
   const [map, setMap] = useState<AgentsMap | null>(null);
   const [threats, setThreats] = useState<ThreatCoverage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState("claim_agent");
+  const wanted = agent ? (ON_MAP[agent] ?? agent) : "claim_agent";
+  const [selected, setSelected] = useState(wanted);
   const [zones, setZones] = useState(true);
   const [following, setFollowing] = useState("");
   const [path, setPath] = useState<Set<string> | null>(null);
@@ -413,7 +481,7 @@ export function AgentsPage({ api }: { api: Api }) {
   const threat = threats?.agents.find((row) => row.agent === THREAT_NAMES[selected]);
 
   return (
-    <section className="page-in agents-page" aria-labelledby="agents-heading">
+    <section className="page-in view fit agents-page" aria-labelledby="agents-heading">
       <header className="page-head">
         <div>
           <p className="eyebrow">Observe · Agents</p>
@@ -450,7 +518,7 @@ export function AgentsPage({ api }: { api: Api }) {
         </p>
       )}
       {map && (
-        <div className="agents-layout">
+        <div className="agents-layout fill">
           <div className="panel agents-map">
             <div className="panel-head">
               <p className="small muted">
@@ -518,15 +586,18 @@ export function AgentsPage({ api }: { api: Api }) {
             {view === "aws" && shown && path ? (
               <Architecture claimId={shown.claimId} trace={shown.trace} path={path} onAws={onAws} />
             ) : (
-              <AgentsMapSvg
-                map={map}
-                zones={zones}
-                selected={selected}
-                onSelect={setSelected}
-                path={path}
-                now={stops[step] ?? null}
-                replay={replay}
-              />
+              <div className="map-box" ref={mapBox} style={{ minHeight: mapMinHeight }}>
+                <AgentsMapSvg
+                  map={map}
+                  zones={zones}
+                  selected={selected}
+                  onSelect={setSelected}
+                  path={path}
+                  now={stops[step] ?? null}
+                  replay={replay}
+                  stretch={stretch}
+                />
+              </div>
             )}
             {path && (
               <ol className="path-steps" aria-label="The claim's path">
@@ -558,6 +629,13 @@ export function AgentsPage({ api }: { api: Api }) {
                 <h2>{chosen.label}</h2>
                 <p className="mono small">{chosen.model ?? "Code, no model"}</p>
                 <p>{chosen.detail}</p>
+                {DEEPER[chosen.key] && (
+                  <p>
+                    <a className="stage-link small" href={DEEPER[chosen.key]?.[0]}>
+                      {DEEPER[chosen.key]?.[1]} →
+                    </a>
+                  </p>
+                )}
                 <dl className="agent-facts">
                   <dt>Last {days} days</dt>
                   <dd>{chosen.calls}</dd>
@@ -607,14 +685,16 @@ function MapNode({
   dim,
   selected,
   onSelect,
+  stretch,
 }: {
   node: AgentNode;
   now: boolean;
   dim: boolean;
   selected: boolean;
   onSelect: () => void;
+  stretch: number;
 }) {
-  const [x, y] = AT[node.key] ?? [0, 0];
+  const [x, y] = placed(node.key, stretch);
   const model = node.model?.replace("claude-", "").replace(/-\d.*$/, "") ?? "code";
   return (
     <g

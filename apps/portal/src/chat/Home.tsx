@@ -15,6 +15,7 @@ import { WattleMark } from "../components/Wattle";
 import { date } from "../format";
 import {
   latestPolicy,
+  policyNamedIn,
   loadDismissed,
   pickNews,
   place,
@@ -398,9 +399,16 @@ export function Home({
     const flow = flowNow.current;
     if (flow?.waiting === "none") return;
     const problems = chosen.map(receiptProblem).filter((p): p is string => p !== null);
-    let good = chosen.filter((file) => receiptProblem(file) === null);
+    // The same file twice is sent once: a second copy would read as a second receipt.
+    const held = flow ? flow.files : pendingFiles.current;
+    const same = (a: File, b: File) => a.name === b.name && a.size === b.size;
+    const repeats = chosen.filter((file) => held.some((h) => same(h, file)));
+    if (repeats.length > 0) problems.push("You've already added that file.");
+    let good = chosen.filter(
+      (file) => receiptProblem(file) === null && !held.some((h) => same(h, file)),
+    );
     // Five in all, across every batch: the api takes no more.
-    const room = MAX_RECEIPTS - (flow ? flow.files.length : pendingFiles.current.length);
+    const room = MAX_RECEIPTS - held.length;
     if (good.length > room) {
       problems.push(`A claim can have up to ${String(MAX_RECEIPTS)} files.`);
       good = good.slice(0, Math.max(0, room));
@@ -718,7 +726,8 @@ export function Home({
   }
 
   function answered(answer: Answer, question: string) {
-    const policy = latestPolicy(records.policies);
+    // The trip the customer named, so a claim about Nairobi starts on the Kenya policy.
+    const policy = policyNamedIn(question, records.policies);
     const fromPolicy = answer.sources.some((s) => /policy wording/i.test(s));
     const replies: Choice[] = answer.replies.map((reply) => ({
       label: reply,

@@ -120,8 +120,8 @@ export function CostPage({ api }: { api: Api }) {
 
   async function save() {
     const value = Number(limit);
-    if (!Number.isFinite(value) || value < 0.5 || value > 1000) {
-      setError("A budget between $0.50 and $1,000 a day.");
+    if (!Number.isFinite(value) || value < 0.5 || value > 5) {
+      setError("A budget between $0.50 and $5 a day.");
       return;
     }
     setSaving(true);
@@ -308,38 +308,40 @@ export function CostPage({ api }: { api: Api }) {
               <div className="panel-head">
                 <h2 id="limit-heading">Daily budget</h2>
               </div>
-              <div className="field">
-                <label htmlFor="budget-limit">Dollars a day</label>
-                <input
-                  id="budget-limit"
-                  inputMode="decimal"
-                  value={limit}
+              <div className="budget-form">
+                <div className="field">
+                  <label htmlFor="budget-limit">Dollars a day</label>
+                  <input
+                    id="budget-limit"
+                    inputMode="decimal"
+                    value={limit}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setLimit(event.target.value);
+                    }}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="budget-reason">Why? (optional)</label>
+                  <input
+                    id="budget-reason"
+                    value={reason}
+                    maxLength={200}
+                    disabled={saving}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="button"
                   disabled={saving}
-                  onChange={(event) => {
-                    setLimit(event.target.value);
-                  }}
-                />
+                  onClick={() => void save()}
+                >
+                  {saving ? "Saving…" : "Save the budget"}
+                </button>
               </div>
-              <div className="field">
-                <label htmlFor="budget-reason">Why? (optional)</label>
-                <input
-                  id="budget-reason"
-                  value={reason}
-                  maxLength={200}
-                  disabled={saving}
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                className="button"
-                disabled={saving}
-                onClick={() => void save()}
-              >
-                {saving ? "Saving…" : "Save the budget"}
-              </button>
               <p className="small muted">
                 {budget.changed_by && budget.changed_at
                   ? `Last set by ${budget.changed_by}, ${when(budget.changed_at)}.`
@@ -348,7 +350,7 @@ export function CostPage({ api }: { api: Api }) {
             </section>
           </div>
           {costs && costs.days.length > 0 && (
-            <section className="panel fill" aria-labelledby="spend-heading">
+            <section className="panel fill cost-spend" aria-labelledby="spend-heading">
               <div className="panel-head">
                 <h2 id="spend-heading">Spend a day</h2>
                 <ul className="spend-key small" aria-label="Key">

@@ -4,6 +4,7 @@ import type { AgentSwitch, Api, ClaimSummary, Handler, Insights } from "../api";
 import { WattleMark } from "../components/Wattle";
 import { date, dollars, words } from "../format";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
+import { shortcutsOn } from "../shortcuts";
 import { claimHref } from "../useHashRoute";
 import { arrange, daysOverdue, decisionWords, needsMe, QueueBody, urgency } from "./QueuePage";
 
@@ -184,7 +185,7 @@ export function TodayPage({ api, handler, agent, onTurnOn }: TodayProps) {
     function onKey(event: KeyboardEvent) {
       const typing =
         event.target instanceof Element && event.target.closest("input, textarea, select");
-      if (typing || event.ctrlKey || event.metaKey) return;
+      if (!shortcutsOn() || typing || event.ctrlKey || event.metaKey) return;
       const key = event.key.toLowerCase();
       if (key !== "j" && key !== "k") return;
       const links = [
@@ -256,11 +257,14 @@ function TodayBody({
   list: React.RefObject<HTMLUListElement | null>;
   onTurnOn?: () => void;
 }) {
-  const [more, setMore] = useState(false);
   const brief = briefOf(claims, senior, agent);
   const mine = arrange(claims, "needs_me", "", "", "queue").filter(
     (claim) => claim.status !== "waiting_for_sign_off",
   );
+  // Everything else starts folded, so Today leads with what needs the handler; opened, it's a card
+  // that fills the window and scrolls inside (design-system 40).
+  const [more, setMore] = useState(false);
+  const card = useFillWindow<HTMLDivElement>(more);
   const rest = claims.filter((claim) => !needsMe(claim) && !claim.red_team);
   const held = claims.filter((claim) => claim.status === "waiting_for_sign_off").length;
   const waiting = rest.filter((claim) => claim.status === "waiting" && !claim.red_team).length;
@@ -343,9 +347,38 @@ function TodayBody({
         </span>
         <ChevronDown className="chevron" size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
-      {more && <QueueBody claims={claims} startView="all" />}
+      {more && (
+        <div className="today-more" ref={card}>
+          <QueueBody claims={claims} startView="all" />
+        </div>
+      )}
     </>
   );
+}
+
+/** Keeps an element's bottom at the window's, less a margin, so it fills what's left of the
+ * page and scrolls inside; on a short window it keeps a usable 320px and the page scrolls. */
+function useFillWindow<T extends HTMLElement>(on: boolean) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!on || !element) return;
+    function fit() {
+      if (!element) return;
+      const top = element.getBoundingClientRect().top + window.scrollY;
+      element.style.maxHeight = `${String(Math.max(320, window.innerHeight - top - 24))}px`;
+    }
+    fit();
+    // Cards above it load later and push it down: refit whenever the page's size changes.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
+    observer?.observe(document.body);
+    window.addEventListener("resize", fit);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", fit);
+    };
+  }, [on]);
+  return ref;
 }
 
 function TodayRow({ claim, first }: { claim: ClaimSummary; first: boolean }) {
