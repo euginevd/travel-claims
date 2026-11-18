@@ -394,6 +394,8 @@ export const DetectionsSchema = z.object({
     )
     .default([]),
   red_teamed: z.boolean().default(false),
+  attacks: z.number().int().default(0),
+  attacks_stopped: z.number().int().default(0),
 });
 export type Guardrail = z.infer<typeof DetectionsSchema>["guardrails"][number];
 

@@ -97,6 +97,7 @@ Repo and Windows
 34. `apps/home/index.html` pins `styles.css` and `app.js` by integrity hash: recompute each `sha384` after the last edit and load the page in a browser.
 35. Run the web apps' tests from an upper-case `C:\` path (`Set-Location C:\travel-claims\apps\<app>`): from `c:` Vitest loads twice and every jest-dom matcher fails as "Invalid Chai property".
 36. Never rewrite a source file with Windows PowerShell `Get-Content`/`Set-Content`: it reads UTF-8 as ANSI and writes a BOM (`·` became `Â·`). Use the Edit tool, or Python with `encoding="utf-8"`.
+66. Python fed to Bash through a heredoc can lose a backslash: a regex's `\b` was written as a backspace, which ESLint's `no-control-regex` caught. Put a backslash in source with the Edit tool, or `chr(92)` in the script.
 37. A script pasted into CloudShell runs interactively, where `!word` is history expansion (`!starts_with` dropped a check): write ``== `false` `` instead.
 
 CI

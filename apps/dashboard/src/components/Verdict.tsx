@@ -13,6 +13,19 @@ const REQUEST_LIMIT = 300;
 
 const firstName = (name: string) => name.split(/\s+/)[0] ?? name;
 
+// Checks a customer is never asked about: telling them would tip off a fraud or investigations
+// referral, or tell an attacker what was caught. These stay with the claims team.
+const INTERNAL =
+  /investigat|\bSIU\b|repeat claim|third claim|duplicate|reused|fraud|instruction|Claims manual 9\b/i;
+
+/** The failed check that keeps a referral with the claims team, if there is one. */
+export function internalCheck(claim: Claim): Check | undefined {
+  return claim.decision?.checklist.find(
+    (check) =>
+      check.result === "fail" && INTERNAL.test(`${check.label} ${check.detail} ${check.source}`),
+  );
+}
+
 /** The request the agent's checks point to: what to ask the customer for, drafted in code from
  * the check that failed, for the handler to edit before it's sent. */
 export function draftRequest(claim: Claim): { title: string; text: string } {
@@ -57,6 +70,20 @@ export function NextStep({
   const [error, setError] = useState<string | null>(null);
   const waiting = claim.requests.filter((request) => request.fulfilled_at === null);
   const name = firstName(claim.customer_name);
+  const internal = internalCheck(claim);
+  if (internal && waiting.length === 0) {
+    return (
+      <div className="next-step">
+        <p>
+          <b>Nothing to ask {name}.</b>{" "}
+          <span className="muted">
+            {internal.label} stays with the claims team, so nothing goes to the customer. Decide it
+            below.
+          </span>
+        </p>
+      </div>
+    );
+  }
   if (waiting.length > 0) {
     return (
       <div className="next-step">

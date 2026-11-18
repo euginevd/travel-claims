@@ -7,7 +7,7 @@ import { useState } from "react";
 import { AgentToggle } from "./components/AgentSwitch";
 import { DemoControls } from "./components/DemoControls";
 import { StatusLine } from "./components/StatusLine";
-import { draftRequest, headlineOf } from "./components/Verdict";
+import { draftRequest, headlineOf, internalCheck } from "./components/Verdict";
 import { briefOf, todayFigures, TodayPage, whyOf } from "./pages/TodayPage";
 import { ClaimPage } from "./pages/ClaimPage";
 import { claim, DANA, fakeFetch, MARCUS, REFERRAL, SUMMARY } from "./testing";
@@ -65,6 +65,23 @@ test("each row says why it needs you, and the figures count today's work", () =>
 test("the next step is drafted from the check that failed", () => {
   const found = claim({ status: "decided", decision: REFERRAL });
   expect(draftRequest(found).title).toBe("Ask Maya about: instructions hidden in the claim");
+  expect(internalCheck(found)?.label).toBe("Instructions hidden in the claim");
+  const repeat = claim({
+    status: "decided",
+    decision: {
+      ...REFERRAL,
+      by_screening: false,
+      checklist: [
+        {
+          label: "Repeat claims: third claim in 12 months",
+          result: "fail",
+          detail: "Refer to SIU before payment.",
+          source: "Claims manual 9",
+        },
+      ],
+    },
+  });
+  expect(internalCheck(repeat)?.label).toBe("Repeat claims: third claim in 12 months");
   const receipt = claim({
     status: "decided",
     decision: {
@@ -79,7 +96,21 @@ test("the next step is drafted from the check that failed", () => {
 
 test("a handler sends the drafted request, or decides the referral within their limit", async () => {
   const user = userEvent.setup();
-  const found = claim({ status: "decided", decision: { ...REFERRAL, by_screening: false } });
+  const found = claim({
+    status: "decided",
+    decision: {
+      ...REFERRAL,
+      by_screening: false,
+      checklist: [
+        {
+          label: "Carrier delayed-baggage report",
+          result: "fail",
+          detail: "The airline's report of the delay",
+          source: "Policy wording 4",
+        },
+      ],
+    },
+  });
   const fetchFn = fakeFetch({
     "GET /api/staff/claims/CLM-1001": () => [200, found],
     "GET /api/staff/claims/CLM-1001/steps": () => [200, []],

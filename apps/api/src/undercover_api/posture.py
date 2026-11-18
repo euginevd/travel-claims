@@ -169,6 +169,9 @@ class Detections(BaseModel):
     events: list[Detection]
     guardrails: list[Guardrail] = []
     red_teamed: bool = False
+    # The red-team run's own totals: summing the guardrails would count an attack two layers met.
+    attacks: int = 0
+    attacks_stopped: int = 0
 
 
 class Posture(BaseModel):
@@ -663,4 +666,6 @@ def list_detections(_: SignedInEngineer, db: Database, days: Days = 14) -> Detec
         events=after_of(db, detections_since(db, since)),
         guardrails=guardrails_of(db, since, counts, report),
         red_teamed=report is not None,
+        attacks=len(report.results) if report else 0,
+        attacks_stopped=sum(1 for r in report.results if r.passed) if report else 0,
     )

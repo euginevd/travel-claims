@@ -44,12 +44,3 @@ Ordered by value for the time it takes: the most value for the least time first.
     - the Privacy Act, the notifiable data breach scheme and APRA CPS 234
 
     Delivers recommendations and a plan.
-## Last: once the screens have settled
-
-23. **Walkthrough video, re-recorded.** It covers:
-    - the landing page and GitHub
-    - the portal
-    - the dashboard
-    - the control plane
-
-    Edited, with a voiceover and a minimal thumbnail. Plan it first.

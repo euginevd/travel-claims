@@ -15,7 +15,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 1 | A short brief, the three-minute captioned walkthrough video and a link to each app and the code | Done | #38 |
+| 1 | A short brief, the three-minute captioned walkthrough video and a link to each app and the code. The video follows one claim from the customer to the handler, then spends most of its time on the control plane | Done | #38, Next |
 
 ## Customer portal (`portal`)
 
@@ -39,7 +39,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 | 11 | **Today** (home): Wattle's brief, written in code from the queue (how many need you, what's due, where to start), four figures to act on, and **Need you**, each claim with why it needs you and what the agent made of it; everything else folded below, in tabs with filters; red-team tests kept out; each claim due in ten business days; with nothing needing you, everything else opens in a card that fills the window and scrolls inside. J and K move through the claims, and every single-key shortcut (S, B, U, J, K, /) can be turned off from the command palette | Done | #2, #117, Next |
 | 12 | **Case brief**: the agent's verdict first (its conclusion, reason, checks passed and the one action this claim needs), then the evidence in tabs: story and items with every check, documents, the decision in full, signals, and what was asked, moved through with the arrow keys; **Next** moves to the next claim that needs you | Done | #5, #117, Next |
 | 13 | **Sign off**, **send back** or **override** with a reason code; over the approval limit waits for a senior handler (spec 27); **any handler decides a referral** within the approval limit | Done | #2, #117 |
-| 14 | Ask the customer for documents, with the agent's next step drafted from the check that failed, and send an AI-drafted letter after editing it. The model writes only the paragraphs; code lays out the greeting and sign-off, so every letter has the same shape, and anything the handler should check shows above the letter, never in it | Done | #39, #117, Next |
+| 14 | Ask the customer for documents, with the agent's next step drafted from the check that failed, and send an AI-drafted letter after editing it. A referral for investigations, repeat claims, duplicates or hidden instructions drafts nothing to the customer, so no one is tipped off. The model writes only the paragraphs; code lays out the greeting and sign-off, so every letter has the same shape, and anything the handler should check shows above the letter, never in it | Done | #39, #117, Next |
 | 15 | **Similar claims**: up to five decided claims of the same type nearest in amount | Done | #72 |
 | 16 | **Retry**: carry on a claim the agent stopped working | Done | #57 |
 | 17 | **Pause payouts**: a senior handler stops every payment from the header, saying why in a line; while paused, one quiet line under the header says who, when and why | Done | #8, #117 |

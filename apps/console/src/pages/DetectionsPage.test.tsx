@@ -28,6 +28,8 @@ const FOUND: Detections = {
     },
   ],
   red_teamed: true,
+  attacks: 8,
+  attacks_stopped: 5,
   guardrails: [
     {
       key: "hidden_instruction",
@@ -82,6 +84,8 @@ const QUIET: Detections = {
   events: [],
   guardrails: [],
   red_teamed: false,
+  attacks: 0,
+  attacks_stopped: 0,
 };
 
 test("lists each detection as text, filters by control, and changes period", async () => {
