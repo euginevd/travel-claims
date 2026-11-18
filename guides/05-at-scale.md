@@ -9,7 +9,7 @@ The prototype works about 25 claims a day. This guide works out what changes at 
 | Claims arriving | about one an hour | about 3 a second on average, 9 at peak |
 | Claims in flight | 1 to 3 | about 175 on average, over 500 at peak (each takes a minute or so) |
 | Model calls | about 300 a day | about 3 million a day, up to 100 a second |
-| Claude's cost | under $1 a day | $5,000 to $10,000 a day (2 to 4 cents a claim) |
+| Claude's cost | under $1 a day | about $1,400 a day (half a cent a claim on Haiku 5.5) |
 | Claims for a person | a few a day | about 80,000 a day, at 67% decided without a person |
 
 ## What it would need, most important first

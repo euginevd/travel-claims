@@ -66,6 +66,11 @@ def test_document_search_finds_sections_with_their_files() -> None:
     assert files.search_documents("zzzz-not-a-word") == {"sections": [], "sources": []}
 
 
+def test_a_phrase_the_wording_never_uses_still_finds_sections_with_most_of_its_words() -> None:
+    assert files.search_documents("overall baggage limit")["sections"]
+    assert files.search_documents("zzzz qqqq-not words") == {"sections": [], "sources": []}
+
+
 def test_read_section_gives_the_text_and_version() -> None:
     section = files.read_section("claims_manual", 14)
     assert section["document_title"] == "Claims manual"

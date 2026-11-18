@@ -227,7 +227,7 @@ def counted(count: int, one: str, many: str) -> str:
 def words(event: Event | None) -> str:
     """The last thing an agent did, in a few words."""
     if event is None:
-        return "Nothing in 14 days"
+        return "nothing in 14 days"
     claim = f" on {event.claim_id}" if event.claim_id else ""
     return {
         "tool": f"called {event.tool}{claim}",
@@ -391,7 +391,7 @@ def team_of(  # noqa: PLR0914 - one figure each
             working=is_recent(wattle[2], now),
             work=counted(wattle[0], "answer", "answers"),
             cost=wattle[1],
-            last="answered a customer" if wattle[2] else "Nothing in 14 days",
+            last="answered a customer" if wattle[2] else "nothing in 14 days",
             last_at=wattle[2],
         ),
         Persona(
@@ -402,7 +402,7 @@ def team_of(  # noqa: PLR0914 - one figure each
             working=False,
             work=counted(made, "claim made", "claims made"),
             cost=None,
-            last="drafted a claim" if made else "Nothing in 14 days",
+            last="drafted a claim" if made else "nothing in 14 days",
             last_at=None,
         ),
         Persona(
@@ -413,7 +413,7 @@ def team_of(  # noqa: PLR0914 - one figure each
             working=is_recent(copilot[2], now),
             work=counted(copilot[0], "turn", "turns"),
             cost=copilot[1],
-            last="answered a handler" if copilot[2] else "Nothing in 14 days",
+            last="answered a handler" if copilot[2] else "nothing in 14 days",
             last_at=copilot[2],
         ),
         Persona(
@@ -424,7 +424,7 @@ def team_of(  # noqa: PLR0914 - one figure each
             working=is_recent(str(last_graded) if last_graded else None, now),
             work=f"{int(graded)} graded",
             cost=None,
-            last="graded an exam" if graded else "Nothing in 14 days",
+            last="graded an exam" if graded else "nothing in 14 days",
             last_at=str(last_graded) if last_graded else None,
         ),
         Persona(
@@ -435,7 +435,7 @@ def team_of(  # noqa: PLR0914 - one figure each
             working=is_recent(str(last_round) if last_round else None, now),
             work=counted(int(proposed), "proposal", "proposals"),
             cost=None,
-            last="proposed a version" if proposed else "Nothing in 14 days",
+            last="proposed a version" if proposed else "nothing in 14 days",
             last_at=str(last_round) if last_round else None,
         ),
     ]

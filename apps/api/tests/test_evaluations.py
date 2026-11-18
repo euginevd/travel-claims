@@ -229,6 +229,11 @@ def test_the_verdict_keeps_a_cheaper_version_that_is_as_accurate() -> None:
     assert verdict(base, cheaper.model_copy(update={"accuracy": 0.8}))["kept"] is False
     assert verdict(base, base)["kept"] is False
     assert verdict(base, base)["outcome"] == "unclear"
+    # A tenth of a cent either way on a half-cent claim is noise, not worse.
+    haiku = base.model_copy(update={"cost_per_claim": 0.004})
+    assert (
+        verdict(haiku, haiku.model_copy(update={"cost_per_claim": 0.0045}))["outcome"] == "unclear"
+    )
 
 
 def test_one_claim_either_way_is_no_clear_difference_but_any_claim_lost_is_worse() -> None:

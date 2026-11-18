@@ -261,9 +261,9 @@ function TodayBody({
   const mine = arrange(claims, "needs_me", "", "", "queue").filter(
     (claim) => claim.status !== "waiting_for_sign_off",
   );
-  // With nothing to do, Today would be short: everything else opens, in a card that fills the
-  // window and scrolls inside (design-system 40).
-  const [more, setMore] = useState(() => mine.length === 0);
+  // Everything else starts folded, so Today leads with what needs the handler; opened, it's a card
+  // that fills the window and scrolls inside (design-system 40).
+  const [more, setMore] = useState(false);
   const card = useFillWindow<HTMLDivElement>(more);
   const rest = claims.filter((claim) => !needsMe(claim) && !claim.red_team);
   const held = claims.filter((claim) => claim.status === "waiting_for_sign_off").length;

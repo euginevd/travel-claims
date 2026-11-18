@@ -146,7 +146,7 @@ function Tiles({ posture }: { posture: Posture }) {
       <Tile
         label="Payouts switch"
         value={readiness.payouts_paused ? "Paused" : "On"}
-        sub="Senior handlers own it; read-only here"
+        sub="Pause it from the header; a senior resumes"
       >
         {readiness.payouts_paused && (
           <span className="chip chip-warn">

@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Alert, Api } from "../api";
 import {
   AUDIT_HREF,
@@ -62,10 +62,29 @@ export function AlertBell({ api }: { api: Api }) {
     };
   }, [api]);
 
+  // A click outside the bell or its list, or Escape, closes the list.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && box.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   const fresh = alerts.filter((alert) => !seen.has(alert.text));
   const high = fresh.some((alert) => alert.severity === "high");
   return (
-    <div className="alert-bell">
+    <div className="alert-bell" ref={box}>
       <button
         type="button"
         className="icon-button"

@@ -165,8 +165,8 @@ test("the reset clears what's ticked, after a confirm", async () => {
     "GET /api/staff/agent": () => [200, OFF],
   });
   render(<DemoControls api={createApi(fetchFn, () => "t")} onReset={() => undefined} />);
-  await user.click(await screen.findByRole("checkbox", { name: /Evaluations/ }));
-  expect(screen.getByText(/Not now: wait for the evaluation run/)).toBeInTheDocument();
+  // Everything is ticked to start, so a running evaluation holds the reset until it's unticked.
+  expect(await screen.findByText(/Not now: wait for the evaluation run/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Reset the demo" })).toBeDisabled();
   await user.click(screen.getByRole("checkbox", { name: /Evaluations/ }));
   await user.click(screen.getByRole("button", { name: "Reset the demo" }));
@@ -175,7 +175,7 @@ test("the reset clears what's ticked, after a confirm", async () => {
   expect(fetchFn.calls.find((c) => c.method === "POST")?.body).toEqual({
     claims: true,
     evaluations: false,
-    red_team: false,
+    red_team: true,
     agent_off: true,
     payouts_off: true,
   });

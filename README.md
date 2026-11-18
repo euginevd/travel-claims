@@ -33,7 +33,7 @@ Idea and fictional data from [UnderCover](https://github.com/ed-donner/undercove
 | | |
 |---|---|
 | Red team | 27 of 27 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access and card numbers on the claim agent; another customer's data, prompt extraction and a three-message walk on Wattle; the Copilot's confirm card; handlers deciding what they mustn't; a tricked agent for the guardian to hold; and memory poisoning, a looping claim, a note for a specialist, a claim reaching for another and an instruction in a tool's result ([report](docs/redteam-report.md)) |
-| Cost | 2 to 4 cents of Claude a claim |
+| Cost | Under a cent of Claude a claim on Haiku 5.5 (0.55 cents measured locally) |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
 | Tests | 684 Python tests at 88% coverage, 331 web app tests, and browser tests with an accessibility scan in CI |
 | Quality gate | A workflow runs the evaluation set against minimum scores and the red team on `dev`, and fails on any drop |
@@ -77,11 +77,11 @@ Docker runs every app on a laptop to try it or test a change. AWS is deployed by
 1. Install Docker Desktop and [uv](https://docs.astral.sh/uv/), clone the repo and run `bash scripts/setup.sh`.
 2. Copy `.env.example` to `.env` and add an Anthropic API key with its workspace ID.
 3. Run `docker compose up --build -d` and open the project page at http://127.0.0.1:5172.
-4. Sign in to an app with its test account (below), and make a claim with the [sample receipts](data/sample-receipts). `04-injection-test-mara-lodge.png` hides an instruction the hidden-instruction check should catch.
+4. Sign in to an app with its test account (below), and make a claim with the [sample receipts](data/sample-receipts). `04-injection-test-mara-lodge.png` hides an instruction the hidden-instruction check should catch. For a claim the agent can settle on its own, sign in as Oliver and send `05-queenstown-clothes-bag-delayed.png` with the airline's `06-queenstown-airline-delay-report.png`: his Queenstown trip is recent, so it's within the 90 days to claim.
 5. Browser tests, in [e2e](e2e): `npm ci` and `npx playwright install chromium` once, then `npm run stack`, `npm test` and `npm run stack:down`.
 6. Start over: `docker compose down -v` (deletes the local database), then `up` again.
 
-A claim costs 2 to 4 cents of Claude. Running costs: [costs.md](docs/costs.md).
+A claim costs under a cent of Claude on Haiku 5.5. Running costs: [costs.md](docs/costs.md).
 
 ## Apps
 

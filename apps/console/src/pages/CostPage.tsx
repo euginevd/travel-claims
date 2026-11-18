@@ -348,7 +348,7 @@ export function CostPage({ api }: { api: Api }) {
             </section>
           </div>
           {costs && costs.days.length > 0 && (
-            <section className="panel fill" aria-labelledby="spend-heading">
+            <section className="panel fill cost-spend" aria-labelledby="spend-heading">
               <div className="panel-head">
                 <h2 id="spend-heading">Spend a day</h2>
                 <ul className="spend-key small" aria-label="Key">

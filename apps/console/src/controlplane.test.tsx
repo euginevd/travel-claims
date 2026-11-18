@@ -98,6 +98,12 @@ test("the bell counts the alerts and opens them; with none it says so", async ()
   );
   await user.click(await screen.findByRole("button", { name: "No alerts" }));
   expect(screen.getByText("Nothing needs you now.")).toBeInTheDocument();
+  // A click anywhere else closes it; so does Escape.
+  await user.click(document.body);
+  expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
+  await user.click(screen.getByRole("button", { name: "No alerts" }));
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
 });
 
 const COSTS = {

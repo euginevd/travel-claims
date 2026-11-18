@@ -16,7 +16,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { Activity, AgentEvent, Api, Persona } from "../api";
 import { dollars } from "../format";
 import { AGENTS_HREF, LIVE_HREF, traceHref } from "../useHashRoute";
@@ -141,8 +141,16 @@ function PersonaCard({ persona }: { persona: Persona }) {
         <p className="persona-voice">“{persona.voice}”</p>
         <p className="persona-work">
           <span className="persona-model mono">{shortModel(persona.model)}</span>
-          {persona.work}
-          {persona.cost !== null && persona.cost > 0 && <> · {dollars(persona.cost)}</>}
+          {/* Each figure stays on one line: "0 model calls" never splits. */}
+          {[
+            ...persona.work.split(" · "),
+            ...(persona.cost !== null && persona.cost > 0 ? [dollars(persona.cost)] : []),
+          ].map((part, index) => (
+            <Fragment key={part}>
+              {index > 0 && " · "}
+              <span className="persona-figure">{part}</span>
+            </Fragment>
+          ))}
         </p>
       </div>
       <p className="persona-last">

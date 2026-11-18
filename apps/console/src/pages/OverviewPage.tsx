@@ -67,6 +67,7 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   const [generation, setGeneration] = useState(0);
   const heading = useFocusHeading();
   const reload = useCallback(() => {
@@ -93,6 +94,7 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
   const missing = overview?.gates.filter(
     (gate) => gate.status === "none" && (gate.key === "held_out" || gate.key === "red_team"),
   );
+  const needs = (overview?.attention.length ?? 0) + alertCount;
   return (
     <section className="page-in overview view fit no-tabs" aria-labelledby="overview-heading">
       <p className="eyebrow">
@@ -149,12 +151,11 @@ export function OverviewPage({ api, name = "" }: { api: Api; name?: string }) {
           <div className="folds">
             <details className="attention-fold">
               <summary>
-                {overview.attention.length}{" "}
-                {overview.attention.length === 1 ? "thing needs" : "things need"} attention
+                {needs} {needs === 1 ? "thing needs" : "things need"} attention
               </summary>
               <section aria-label="Needs attention">
-                <AlertsList api={api} />
-                {overview.attention.length === 0 ? (
+                <AlertsList api={api} onCount={setAlertCount} />
+                {needs === 0 ? (
                   <p className="muted small">Nothing needs attention.</p>
                 ) : (
                   <ul className="attention">

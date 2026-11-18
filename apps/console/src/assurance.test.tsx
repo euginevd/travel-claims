@@ -1,5 +1,5 @@
 // The console's home, the agents map, the audit log and a version's card (docs/plan-console.md).
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createApi, type AgentsMap, type Overview, type VersionCard } from "./api";
 import { ControlPills } from "./components/ControlPills";
@@ -385,6 +385,39 @@ test("the header shows the switches: green when on, red when off", async () => {
   );
   expect(await screen.findByText("Agent off")).toBeInTheDocument();
   expect(screen.getByText("Payouts paused").parentElement).toHaveClass("is-off");
+});
+
+test("an engineer stops payouts from the header, saying why; a stopped switch can't be restarted here", async () => {
+  const user = userEvent.setup();
+  let paused = false;
+  const fetchFn = fakeFetch({
+    "GET /api/engineering/controls": () => [
+      200,
+      {
+        agent: { ...OVERVIEW.agent, on: false, working: 0 },
+        payouts: { ...OVERVIEW.payouts, paused },
+      },
+    ],
+    "POST /api/engineering/switches/payouts/pause": () => {
+      paused = true;
+      return [200, {}];
+    },
+  });
+  render(<ControlPills api={createApi(fetchFn, () => "t")} />);
+  // The agent is off: nothing to press, a senior turns it back on.
+  expect(await screen.findByText("Agent off")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Agent off/ })).toBeNull();
+  await user.click(screen.getByRole("button", { name: /Payouts live/ }));
+  const card = screen.getByRole("dialog", { name: "Pause all payouts?" });
+  const confirm = within(card).getByRole("button", { name: "Pause all payouts" });
+  expect(confirm).toBeDisabled();
+  await user.type(within(card).getByLabelText(/Why/), "Odd approvals on Live");
+  await user.click(confirm);
+  expect(await screen.findByText("Payouts paused")).toBeInTheDocument();
+  expect(fetchFn.calls.find((c) => c.path.endsWith("/payouts/pause"))?.body).toEqual({
+    reason: "Odd approvals on Live",
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 test("the audit log shows the newest 20, then 20 more a tap", async () => {

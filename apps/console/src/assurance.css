@@ -822,6 +822,78 @@ pre.diff {
   text-decoration: none;
 }
 
+button.control-pill {
+  border: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+button.control-pill:hover {
+  filter: brightness(0.96);
+}
+
+/* The stop card, under the pill that opened it. */
+.stop-card {
+  position: fixed;
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg);
+  box-shadow: var(--float);
+}
+
+.stop-card form {
+  display: grid;
+  gap: 10px;
+}
+
+.stop-card p,
+.stop-card h2 {
+  margin: 0;
+}
+
+.stop-card h2 {
+  font-family: var(--font-head);
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+
+.stop-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stop-card-close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.stop-card input {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.stop-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .control-pill {
   display: inline-flex;
   align-items: center;
@@ -839,10 +911,6 @@ pre.diff {
 .control-pill.is-on {
   background: #eef5ec;
   color: var(--good);
-}
-
-.control-pills:hover .control-pill {
-  filter: brightness(0.97);
 }
 
 .control-pill .status-dot {
@@ -2143,6 +2211,11 @@ pre.diff {
   font-size: 0.8rem;
 }
 
+.persona-figure,
+.persona-model {
+  white-space: nowrap;
+}
+
 .persona-last {
   grid-column: 1 / -1;
   margin: 6px 0 0;
@@ -2176,18 +2249,17 @@ pre.diff {
   border-radius: 8px;
 }
 
+/* The AI mark: a small sparkle in the tile's corner, in the accent, rather than a badge. */
 .agent-icon.big::after {
   content: "";
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--bg);
-  border-radius: 50%;
-  background: var(--acc)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z'/%3E%3C/svg%3E")
-    center / 10px no-repeat;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  background: var(--acc);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 .agent-icon.code {

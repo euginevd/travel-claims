@@ -947,6 +947,9 @@ export interface Api {
   getSuccessCriteria: () => Promise<SuccessCriteria>;
   getOverview: () => Promise<Overview>;
   getControls: () => Promise<Controls>;
+  /** Stops only: turning either back on is a senior handler's, in the dashboard. */
+  stopAgent: (reason: string) => Promise<unknown>;
+  pausePayouts: (reason: string) => Promise<unknown>;
   getAttacks: () => Promise<AttackPlan[]>;
   listTraces: () => Promise<TraceRow[]>;
   getBudget: () => Promise<Budget>;
@@ -1099,6 +1102,9 @@ export function createApi(
     getSuccessCriteria: () => call(SuccessCriteriaSchema, "GET", "/success-criteria"),
     getOverview: () => call(OverviewSchema, "GET", "/overview"),
     getControls: () => call(ControlsSchema, "GET", "/controls"),
+    stopAgent: (reason) => call(z.object({}), "POST", "/switches/agent/off", { body: { reason } }),
+    pausePayouts: (reason) =>
+      call(z.object({}), "POST", "/switches/payouts/pause", { body: { reason } }),
     getAttacks: () => call(z.array(AttackPlanSchema), "GET", "/redteam/attacks"),
     listTraces: () => call(z.array(TraceRowSchema), "GET", "/traces"),
     getBudget: () => call(BudgetSchema, "GET", "/budget"),
