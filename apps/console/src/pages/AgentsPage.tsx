@@ -10,6 +10,14 @@ import {
 } from "../api";
 import { useFocusHeading } from "@undercover/web-core/useFocusHeading";
 import { Architecture } from "../components/Architecture";
+import {
+  AUDIT_HREF,
+  DETECTIONS_HREF,
+  IMPROVEMENT_HREF,
+  LIVE_HREF,
+  REDTEAM_HREF,
+  SCOREBOARD_HREF,
+} from "../useHashRoute";
 
 // While the agent works, the map follows it.
 const POLL_MS = 4000;
@@ -320,13 +328,30 @@ export function pathOf(trace: Trace): Set<string> {
   return path;
 }
 
-export function AgentsPage({ api }: { api: Api }) {
+// The Overview names Documents and Medical apart; on the map they share one box.
+const ON_MAP: Record<string, string> = { documents: "specialists", medical: "specialists" };
+
+// Where each agent's evidence is: the page an engineer opens next to judge it.
+const DEEPER: Record<string, [string, string]> = {
+  claim_agent: [SCOREBOARD_HREF, "Its exam scores"],
+  screening: [DETECTIONS_HREF, "What it flagged"],
+  specialists: [LIVE_HREF, "Claims they worked"],
+  wattle: [REDTEAM_HREF, "Attacks on it"],
+  drafting: [REDTEAM_HREF, "Attacks on it"],
+  copilot: [AUDIT_HREF, "What it did for handlers"],
+  judge: [SCOREBOARD_HREF, "The grades it gave"],
+  improver: [IMPROVEMENT_HREF, "Its proposals"],
+  red_team: [REDTEAM_HREF, "The latest run"],
+};
+
+export function AgentsPage({ api, agent }: { api: Api; agent?: string }) {
   const [days, setDays] = useState<LivePeriod>(14);
   const { box: mapBox, stretch, minHeight: mapMinHeight } = useMapBox();
   const [map, setMap] = useState<AgentsMap | null>(null);
   const [threats, setThreats] = useState<ThreatCoverage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState("claim_agent");
+  const wanted = agent ? (ON_MAP[agent] ?? agent) : "claim_agent";
+  const [selected, setSelected] = useState(wanted);
   const [zones, setZones] = useState(true);
   const [following, setFollowing] = useState("");
   const [path, setPath] = useState<Set<string> | null>(null);
@@ -604,6 +629,13 @@ export function AgentsPage({ api }: { api: Api }) {
                 <h2>{chosen.label}</h2>
                 <p className="mono small">{chosen.model ?? "Code, no model"}</p>
                 <p>{chosen.detail}</p>
+                {DEEPER[chosen.key] && (
+                  <p>
+                    <a className="stage-link small" href={DEEPER[chosen.key]?.[0]}>
+                      {DEEPER[chosen.key]?.[1]} →
+                    </a>
+                  </p>
+                )}
                 <dl className="agent-facts">
                   <dt>Last {days} days</dt>
                   <dd>{chosen.calls}</dd>

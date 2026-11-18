@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export type Route =
   | { page: "overview" }
-  | { page: "agents" }
+  | { page: "agents"; agent?: string }
   | { page: "audit" }
   | { page: "budgets" }
   | { page: "version"; version: number }
@@ -19,6 +19,7 @@ export type Route =
 const RUN_PATH = /^#\/runs\/(\d+)$/;
 const VERSION_PATH = /^#\/versions\/(\d+)$/;
 const TRACE_PATH = /^#\/trace\/(CLM-\d{1,10})$/i;
+const AGENT_PATH = /^#\/agents\/([a-z_]{1,40})$/;
 
 export const HOME_HREF = "#/";
 export const OVERVIEW_HREF = "#/overview";
@@ -70,6 +71,8 @@ export function parseHash(hash: string): Route {
   if (run?.[1]) return { page: "run", runId: Number(run[1]) };
   const version = VERSION_PATH.exec(hash);
   if (version?.[1]) return { page: "version", version: Number(version[1]) };
+  const agent = AGENT_PATH.exec(hash);
+  if (agent?.[1]) return { page: "agents", agent: agent[1] };
   const trace = TRACE_PATH.exec(hash);
   if (trace?.[1]) return { page: "trace", claimId: trace[1].toUpperCase() };
   return { page: "overview" };
@@ -77,6 +80,11 @@ export function parseHash(hash: string): Route {
 
 export function versionHref(version: number): string {
   return `#/versions/${String(version)}`;
+}
+
+/** The agents map with one agent's card open. */
+export function agentHref(key: string): string {
+  return `${AGENTS_HREF}/${key}`;
 }
 
 export function runHref(runId: number): string {

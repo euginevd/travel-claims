@@ -2127,8 +2127,8 @@ button.control-pill:hover {
 .team-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-auto-rows: 1fr;
-  gap: 10px;
+  align-content: start;
+  gap: 8px;
   margin: 0;
   padding: 2px;
   list-style: none;
@@ -2136,10 +2136,10 @@ button.control-pill:hover {
 
 .persona {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  grid-template-rows: 1fr auto;
-  gap: 4px 12px;
-  padding: 12px 14px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--bg);
@@ -2200,29 +2200,22 @@ button.control-pill:hover {
 }
 
 .persona-voice {
-  margin-top: 4px !important;
+  overflow: hidden;
+  margin-top: 2px !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--ink-2);
-  font-size: 0.82rem;
-  font-style: italic;
+  font-size: 0.8rem;
 }
 
 .persona-work {
-  margin-top: 6px !important;
+  margin-top: 4px !important;
   font-size: 0.8rem;
 }
 
 .persona-figure,
 .persona-model {
   white-space: nowrap;
-}
-
-.persona-last {
-  grid-column: 1 / -1;
-  margin: 6px 0 0;
-  padding-top: 6px;
-  border-top: 1px dashed var(--line);
-  color: var(--ink-2);
-  font-size: 0.75rem;
 }
 
 /* An AI agent's icon: a dark tile with the coral AI badge; code (the guardian, the api, the
@@ -2239,8 +2232,9 @@ button.control-pill:hover {
 
 .agent-icon.big {
   grid-row: 1 / 2;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
 }
 
 .agent-icon.small {
@@ -2410,4 +2404,44 @@ button.control-pill:hover {
   .team-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* The daily budget's fields, spaced apart, with the button sized to its words. */
+.budget-form {
+  display: grid;
+  gap: 12px;
+}
+
+.budget-form > .button {
+  justify-self: start;
+}
+
+/* A run of the same step on the same claim, shown once with its count. */
+.event-count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink-2);
+  font-size: 0.68rem;
+}
+
+/* Each agent's card opens its tools, risks and what stops them on the agents map. */
+a.persona {
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+a.persona:hover {
+  border-color: var(--acc-edge);
+  box-shadow: 0 6px 18px -12px rgb(23 22 20 / 35%);
+}
+
+a.persona:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
 }

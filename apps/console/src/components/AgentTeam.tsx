@@ -19,7 +19,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { Activity, AgentEvent, Api, Persona } from "../api";
 import { dollars } from "../format";
-import { AGENTS_HREF, LIVE_HREF, traceHref } from "../useHashRoute";
+import { AGENTS_HREF, LIVE_HREF, agentHref, traceHref } from "../useHashRoute";
 
 const POLL_MS = 4000;
 // The team's figures count 14 days, so they're asked for once a minute; the feed every poll.
@@ -121,42 +121,46 @@ function AgentIcon({ agent, size }: { agent: keyof typeof ICONS; size: "big" | "
   const Icon = ICONS[agent];
   return (
     <span className={`agent-icon ${size}${CODE.has(agent) ? " code" : ""}`} aria-hidden="true">
-      <Icon size={size === "big" ? 22 : 14} strokeWidth={1.8} />
+      <Icon size={size === "big" ? 18 : 14} strokeWidth={1.8} />
     </span>
   );
 }
 
 function PersonaCard({ persona }: { persona: Persona }) {
   return (
-    <li className={`persona${persona.key === "claim_agent" ? " lead" : ""}`}>
-      <AgentIcon agent={persona.key} size="big" />
-      <div className="persona-body">
-        <p className="persona-name">
-          <b>{persona.name}</b>
-          <span className={`persona-state${persona.working ? " on" : ""}`}>
-            <i aria-hidden="true" />
-            {persona.working ? "Working" : "Idle"}
-          </span>
-        </p>
-        <p className="persona-voice">“{persona.voice}”</p>
-        <p className="persona-work">
-          <span className="persona-model mono">{shortModel(persona.model)}</span>
-          {/* Each figure stays on one line: "0 model calls" never splits. */}
-          {[
-            ...persona.work.split(" · "),
-            ...(persona.cost !== null && persona.cost > 0 ? [dollars(persona.cost)] : []),
-          ].map((part, index) => (
-            <Fragment key={part}>
-              {index > 0 && " · "}
-              <span className="persona-figure">{part}</span>
-            </Fragment>
-          ))}
-        </p>
-      </div>
-      <p className="persona-last">
-        Last: {persona.last}
-        {persona.last_at && <> · {ago(persona.last_at)} ago</>}
-      </p>
+    <li>
+      <a
+        className={`persona${persona.key === "claim_agent" ? " lead" : ""}`}
+        href={agentHref(persona.key)}
+        aria-label={`${persona.name}: ${persona.voice}. Open its tools, risks and what stops them`}
+      >
+        <AgentIcon agent={persona.key} size="big" />
+        <div className="persona-body">
+          <p className="persona-name">
+            <b>{persona.name}</b>
+            <span className={`persona-state${persona.working ? " on" : ""}`}>
+              <i aria-hidden="true" />
+              {persona.working ? "Working" : "Idle"}
+            </span>
+          </p>
+          <p className="persona-voice" title={persona.voice}>
+            {persona.voice}
+          </p>
+          <p className="persona-work">
+            <span className="persona-model mono">{shortModel(persona.model)}</span>
+            {/* Each figure stays on one line: "0 model calls" never splits. */}
+            {[
+              ...persona.work.split(" · "),
+              ...(persona.cost !== null && persona.cost > 0 ? [dollars(persona.cost)] : []),
+            ].map((part, index) => (
+              <Fragment key={part}>
+                {index > 0 && " · "}
+                <span className="persona-figure">{part}</span>
+              </Fragment>
+            ))}
+          </p>
+        </div>
+      </a>
     </li>
   );
 }
@@ -191,24 +195,42 @@ const TAGS: Partial<Record<AgentEvent["kind"], { label: string; tone: string }>>
   error: { label: "error", tone: "bad" },
 };
 
-function EventRow({ event, fresh }: { event: AgentEvent; fresh: boolean }) {
+/** Back-to-back events that are the same step on the same claim, shown once with a count:
+ * four reads of the policy in a row are one row, "×4". */
+export function runs(events: AgentEvent[]): { event: AgentEvent; count: number }[] {
+  // The same as the row reads: who, what in words, and which claim.
+  const same = (a: AgentEvent, b: AgentEvent) =>
+    a.agent === b.agent && eventWords(a) === eventWords(b) && a.claim_id === b.claim_id;
+  const out: { event: AgentEvent; count: number }[] = [];
+  for (const event of events) {
+    const last = out.at(-1);
+    if (last && same(last.event, event)) last.count += 1;
+    else out.push({ event, count: 1 });
+  }
+  return out;
+}
+
+function EventRow({ event, count, fresh }: { event: AgentEvent; count: number; fresh: boolean }) {
   const tag = TAGS[event.kind];
+  // An arrow only from one agent to another: a tool or the policy is in the words already.
+  const handoff = event.to && !CODE.has(event.to) ? event.to : null;
   const body = (
     <>
       <span className="event-who">
         <AgentIcon agent={event.agent} size="small" />
-        {event.to && (
+        {handoff && (
           <>
             <span className="event-arrow" aria-hidden="true">
               →
             </span>
-            <AgentIcon agent={event.to} size="small" />
+            <AgentIcon agent={handoff} size="small" />
           </>
         )}
       </span>
       <span className="event-what">
         <b>{NAMES[event.agent]}</b> {eventWords(event)}
         {tag && <span className={`event-tag ${tag.tone}`}>{tag.label}</span>}
+        {count > 1 && <span className="event-count">×{count}</span>}
         {event.claim_id && <small className="mono">{event.claim_id}</small>}
       </span>
       <span className="event-when muted small">{ago(event.at)}</span>
@@ -219,7 +241,7 @@ function EventRow({ event, fresh }: { event: AgentEvent; fresh: boolean }) {
       {event.claim_id ? (
         <a
           href={traceHref(event.claim_id)}
-          aria-label={`${NAMES[event.agent]} ${eventWords(event)}, ${event.claim_id}: open its trace`}
+          aria-label={`${NAMES[event.agent]} ${eventWords(event)}${count > 1 ? ` ${String(count)} times` : ""}, ${event.claim_id}: open its trace`}
         >
           {body}
         </a>
@@ -276,7 +298,7 @@ export function AgentTeam({ api }: { api: Api }) {
       <section className="panel feed-panel" aria-labelledby="feed-heading">
         <div className="panel-head">
           <h2 id="feed-heading">Happening now</h2>
-          <span className="muted small">{failed ? "paused: can't reach the api" : "live"}</span>
+          <span className="muted small">{failed ? "paused: can't reach the api" : ""}</span>
           <a className="stage-link small" href={LIVE_HREF}>
             Live
           </a>
@@ -287,8 +309,13 @@ export function AgentTeam({ api }: { api: Api }) {
         {activity && activity.events.length > 0 && (
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           <ul className="feed fill-scroll" aria-label="What the agents did" tabIndex={0}>
-            {activity.events.map((event) => (
-              <EventRow key={event.event_id} event={event} fresh={fresh.has(event.event_id)} />
+            {runs(activity.events).map(({ event, count }) => (
+              <EventRow
+                key={event.event_id}
+                event={event}
+                count={count}
+                fresh={fresh.has(event.event_id)}
+              />
             ))}
           </ul>
         )}
