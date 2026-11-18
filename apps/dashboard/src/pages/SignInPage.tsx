@@ -40,11 +40,11 @@ export function testAccounts(env: ImportMetaEnv = import.meta.env) {
 // What a handler gets, as the portal shows it to customers: 8 of 10 is the target the console's
 // Live page measures; every decision names the policy section and sources it relied on; and any
 // handler decides a referral up to the approval limit ($1,000 by default, set by senior handlers),
-// while a payout above it waits for a senior's sign-off.
+// and a payout above it is a senior's to sign off: the demo's first account is that senior.
 const POINTS = [
   { figure: "8", unit: "of 10", text: "Settled by AI agents" },
   { figure: "100", unit: "%", text: "Decisions cite sources" },
-  { figure: "$1,000", unit: "", text: "Yours to approve" },
+  { figure: "$1K", unit: "+", text: "Yours to approve" },
 ];
 
 const HEADLINE = [
