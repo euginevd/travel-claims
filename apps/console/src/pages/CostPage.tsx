@@ -120,8 +120,8 @@ export function CostPage({ api }: { api: Api }) {
 
   async function save() {
     const value = Number(limit);
-    if (!Number.isFinite(value) || value < 0.5 || value > 20) {
-      setError("A budget between $0.50 and $20 a day.");
+    if (!Number.isFinite(value) || value < 0.5 || value > 5) {
+      setError("A budget between $0.50 and $5 a day.");
       return;
     }
     setSaving(true);

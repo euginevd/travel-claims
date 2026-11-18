@@ -142,7 +142,7 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   const user = userEvent.setup();
   const fetchFn = fakeFetch({
     "GET /api/engineering/budget": () => [200, BUDGET],
-    "PUT /api/engineering/budget": () => [200, { ...BUDGET, limit: 8, share: 0.65 }],
+    "PUT /api/engineering/budget": () => [200, { ...BUDGET, limit: 4, share: 0.65 }],
   });
   render(<CostPage api={createApi(fetchFn, () => "t")} />);
   expect(await screen.findAllByText("Budget reached")).not.toHaveLength(0);
@@ -152,14 +152,14 @@ test("budgets show today's spend by model, refuse a silly budget and save one", 
   await user.clear(limit);
   await user.type(limit, "25");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
-  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $20");
+  expect(screen.getByRole("alert")).toHaveTextContent("between $0.50 and $5");
   await user.clear(limit);
-  await user.type(limit, "8");
+  await user.type(limit, "4");
   await user.type(screen.getByLabelText("Why? (optional)"), "Busy week");
   await user.click(screen.getByRole("button", { name: "Save the budget" }));
   expect(await screen.findAllByText("Within budget")).not.toHaveLength(0);
   expect(fetchFn.calls.find((c) => c.method === "PUT")?.body).toEqual({
-    limit: 8,
+    limit: 4,
     reason: "Busy week",
   });
 });

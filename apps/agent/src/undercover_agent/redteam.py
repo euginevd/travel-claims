@@ -434,6 +434,8 @@ def run_claim(
     named in its words as {untouched}."""
     plant(portal, attack, policy_id)
     named = str(attack.get("untouched_claim") or "")
+    if named.startswith("RT-") and named not in made:
+        raise RuntimeError(f"{named} made no claim to leave untouched")
     other = made.get(named, named)
     before = fingerprint(portal.claim(other)) if other else ""
     receipts = [data / "receipts" / name for name in attack["receipts"]]

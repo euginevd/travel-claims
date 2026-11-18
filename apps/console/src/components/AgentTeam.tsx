@@ -84,14 +84,17 @@ function useActivity(api: Api): { activity: Activity | null; failed: boolean } {
     let live = true;
     let pending = false;
     let polls = 0;
+    let teamLoaded = false;
     const get = () => {
       if (pending || document.visibilityState === "hidden") return;
-      const withTeam = polls % TEAM_EVERY === 0;
+      // Until a team has arrived, every poll asks for it: a failed first answer isn't kept empty.
+      const withTeam = !teamLoaded || polls % TEAM_EVERY === 0;
       polls += 1;
       pending = true;
       api.getActivity(withTeam).then(
         (found) => {
           pending = false;
+          if (withTeam) teamLoaded = true;
           if (!live) return;
           setActivity((before) =>
             withTeam || !before ? found : { team: before.team, events: found.events },

@@ -3,7 +3,8 @@ it did in the last 14 days, and a feed of what the agents are doing now.
 
 The feed says who did what to which claim and when, and nothing more: a tool's name but never
 its arguments or result, and never a claim's story. AI engineers see how the agents work, not the
-customers' data (threat model: engineers see no claim text)."""
+customers' data (threat model: engineers see no claim text). Steps come from live claims only;
+the assistants' answers carry no customer, so a red-team question to Wattle shows as an answer."""
 
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, cast

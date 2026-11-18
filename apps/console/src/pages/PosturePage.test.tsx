@@ -24,9 +24,13 @@ test("shows the verdict, four figures, each layer and the gaps, most severe firs
   expect(within(tiles).getByText(/OWASP LLM 4 of 7/)).toBeInTheDocument();
   expect(within(tiles).getByText("On")).toBeInTheDocument();
 
+  // Coverage opens first; the layers and the gaps are a tab away.
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Defence in depth" }));
   expect(screen.getByRole("heading", { name: "Defence in depth" })).toBeInTheDocument();
   expect(screen.getByText("Reached by 2 · stopped 2")).toBeInTheDocument();
   expect(screen.getAllByText("Untested: no attack reached it")).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: /Gaps to close/ }));
 
   const [, first, second] = within(screen.getByRole("region", { name: "Gaps table" })).getAllByRole(
     "row",
@@ -47,6 +51,7 @@ test("before any red-team run it says so and where to start", async () => {
   expect(await screen.findByText("No attacks run yet")).toBeInTheDocument();
   // The verdict says it once: no second empty box.
   expect(screen.queryByRole("heading", { name: "No red-team run yet" })).toBeNull();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Gaps to close · 0" }));
   expect(screen.getByText(/No gaps/)).toBeInTheDocument();
 });
 
@@ -61,6 +66,7 @@ test("a failed attack is called out", async () => {
     ),
   });
   expect(await screen.findByText("An attack got money out")).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Defence in depth" }));
   expect(screen.getByText(/1 attack got through every layer/)).toBeInTheDocument();
 });
 

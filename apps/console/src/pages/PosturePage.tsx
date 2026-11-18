@@ -263,11 +263,19 @@ function Gaps({ posture }: { posture: Posture }) {
 }
 
 /** The console's home for an AI security engineer: would an attack be stopped, and where. */
+const DETAILS = [
+  { key: "coverage", label: "Coverage" },
+  { key: "layers", label: "Defence in depth" },
+  { key: "gaps", label: "Gaps to close" },
+] as const;
+
 export function PosturePage({ api }: { api: Api }) {
   const heading = useFocusHeading();
   const [posture, setPosture] = useState<Posture | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  // One detail section at a time below the figures, so the page fits the window.
+  const [detail, setDetail] = useState<(typeof DETAILS)[number]["key"]>("coverage");
   const load = useCallback(() => {
     setError(null);
     setGeneration((value) => value + 1);
@@ -297,8 +305,8 @@ export function PosturePage({ api }: { api: Api }) {
             Would we stop an attack?
           </h1>
           <p className="lede">
-            Worked out in code from the latest red-team run, the OWASP risks and what fired on live
-            claims.
+            Worked out in code from the latest red-team run, four threat frameworks and what fired
+            on live claims.
           </p>
         </div>
       </header>
@@ -320,9 +328,29 @@ export function PosturePage({ api }: { api: Api }) {
         <>
           <Verdict posture={posture} />
           <Tiles posture={posture} />
-          <Layers posture={posture} />
-          <Gaps posture={posture} />
-          <RisksTable api={api} />
+          <div className="fill live-detail">
+            <div className="audit-filters" role="group" aria-label="Show">
+              {DETAILS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  aria-pressed={detail === tab.key}
+                  onClick={() => {
+                    setDetail(tab.key);
+                  }}
+                >
+                  {tab.key === "gaps"
+                    ? `${tab.label} · ${String(posture.issues.length)}`
+                    : tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="fill-scroll live-detail-body">
+              {detail === "coverage" && <RisksTable api={api} />}
+              {detail === "layers" && <Layers posture={posture} />}
+              {detail === "gaps" && <Gaps posture={posture} />}
+            </div>
+          </div>
         </>
       )}
     </section>
