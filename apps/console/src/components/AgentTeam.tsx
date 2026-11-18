@@ -256,7 +256,9 @@ export function AgentTeam({ api }: { api: Api }) {
         {!activity && !failed && <span className="skeleton skeleton-card" aria-hidden="true" />}
         {failed && !activity && <p className="muted small">The team couldn&apos;t be loaded.</p>}
         {activity && (
-          <ul className="team-grid fill-scroll">
+          // A scrollable list must take focus so keyboard users can scroll it (WCAG 2.1.1).
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          <ul className="team-grid fill-scroll" aria-label="The AI agents" tabIndex={0}>
             {activity.team.map((persona) => (
               <PersonaCard key={persona.key} persona={persona} />
             ))}
@@ -275,7 +277,8 @@ export function AgentTeam({ api }: { api: Api }) {
           <p className="muted small">Nothing yet: the agents haven&apos;t worked a claim.</p>
         )}
         {activity && activity.events.length > 0 && (
-          <ul className="feed fill-scroll">
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          <ul className="feed fill-scroll" aria-label="What the agents did" tabIndex={0}>
             {activity.events.map((event) => (
               <EventRow key={event.event_id} event={event} fresh={fresh.has(event.event_id)} />
             ))}
