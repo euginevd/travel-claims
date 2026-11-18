@@ -293,11 +293,21 @@ def build_graph(  # noqa: C901, PLR0913, PLR0915 - the nodes are closures over t
             api.record_step(claim_id, thread_id, "message", "A handler signed off the payout.")
             return {"outcome": "signed_off"}
         note = latest_note(api.claim(claim_id))
+        # The api withdrew the earlier decision. Unless told so, the model sees its own
+        # record_decision call above and refuses to record another, looping to the limit.
         review = (
-            "A senior handler sent your decision back with this note. Check it against the "
-            f"wording and the manual, then decide again:\n\n{note}"
+            "A senior handler sent your decision back with this note. Your earlier decision has "
+            "been withdrawn and is no longer on record. Check the note against the wording and "
+            "the manual, then call record_decision again with your new decision, even if it's "
+            f"the same as before:\n\n{note}"
         )
-        again: Json = {"messages": [{"role": "user", "content": review}], "outcome": ""}
+        # The new decision gets its own allowance of model calls: the first run's are spent, and
+        # a send-back that inherited them would stop at the limit before deciding again.
+        again: Json = {
+            "messages": [{"role": "user", "content": review}],
+            "outcome": "",
+            "model_calls": -state["model_calls"],
+        }
         if "screened" in state:
             again["screened"] = screen_added(claim_id, thread_id, state["screened"])
         return again

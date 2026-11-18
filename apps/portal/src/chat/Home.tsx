@@ -15,6 +15,7 @@ import { WattleMark } from "../components/Wattle";
 import { date } from "../format";
 import {
   latestPolicy,
+  policyNamedIn,
   loadDismissed,
   pickNews,
   place,
@@ -718,7 +719,8 @@ export function Home({
   }
 
   function answered(answer: Answer, question: string) {
-    const policy = latestPolicy(records.policies);
+    // The trip the customer named, so a claim about Nairobi starts on the Kenya policy.
+    const policy = policyNamedIn(question, records.policies);
     const fromPolicy = answer.sources.some((s) => /policy wording/i.test(s));
     const replies: Choice[] = answer.replies.map((reply) => ({
       label: reply,

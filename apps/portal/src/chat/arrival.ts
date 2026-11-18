@@ -125,6 +125,19 @@ export function latestPolicy(policies: Policy[]): Policy | undefined {
   return [...policies].sort((a, b) => b.trip.departs_on.localeCompare(a.trip.departs_on))[0];
 }
 
+/** The policy whose trip the customer named ("Nairobi", "my Kenya trip"), or the latest trip
+ * when they named none, or more than one. Any word of the destination counts. */
+export function policyNamedIn(words: string, policies: Policy[]): Policy | undefined {
+  const said = words.toLowerCase();
+  const named = policies.filter((policy) =>
+    policy.trip.destination
+      .toLowerCase()
+      .split(/[^\p{L}]+/u)
+      .some((place) => place.length > 3 && said.includes(place)),
+  );
+  return named.length === 1 ? named[0] : latestPolicy(policies);
+}
+
 /** Three suggestions from their records: the latest trip, an open claim the news line doesn't
  * already cover, and their cover. */
 export function suggestions(
