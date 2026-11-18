@@ -30,11 +30,10 @@ test("a handler signs in and sees the queue", async () => {
   await user.type(screen.getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-  // With nothing needing the handler, everything else opens by itself, in tabs.
-  expect(await screen.findByRole("button", { name: /Everything else/ })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
+  // Everything else starts folded; opened, it shows every claim in tabs.
+  const more = await screen.findByRole("button", { name: /Everything else/ });
+  expect(more).toHaveAttribute("aria-expanded", "false");
+  await user.click(more);
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   const table = await screen.findByRole("table");
   expect(within(table).getByRole("link", { name: "CLM-1001" })).toHaveAttribute(
@@ -215,6 +214,7 @@ test("following a claim link opens the claim page with focus on its heading", as
   const user = userEvent.setup();
   saveToken("token-1");
   render(<App fetchFn={fakeFetch(signedInRoutes)} />);
+  await user.click(await screen.findByRole("button", { name: /Everything else/ }));
   await user.click(await screen.findByRole("button", { name: /^All/ }));
   await user.click(await screen.findByRole("link", { name: "CLM-1001" }));
   const heading = await screen.findByRole("heading", { level: 1, name: "Claim CLM-1001" });
