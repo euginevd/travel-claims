@@ -32,7 +32,7 @@ Idea and fictional data from [UnderCover](https://github.com/ed-donner/undercove
 
 | | |
 |---|---|
-| Red team | 22 of 22 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access and card numbers on the claim agent; another customer's data, prompt extraction and a three-message walk on Wattle; the Copilot's confirm card; handlers deciding what they mustn't; and a tricked agent for the guardian to hold ([report](docs/redteam-report.md)) |
+| Red team | 27 of 27 attacks held, each aimed at one layer: hidden instructions in receipt images and PDFs, base64 and invisible Unicode, forged approvals, goal hijacking, payout inflation, cross-customer access and card numbers on the claim agent; another customer's data, prompt extraction and a three-message walk on Wattle; the Copilot's confirm card; handlers deciding what they mustn't; a tricked agent for the guardian to hold; and memory poisoning, a looping claim, a note for a specialist, a claim reaching for another and an instruction in a tool's result ([report](docs/redteam-report.md)) |
 | Cost | 2 to 4 cents of Claude a claim |
 | Money | No model can pay: code checks the approval limit, the pause switch and the payout rules, and a claim is paid once at most |
 | Tests | 684 Python tests at 88% coverage, 331 web app tests, and browser tests with an accessibility scan in CI |
@@ -54,7 +54,7 @@ One design, the one a regulated insurer would run, with the platform team's cont
 2. **Money never in a prompt:** code pays, after checking the approval limit and the pause switch; a payout can't run twice.
 3. **Tool rules:** AgentCore Policy (Cedar) allows each gateway only its own tools.
 4. **Checked answers:** grounding checks, Automated Reasoning against the policy wording, and letters filtered for personal numbers.
-5. **Red team:** 22 attacks on every agent a customer or handler reaches, mapped to the OWASP Top 10 for LLMs and agentic threats; an improvement is kept only if the red team still holds.
+5. **Red team:** 27 attacks on every agent a customer or handler reaches, mapped to OWASP's 2026 LLM and agentic lists, its MCP Top 10 and MAESTRO, with no OWASP risk left untested; an improvement is kept only if the red team still holds.
 6. **Identity:** separate sign-ins per app, machine tokens between services, and GitHub to AWS over OIDC with no stored keys.
 7. **Pipeline:** Gitleaks, Semgrep, CodeQL, Trivy and Checkov on every PR; images shipped with an SBOM; packages at least 7 days old.
 

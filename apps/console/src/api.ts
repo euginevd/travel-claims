@@ -214,15 +214,32 @@ export type Trace = z.infer<typeof TraceSchema>;
 
 export const ThreatCoverageSchema = z.object({
   redteam_run_at: z.string().nullable(),
-  threats: z.array(
+  frameworks: z.array(
     z.object({
-      owasp: z.string(),
-      risk: z.string(),
-      atlas: z.string(),
-      control: z.string(),
-      attacks: z.array(z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() })),
-      last_fired: z.string().nullable(),
-      fired: z.number(),
+      key: z.enum(["llm", "agentic", "mcp", "maestro"]),
+      name: z.string(),
+      version: z.string(),
+      risks: z.array(
+        z.object({
+          id: z.string(),
+          was: z.string(),
+          risk: z.string(),
+          atlas: z.string(),
+          control: z.string(),
+          note: z.string(),
+          status: z.enum(["tested", "failing", "built_in", "gap", "na"]),
+          attacks: z.array(
+            z.object({ attack_id: z.string(), name: z.string(), passed: z.boolean() }),
+          ),
+          last_fired: z.string().nullable(),
+          fired: z.number(),
+        }),
+      ),
+      mapped: z.number(),
+      tested: z.number(),
+      failing: z.number(),
+      built_in: z.number(),
+      gaps: z.number(),
     }),
   ),
   agents: z.array(

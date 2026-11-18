@@ -23,19 +23,20 @@ Ordered by value for the time it takes: the most value for the least time first.
 12. **Receipt uploads through presigned S3 URLs.** A function URL takes only about 4.5 MB, under the 5 MB limit.
 13. **Rate limits in the database.** Today each api process counts its own. Add limits on new claims, work, retry and letters.
 
+14. **Red team, step 4.** RT-23 to RT-26 were all stopped by the instruction check. Add versions with nothing for it to spot, so memory, the guardian's model-call rule, the documents specialist and each claim's scoped tools face an attack.
+
 ## Then: worth it, smaller payoff
 
-14. **Output guard patterns.** Receipt and booking numbers are read as tax file or phone numbers, the insurer's own contacts are removed, and agent steps aren't scrubbed.
-15. **Alerts poll.** It rebuilds and checks the whole audit chain twice a page: cache it, or check on a timer.
-16. **Two races on PostgreSQL**: two overrides at once, and one flight delay claimed twice.
-17. **Compare models, phase 3.** Choose a model for each of the other agents ([plan](docs/plan-compare.md)).
-18. **Browser tests** for claiming by chat, deciding a referral, sign-off and the agent switch.
-19. **MFA** on the staff and engineering pools, and MFA or an IP condition for `travel-claims-cli`. It needs a screen to add an authenticator, and `ON` stops the demo's test accounts.
-20. **Shared web code.** Move the copied formatters, fetch core and tokens into `web-core`, replace raw colours in the two new stylesheets, and delete the dashboard's dead Dispatch code.
+15. **Output guard patterns.** Receipt and booking numbers are read as tax file or phone numbers, the insurer's own contacts are removed, and agent steps aren't scrubbed.
+16. **Alerts poll.** It rebuilds and checks the whole audit chain twice a page: cache it, or check on a timer.
+17. **Two races on PostgreSQL**: two overrides at once, and one flight delay claimed twice.
+18. **Compare models, phase 3.** Choose a model for each of the other agents ([plan](docs/plan-compare.md)).
+19. **Browser tests** for claiming by chat, deciding a referral, sign-off and the agent switch.
+20. **MFA** on the staff and engineering pools, and MFA or an IP condition for `travel-claims-cli`. It needs a screen to add an authenticator, and `ON` stops the demo's test accounts.
+21. **Shared web code.** Move the copied formatters, fetch core and tokens into `web-core`, replace raw colours in the two new stylesheets, and delete the dashboard's dead Dispatch code.
 
 ## Large: research and a plan first, several days each
 
-21. **The Secure tab, rethought.** Map it against the OWASP LLM Top 10, OWASP's agentic AI threats, MAESTRO and MCP security, then plan how the tab covers them.
 22. **Privacy and personal data.**
     - who sees which data
     - masking, encryption and retention
