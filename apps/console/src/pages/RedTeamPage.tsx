@@ -165,8 +165,9 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
             <h2>Run the red team</h2>
           </div>
           <p className="muted small">
-            Makes 9 attack claims as a test customer and has the agent work them. About $0.002 of
-            Claude, a few minutes.
+            Runs {plan.length > 0 ? `the ${String(plan.length)} attacks` : "every attack"} below as
+            a test customer and handler: claims the agent works, questions to Wattle and the
+            Copilot, and decisions a handler mustn't make. A few cents of Claude, a few minutes.
           </p>
           <button
             type="button"
@@ -185,7 +186,7 @@ export function RedTeamPage({ api, pollMs = REDTEAM_POLL_MS }: { api: Api; pollM
           </button>
           {running && (
             <p role="status" className="redteam-progress small">
-              Running 9 attack claims
+              Running {plan.length > 0 ? `${String(plan.length)} attacks` : "the attacks"}
               {status?.started_by ? `, started by ${status.started_by}` : ""}
               {status?.started_at ? ` ${when(status.started_at)}` : ""}… The report appears here
               when they're done.
