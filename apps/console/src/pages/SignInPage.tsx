@@ -1,4 +1,4 @@
-import { ArrowRight, Check, LoaderCircle, Lock, Route, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle, Lock } from "lucide-react";
 import {
   AuthenticatorStep,
   authenticatorCode,
@@ -25,13 +25,13 @@ const TEST_ACCOUNT = { name: "Sam Carter", role: "AI engineer" };
 // How long the "signed in" tick and the page's exit play before the scoreboard rises in.
 const EXIT_MS = 450;
 
-// Each is true of the app: every claim has a trace (Claim trace), the red team's attacks are
-// mapped to OWASP risks (Threat coverage), and a proposed configuration is only tried after an
-// AI engineer approves it (Improvement).
+// Each is true of the app: every claim has a trace, each step, model call and cent (Trace); the
+// latest red-team run held 27 of 27 attacks (docs/redteam-report.md); and a claim costs 2 to 4
+// cents of Claude (README, Cost).
 const POINTS = [
-  { Icon: Route, text: "Every decision traced" },
-  { Icon: ShieldCheck, text: "Red-teamed against OWASP risks" },
-  { Icon: Check, text: "Changes need approval" },
+  { figure: "100", unit: "%", text: "Decisions traced" },
+  { figure: "27", unit: "of 27", text: "Attacks held" },
+  { figure: "2–4", unit: "¢", text: "Per claim" },
 ];
 
 interface SignInPageProps {
@@ -215,10 +215,11 @@ export function SignInPage({ api, onSignedIn, checking }: SignInPageProps) {
               <SignInRun />
             </div>
             <ul className="signin-points">
-              {POINTS.map(({ Icon, text }) => (
+              {POINTS.map(({ figure, unit, text }) => (
                 <li key={text} className="signin-point">
-                  <span className="icon-tile">
-                    <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="signin-figure">
+                    {figure}
+                    <small>{unit}</small>
                   </span>
                   {text}
                 </li>
