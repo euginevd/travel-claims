@@ -26,12 +26,12 @@ const TEST_ACCOUNT = { name: "Sam Carter", role: "AI engineer" };
 const EXIT_MS = 450;
 
 // Each is true of the app: every claim has a trace, each step, model call and cent (Trace); the
-// latest red-team run held 27 of 27 attacks (docs/redteam-report.md); and a claim costs 2 to 4
-// cents of Claude (README, Cost).
+// latest red-team run held 27 of 27 attacks (docs/redteam-report.md); and a claim costs under a
+// cent of Claude on Haiku 5.5 (0.55 cents measured on the Cost page).
 const POINTS = [
   { figure: "100", unit: "%", text: "Decisions traced" },
   { figure: "27", unit: "of 27", text: "Attacks held" },
-  { figure: "2–4", unit: "¢", text: "Per claim" },
+  { figure: "<1", unit: "¢", text: "Per claim" },
 ];
 
 interface SignInPageProps {

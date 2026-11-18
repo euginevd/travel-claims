@@ -5,6 +5,7 @@ review date. A search that finds nothing has no sources.
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -153,16 +154,39 @@ def search_reference_data(query: str) -> Json:
     return {"facts": facts, "sources": sources_of(REFERENCE_DATA) if facts else []}
 
 
+# A word a search for several words leaves out: too short to tell sections apart.
+SHORT_WORD = 3
+MOST_SECTIONS = 6
+
+
 def search_documents(query: str) -> Json:
     """Sections of the wording and the manual whose title or text holds the query, in any
-    case, with the paragraphs that mention it (none when only the title matches)."""
+    case, with the paragraphs that mention it (none when only the title matches). When the
+    phrase itself appears nowhere, sections holding most of its words instead, the best first:
+    a model asks for "overall baggage limit" where the wording says "maximum for baggage"."""
     wanted = query.strip().lower()
+    found = matching(lambda text: wanted in text)
+    words = [w for w in re.findall(r"[a-z0-9$]+", wanted) if len(w) > SHORT_WORD]
+    if not found["sections"] and len(words) > 1:
+        need = max(2, (len(words) + 1) // 2)
+
+        def most_words(text: str) -> bool:
+            starts = [re.search(r"\b" + re.escape(w[:6]), text) for w in words]
+            return sum(found is not None for found in starts) >= need
+
+        found = matching(most_words)
+        found["sections"] = found["sections"][:MOST_SECTIONS]
+    return found
+
+
+def matching(holds: Callable[[str], bool]) -> Json:
+    """The sections, with their matching paragraphs, where a title or a paragraph holds."""
     sections: list[Json] = []
     sources: list[Source] = []
     for document in DOCUMENTS.values():
         for section in document.sections.values():
-            excerpts = [p for p in PARAGRAPH_BREAK.split(section.text) if wanted in p.lower()]
-            if not excerpts and wanted not in section.title.lower():
+            excerpts = [p for p in PARAGRAPH_BREAK.split(section.text) if holds(p.lower())]
+            if not excerpts and not holds(section.title.lower()):
                 continue
             sections.append(
                 {
