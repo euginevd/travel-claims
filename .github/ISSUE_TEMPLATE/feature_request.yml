@@ -1,0 +1,22 @@
+name: Feature request
+description: An idea for the apps, the agents or how they're evaluated and secured.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem it solves
+      description: Who it's for (customer, handler or AI engineer) and what's hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Security or cost impact
+      description: New data, permissions, model calls or AWS services it would need, if any.

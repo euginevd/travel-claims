@@ -15,7 +15,7 @@ Each app has its own sign-in, a **Use test account** button, the Canopy design (
 
 | # | Feature | Status | PR |
 |---|---|---|---|
-| 1 | A short brief, the three-minute captioned walkthrough video and a link to each app and the code. The video follows one claim from the customer to the handler, then spends most of its time on the control plane | Done | #38, Next |
+| 1 | A short brief, the three-minute captioned walkthrough video and a link to each app and the code. The video follows one claim from the customer to the handler, then spends most of its time on the control plane. A second version reads the captions aloud, chosen with "With voiceover" | Done | #38, Next |
 
 ## Customer portal (`portal`)
 

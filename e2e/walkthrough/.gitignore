@@ -4,3 +4,7 @@ claim.txt
 *.vtt
 *.jpg
 *.png
+.venv/
+model/
+*.wav
+graph.txt

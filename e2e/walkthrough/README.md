@@ -20,6 +20,16 @@ python trim.py                   # speeds up typing and tab switching
 python assemble.py walkthrough.mp4 01-landing 02-repo 03-customer 04-handler 05-overview 06-trace 07-evaluate 08-secure 09-govern 10-end
 ```
 
+## The voiceover
+
+`voice.py` reads each caption aloud with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx), run locally, so no text leaves the machine. Where a line runs past its caption, the picture holds just before the next one. It writes `walkthrough-voice.mp4` and its retimed captions, which the project page offers as "With voiceover".
+
+```bash
+uv venv --python 3.12 .venv && uv pip install --python .venv kokoro-onnx soundfile
+mkdir model   # kokoro-v1.0.onnx and voices-v1.0.bin from kokoro-onnx's model-files-v1.0 release
+.venv/Scripts/python voice.py walkthrough.mp4 walkthrough.en.vtt walkthrough-voice.mp4 af_heart 1.2
+```
+
 `assemble.py` also writes `walkthrough.en.vtt` beside the video. Re-encode with
 `ffmpeg -i walkthrough.mp4 -c:v libx264 -preset slow -crf 25 -tune stillimage -movflags +faststart -an final.mp4`
 before copying it to `apps/home/media/`.
