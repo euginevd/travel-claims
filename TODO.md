@@ -30,7 +30,7 @@ Ordered by value for the time it takes: the most value for the least time first.
 15. **Output guard patterns.** Receipt and booking numbers are read as tax file or phone numbers, the insurer's own contacts are removed, and agent steps aren't scrubbed.
 16. **Alerts poll.** It rebuilds and checks the whole audit chain twice a page: cache it, or check on a timer.
 17. **Two races on PostgreSQL**: two overrides at once, and one flight delay claimed twice.
-18. **Compare models, phase 3.** Choose a model for each of the other agents ([plan](docs/plan-compare.md)).
+18. **Compare models, phase 3.** Choose a model for each of the other agents. Screening, the specialists, drafting, the judge, the improver and the Copilot read their model from environment settings: move each to a setting engineers change on Agents, with a reason in the audit log, and compare each on its own task (screening on the red-team receipts, drafting on letters, the judge against handlers' grades).
 19. **Browser tests** for claiming by chat, deciding a referral, sign-off and the agent switch.
 20. **MFA** on the staff and engineering pools, and MFA or an IP condition for `travel-claims-cli`. It needs a screen to add an authenticator, and `ON` stops the demo's test accounts.
 21. **Shared web code.** Move the copied formatters, fetch core and tokens into `web-core`, replace raw colours in the two new stylesheets, and delete the dashboard's dead Dispatch code.
