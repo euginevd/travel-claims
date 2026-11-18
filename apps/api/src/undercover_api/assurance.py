@@ -62,6 +62,13 @@ Z = 1.96
 FEWEST_TO_PASS = 5
 
 
+def usual_day(usual: float) -> str:
+    """A usual day in words: "none on a usual day", or "about 4 a day usually"."""
+    if usual < 0.5:  # noqa: PLR2004 - under half a call rounds to none
+        return "none on a usual day"
+    return f"about {round(usual):,} a day usually"
+
+
 def wilson(share: float, n: int) -> tuple[float, float]:
     """Where the true share likely sits, measured on n claims (Wilson, 95%)."""
     if n <= 0:
@@ -412,8 +419,7 @@ def alerts_of(db: Connection, anchor: Anchor | None = None) -> list[Alert]:
             found.append(
                 Alert(
                     severity="medium",
-                    text=f"Unusual: {hits} {kind.replace('_', '-')} hits today, about "
-                    f"{round(usual, 1)} a day usually",
+                    text=f"Unusual: {hits} {kind.replace('_', '-')} hits today, {usual_day(usual)}",
                     link="guardrails",
                 )
             )
@@ -431,8 +437,8 @@ def alerts_of(db: Connection, anchor: Anchor | None = None) -> list[Alert]:
     found.extend(
         Alert(
             severity="medium",
-            text=f"Unusual: {trend.label} made {trend.today} model calls today, about "
-            f"{trend.usual} a day usually",
+            text=f"Unusual: {trend.label} made {trend.today} model calls today, "
+            f"{usual_day(trend.usual)}",
             link="live",
         )
         for trend in agent_trends(db)

@@ -113,9 +113,14 @@ const ALERT_LINKS: Record<string, string> = {
 };
 
 /** The alerts the bell holds, listed: what needs an engineer now. */
-export function AlertsList({ api }: { api: Api }) {
+export function AlertsList({ api, onCount }: { api: Api; onCount?: (count: number) => void }) {
   const [load] = useState(() => () => api.getAlerts());
   const alerts: Alert[] | null = useQuiet(load, 30_000);
+  // The page counts these with its own items, so the fold's number matches what it lists.
+  const count = alerts?.length ?? 0;
+  useEffect(() => {
+    onCount?.(count);
+  }, [count, onCount]);
   if (!alerts || alerts.length === 0) return null;
   return (
     <ul className="attention">

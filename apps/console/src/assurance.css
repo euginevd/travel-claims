@@ -2211,6 +2211,11 @@ button.control-pill:hover {
   font-size: 0.8rem;
 }
 
+.persona-figure,
+.persona-model {
+  white-space: nowrap;
+}
+
 .persona-last {
   grid-column: 1 / -1;
   margin: 6px 0 0;
@@ -2244,18 +2249,17 @@ button.control-pill:hover {
   border-radius: 8px;
 }
 
+/* The AI mark: a small sparkle in the tile's corner, in the accent, rather than a badge. */
 .agent-icon.big::after {
   content: "";
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--bg);
-  border-radius: 50%;
-  background: var(--acc)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z'/%3E%3C/svg%3E")
-    center / 10px no-repeat;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  background: var(--acc);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 .agent-icon.code {
