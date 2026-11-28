@@ -1,5 +1,5 @@
 # Build from the repo root: docker build -f apps/context/Dockerfile .
-FROM ghcr.io/astral-sh/uv:0.13.8-python3.14-trixie-slim@sha256:81a1340fea1e72ad4a8e9a016128b0c61041cf182ea49fd788023e52842bc147 AS build
+FROM ghcr.io/astral-sh/uv:0.13.9-python3.14-trixie-slim@sha256:da0f1f04404173d7d2fa158112e09624d5a80262efa86c89882b68389dfd44eb AS build
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
