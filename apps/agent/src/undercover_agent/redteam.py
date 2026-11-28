@@ -512,6 +512,14 @@ def main() -> int:
     return exit_code(results)
 
 
+# What a caller is told when a run can't start. The server sends these, never an exception's
+# own text, so nothing raised inside the suite can reach a response.
+REDTEAM_BUSY = "The red team is already running"
+REDTEAM_UNAVAILABLE = (
+    "The red team signs in with the test accounts, which are on only locally or with TEST_SIGN_IN"
+)
+
+
 class RedTeamBusyError(Exception):
     """A red-team run is already going in this process."""
 
@@ -540,15 +548,12 @@ class RedTeamStarter:
 
     def start(self) -> None:
         if not self._lock.acquire(blocking=False):
-            raise RedTeamBusyError("The red team is already running")
+            raise RedTeamBusyError(REDTEAM_BUSY)
         try:
             portal = Portal(self._api_url, self._agent, self._copilot_url)
         except Exception as error:  # noqa: BLE001 - a crashed attack is a failed attack
             self._lock.release()
-            raise RedTeamUnavailableError(
-                "The red team signs in with the test accounts, which are on only locally or with "
-                "TEST_SIGN_IN"
-            ) from error
+            raise RedTeamUnavailableError(REDTEAM_UNAVAILABLE) from error
         threading.Thread(target=self._run, args=(portal,), name="redteam", daemon=True).start()
 
     def _run(self, portal: Portal) -> None:

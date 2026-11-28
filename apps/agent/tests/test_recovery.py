@@ -229,7 +229,10 @@ def test_carry_on_needs_the_key_and_is_refused_while_busy() -> None:
         )
     assert (first.status_code, first.json()) == (202, {"accepted": True})
     assert again.status_code == 409
-    assert through_runtime.json() == {"status": 409, "body": {"refused": "busy"}}
+    assert through_runtime.json() == {
+        "status": 409,
+        "body": {"refused": "That claim is already being worked"},
+    }
 
 
 def test_the_service_runs_the_watchdog_while_it_is_up() -> None:

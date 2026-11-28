@@ -29,7 +29,12 @@ from undercover_agent.judge import HeadToHeadRequest, JudgeRequest, RunJudge
 from undercover_agent.models import Draft, Drafter, Letter
 from undercover_agent.reasoning import reasoning_check_for
 from undercover_agent.receipts import reader_for
-from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
+from undercover_agent.redteam import (
+    REDTEAM_BUSY,
+    REDTEAM_UNAVAILABLE,
+    RedTeamBusyError,
+    RedTeamUnavailableError,
+)
 from undercover_agent.runner import Busy, Runner, Watchdog
 from undercover_agent.tools import receipt_block
 
@@ -409,8 +414,10 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
             return JSONResponse({"refused": "The red team isn't set up"}, status_code=409)
         try:
             start_redteam()
-        except (RedTeamBusyError, RedTeamUnavailableError) as refused:
-            return JSONResponse({"refused": str(refused)}, status_code=409)
+        except RedTeamBusyError:
+            return JSONResponse({"refused": REDTEAM_BUSY}, status_code=409)
+        except RedTeamUnavailableError:
+            return JSONResponse({"refused": REDTEAM_UNAVAILABLE}, status_code=409)
         return JSONResponse({"accepted": True}, status_code=202)
 
     @app.post("/draft", operation_id="draft", dependencies=[Depends(agents_key)])
@@ -453,8 +460,8 @@ def create_app(  # noqa: C901, PLR0913, PLR0915 - the routes are closures over w
 def start(begin: Callable[[], object]) -> JSONResponse:
     try:
         begin()
-    except Busy as busy:
-        return JSONResponse({"refused": str(busy)}, status_code=409)
+    except Busy:
+        return JSONResponse({"refused": "That claim is already being worked"}, status_code=409)
     return JSONResponse({"accepted": True}, status_code=202)
 
 
