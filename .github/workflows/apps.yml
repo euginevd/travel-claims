@@ -221,7 +221,7 @@ jobs:
       - name: Browser tests, without model calls
         run: >-
           docker run --rm --network host --ipc host -v "$PWD/e2e:/e2e" -w /e2e
-          mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
+          mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
           sh -c "npm ci --ignore-scripts && npx playwright test --grep-invert @model"
       - name: Stack logs on failure
         if: failure()
