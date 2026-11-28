@@ -19,11 +19,11 @@ undercover-copilot = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "httpx2==2.16.0",
+    "httpx2==2.16.2",
     "pyright[nodejs]==1.1.414",
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
 ]
 
 [tool.ruff]
