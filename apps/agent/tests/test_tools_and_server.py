@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from stubs import FakeApi, FakeContext
 
 from undercover_agent.models import Call, Draft, DraftItem, Letter
-from undercover_agent.redteam import RedTeamBusyError, RedTeamUnavailableError
+from undercover_agent.redteam import REDTEAM_UNAVAILABLE, RedTeamBusyError, RedTeamUnavailableError
 from undercover_agent.runner import Busy, Runner
 from undercover_agent.server import create_app
 from undercover_agent.tools import TOOLS, run_tool
@@ -158,7 +158,7 @@ def test_the_red_team_starts_once_and_says_why_when_it_cant() -> None:
 
     with TestClient(create_app(StubRunner, lambda: KEY, start_redteam=unavailable)) as http:
         refused = http.post("/redteam", headers={"X-API-Key": KEY})
-        assert refused.json() == {"refused": "only on locally"}
+        assert refused.json() == {"refused": REDTEAM_UNAVAILABLE}  # never the exception's own text
 
 
 def test_a_letter_is_drafted_from_the_decision_with_its_reason_as_data() -> None:
@@ -198,7 +198,10 @@ def test_invocations_reach_the_same_route_with_the_same_key_check() -> None:
         again = invoke(http, "/work", body)
         wrong = invoke(http, "/work", body, key="wrong")
     assert (first.status_code, first.json()) == (200, {"status": 202, "body": {"accepted": True}})
-    assert again.json() == {"status": 409, "body": {"refused": "busy"}}
+    assert again.json() == {
+        "status": 409,
+        "body": {"refused": "That claim is already being worked"},
+    }
     assert wrong.json()["status"] == 401
 
 
